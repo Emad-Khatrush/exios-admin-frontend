@@ -1,0 +1,21 @@
+.tabs {
+  background-color: #f0f2fa;
+  border-top-right-radius: 10px;
+  border-top-left-radius: 10px;
+  height: auto;
+  padding-left: 10px;
+  width: 100%;
+  
+  .MuiTabs-scroller {
+    overflow: auto !important;
+  }
+
+  .MuiButtonBase-root {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .MuiBadge-standard {
+    margin-right: 8px;
+  }
+}

@@ -1,0 +1,66 @@
+.debt-details-page {
+  .title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-left: 0;
+    margin-bottom: 25px;
+    color: #ec4848;
+  }
+
+  .username {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .created-date, .phone-number {
+    font-size: 0.71rem;
+    color: #979797;
+    font-weight: 500;
+  }
+
+  .break-line {
+    height: 3px;
+    border-radius: 10px;
+  }
+
+  .info-field {
+    font-size: 0.80rem;
+    color: #949494;
+    font-weight: 500;
+  }
+
+  .debt-info {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .debt-details {
+    background-color: #F0F2F3;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .see-all-button {
+    font-size: 0.8rem;
+    text-decoration: none;
+    width: fit-content;
+  }
+
+  .paid-debt-amount {
+    color: rgb(5, 151, 0);
+  }
+
+  .file-view {
+    cursor: pointer;
+  }
+
+  p {
+    margin: 0;
+    margin-left: 8px;
+  }
+
+  .order-link {
+    text-decoration: none;
+    font-size: 0.75rem;
+  }
+}

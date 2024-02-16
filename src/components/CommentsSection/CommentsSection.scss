@@ -1,0 +1,49 @@
+
+.comment-input {
+  border: #bbb 1px solid;
+  border-radius: 20px;
+  &::placeholder {
+    margin: 10px;
+    text-align: end;
+  }
+}
+.comment-text-md {
+  font-size: 1rem;
+}
+
+.comment-text-sm {
+  font-size: 0.8rem;
+}
+
+.bdge {
+height: 21px;
+background-color: orange;
+color: #fff;
+font-size: 11px;
+padding: 8px;
+border-radius: 4px;
+line-height: 3px;
+}
+
+.comments {
+text-decoration: underline;
+text-underline-position: under;
+cursor: pointer;
+}
+
+.dot {
+height: 7px;
+width: 7px;
+margin-top: 3px;
+background-color: #bbb;
+border-radius: 50%;
+display: inline-block;
+}
+
+.hit-voting:hover {
+color: blue;
+}
+
+.hit-voting {
+cursor: pointer;
+}

@@ -1,0 +1,25 @@
+.uploaded-photos {
+  margin-top: 15px;
+  position: relative;
+  img {
+    width: 80px;
+    height: 80px;
+    border-radius: 10%;
+  }
+  .close-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 15px;
+    top: 20px;
+    left: 55px;
+    position: relative;
+    background-color: rgb(177, 57, 57);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    cursor: pointer;
+  }
+}

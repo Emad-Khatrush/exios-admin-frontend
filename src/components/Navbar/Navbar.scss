@@ -1,0 +1,53 @@
+.navbar {
+    width: 100%;
+    background-color: #fbfbff;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    border-bottom: 1px solid rgb(238, 238, 238);
+    .navbar-wrapper {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        padding: 0 20px;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .nav-right {
+        display: flex;
+        align-items: baseline;
+    }
+    
+    .icon-countainer {
+        font-size: 30px;
+        position: relative;
+        cursor: pointer;
+        margin-right: 30px;
+        color: #555;
+    }
+    .logo {
+        cursor: pointer;
+    }
+    .icon-countainer button span svg {
+        font-size: 30px;
+    }
+    .notify-badge {
+        width: 15px;
+        height: 15px;
+        font-size: 15px;
+        top: 5px;
+        left: 15px;
+        position: absolute;
+        background-color: red;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 10px;
+    }
+    .hamburger-icon {
+        cursor: pointer;
+    }
+}

@@ -1,0 +1,19 @@
+.dash-box {
+  border: 1px dashed #E4E6EF;
+  padding: 10px;
+  justify-content: center;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  p {
+    margin: 0;
+  }
+  .first-text {
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+  .second-text {
+    font-weight: 600;
+    font-size: 0.7rem;
+    color: #B5B5C3;
+  }
+}

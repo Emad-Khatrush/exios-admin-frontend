@@ -1,0 +1,54 @@
+html, body, #root{
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: rgb(251, 251, 255);;
+}
+
+.otherpages {
+    flex: 6;
+    font-family: 'Red Hat Text', sans-serif;
+    color: #28323C;
+    width: 100%;
+}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+.connect-field-right {
+  fieldset {
+    border-right: none !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+}
+
+.connect-field-left {
+  fieldset {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+}
+
+fieldset {
+  border: #DCE0E4 solid 1px !important;
+  border-radius: 10px !important;
+
+  &::placeholder {
+    color: #701515 !important;
+  }
+}
+
+.MuiInputLabel-shrink {
+  color: #2bb639 !important;
+  border-color: #2bb639 !important;
+}
+
+.MuiInputLabel-outlined {
+  color: #979797b4;
+  font-size: 0.9rem !important;
+}

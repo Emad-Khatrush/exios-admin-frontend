@@ -1,0 +1,24 @@
+.action-card {
+  max-width: 300px;
+  height: fit-content;
+  background-color: #eff5fa;
+  border-radius: 0.475rem;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+  .icon {
+    color: #20a0eb;
+    height: 50px;
+    width: 50px;
+  }
+  .text {
+    text-decoration: none;
+    margin-top: 8px;
+    color: #20a0eb;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+}
