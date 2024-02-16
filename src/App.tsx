@@ -10,7 +10,7 @@ import { Session } from './models';
 
 import './App.scss';
 import EditTask from './containers/EditTask/EditTask';
-import Settings from './containers/Settings/Settings';
+import Settings from './containers/Settings/Settings'; 
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
