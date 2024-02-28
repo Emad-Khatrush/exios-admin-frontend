@@ -12,10 +12,13 @@ import Divider from '@mui/material/Divider';
 import Badge from '../Badge/Badge';
 import api from '../../api';
 import { Inventory } from '../../models';
-import { Alert, Autocomplete, Backdrop, ButtonGroup, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, Switch, TextField } from '@mui/material';
-import { FaWarehouse, FaWhatsapp } from "react-icons/fa";
-import { countries, orderActions } from '../../containers/EditInvoice/EditInvoice';
-import CustomButton from '../CustomButton/CustomButton';
+import { Alert, Backdrop, CircularProgress, Dialog, Snackbar } from '@mui/material';
+import { FaWarehouse, FaWhatsapp, FaWeight } from "react-icons/fa";
+import * as XLSX from 'xlsx';
+import moment from 'moment';
+import { IoIosListBox } from 'react-icons/io';
+import ActivityDialog from './ActivityDialog';
+import EditPackageWeight from './EditPackageWeight';
 
 function not(a: readonly number[], b: readonly number[]) {
   return a.filter((value) => b.indexOf(value) === -1);
@@ -33,23 +36,19 @@ type Props = {
   takenOrders: any
   orders: any
   inventory: Inventory
+  isSearching: boolean
 }
 
 const TransferOrdersList = (props: Props) => {
   const [checked, setChecked] = React.useState<readonly number[]>([]);
   const [left, setLeft] = React.useState<readonly number[]>([]);
   const [right, setRight] = React.useState<readonly number[]>([]);
-
+  
   const [ showResponseMessage, setShowResponseMessage ] = React.useState<String | undefined>();
   const [ isSucceed, setIsSucceed ] = React.useState<boolean>(false);
   const [ isLoading, setLoading ] = React.useState(false);
+  const [ component, setComponent ] = React.useState<any>();
   const [ showDialog, setShowDialog ] = React.useState(false);
-  const [ activity, setActivity ] = React.useState({
-    country: '',
-    description: ''
-  });
-  const [ whatsupMessage, setWhatsupMessage ] = React.useState('');
-
   
   React.useEffect(() => {
     const searchedOrders = props.orders.filter((order: any) => {
@@ -69,6 +68,32 @@ const TransferOrdersList = (props: Props) => {
 
   const leftChecked = intersection(checked, left);
   const rightChecked = intersection(checked, right);
+
+  const handleDownload = () => {
+    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'السعر المحسوب', 'تكلفة اكسيوس', 'موقعها', 'ملاحظات']];
+    right.forEach((orderPackage: any, i) => {
+      data.push([
+        i + 1, 
+        orderPackage.customerInfo.fullName,
+        orderPackage.user.customerId,
+        orderPackage.orderId,
+        orderPackage.paymentList.deliveredPackages.trackingNumber, 
+        orderPackage.paymentList.deliveredPackages.receiptNo,
+        `${orderPackage.paymentList.deliveredPackages.weight.total} ${orderPackage.paymentList.deliveredPackages.weight.measureUnit}`,
+        `${orderPackage.paymentList.deliveredPackages.exiosPrice} $`,
+        `${Math.ceil(orderPackage.paymentList.deliveredPackages.exiosPrice * orderPackage.paymentList.deliveredPackages.weight.total)} $`,
+        orderPackage.paymentList.deliveredPackages.locationPlace,
+        orderPackage.shipment.toWhere
+      ])
+    })
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    // Merge cells A1 and B1
+    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, props.inventory.voyage);
+    XLSX.writeFile(workbook, `${props.inventory.voyage}.xlsx`);
+  };
 
   const handleToggle = (value: number) => () => {
     const currentIndex = checked.indexOf(value);
@@ -90,6 +115,22 @@ const TransferOrdersList = (props: Props) => {
       setChecked(not(checked, items));
     } else {
       setChecked(union(checked, items));
+    }
+  };
+
+  const addInventoryToWarehouse = async (office: string) => {
+    try {
+      const response = await api.get(`warehouse/${office}/goods`);
+      const tripoliInventory = response.data[0];
+      await api.update(`inventory/orders?id=${tripoliInventory?._id}`, rightChecked);
+      setShowResponseMessage('تم اضافة طلبيات الى قائمة الجرد بنجاح');
+      setIsSucceed(true);
+    } catch (error) {
+      console.log(error);
+      setShowResponseMessage('فشل في تحميل طلبيات الى قائمة الجرد يرجى تحديث الصفحه ومحاولة مره اخرى');
+      setIsSucceed(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,6 +177,7 @@ const TransferOrdersList = (props: Props) => {
       setShowResponseMessage('تم تحديث طلبيات بنجاح');
       setIsSucceed(true);
       setChecked([])
+      window.location.reload();
     } catch (error) {
       console.log(error);
       setShowResponseMessage('فشل الطلب، يرجى تحديث الصفحه ومحاولة مره اخرى');
@@ -144,49 +186,6 @@ const TransferOrdersList = (props: Props) => {
       setLoading(false);
     }
   };
-
-  const whatsup = async () => {
-    try {
-      setLoading(true);
-      await api.update(`orders/status`, { data: rightChecked, statusType: 'arrivedLibya', value: true });
-      setShowResponseMessage('تم تحديث طلبيات بنجاح');
-      setIsSucceed(true);
-      setChecked([])
-    } catch (error) {
-      console.log(error);
-      setShowResponseMessage('فشل الطلب، يرجى تحديث الصفحه ومحاولة مره اخرى');
-      setIsSucceed(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitNewActivity = (event: React.MouseEvent) => {
-    event.preventDefault();    
-    const { description, country } = activity;
-    
-    if (!description || !country) {
-      return;
-    }
-    setLoading(true);
-    
-    checked.forEach((data: any) => {
-      api.post(`order/${data.order._id}/addActivity`, activity)
-        .then(() => {
-          setShowResponseMessage('New activity has been added successfully');
-          setIsSucceed(true);
-          setActivity({
-            country: '',
-            description: ''
-          })
-        })
-        .catch((err) => {
-          setShowResponseMessage(err.data.message);
-          setIsSucceed(false);
-        })
-    })
-    setLoading(false);
-  }
 
   const customList = (title: React.ReactNode, items: readonly number[]) => {
     return (
@@ -224,9 +223,12 @@ const TransferOrdersList = (props: Props) => {
           component="div"
           role="list"
         >
-          {items.map((value: any) => {
+          {props.isSearching ?
+            <CircularProgress />
+          :
+          items.map((value: any) => {
             const labelId = `transfer-list-all-item-${value}-label`;
-
+            
             return (
               <ListItem
                 key={value}
@@ -253,6 +255,8 @@ const TransferOrdersList = (props: Props) => {
                       </p>
                       <p className='m-0'>{`${value?.customerInfo?.fullName}`}</p>
                       <Badge text={`Tracking Number: ${value?.paymentList?.deliveredPackages?.trackingNumber} `} />
+                      <br />
+                      {value?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${value?.paymentList?.deliveredPackages?.receiptNo} `} /> }
                     </div>
                   }
                 />
@@ -264,33 +268,12 @@ const TransferOrdersList = (props: Props) => {
     )
   }
 
-  const sendWhatsupMessage = async () => {
-    if (!whatsupMessage) {
-      return;
-    }
-
-   setLoading(true);
-
-   checked.forEach((data: any) => {
-     api.post(`sendWhatsupMessage`, { phoneNumber: `${data.order.customerInfo.phone}@c.us`, message: whatsupMessage })
-       .then((res) => {
-         setShowResponseMessage('Whatsup message has been send successfully');
-         setIsSucceed(true);
-       })
-       .catch((err) => {
-         console.log(err);
-         setShowResponseMessage(err.response.data.message === 'whatsup-auth-not-found' ? 'You need to scan QR from your whatsup !' : err.response.data.message);
-         setIsSucceed(false);
-       })
-   })
-   setLoading(false);
-  }
-
   const customListForChosen = (title: React.ReactNode, items: readonly number[]) => {
     const filteredItems = items;
 
     return (
       <Card className='mt-2'>
+        <button onClick={handleDownload}>Download Excel</button>
         <p className='p-1 text-center'>البضائع في قائمة الجرد</p>
         <CardHeader
           sx={{ px: 2, py: 1 }}
@@ -324,8 +307,6 @@ const TransferOrdersList = (props: Props) => {
           role="list"
         >
           {items.map((order: any) => {
-            console.log(order);
-            
             return (
               <ListItem
                 key={order}
@@ -347,7 +328,7 @@ const TransferOrdersList = (props: Props) => {
                   id={order}
                   primary={
                     <div>
-                      <p className='m-0'>
+                      <p className='m-0 d-flex gap-2'>
                         <a style={{ textDecoration: 'none' }} className='m-0' href={`/invoice/${order?._id}/edit`} target='__blank'>
                           {order?.orderId}
                         </a>
@@ -355,6 +336,13 @@ const TransferOrdersList = (props: Props) => {
                       </p>
                       <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
                       <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
+                      <br />
+                      {order?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${order?.paymentList?.deliveredPackages?.receiptNo} `} /> }
+                      <div className='d-flex gap-3 mt-2 align-items-center'>
+                        {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages.weight.total} ${order.paymentList.deliveredPackages.weight.measureUnit}`} />}
+                        {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
+                        {order?.paymentList.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList.deliveredPackages?.locationPlace}`} />}
+                      </div>
                     </div>
                   }
                 />
@@ -365,6 +353,8 @@ const TransferOrdersList = (props: Props) => {
       </Card>
     )
   }
+
+  const Tag = component === 'ActivityDialog' ? ActivityDialog : EditPackageWeight;
 
   return (
     <Grid container spacing={2} justifyContent="center" alignItems="center">
@@ -379,6 +369,7 @@ const TransferOrdersList = (props: Props) => {
             onDoubleClick={handleCheckedRight}
             disabled={leftChecked.length === 0}
             aria-label="move selected right"
+            color='success'
           >
             &gt;
           </Button>
@@ -389,6 +380,7 @@ const TransferOrdersList = (props: Props) => {
             onDoubleClick={handleCheckedLeft}
             disabled={rightChecked.length === 0}
             aria-label="move selected left"
+            color='error'
           >
             &lt;
           </Button>
@@ -406,11 +398,47 @@ const TransferOrdersList = (props: Props) => {
             sx={{ my: 0.5 }}
             variant="outlined"
             size="small"
-            onClick={() => setShowDialog(true)}
+            onClick={() => {
+              setComponent('ActivityDialog');
+              setShowDialog(true);
+            }}
             disabled={rightChecked.length === 0}
             aria-label="move selected left"
           >
             <FaWhatsapp />
+          </Button>
+          <Button
+            sx={{ my: 0.5 }}
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              setComponent('EditPackageWeight');
+              setShowDialog(true);
+            }}
+            disabled={rightChecked.length !== 1}
+            aria-label="move selected left"
+          >
+            <FaWeight />
+          </Button> 
+          <Button
+            sx={{ my: 0.5 }}
+            variant="outlined"
+            size="small"
+            onDoubleClick={() => addInventoryToWarehouse('tripoli')}
+            disabled={rightChecked.length === 0}
+            aria-label="move selected left"
+          >
+            <IoIosListBox /> Tripoli
+          </Button>
+          <Button
+            sx={{ my: 0.5 }}
+            variant="outlined"
+            size="small"
+            onDoubleClick={() => addInventoryToWarehouse('benghazi')}
+            disabled={rightChecked.length === 0}
+            aria-label="move selected left"
+          >
+            <IoIosListBox /> Benghazi
           </Button>
         </Grid>
       </Grid>
@@ -418,124 +446,12 @@ const TransferOrdersList = (props: Props) => {
       <Grid item>{customListForChosen('Chosen', right)}</Grid>
 
       <Dialog open={showDialog} onClose={() => setShowDialog(false)} className='p-5' fullWidth>
-        <DialogContent>
-          <form
-            onSubmit={(event: any) => submitNewActivity(event)}
-          >
-            <h5 className='mb-3'> Add Activity </h5>
-            <div className="row">
-              <div className="col-md-12 mb-4">
-                <Autocomplete
-                  disablePortal
-                  id="free-solo-demo"
-                  freeSolo
-                  options={countries}
-                  onChange={(event: any) => (
-                    setActivity({
-                      ...activity,
-                      country: event.target.innerText
-                    })
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      id={'outlined-helperText'}
-                      name="country"
-                      required={true}
-                      label={'Country'}
-                      defaultValue={activity.country}
-                      onChange={(event: any) => (
-                        setActivity({
-                          ...activity,
-                          country: event.target.innerText
-                        })
-                      )}
-                      style={{ direction: 'rtl' }}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="col-md-12 mb-4">
-                <Autocomplete
-                  disablePortal
-                  id="free-solo-demo"
-                  freeSolo
-                  options={orderActions}
-                  onChange={(event: any) => setActivity({
-                    ...activity,
-                    description: event.target.innerText
-                  })}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      id={'outlined-helperText'}
-                      name="description"
-                      required={true}
-                      label={'Description'}
-                      defaultValue={activity.description}
-                      onChange={(event: any) => ( 
-                        setActivity({
-                          ...activity,
-                          description: event.target.value
-                        })
-                      )}
-                      style={{ direction: 'rtl' }}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-              </div>
-              <div className="col-md-12 mb-4 text-end">
-                <CustomButton 
-                  background='rgb(0, 171, 85)' 
-                  size="small"
-                  disabled={isLoading}
-                >
-                  Add Activity
-                </CustomButton>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-
-        <DialogContent>
-          <hr />
-
-          <h5 className='mb-3'> Send Whatsup Message </h5>
-          <textarea 
-            style={{ height: '200px', direction: 'rtl' }} 
-            placeholder='Message' 
-            className='form-control mb-2' 
-            defaultValue={whatsupMessage}
-            value={whatsupMessage}
-            onChange={(e) => setWhatsupMessage(e.target.value)}
-          >
-          </textarea>
-
-          <div className="col-md-12 mb-4 text-end">
-            <ButtonGroup variant="outlined" aria-label="outlined button group">
-              {/* <Button onClick={() => this.setState({ whatsupMessage: warehouseDefaultMessage })}>وصلت مخزن</Button>
-              <Button onClick={() => this.setState({ whatsupMessage: arrivedLibyaDefaultMessage })}>وصلت ليبيا</Button> */}
-              <Button onClick={() => setWhatsupMessage('')}>حقل فارغ</Button>
-            </ButtonGroup>
-          </div>
-                      
-          <div className="col-md-12 mb-4 text-end">
-            <CustomButton 
-              background='rgb(0, 171, 85)' 
-              size="small"
-              disabled={isLoading}
-              onClick={sendWhatsupMessage}
-            >
-              Send Message
-            </CustomButton>
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDialog(false)} >الرجوع</Button>
-        </DialogActions>
+        <Tag 
+          checked={checked} 
+          setShowDialog={setShowDialog}
+          package={rightChecked[0]}
+          inventory={props.inventory}
+        />
       </Dialog>
 
       <Snackbar 

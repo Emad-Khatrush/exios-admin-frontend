@@ -26,24 +26,28 @@ class Sidebar extends React.Component<MyProps, MyState> {
 
         return(
             <div style={{...sidebarStyle, position: isMobile ? 'fixed' : 'sticky'}} className="sidebar">
-                <div className="sidebar-wrapper">
+              <div className="sidebar-wrapper">
                 <div className="sidebar-menu">
-                    <h3 className="sidebar-title"> Dashboard </h3>
-                    <ul className="sidebar-list">
-                        {routes && routes.map( route => 
-                            <NavLink 
-                              className="sidebar-list-item" 
-                              key={route.title} 
-                              to={route.path}
-                              onClick={() => isMobile && this.props.closeSidebar()} 
-                            >
-                              {route.icon}
-                              {route.title}
-                            </NavLink>
-                        )}
-                    </ul>
+                  <ul className="sidebar-list">
+                    {routes && routes.map((route: any) => {
+                        if (route?.mainTitle) {
+                            return <h3 className="sidebar-title"> {route.mainTitle} </h3>
+                        }
+                        return (
+                        <NavLink  
+                            className="sidebar-list-item" 
+                            key={route.title} 
+                            to={route.path}
+                            onClick={() => isMobile && this.props.closeSidebar()} 
+                        >
+                            {route.icon}
+                            {route.title}
+                        </NavLink>
+                      )
+                    })}
+                  </ul>
                 </div>
-                </div>
+              </div>
             </div>
         )
     }

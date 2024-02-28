@@ -1,10 +1,13 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
 
 const adminRoutes = [
+    {
+      mainTitle: 'Dashboard'
+    },
     {
         title: 'Home',
         path: '/',
@@ -35,6 +38,14 @@ const adminRoutes = [
         path: '/incomes',      
         icon: <MdOutlineInput className="sidebar-icon" />,
      },
+     {
+      title: 'Balances',
+      path: '/balances',
+      icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+     },
+     {
+      mainTitle: 'Management'
+     },
      {   
         title: 'X-Tracking',
         path: '/xtracking',      
@@ -51,17 +62,23 @@ const adminRoutes = [
       icon: <MdOutlineStarRate className="sidebar-icon" />,
      },
      {
+      mainTitle: 'Inventory'
+     },
+     {
       title: 'Inventory',
       path: '/inventory',
       icon: <MdOutlineInventory className="sidebar-icon" />,
      },
      {
-      title: 'Balances',
-      path: '/balances',
-      icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+      title: 'Warehouse',
+      path: '/mangage',
+      icon: <FaWarehouse className="sidebar-icon" />,
      },
      {
-      title: 'Settings',
+      mainTitle: 'Settings'
+     },
+     {
+      title: 'General',
       path: '/settings',
       icon: <FiSettings className="sidebar-icon" />,
      }
@@ -69,15 +86,26 @@ const adminRoutes = [
 
  const employeeRoutes = [
     {
+      mainTitle: 'Dashboard'
+    },
+    {
         title: 'Home',
         path: '/',
         icon: <MdLineStyle className="sidebar-icon" />,
+    },
+    {
+      mainTitle: 'Management'
     },
     {
         title: 'X-Tracking',
         path: '/xtracking',
         icon: <FaArchive className="sidebar-icon" />,
     },
+    {
+      title: 'Balances',
+      path: '/balances',
+      icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+     },
      {   
         title: 'Invoice',
         path: '/invoice/add',      
@@ -99,17 +127,23 @@ const adminRoutes = [
       icon: <FaTasks className="sidebar-icon" />,
      },
      {
+      mainTitle: 'Inventory'
+     },
+     {
       title: 'Inventory',
       path: '/inventory',
       icon: <MdOutlineInventory className="sidebar-icon" />,
      },
      {
-      title: 'Balances',
-      path: '/balances',
-      icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+      title: 'Warehouse',
+      path: '/mangage',
+      icon: <FaWarehouse className="sidebar-icon" />,
      },
      {
-      title: 'Settings',
+      mainTitle: 'Settings'
+     },
+     {
+      title: 'General',
       path: '/settings',
       icon: <FiSettings className="sidebar-icon" />,
      }

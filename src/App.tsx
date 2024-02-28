@@ -19,6 +19,7 @@ import Balances from './containers/Balances/Balances';
 import Inventory from './containers/Inventory/Inventory';
 import AddInventory from './containers/Inventory/AddInventory';
 import EditInventory from './containers/Inventory/EditInventory';
+import WarehouseInventory from './containers/WarehouseInventory/WarehouseInventory';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -97,6 +98,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
+      <Route path='/mangage' element={<WarehouseInventory />} />
     </>
   }
 }

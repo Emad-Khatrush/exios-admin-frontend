@@ -1,5 +1,4 @@
 import { AiOutlineSearch } from "react-icons/ai";
-import CustomButton from "../../components/CustomButton/CustomButton";
 import { Breadcrumbs, Button, CircularProgress, Dialog, DialogActions, DialogContent, Link, Typography } from '@mui/material';
 import Card from "../../components/Card/Card";
 import TextInput from "../../components/TextInput/TextInput";
@@ -8,19 +7,22 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import { defaultColumns, generateDataToListType } from "./generateData";
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper";
+import { LocalTabs } from "../../models";
+import Badge from "../../components/Badge/Badge";
 
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">
     Home
   </Link>,
   <Typography key="2" color='#28323C'>
-    Inventory
+    Warehouse Inventory
   </Typography>,
 ];
 
-const Inventory = () => {
+const WarehouseInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [inventories, setInventories] = useState([]);
+  const [tabInput, setTabInput] = useState('tripoli');
+  const [orders, setOrders] = useState([]);
   const [previewImages, setPreviewImages] = useState();
   const [searchValue, setSearchValue] = useState('');
 
@@ -31,9 +33,10 @@ const Inventory = () => {
   const getAllInventory = async () => {
     try {
       setIsLoading(true)
-      const response = await api.get('inventory');
-      setInventories(response.data);
+      const response = await api.get('warehouse/tripoli/goods');
+      setOrders(response.data[0]?.orders || []);
     } catch (error) {
+      setOrders([])
       console.log(error);
     } finally {
       setIsLoading(false)
@@ -44,41 +47,63 @@ const Inventory = () => {
     let filteredList = list;
     
     return filteredList.filter(data => (
-      (data.voyage || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data.inventoryPlace || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data.shippedCountry || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data?._id || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1
+      (data.customerInfo.fullName || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
+      (data.orderId || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
+      (data.paymentList.deliveredPackages.trackingNumber || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
+      (data.paymentList.deliveredPackages.receiptNo || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1
     ))
   }
 
+  const onTabChange = async (value: any) => {
+    setTabInput(value);
+    try {
+      setIsLoading(true)
+      const response = await api.get(`warehouse/${value}/goods`);
+      setOrders(response.data[0]?.orders || []);
+    } catch (error) {
+      setOrders([])
+      console.log(error);
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const columns = [...defaultColumns(setPreviewImages)];
-  const filteredList = generateDataToListType(filterList(inventories));
+  const filteredList = generateDataToListType(filterList(orders));
+
+  const tabs: LocalTabs = [
+    {
+      label: 'Tripoli',
+      value: 'tripoli',
+      icon: <Badge style={{ marginLeft: '8px'}} text={'1'} color="sky" />
+    },
+    {
+      label: 'Benghazi',
+      value: 'benghazi',
+      icon: <Badge style={{ marginLeft: '8px'}} text={'1'} color="sky" />
+    }
+  ]
 
   return (
     <div className="container mt-4">
       <div className="row">
         <div className="col-12">
-          <h4 className='mb-2'> Inventory Table</h4>
+          <h4 className='mb-2'> Warehouse Table</h4>
           <div className='mb-4 d-flex justify-content-between'>
             <Breadcrumbs separator="›" aria-label="breadcrumb">
               {breadcrumbs}
             </Breadcrumbs>
-
-            <CustomButton 
-              href="/inventory/add"
-              background='rgb(0, 171, 85)' 
-              size="small"
-            >
-            Add New Inventory
-          </CustomButton>
           </div>
         </div>
 
         <div className="col-12">
-          <Card>
+          <Card
+            tabs={tabs}
+            tabsOnChange={(value: string) => onTabChange(value)}
+          >
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
               <TextInput 
-                placeholder="Search for inventory" 
+                placeholder="Search for goods" 
                 icon={<AiOutlineSearch />}
                 onChange={(event: any) => setSearchValue(event.target.value)}
               />
@@ -106,4 +131,4 @@ const Inventory = () => {
   )
 }
 
-export default Inventory;
+export default WarehouseInventory;

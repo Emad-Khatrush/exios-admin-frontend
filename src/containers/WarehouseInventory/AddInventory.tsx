@@ -145,7 +145,7 @@ const AddInventory = () => {
             id={'outlined-helperText'}
             name="voyageAmount"
             type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
+            inputProps={{ inputMode: 'numeric' }}
             label={'Voyage Amount'}
             required
             onChange={onChangeHandler}

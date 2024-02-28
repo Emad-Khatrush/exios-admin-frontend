@@ -9,10 +9,28 @@ export const arrayRemoveByValue = (arr: any[], value: string) => {
   });
 }
 
-export const arrayRemoveByIndex = (arr: any[], index: number) => { 
-    
+export const arrayRemoveByIndex = (arr: any[], index: number) => {    
   return arr.splice(index, 1);
 }
+
+export const replaceWords = (text: string, replacements: any) => {
+  // Regular expression to match |word|
+  const regex = /\|(\w+)\|/g;
+  
+  // Replace each match with corresponding value from replacements object
+  const replacedText = text.replace(regex, (match, word) => {
+      // Check if replacements object has the key
+      if (replacements.hasOwnProperty(word)) {
+          return replacements[word];
+      } else {
+          // If replacement not found, return original match
+          return match;
+      }
+  });
+  
+  return replacedText;
+}
+
 
 // order methods
 

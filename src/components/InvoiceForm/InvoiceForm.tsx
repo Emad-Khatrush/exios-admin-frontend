@@ -46,6 +46,7 @@ const InvoiceForm = (props: Props) => {
     measureUnit: '',
     exiosShipmentPrice: '',
     originShipmentPrice: '',
+    locationPlace: '',
     receivedShipmentLYD: 0,
     receivedShipmentUSD: 0,
     shipmentMethod: 'air',
@@ -734,6 +735,7 @@ const InvoiceForm = (props: Props) => {
                           exiosPrice: payment?.deliveredPackages?.exiosPrice,
                           receivedShipmentUSD: payment?.deliveredPackages?.receivedShipmentUSD,  
                           receivedShipmentLYD: payment?.deliveredPackages?.receivedShipmentLYD,
+                          locationPlace: payment?.deliveredPackages?.locationPlace,
                           shipmentMethod: payment?.deliveredPackages?.shipmentMethod,
                           arrivedAt: payment?.deliveredPackages?.arrivedAt + '',
                           images: payment?.images,
@@ -903,6 +905,17 @@ const InvoiceForm = (props: Props) => {
                     </MenuItem>
                   </Select>
                 </FormControl>
+              </div>
+
+              <div className="col-md-6 mb-4 d-flex">
+                <TextField
+                  id={deliveredPackages.id}
+                  label={'Placed At'}
+                  name="locationPlace"
+                  onChange={props.handleChange}
+                  defaultValue={deliveredPackages?.locationPlace}
+                  onWheel={(event: any) => event.target.blur()}
+                />
               </div>
             </div>
 
