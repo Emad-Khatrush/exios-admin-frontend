@@ -72,6 +72,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
+      <Route path='/mangage' element={<WarehouseInventory />} />
     </>
   } else if (roles?.isAdmin) {
     return <>
