@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, InputAdornment, InputLabel, MenuItem, Select, Stack, Switch, TextField } from '@mui/material';
+import { Avatar, AvatarGroup, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, InputAdornment, InputLabel, MenuItem, Select, Stack, Switch, TextField } from '@mui/material';
+import { isMobile } from 'react-device-detect';
 
 import { BiNote, BiPackage } from 'react-icons/bi';
 import { BsCheck2Circle } from 'react-icons/bs';
@@ -14,6 +15,7 @@ import CustomButton from '../CustomButton/CustomButton';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import Badge from '../Badge/Badge';
+import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 
 type Props = {
   handleChange?: any
@@ -31,6 +33,7 @@ type Props = {
 const InvoiceForm = (props: Props) => {
   const filesRef = useRef();
 
+  const [previewImages, setPreviewImages] = useState<any>();  
   const [ note, setNote ] = useState({
     openNoteModal: false,
     note: '',
@@ -675,38 +678,67 @@ const InvoiceForm = (props: Props) => {
           <p className='title'> Payment Links </p>
         </div>
         
-        {props.paymentList?.map((payment: any, i: number) => {   
+        {props.paymentList?.map((payment: any, i: number) => {
           return(
             <div key={i} className="col-md-12 mb-4">
               <div>
-                <ButtonGroup disabled={invoice?.isCanceled} key={i} color='success' size="small" aria-label="small button group">
-                  <Button id={String(i)} name="paid" onDoubleClick={props.handleChange} variant={payment.paid || payment?.status?.paid ? 'contained': 'outlined'} key="paid">Paid</Button>
-                  <Button id={String(i)} name="arrived" onDoubleClick={props.handleChange} variant={payment.arrived || payment?.status?.arrived ? 'contained': 'outlined'} key="arrived">Arrived</Button>
-                  <Button id={String(i)} name="arrivedLibya" onDoubleClick={props.handleChange} variant={payment.arrivedLibya || payment?.status?.arrivedLibya ? 'contained': 'outlined'} key="arrivedLibya">Libya</Button>
-                  <Button id={String(i)} name="received" onDoubleClick={props.handleChange} variant={payment.received || payment?.status?.received ? 'contained': 'outlined'} key="received"><BsCheck2Circle /></Button>
-                </ButtonGroup>
+                <div className={`d-flex align-items-center gap-2 ${isMobile ? 'flex-column' : ''}`}>
+                  <ButtonGroup disabled={invoice?.isCanceled} key={i} color='success' size="small" aria-label="small button group">
+                    <Button id={String(i)} name="paid" onDoubleClick={props.handleChange} variant={payment.paid || payment?.status?.paid ? 'contained': 'outlined'} key="paid">Paid</Button>
+                    <Button id={String(i)} name="arrived" onDoubleClick={props.handleChange} variant={payment.arrived || payment?.status?.arrived ? 'contained': 'outlined'} key="arrived">Arrived</Button>
+                    <Button id={String(i)} name="arrivedLibya" onDoubleClick={props.handleChange} variant={payment.arrivedLibya || payment?.status?.arrivedLibya ? 'contained': 'outlined'} key="arrivedLibya">Libya</Button>
+                    <Button id={String(i)} name="received" onDoubleClick={props.handleChange} variant={payment.received || payment?.status?.received ? 'contained': 'outlined'} key="received"><BsCheck2Circle /></Button>
+                  </ButtonGroup>
 
-                {payment?.deliveredPackages?.shipmentMethod &&
-                  <Badge
-                    style={{
-                      fontFamily: 'system-ui',
-                      marginLeft: '6px'
-                    }}
-                    text={payment?.deliveredPackages?.shipmentMethod?.toUpperCase()} 
-                    color="primary"
-                  />
-                }
+                  <div className='d-flex align-items-center'>
+                    {payment?.deliveredPackages?.shipmentMethod &&
+                      <Badge
+                        style={{
+                          fontFamily: 'system-ui',
+                          marginLeft: '6px'
+                        }}
+                        text={payment?.deliveredPackages?.shipmentMethod?.toUpperCase()} 
+                        color="primary"
+                      />
+                    }
 
-                {payment?.deliveredPackages?.trackingNumber &&
-                  <Badge
-                    style={{
-                      fontFamily: 'system-ui',
-                      marginLeft: '6px'
-                    }}
-                    text={payment?.deliveredPackages?.trackingNumber} 
-                    color='warning'
-                  />
-                }
+                    {payment?.deliveredPackages?.trackingNumber &&
+                      <Badge
+                        style={{
+                          fontFamily: 'system-ui',
+                          marginLeft: '6px'
+                        }}
+                        text={payment?.deliveredPackages?.trackingNumber} 
+                        color='warning'
+                      />
+                    }
+
+                    {payment?.deliveredPackages?.locationPlace &&
+                      <Badge
+                        style={{
+                          fontFamily: 'system-ui',
+                          marginLeft: '6px'
+                        }}
+                        text={payment?.deliveredPackages?.locationPlace} 
+                        color="primary"
+                      />
+                    }
+
+                    {payment?.images?.length > 0 &&
+                      <AvatarGroup max={3}>
+                        {payment?.images && payment.images.map((img: any) => (
+                          <Avatar
+                            key={img.filename}
+                            className='order-image'
+                            alt={img.filename} 
+                            src={img.path}
+                            onClick={(event: React.MouseEvent) => setPreviewImages(payment.images)}
+                          />
+                        ))}
+                      </AvatarGroup>
+                    }
+                  </div>
+                </div>
 
                 <div className="d-flex">
                   <TextField
@@ -1033,6 +1065,18 @@ const InvoiceForm = (props: Props) => {
             >
               نعم، اريد حذفه
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog 
+          open={previewImages}
+          onClose={() => setPreviewImages(undefined)}
+        >
+          <DialogContent>
+            <SwipeableTextMobileStepper data={previewImages} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
           </DialogActions>
         </Dialog>
     </div>
