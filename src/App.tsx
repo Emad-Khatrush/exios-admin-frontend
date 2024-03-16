@@ -38,6 +38,7 @@ const EditInvoice = React.lazy(() => import('./containers/EditInvoice/EditInvoic
 const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingPage'));
 const MyTasks = React.lazy(() => import('./containers/MyTasks/MyTasks'));
 const CreateTask = React.lazy(() => import('./containers/CreateTask/CreateTask'));
+const MessagesControl = React.lazy(() => import('./containers/MessagesControl/MessagesControl'));
 
 type MyProps = {
   session: Session
@@ -100,6 +101,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
       <Route path='/mangage' element={<WarehouseInventory />} />
+      <Route path='/messages' element={<MessagesControl />} />
     </>
   }
 }

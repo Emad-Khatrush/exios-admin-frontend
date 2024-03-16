@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -81,6 +81,11 @@ const adminRoutes = [
       title: 'General',
       path: '/settings',
       icon: <FiSettings className="sidebar-icon" />,
+     },
+     {
+      title: 'Messages',
+      path: '/messages',
+      icon: <FaWhatsapp className="sidebar-icon" />,
      }
  ];
 

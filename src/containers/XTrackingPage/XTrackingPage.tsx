@@ -53,6 +53,10 @@ const selectValues = [
     value: 'trackingNumber'
   },
   {
+    label: 'Phone Number',
+    value: 'phoneNumber'
+  },
+  {
     label: 'Receipt & Container',
     value: 'receiptAndContainer'
   },
