@@ -7,6 +7,8 @@
     width: 240px;
     transition: all .5s ease;
     z-index: 500;
+    overflow: auto;
+
     .sidebar-wrapper {
         color: #555;
         padding: 20px;
