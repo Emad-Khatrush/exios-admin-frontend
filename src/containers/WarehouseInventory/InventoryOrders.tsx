@@ -19,6 +19,7 @@ const InventoryOrders = (props: Props) => {
   
   useEffect(() => {
     getOrders();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
   const getOrders = async () => {
@@ -57,6 +58,7 @@ const InventoryOrders = (props: Props) => {
         orders={orders}
         inventory={props.inventory}
         isSearching={isSearching}
+        fetchSelectedOrders={getOrders}
       />
     </div>
   )

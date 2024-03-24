@@ -88,6 +88,10 @@ const DebtHistory = (props: Props) => {
         <p className='debt-info m-0'>{`${debt.createdBy.firstName} ${debt.createdBy.lastName}`}</p>
       </div>
 
+      <div style={{ direction: 'rtl' }} className='col-12 mb-2'>
+        <p>{debt.notes}</p>
+      </div>
+
       {debtHasHistoryPayments && !showHistoryPayment &&
         // eslint-disable-next-line jsx-a11y/anchor-is-valid
         <a className='see-all-button' href="#" onClick={() => setShowHistoryPayments(true)}>View History Payment</a>

@@ -6,7 +6,7 @@ import ImageUploader from '../../components/ImageUploader/ImageUploader'
 import InvoiceForm from '../../components/InvoiceForm/InvoiceForm'
 import CustomButton from '../../components/CustomButton/CustomButton'
 import api from '../../api'
-import { Account, Invoice, OrderActivity, User } from '../../models'
+import { Account, Debt, Invoice, OrderActivity, User } from '../../models'
 import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
 import { getOrderSteps } from '../../utils/methods'
@@ -17,6 +17,8 @@ import * as htmlToImage from 'html-to-image';
 
 import './EditInvoice.scss';
 import moment from 'moment'
+import { FaCopy } from 'react-icons/fa'
+import { MdOutlineLibraryAddCheck } from 'react-icons/md'
 
 type Props = {
   router: RouteMatch
@@ -43,6 +45,7 @@ type State = {
   shippingLabelDialogOpen: boolean
   shippingMethodForLabel: 'air' | 'sea'
   inspectionCheckbox: boolean
+  userDebts: Debt[]
 }
 
 const breadcrumbs = [
@@ -91,14 +94,16 @@ export class EditInvoice extends Component<Props, State> {
     cancelationReason: '',
     shippingLabelDialogOpen: false,
     shippingMethodForLabel: 'air',
-    inspectionCheckbox: false
+    inspectionCheckbox: false,
+    userDebts: []
   }
 
   async componentDidMount() {
     try {
       const order = (await api.get(`order/${this.props.router.params.id}`)).data;
       const employees = (await api.get(`employees`)).data?.results;
-      this.setState({ formData: order, paymentList: order?.paymentList, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
+      const userDebts = (await api.get(`debts/user/${order?.user?.customerId}`)).data || [];
+      this.setState({ userDebts, formData: order, paymentList: order?.paymentList, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
     } catch (error) {
       console.log(error);
     }
@@ -591,11 +596,17 @@ https://www.exioslibya.com/login
     `;
 
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
+    const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
     
     return (
       <div className="m-4 edit-invoice">
         <div style={{ maxWidth: '1400px', margin: 'auto'}}>
           <div className="col-12 mb-3">
+            {(totalLyd > 0 || totalUsd > 0) &&
+              <Alert className='mb-2' color='error'>
+                Debts found with this customer code ({this.state.formData.user.customerId}) the total debts is {totalLyd} LYD, {totalUsd} USD 🚨
+              </Alert>
+            }
             <div className={`d-flex justify-content-between ${isMobile ? 'flex-column my-2' : ''}`}>
               <h4 className='mb-2'> Edit Invoice</h4>
               <div>
@@ -610,19 +621,29 @@ https://www.exioslibya.com/login
                     Cancel
                   </Button>
                 }
-                <CustomButton
-                  background='rgb(0, 171, 85)' 
-                  size="small"
-                  href={`https://www.exioslibya.com/xtracking/${formData.orderId}/ar`}
-                  target="_blank"
-                >
-                  Preview
-                </CustomButton>
               </div>
             </div>
+            <div className='d-flex justify-content-between align-items-center'>
               <Breadcrumbs separator="›" aria-label="breadcrumb">
                 {breadcrumbs}
               </Breadcrumbs>
+              <h6>
+                <span 
+                  className='mx-2' 
+                  onClick={() => {
+                    navigator.clipboard.writeText(formData.orderId);
+                    this.setState({ isFinished: true, isError: false, resMessage: 'Copied' })
+                  }} 
+                > 
+                  {isFinished ?
+                    <MdOutlineLibraryAddCheck style={{ color: 'darkgreen', cursor: 'pointer' }} />
+                    :
+                    <FaCopy style={{ color: 'grey', cursor: 'pointer' }} />
+                  }
+                </span>
+                {formData.orderId} : رقم الطلبية
+              </h6>
+            </div>
           </div>
 
           <div
@@ -967,6 +988,21 @@ https://www.exioslibya.com/login
       </div>
     )
   }
+}
+
+const getTotalDebtOfUser = (debts: Debt[]) => {
+  let totalUsd = 0;
+  let totalLyd = 0;
+
+  (debts as any || []).forEach((debt: Debt) => {
+    if (debt.currency === 'USD') {
+      totalUsd += debt.amount;
+    } else if (debt.currency === 'LYD') {
+      totalLyd += debt.amount;
+    }
+  })
+
+  return { totalLyd, totalUsd };
 }
 
 const mapStateToProps = (state: any) => {

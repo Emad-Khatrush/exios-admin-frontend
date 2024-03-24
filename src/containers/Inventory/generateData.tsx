@@ -52,6 +52,12 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     align: 'center'
   },
   {
+    field: 'shippingType',
+    headerName: 'Shipping Method',
+    width: 120,
+    align: 'center'
+  },
+  {
     field: 'inventoryPlace',
     headerName: 'Office',
     width: 100,
@@ -76,12 +82,17 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     align: 'center'
   },
   {
+    field: 'note',
+    headerName: 'Note',
+    width: 300,
+    align: 'center'
+  },
+  {
     field: 'createdAt',
     headerName: 'Created Date',
     width: 200,
     align: 'center'
   },
-
 ]);
 
 export const generateDataToListType = (list: any[]) => {
@@ -91,6 +102,8 @@ export const generateDataToListType = (list: any[]) => {
     voyage: data.voyage,
     attachments: data.attachments,
     inventoryPlace: data.inventoryPlace,
+    note: data?.note,
+    shippingType: data?.shippingType,
     shippedCountry: data.shippedCountry,
     voyageAmount: data.voyageAmount + ' ' + data.voyageCurrency,
     ordersCount: data?.orders?.length,

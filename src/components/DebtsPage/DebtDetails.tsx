@@ -26,9 +26,9 @@ const DebtDetails = (props: Props) => {
     <div className="debt-details-page col-md-6">
       <Card>
         <DebtorInfo
-          username={`${userOwnDebt.owner.firstName} ${userOwnDebt.owner.lastName}`}
-          phoneNumber={userOwnDebt.owner.phone}
-          customerId={userOwnDebt.owner.customerId}
+          username={`${userOwnDebt.owner?.firstName} ${userOwnDebt.owner?.lastName}`}
+          phoneNumber={userOwnDebt.owner?.phone}
+          customerId={userOwnDebt.owner?.customerId}
         />
 
         <hr className="break-line" />
@@ -64,6 +64,11 @@ const DebtDetails = (props: Props) => {
 
 const getUserInfo = (debt: any, isDebtArray: boolean) => {
   if (isDebtArray) {
+    for (const d of debt) {
+      if (d.status === 'open') {
+        return d;
+      }
+    }
     return debt[0];
   }
   return debt;

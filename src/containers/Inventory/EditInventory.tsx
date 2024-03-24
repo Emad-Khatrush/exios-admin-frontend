@@ -9,6 +9,7 @@ import ImageUploader from "../../components/ImageUploader/ImageUploader";
 import React from "react";
 import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
+import { Textarea } from "@mui/joy";
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -18,11 +19,11 @@ const EditInventory = () => {
   const [error, setError] = useState<string>();
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
-  const [ imagesLoading, setImagesLoading ] = useState<boolean>(false);
   const filesRef = React.createRef();
 
   useEffect(() => {
     getInventory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fileUploaderHandler = async (event: any) => {
@@ -43,7 +44,6 @@ const EditInventory = () => {
       });
     }
     data.append('id', String(id));
-    setImagesLoading(true);
     await api.fetchFormData('inventory/uploadFiles', 'POST', data)
     
     allFiles = [
@@ -55,12 +55,17 @@ const EditInventory = () => {
   }
 
   const getInventory = async () => {
-    setIsLoading(true);
-    const res = await api.get(`inventory/${id}`);
-    setInventory(res.data);
-    setPreviewFiles(res.data.attachments.map((img: any) => img.path ));
-    setFilesInput(res.data.attachments);
-    setIsLoading(false);
+    try {
+      setIsLoading(true);
+      const res = await api.get(`inventory/${id}`);
+      setInventory(res.data);
+      setPreviewFiles(res.data.attachments.map((img: any) => img.path ));
+      setFilesInput(res.data.attachments);
+    } catch (error: any) {
+      setError(error.response.data.message);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const onChangeHandler = (event: any) => {
@@ -167,6 +172,31 @@ const EditInventory = () => {
           </FormControl>
         </div>
 
+        <div className="col-md-3 mb-4">
+          <FormControl style={{ width: '100%' }} required>
+            <InputLabel id="demo-select-small">Shipping Type</InputLabel>
+            <Select
+              labelId={'Shipping Type'}
+              id={'shippingType'}
+              label={'shippingType'}
+              name="shippingType"
+              onChange={onChangeHandler}
+              defaultValue={inventory?.shippingType}
+              disabled
+            >
+              <MenuItem value={'air'}>
+                <em> جوي </em>
+              </MenuItem>
+              <MenuItem value={'sea'}>
+                <em> بحري </em>
+              </MenuItem>
+              <MenuItem value={'domestic'}>
+                <em> شحن داخلي </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
         <div className="col-md-4 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Inventory Place</InputLabel>
@@ -204,6 +234,18 @@ const EditInventory = () => {
           </LocalizationProvider>
         </div>
 
+        <div className="col-12 mb-4">
+          <Textarea
+            name='note'
+            placeholder='Description'
+            color="neutral"
+            minRows={3}
+            variant="outlined"
+            onChange={onChangeHandler}
+            defaultValue={inventory?.note}
+          />
+        </div>
+
         <div className='col-md-4 mt-3'>
           <h6>Upload Files</h6>
           <ImageUploader
@@ -220,6 +262,7 @@ const EditInventory = () => {
 
       <InventoryOrders
         inventory={inventory}
+        getInventory={getInventory}
       />
     </div>
   )

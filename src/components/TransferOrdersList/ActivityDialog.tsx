@@ -29,28 +29,53 @@ const ActivityDialog = (props: Props) => {
     }
 
    setLoading(true);
+   const customers: any = [];
+   const contacts: any = [];
 
-   props.checked.forEach((data: any) => {
+   props.checked.forEach((order: any) => {
+    if (!customers[`${order.user.customerId}_${order.paymentList.deliveredPackages.exiosPrice}`]) {
+      customers[`${order.user.customerId}_${order.paymentList.deliveredPackages.exiosPrice}`] = [];
+    }
+    customers[`${order.user.customerId}_${order.paymentList.deliveredPackages.exiosPrice}`].push(...[order])
+  })
+  for (const customerId in customers) {
+    const tokenOrderId: any = [];
+    let trackingNumbers = '', orderId = '', fullName = '', weight = 0, exiosPrice = 0, measureUnit = '';
+    const customerOrders = customers[customerId];
+    customerOrders.forEach((order: any) => {
+      fullName = order.customerInfo.fullName;
+      trackingNumbers += `${order.paymentList.deliveredPackages.trackingNumber}, `;
+      weight += order.paymentList.deliveredPackages.weight.total;
+      exiosPrice = order.paymentList.deliveredPackages.exiosPrice;
+      measureUnit = order.paymentList.deliveredPackages.weight.measureUnit;
+      if (!tokenOrderId.includes(order.orderId)) {
+        orderId += `${order.orderId},`;
+      }
+      tokenOrderId.push(order.orderId)
+    })
+    
+    const totalPrice = calculateMinTotalPrice(exiosPrice, weight, props.inventory.shippedCountry);
     const message = replaceWords(whatsupMessage, {
-      fullName: data.customerInfo.fullName,
-      orderId: data.orderId,
-      trackingNumber: data.paymentList.deliveredPackages.trackingNumber,
-      weight: `${data.paymentList.deliveredPackages.weight.total} ${data.paymentList.deliveredPackages.weight.measureUnit}`,
-      exiosPrice: data.paymentList.deliveredPackages.exiosPrice,
-      totalPrice: `${Math.ceil(data.paymentList.deliveredPackages.exiosPrice * data.paymentList.deliveredPackages.weight.total)} $`,
+      fullName: fullName,
+      orderId: orderId,
+      trackingNumber: trackingNumbers,
+      weight: `${weight} ${measureUnit}`,
+      exiosPrice: exiosPrice,
+      totalPrice: `${totalPrice} $`,
       noteForHandlingFeesInUSA: ['USA', 'UK'].includes(props.inventory.shippedCountry)  ? 'ملاحظة: يوجد رسوم مناولة على كل شحنة لم تضف الى حسبة الاجمالية' : ''
     })
-
-     api.post(`sendWhatsupMessage`, { phoneNumber: `${data.customerInfo.phone}@c.us`, message })
-       .then((res) => {
-         setShowResponseMessage('Whatsup message has been send successfully');
-         setIsSucceed(true);
-       })
-       .catch((err) => {
-         console.log(err);
-         setShowResponseMessage(err.response.data.message === 'whatsup-auth-not-found' ? 'You need to scan QR from your whatsup !' : err.response.data.message);
-         setIsSucceed(false);
-       })
+    contacts.push({ phoneNumber: customerOrders[0].user.phone , message })
+  }  
+   
+   api.post(`inventorySendWhatsupMessages`, { data: contacts })
+   .then(() => {
+     setShowResponseMessage('Whatsup message has been send successfully');
+     setIsSucceed(true);
+   })
+   .catch((err) => {
+     console.log(err);
+     setShowResponseMessage(err.response.data.message === 'whatsup-auth-not-found' ? 'You need to scan QR from your whatsup !' : err.response.data.message);
+     setIsSucceed(false);
    })
    setLoading(false);
   }
@@ -222,6 +247,20 @@ const ActivityDialog = (props: Props) => {
       </Backdrop>
     </div>
   )
+}
+
+const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: string) => {
+  const total = price * weight;
+  let minPrice = price;
+
+  // The min weight from China is half of price
+  if (shippedCountry === 'CN') {
+    minPrice = price / 2;
+  }
+  if (total <= minPrice) {
+    return minPrice;
+  }
+  return Math.ceil(total);
 }
 
 export default ActivityDialog;

@@ -21,7 +21,6 @@ const breadcrumbs = [
 
 const WarehouseInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [tabInput, setTabInput] = useState('tripoli');
   const [orders, setOrders] = useState([]);
   const [previewImages, setPreviewImages] = useState();
   const [searchValue, setSearchValue] = useState('');
@@ -49,13 +48,13 @@ const WarehouseInventory = () => {
     return filteredList.filter(data => (
       (data.customerInfo.fullName || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
       (data.orderId || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
+      (data?.user?.customerId || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
       (data.paymentList.deliveredPackages.trackingNumber || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
       (data.paymentList.deliveredPackages.receiptNo || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1
     ))
   }
 
   const onTabChange = async (value: any) => {
-    setTabInput(value);
     try {
       setIsLoading(true)
       const response = await api.get(`warehouse/${value}/goods`);

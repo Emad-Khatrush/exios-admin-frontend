@@ -9,6 +9,7 @@ import CustomButton from "../../components/CustomButton/CustomButton";
 import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
 import { useNavigate } from "react-router-dom";
+import { Textarea } from "@mui/joy";
 
 const AddInventory = () => {
 
@@ -209,6 +210,29 @@ const AddInventory = () => {
           </FormControl>
         </div>
 
+        <div className="col-md-3 mb-4">
+          <FormControl style={{ width: '100%' }} required>
+            <InputLabel id="demo-select-small">Shipping Type</InputLabel>
+            <Select
+              labelId={'Shipping Type'}
+              id={'shippingType'}
+              label={'shippingType'}
+              name="shippingType"
+              onChange={onChangeHandler}
+            >
+              <MenuItem value={'air'}>
+                <em> جوي </em>
+              </MenuItem>
+              <MenuItem value={'sea'}>
+                <em> بحري </em>
+              </MenuItem>
+              <MenuItem value={'domestic'}>
+                <em> شحن داخلي </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
         <div className="col-md-4 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Inventory Place</InputLabel>
@@ -243,6 +267,17 @@ const AddInventory = () => {
               />
             </Stack>
           </LocalizationProvider>
+        </div>
+
+        <div className="col-12 mb-4">
+          <Textarea
+            name='note'
+            placeholder='Description'
+            color="neutral"
+            minRows={3}
+            variant="outlined"
+            onChange={onChangeHandler}
+          />
         </div>
 
         <div className='col-md-4 mt-3'>

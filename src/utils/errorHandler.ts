@@ -1,5 +1,5 @@
 import { ApiErrorMessages } from "../models";
-import { BALANCE_ALREADY_PAID, BALANCE_CURRENCY_NOT_ACCEPTED, EXPENSE_ID_TAKEN, EXPENSE_NOT_FOUND, FIELDS_EMPTY, IMAGE_NOT_FOUND, INVALID_CREDENTIALS, INVALID_TOKEN, INVENTORY_NOT_FOUND, ORDER_ID_TAKEN, ORDER_NOT_FOUND, SERVER_ERROR, Token_EXPIRED, TOKEN_NOT_FOUND, USER_NOT_FOUND, USER_ROLE_INVALID, USER_SUBSCRIPTION_CANCLED } from "../constants/errors";
+import { BALANCE_ALREADY_PAID, BALANCE_CURRENCY_NOT_ACCEPTED, BALANCE_RATE_ZERO, EXPENSE_ID_TAKEN, EXPENSE_NOT_FOUND, FIELDS_EMPTY, IMAGE_NOT_FOUND, INVALID_CREDENTIALS, INVALID_TOKEN, INVENTORY_NOT_FOUND, ORDER_ID_TAKEN, ORDER_NOT_FOUND, SERVER_ERROR, Token_EXPIRED, TOKEN_NOT_FOUND, USER_NOT_FOUND, USER_ROLE_INVALID, USER_SUBSCRIPTION_CANCLED } from "../constants/errors";
 
 export const getErrorMessage = (errorId: ApiErrorMessages): string => {
   switch (errorId) {
@@ -46,10 +46,13 @@ export const getErrorMessage = (errorId: ApiErrorMessages): string => {
       return 'The fields of the form is empty, please fill the form and try again';
 
     case BALANCE_CURRENCY_NOT_ACCEPTED:
-      return 'You cant pay USD to the LYD please finish the debt with same currency'
+      return 'You can not pay USD into LYD debts please pay the debt with same currency'
 
     case BALANCE_ALREADY_PAID:
       return 'The Balance has been paid already, please refresh the page.';
+
+    case BALANCE_RATE_ZERO:
+      return 'Rate should not be 0, please enter the correct rate !!';
 
     case INVENTORY_NOT_FOUND:
       return 'Inventory not found';

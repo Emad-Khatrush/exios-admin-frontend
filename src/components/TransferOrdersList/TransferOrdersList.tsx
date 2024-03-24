@@ -37,6 +37,7 @@ type Props = {
   orders: any
   inventory: Inventory
   isSearching: boolean
+  fetchSelectedOrders?: () => void
 }
 
 const TransferOrdersList = (props: Props) => {
@@ -60,6 +61,7 @@ const TransferOrdersList = (props: Props) => {
     })
     
     setLeft(searchedOrders);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.orders])
 
   React.useEffect(() => {
@@ -81,7 +83,7 @@ const TransferOrdersList = (props: Props) => {
         orderPackage.paymentList.deliveredPackages.receiptNo,
         `${orderPackage.paymentList.deliveredPackages.weight.total} ${orderPackage.paymentList.deliveredPackages.weight.measureUnit}`,
         `${orderPackage.paymentList.deliveredPackages.exiosPrice} $`,
-        `${Math.ceil(orderPackage.paymentList.deliveredPackages.exiosPrice * orderPackage.paymentList.deliveredPackages.weight.total)} $`,
+        `${calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry)} $`,
         orderPackage.paymentList.deliveredPackages.locationPlace,
         orderPackage.shipment.toWhere
       ])
@@ -120,9 +122,14 @@ const TransferOrdersList = (props: Props) => {
 
   const addInventoryToWarehouse = async (office: string) => {
     try {
+      setLoading(true);
+      const ids: any = [];
+      rightChecked.forEach((order: any) => {
+        ids.push(order?.paymentList?._id);
+      })
       const response = await api.get(`warehouse/${office}/goods`);
       const tripoliInventory = response.data[0];
-      await api.update(`inventory/orders?id=${tripoliInventory?._id}`, rightChecked);
+      await api.update(`inventory/orders?id=${tripoliInventory?._id}`, ids);
       setShowResponseMessage('تم اضافة طلبيات الى قائمة الجرد بنجاح');
       setIsSucceed(true);
     } catch (error) {
@@ -139,7 +146,7 @@ const TransferOrdersList = (props: Props) => {
       const res = await api.update(`inventory/orders?id=${props.inventory?._id}`, leftChecked);
       const inventory = res.data;
       setLeft(not(left, leftChecked));
-      setChecked(not(checked, leftChecked));
+      setChecked([])
       setRight(inventory.orders);
       setShowResponseMessage('تم اضافة طلبيات الى قائمة الجرد بنجاح');
       setIsSucceed(true);
@@ -155,7 +162,11 @@ const TransferOrdersList = (props: Props) => {
   const handleCheckedLeft = async () => {
     try {
       setLoading(true);
-      await api.delete(`inventory/orders?id=${props.inventory?._id}`, rightChecked);
+      const ids: any = [];
+      rightChecked.forEach((order: any) => {
+        ids.push(order.paymentList._id);
+      })
+      await api.delete(`inventory/orders?id=${props.inventory?._id}`, ids);
       setRight(not(right, rightChecked));
       setChecked(not(checked, rightChecked));
       setLeft(left);
@@ -173,7 +184,15 @@ const TransferOrdersList = (props: Props) => {
   const updateSelectedOrdersStatus = async () => {
     try {
       setLoading(true);
-      await api.update(`orders/status`, { data: rightChecked, statusType: 'arrivedLibya', value: true, inventoryId: props.inventory?._id });
+      const ids: any = [];
+      rightChecked.forEach((order: any) => {
+        ids.push({
+          paymentListId: order?.paymentList?._id,
+          orderId: order.orderId,
+          trackingNumber: order?.paymentList?.deliveredPackages?.trackingNumber
+        });
+      })
+      await api.update(`orders/status`, { data: ids, statusType: 'arrivedLibya', value: true, inventoryId: props.inventory?._id });
       setShowResponseMessage('تم تحديث طلبيات بنجاح');
       setIsSucceed(true);
       setChecked([])
@@ -339,9 +358,9 @@ const TransferOrdersList = (props: Props) => {
                       <br />
                       {order?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${order?.paymentList?.deliveredPackages?.receiptNo} `} /> }
                       <div className='d-flex gap-3 mt-2 align-items-center'>
-                        {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages.weight.total} ${order.paymentList.deliveredPackages.weight.measureUnit}`} />}
+                        {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages?.weight.total} ${order.paymentList?.deliveredPackages?.weight?.measureUnit}`} />}
                         {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
-                        {order?.paymentList.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList.deliveredPackages?.locationPlace}`} />}
+                        {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
                       </div>
                     </div>
                   }
@@ -451,6 +470,8 @@ const TransferOrdersList = (props: Props) => {
           setShowDialog={setShowDialog}
           package={rightChecked[0]}
           inventory={props.inventory}
+          fetchSelectedOrders={props.fetchSelectedOrders}
+          setChecked={() => setChecked([])}
         />
       </Dialog>
 
@@ -476,6 +497,20 @@ const TransferOrdersList = (props: Props) => {
       </Backdrop>
     </Grid>
   );
+}
+
+const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: string) => {
+  const total = price * weight;
+  let minPrice = price;
+
+  // The min weight from China is half of price
+  if (shippedCountry === 'CN') {
+    minPrice = price / 2;
+  }
+  if (total <= minPrice) {
+    return minPrice;
+  }
+  return Math.ceil(total);
 }
 
 export default TransferOrdersList;

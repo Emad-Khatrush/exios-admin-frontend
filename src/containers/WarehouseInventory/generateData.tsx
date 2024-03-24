@@ -60,6 +60,12 @@ export const defaultColumns = (setState: any) => ([
     }
   },
   {
+    field: 'customerId',
+    headerName: 'Customer Id',
+    width: 150,
+    align: 'center'
+  },
+  {
     field: 'orderId',
     headerName: 'Order Id',
     width: 150,
@@ -137,6 +143,7 @@ export const generateDataToListType = (list: any[]) => {
     receiptsImages: data.images,
     orderId: data.orderId,
     fullName: data.customerInfo.fullName,
+    customerId: data.user?.customerId,
     trackingNumber: data.paymentList.deliveredPackages.trackingNumber,
     phone: data.customerInfo.phone,
     receiptNo: data.paymentList.deliveredPackages.receiptNo,
@@ -144,7 +151,7 @@ export const generateDataToListType = (list: any[]) => {
     weight: `${data.paymentList?.deliveredPackages?.weight?.total || 0} ${data.paymentList.deliveredPackages?.weight?.measureUnit || ''}`,
     note: data.shipment.toWhere,
     exiosShipmentPrice: `${data.paymentList?.deliveredPackages?.exiosPrice} $`,
-    cost: `${data.paymentList?.deliveredPackages?.exiosPrice * data.paymentList?.deliveredPackages?.weight?.total} $`,
+    cost: `${Math.ceil(data.paymentList?.deliveredPackages?.exiosPrice * data.paymentList?.deliveredPackages?.weight?.total)} $`,
     createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
   }));
 }

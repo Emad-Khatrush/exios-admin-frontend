@@ -221,7 +221,8 @@ export type OrderActivity = {
 
 export type ApiErrorMessages = 'user-not-found' | 'user-subscription-canceled' | 'invalid-credentials' | 'authorize-invalid'
   | 'token-not-found' | 'invalid-token' | 'order-id-taken' | 'order-not-found' | 'expense-id-taken' | 'user-role-invalid'
-  | 'expense-not-found' | 'image-not-found' | 'fields-empty' | 'server-error' | 'balance-currency-not-accepted' | 'balance-already-paid' | 'inventory-not-found';
+  | 'expense-not-found' | 'image-not-found' | 'fields-empty' | 'server-error' | 'balance-currency-not-accepted' | 'balance-already-paid' 
+  | 'inventory-not-found' | 'balance-rate-zero';
 
 export type Session = {
   account: Account
@@ -351,5 +352,7 @@ export type Inventory = {
   inventoryFinishedDate: Date,
   voyageAmount: number,
   voyageCurrency: 'USD' | 'LYD',
-  inventoryType: 'inventoryGoods' | 'shippingVoyage'
+  inventoryType: 'inventoryGoods' | 'shippingVoyage',
+  shippingType: 'air' | 'sea' | 'domestic'
+  note: string
 }

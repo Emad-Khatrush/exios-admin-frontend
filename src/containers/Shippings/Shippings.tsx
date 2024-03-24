@@ -79,6 +79,7 @@ class Shippings extends Component<Props, State> {
 
     return filteredList.filter(data => (
       (data.orderId || "").toLocaleLowerCase().indexOf(this.state.searchValue.toLocaleLowerCase()) > -1 ||
+      (data.placedAt || "").toLocaleLowerCase().indexOf(this.state.searchValue.toLocaleLowerCase()) > -1 ||
       (data?._id || "").toLocaleLowerCase().indexOf(this.state.searchValue.toLocaleLowerCase()) > -1
     ))
   }
@@ -89,20 +90,24 @@ class Shippings extends Component<Props, State> {
     if (isLoading) {
       return <CircularProgress />;
     }
-
-    const filteredList = generateDataToListType(this.filterList(listData));
+    const list = this.filterList(listData);
+    const filteredList = generateDataToListType(list);
     const columns = [...defaultColumns(this.setState.bind(this))];
-
+    const { totalKG, totalCBM } = calculateWeightOfList(list);    
+    
     return (
       <div className="container mt-4">
         <div className="row" style={{ maxWidth: '1300px', margin: 'auto'}}>
-            <div className="col-12"> 
-              <h4 className='mb-2'>Shippings Table</h4>
-              <div className='mb-4 d-flex justify-content-between'>
-                <Breadcrumbs separator="›" aria-label="breadcrumb">
-                  {breadcrumbs}
-                </Breadcrumbs>
+            <div className="col-12 d-flex justify-content-between align-items-center"> 
+              <div>
+                <h4 className='mb-2'>Shippings Table</h4>
+                <div className='mb-4 d-flex justify-content-between'>
+                  <Breadcrumbs separator="›" aria-label="breadcrumb">
+                    {breadcrumbs}
+                  </Breadcrumbs>
+                </div>
               </div>
+              <h6 style={{ color: '#187900' }}>Total Air: {parseFloat(totalKG.toFixed(2))}KG, Total Sea: {parseFloat(totalCBM.toFixed(2))}CBM</h6>
             </div>
 
             <div className="col-12">
@@ -153,5 +158,15 @@ class Shippings extends Component<Props, State> {
     )
   }
 }
+
+const calculateWeightOfList = (list: any) => {
+  let totalKG = 0, totalCBM = 0;
+  list.forEach((order: any) => {
+    const orderPackage = order?.paymentList?.deliveredPackages.weight;
+    if (orderPackage.measureUnit === 'KG') totalKG += orderPackage.total
+    else if (orderPackage.measureUnit === 'CBM') totalCBM += orderPackage.total;
+  })
+  return { totalCBM, totalKG };
+} 
 
 export default withRouter(Shippings);

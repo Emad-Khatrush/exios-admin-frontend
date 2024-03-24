@@ -5,11 +5,14 @@ import api from '../../api';
 
 type Props = {
   package: any
+  fetchSelectedOrders?: () => void
+  setChecked?: () => void
+  setShowDialog: (value: boolean) => void
 }
 
 const EditPackageWeight = (props: Props) => {
   const [ isLoading, setLoading ] = React.useState(false);
-  const [ deliveredPackages, setDeliveredPackages ] = React.useState(props.package.paymentList.deliveredPackages);
+  const [ deliveredPackages, setDeliveredPackages ] = React.useState(props?.package?.paymentList?.deliveredPackages);
   const [ isSucceed, setIsSucceed ] = React.useState<boolean>(false);
   const [ showResponseMessage, setShowResponseMessage ] = React.useState<String | undefined>();
 
@@ -19,6 +22,13 @@ const EditPackageWeight = (props: Props) => {
     try {
       setLoading(true);
       await api.update(`order/${props.package._id}/package`, { ...props.package, paymentList: { ...props.package.paymentList, deliveredPackages } })
+      if (props.fetchSelectedOrders) {
+        props.fetchSelectedOrders();
+        if (props.setChecked) {
+          props.setChecked();
+        }
+      }
+      props.setShowDialog(false);
       setShowResponseMessage('Package data updated successfully');
       setIsSucceed(true);
     } catch (error: any) {
