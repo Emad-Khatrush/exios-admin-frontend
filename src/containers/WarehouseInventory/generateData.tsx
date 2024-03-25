@@ -92,6 +92,12 @@ export const defaultColumns = (setState: any) => ([
     align: 'center'
   },
   {
+    field: 'locationPlace',
+    headerName: 'Location',
+    width: 150,
+    align: 'center'
+  },
+  {
     field: 'weight',
     headerName: 'CBM/KG',
     width: 150,
@@ -153,5 +159,6 @@ export const generateDataToListType = (list: any[]) => {
     exiosShipmentPrice: `${data.paymentList?.deliveredPackages?.exiosPrice} $`,
     cost: `${Math.ceil(data.paymentList?.deliveredPackages?.exiosPrice * data.paymentList?.deliveredPackages?.weight?.total)} $`,
     createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
+    locationPlace: data.paymentList?.deliveredPackages?.locationPlace
   }));
 }
