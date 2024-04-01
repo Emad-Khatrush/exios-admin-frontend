@@ -45,11 +45,11 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
   {
     field: 'voyage',
     headerName: 'Voyage',
-    width: 120,
+    width: 250,
     renderCell: (params: GridRenderCellParams<String>) => {
       return <div style={{fontWeight: '500'}} className='MuiDataGrid-cell MuiDataGrid-cell--editable'> {params.value} </div>
     },
-    align: 'center'
+    align: 'start'
   },
   {
     field: 'shippingType',
@@ -85,7 +85,7 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     field: 'note',
     headerName: 'Note',
     width: 300,
-    align: 'center'
+    align: 'start'
   },
   {
     field: 'createdAt',
