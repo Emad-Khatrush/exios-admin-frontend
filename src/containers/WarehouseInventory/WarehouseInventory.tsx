@@ -9,6 +9,8 @@ import { defaultColumns, generateDataToListType } from "./generateData";
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper";
 import { LocalTabs } from "../../models";
 import Badge from "../../components/Badge/Badge";
+import ActivityDialog from "../../components/TransferOrdersList/ActivityDialog";
+import CustomButton from "../../components/CustomButton/CustomButton";
 
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">
@@ -22,8 +24,10 @@ const breadcrumbs = [
 const WarehouseInventory = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [inventory, setInventory] = useState<any>([]);
   const [previewImages, setPreviewImages] = useState();
   const [searchValue, setSearchValue] = useState('');
+  const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
     getAllInventory();
@@ -34,6 +38,7 @@ const WarehouseInventory = () => {
       setIsLoading(true)
       const response = await api.get('warehouse/tripoli/goods');
       setOrders(response.data[0]?.orders || []);
+      setInventory(response.data[0] || [])
     } catch (error) {
       setOrders([])
       console.log(error);
@@ -106,6 +111,14 @@ const WarehouseInventory = () => {
                 icon={<AiOutlineSearch />}
                 onChange={(event: any) => setSearchValue(event.target.value)}
               />
+              <CustomButton 
+                background='rgb(0, 171, 85)' 
+                size="small"
+                disabled={isLoading}
+                onClick={() => setShowDialog(true)}
+              >
+                Send Whatsup messages
+              </CustomButton>
             </div>
             {isLoading ?
               <CircularProgress />
@@ -125,6 +138,14 @@ const WarehouseInventory = () => {
         <DialogActions>
           <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={showDialog} onClose={() => setShowDialog(false)} className='p-5' fullWidth>
+        <ActivityDialog 
+          checked={orders} 
+          setShowDialog={setShowDialog}
+          inventory={inventory}
+        />
       </Dialog>
     </div>
   )

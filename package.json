@@ -29,6 +29,7 @@
     "downloadjs": "^1.4.7",
     "firebase": "^9.18.0",
     "html-to-image": "^1.11.3",
+    "html2pdf.js": "^0.10.1",
     "install": "^0.13.0",
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.29.3",
