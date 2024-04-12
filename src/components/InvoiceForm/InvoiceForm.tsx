@@ -4,7 +4,7 @@ import { isMobile } from 'react-device-detect';
 
 import { BiNote, BiPackage } from 'react-icons/bi';
 import { BsCheck2Circle } from 'react-icons/bs';
-import { Invoice, User } from '../../models';
+import { Invoice, OrderItem, User } from '../../models';
 import './InvoiceForm.scss';
 import { getOrderSteps } from '../../utils/methods';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
@@ -20,6 +20,9 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 type Props = {
   handleChange?: any
   paymentList?: any
+  items?: any
+  addNewItemForOrder?: any
+  deteteItemRow?: any
   addNewPaymentField?: any
   fileUploaderHandler?: any
   deleteFileOfLink?: any
@@ -207,6 +210,62 @@ const InvoiceForm = (props: Props) => {
               ))}
             </Select>
           </FormControl>
+        </div>
+
+        {/* Order Items Section  */}
+        <div className="col-md-12">
+          <p className='title'> Order Items </p>
+        </div>
+        
+        {props.items.map((item: OrderItem, i: number) => (
+          <div className='col-md-12 mb-2'>
+            <div className="d-flex mb-3">
+              <TextField
+                id={String(i)}
+                label={`Description (${i + 1})`}
+                name="description"
+                onChange={props.handleChange}
+                disabled={invoice?.isCanceled}
+                style={{ direction: 'rtl' }}
+                defaultValue={item.description}
+              />
+              <TextField
+                id={String(i)}
+                label={`Quantity`}
+                name="itemQuantity"
+                onChange={props.handleChange}
+                disabled={invoice?.isCanceled}
+                type={'number'}
+                inputProps={{ inputMode: 'numeric' }}
+                onWheel={(event: any) => event.target.blur()}
+                defaultValue={item.quantity}
+              />
+              <TextField
+                id={String(i)}
+                label={`Unit Price $`}
+                name="unitPrice"
+                onChange={props.handleChange}
+                disabled={invoice?.isCanceled}
+                type={'number'}
+                inputProps={{ inputMode: 'numeric' }}
+                onWheel={(event: any) => event.target.blur()}
+                defaultValue={item.unitPrice}
+              />
+            </div>
+          </div>
+        ))}
+        <div className='mb-4'>
+          <Button disabled={invoice?.isCanceled} style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewItemForOrder} type='button' size='small'>ADD</Button>
+          <Button 
+            color='error' 
+            variant="contained" 
+            type='button' 
+            size='small'
+            onDoubleClick={props.deteteItemRow} 
+            disabled={invoice?.isCanceled}
+          >
+            Remove
+          </Button>
         </div>
 
         {/* Order Info Section  */}
@@ -782,7 +841,6 @@ const InvoiceForm = (props: Props) => {
                     </Button>
                   </ButtonGroup>
                 </div>
-
               </div>
             </div>
         )})}

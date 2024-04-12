@@ -1,0 +1,51 @@
+.invoice {
+  font-family: Arial, sans-serif;
+  max-width: 800px;
+  width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-bottom: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.company-details {
+  margin-left: 20px;
+}
+
+.company-name {
+  font-weight: bold;
+}
+
+.bill-to {
+  margin-top: 20px;
+}
+
+.items {
+  margin-top: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  border-width: 1px !important;
+}
+
+th {
+  background-color: rgb(23, 224, 124);
+}
+
+.total {
+  margin-top: 20px;
+}

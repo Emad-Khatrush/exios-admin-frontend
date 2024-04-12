@@ -55,8 +55,15 @@ export type Invoice = {
   },
   paymentList: Package[],
   createdAt: Date,
-  updatedAt: Date
+  updatedAt: Date,
+  items: OrderItem[]
 }
+
+export type OrderItem = {
+  description: string
+  quantity: number
+  unitPrice: number
+} 
 
 export type ShipmentPrice = {
   country: string

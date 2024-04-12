@@ -24,6 +24,7 @@ export interface IInvoice{
   unsureOrdersCount: number
   arrivingOrdersCount: number
   tabType: string
+  order?: Invoice
 }
 
 export const initialState: IInvoice = {
@@ -73,7 +74,8 @@ export const invoice = (state: IInvoice = initialState, action: any) => {
               isSuccess: true,
               isLoading: false,
               message: 'Invoice has been created Successfully',
-            }
+            },
+            order: action.payload.order
           }
         }
         case STATUS_ERROR: {

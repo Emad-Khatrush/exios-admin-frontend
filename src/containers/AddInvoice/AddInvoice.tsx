@@ -35,6 +35,7 @@ type State = {
   showResponseMessage: boolean
   alertMessage: string
   isError: boolean
+  items: any
 }
 
 const breadcrumbs = [
@@ -57,6 +58,12 @@ class AddInvoice extends Component<Props, State> {
     previewInvoiceFiles: [],
     previewReceiptsFiles: [],
     formData: [],
+    items: [{
+      index: Math.floor(Math.random() * 1000),
+      description: '',
+      quantity: 1,
+      unitPrice: 0
+    }],
     paymentList: [{
       index: Math.floor(Math.random() * 1000),
       paymentLink: '',
@@ -95,8 +102,8 @@ class AddInvoice extends Component<Props, State> {
   componentDidUpdate() {
     if (this.props.invoice.listStatus.isSuccess) {
       setTimeout(() => {
-        this.props.router.navigate('/invoices');
-      }, 1500)
+        this.props.router.navigate(`/invoice/${this.props.invoice.order?._id}/edit`);
+      }, 1000)
     }
   }
 
@@ -167,6 +174,12 @@ class AddInvoice extends Component<Props, State> {
       }
       
       this.setState({ paymentList });
+    } else if (['description', 'itemQuantity', 'unitPrice'].includes(fieldName)) {
+      const fieldName = formatInvoiceFields(event.target.name);
+      const index = event.target.id;
+      let items: any = [...this.state.items!];
+      items[index][fieldName] = event.target.value;
+      this.setState({ items });
     } else {
       const value = event.target.inputMode === 'numeric' ? Number(event.target.value) : event.target.value;
       
@@ -178,6 +191,21 @@ class AddInvoice extends Component<Props, State> {
       }))
     }
   };
+
+  deleteItemRow = () => {
+    const { items } = this.state;
+    // delete last row of the list
+    // in v2, I will delete rows depending on his index
+    if (items.length > 1) {
+      items.pop();   
+      this.setState({
+        items,
+        formData:  {
+          items
+        }
+      });
+    }
+  }
 
   deteteRow = () => {
     const { paymentList } = this.state;
@@ -192,6 +220,17 @@ class AddInvoice extends Component<Props, State> {
         }
       });
     }
+  }
+
+  addNewOrderItem = () => {
+    this.setState((prevState) => ({
+      items: [...prevState.items, {
+        index: Math.floor(Math.random() * 1000),
+        description: '',
+        quantity: 1,
+        unitPrice: 0
+      }],
+    }));
   }
 
   addNewPaymentField = () => {
@@ -239,6 +278,7 @@ class AddInvoice extends Component<Props, State> {
     }
 
     formData.append('paymentList', JSON.stringify(this.state.paymentList));
+    formData.append('items', JSON.stringify(this.state.items));
     formData.append('invoicesCount', String(invoiceImagesCount));
 
     this.props.createInvoice(formData);
@@ -304,6 +344,9 @@ class AddInvoice extends Component<Props, State> {
                   handleChange={this.handleChange}
                   paymentList={this.state.paymentList}
                   addNewPaymentField={this.addNewPaymentField}
+                  items={this.state.items}
+                  addNewItemForOrder={this.addNewOrderItem}
+                  deteteItemRow={this.deleteItemRow}
                   displayAlert={this.displayAlert}
                   deteteRow={this.deteteRow}
                   isEmployee={isEmployee}

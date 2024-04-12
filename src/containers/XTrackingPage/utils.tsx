@@ -49,6 +49,9 @@ export const formatInvoiceFields = (name: string) => {
 
     case 'containerNumber':
       return 'containerInfo'
+
+    case 'itemQuantity':
+      return 'quantity'
   
     default:
       return name;

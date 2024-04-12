@@ -23,6 +23,9 @@ export const createInvoice = (data: any) => {
           dispatch({
             status: STATUS_SUCCESS,
             type: CREATE_INVOICE,
+            payload: {
+              order: res
+            }
           });
         } else {
           dispatch({

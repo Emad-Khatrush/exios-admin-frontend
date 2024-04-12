@@ -19,6 +19,7 @@ import './EditInvoice.scss';
 import moment from 'moment'
 import { FaCopy } from 'react-icons/fa'
 import { MdOutlineLibraryAddCheck } from 'react-icons/md'
+import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplate'
 
 type Props = {
   router: RouteMatch
@@ -32,6 +33,7 @@ type State = {
   changedFields: Invoice | any
   isInvoicePending: boolean
   paymentList: any[]
+  items: any[]
   activity: OrderActivity,
   isError: boolean
   isUpdating: boolean
@@ -46,6 +48,8 @@ type State = {
   shippingMethodForLabel: 'air' | 'sea'
   inspectionCheckbox: boolean
   userDebts: Debt[]
+  codeRef: any
+  showPreviewInvoice: boolean
 }
 
 const breadcrumbs = [
@@ -79,6 +83,7 @@ export class EditInvoice extends Component<Props, State> {
     changedFields: [],
     isInvoicePending: true,
     paymentList: [],
+    items: [],
     activity: {
       country: '',
       description: ''
@@ -95,7 +100,9 @@ export class EditInvoice extends Component<Props, State> {
     shippingLabelDialogOpen: false,
     shippingMethodForLabel: 'air',
     inspectionCheckbox: false,
-    userDebts: []
+    userDebts: [],
+    codeRef: React.createRef(),
+    showPreviewInvoice: false
   }
 
   async componentDidMount() {
@@ -103,10 +110,31 @@ export class EditInvoice extends Component<Props, State> {
       const order = (await api.get(`order/${this.props.router.params.id}`)).data;
       const employees = (await api.get(`employees`)).data?.results;
       const userDebts = (await api.get(`debts/user/${order?.user?.customerId}`)).data || [];
-      this.setState({ userDebts, formData: order, paymentList: order?.paymentList, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
+      this.setState({ userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
     } catch (error) {
       console.log(error);
     }
+  }
+
+  addNewItemForOrder = () => {
+    const newLink = {
+      index: Math.floor(Math.random() * 1000),
+      description: '',
+      quantity: 1,
+      unitPrice: 0
+    };
+    
+    this.setState((prevState: any) => ({
+      formData: {
+        ...prevState.formData,
+        items: [...prevState.formData.items, newLink]
+      },
+      changedFields: {
+        ...this.state.changedFields,
+        items: [...prevState.formData.items, newLink]
+      },
+      items: [...prevState.formData.items, newLink]
+    }));
   }
 
   addNewPaymentField = () => {
@@ -147,6 +175,26 @@ export class EditInvoice extends Component<Props, State> {
       },
       paymentList: [...prevState.paymentList, newLink]
     }));
+  }
+
+  deteteItemRow = () => {
+    const { items } = this.state;
+    // delete last row of the list
+    // in v2, I will delete rows depending on his index
+    if (items?.length > 1) {
+      items.pop();
+      this.setState({
+        items,
+        formData: {
+          ...this.state.formData,
+          items
+        },
+        changedFields: {
+          ...this.state.changedFields,
+          items
+        }
+      });
+    }
   }
 
   deteteRow = () => {
@@ -256,6 +304,18 @@ export class EditInvoice extends Component<Props, State> {
           paymentList
         }
       }))
+    } else if (['description', 'itemQuantity', 'unitPrice'].includes(name)) {
+      const fieldName = formatInvoiceFields(name);
+      const index = id;
+      let items: any = [...this.state.items!];
+      items[index][fieldName] = value;
+      this.setState((oldValues) => ({
+        changedFields: {
+          ...oldValues.changedFields,
+          items
+        }
+      }))
+
     } else {            
       this.setState((oldValues) => ({
         changedFields: {
@@ -555,7 +615,7 @@ export class EditInvoice extends Component<Props, State> {
   }
 
   render() {
-    const { formData, isInvoicePending, isUpdating, isError, isFinished, resMessage, whatsupMessage, employees, isCancelOrderDialogOpen, shippingLabelDialogOpen } = this.state;    
+    const { formData, isInvoicePending, showPreviewInvoice, isUpdating, isError, isFinished, resMessage, whatsupMessage, employees, isCancelOrderDialogOpen, shippingLabelDialogOpen } = this.state;    
     const { account } = this.props;
 
     const invoiceFileRef = React.createRef();
@@ -597,6 +657,7 @@ https://www.exioslibya.com/login
 
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
+    console.log(this.state);
     
     return (
       <div className="m-4 edit-invoice">
@@ -621,6 +682,15 @@ https://www.exioslibya.com/login
                     Cancel
                   </Button>
                 }
+                <Button 
+                  style={{ marginRight: '8px' }} 
+                  variant="outlined" 
+                  color="success" 
+                  size='small'
+                  onClick={() => this.setState({ showPreviewInvoice: true })}
+                >
+                  Download Invoice
+                </Button>
               </div>
             </div>
             <div className='d-flex justify-content-between align-items-center'>
@@ -860,6 +930,9 @@ https://www.exioslibya.com/login
                     paymentList={this.state.paymentList}
                     addNewPaymentField={this.addNewPaymentField}
                     fileUploaderHandler={this.uploadFilesToLinks}
+                    items={this.state.items}
+                    addNewItemForOrder={this.addNewItemForOrder}
+                    deteteItemRow={this.deteteItemRow}
                     displayAlert={this.displayAlert}
                     deleteFileOfLink={this.deleteFileOfLink}
                     deteteRow={this.deteteRow}
@@ -983,6 +1056,18 @@ https://www.exioslibya.com/login
             >
               Download Label
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog fullScreen open={showPreviewInvoice} onClose={() => this.setState({ showPreviewInvoice: false })}>
+          <DialogContent>
+            <InvoiceTemplate 
+              invoice={formData}
+              changedFields={this.state.changedFields}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => this.setState({ showPreviewInvoice: false })} >Back</Button>
           </DialogActions>
         </Dialog>
       </div>
