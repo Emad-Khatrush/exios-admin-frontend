@@ -125,7 +125,11 @@ const TransferOrdersList = (props: Props) => {
       setLoading(true);
       const ids: any = [];
       rightChecked.forEach((order: any) => {
-        ids.push(order?.paymentList?._id);
+        ids.push({
+          paymentList: {
+            _id: order?.paymentList?._id
+          }
+        });
       })
       const response = await api.get(`warehouse/${office}/goods`);
       const tripoliInventory = response.data[0];
