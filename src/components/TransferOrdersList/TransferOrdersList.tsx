@@ -331,45 +331,48 @@ const TransferOrdersList = (props: Props) => {
         >
           {items.map((order: any) => {
             return (
-              <ListItem
-                key={order}
-                role="listitem"
-                button
-                onClick={handleToggle(order)}
-              >
-                <ListItemIcon>
-                  <Checkbox
-                    checked={checked.indexOf(order) !== -1}
-                    tabIndex={-1}
-                    disableRipple
-                    inputProps={{
-                      'aria-labelledby': order,
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText 
-                  id={order}
-                  primary={
-                    <div>
-                      <p className='m-0 d-flex gap-2'>
-                        <a style={{ textDecoration: 'none' }} className='m-0' href={`/invoice/${order?._id}/edit`} target='__blank'>
-                          {order?.orderId}
-                        </a>
-                        <Badge text={`${order?.paymentList?.status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} `} />
-                      </p>
-                      <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
-                      <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
-                      <br />
-                      {order?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${order?.paymentList?.deliveredPackages?.receiptNo} `} /> }
-                      <div className='d-flex gap-3 mt-2 align-items-center'>
-                        {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages?.weight.total} ${order.paymentList?.deliveredPackages?.weight?.measureUnit}`} />}
-                        {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
-                        {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
+              <div>
+                <ListItem
+                  key={order}
+                  role="listitem"
+                  button
+                  onClick={handleToggle(order)}
+                >
+                  <ListItemIcon>
+                    <Checkbox
+                      checked={checked.indexOf(order) !== -1}
+                      tabIndex={-1}
+                      disableRipple
+                      inputProps={{
+                        'aria-labelledby': order,
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText 
+                    id={order}
+                    primary={
+                      <div>
+                        <p className='m-0 d-flex gap-2'>
+                          <a style={{ textDecoration: 'none' }} className='m-0' href={`/invoice/${order?._id}/edit`} target='__blank'>
+                            {order?.orderId}
+                          </a>
+                          <Badge text={`${order?.paymentList?.status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} `} />
+                        </p>
+                        <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
+                        <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
+                        <br />
+                        {order?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${order?.paymentList?.deliveredPackages?.receiptNo} `} /> }
+                        <div className='d-flex gap-3 mt-2 align-items-center'>
+                          {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages?.weight.total} ${order.paymentList?.deliveredPackages?.weight?.measureUnit}`} />}
+                          {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
+                          {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
+                        </div>
                       </div>
-                    </div>
-                  }
-                />
-              </ListItem>
+                    }
+                  />
+                </ListItem>
+                <hr />
+              </div>
             );
           })}
         </List>

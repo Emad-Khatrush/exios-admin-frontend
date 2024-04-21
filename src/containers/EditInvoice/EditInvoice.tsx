@@ -657,7 +657,6 @@ https://www.exioslibya.com/login
 
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
-    console.log(this.state);
     
     return (
       <div className="m-4 edit-invoice">

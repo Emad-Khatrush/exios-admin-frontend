@@ -48,7 +48,7 @@ export const InvoiceTemplate = (props: Props) => {
   const handleDownload = () => {
     const codeElement: any = codeRef.current;
 
-    html2canvas(codeElement, { scale: 3 })
+    html2canvas(codeElement, { scale: 1 })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF();
@@ -73,7 +73,8 @@ export const InvoiceTemplate = (props: Props) => {
       >
         Download Invoice
       </Button>
-      <div className="invoice" ref={codeRef}>
+
+      <div id='invoice22' className="invoice" ref={codeRef}>
         <div className="header mb-4">
           <img width={'25%'} src="/images/exios-logo-without-background.png" alt="Company Logo" />
           <div>
