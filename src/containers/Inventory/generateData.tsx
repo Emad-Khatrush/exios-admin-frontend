@@ -82,6 +82,15 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     align: 'center'
   },
   {
+    field: 'received',
+    headerName: 'Received',
+    width: 120,
+    align: 'center',
+    renderCell: (params: GridRenderCellParams<String>) => {
+      return <div style={{fontWeight: '500', color: params.row.receivedOrdersCount === params.row.ordersCount ? '#47c022' : '#000'}} className='MuiDataGrid-cell MuiDataGrid-cell--editable'> {params.value} </div>
+    },
+  },
+  {
     field: 'note',
     headerName: 'Note',
     width: 300,
@@ -107,6 +116,16 @@ export const generateDataToListType = (list: any[]) => {
     shippedCountry: data.shippedCountry,
     voyageAmount: data.voyageAmount + ' ' + data.voyageCurrency,
     ordersCount: data?.orders?.length,
-    createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A')
+    createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
+    received: `${countReceivedGoods(data?.orders)} / ${data?.orders?.length}`,
+    receivedOrdersCount: countReceivedGoods(data?.orders)
   }));
+}
+
+const countReceivedGoods = (orders: any) => {
+  let count = 0;
+  orders.forEach((order: any) => {
+    count += order?.paymentList?.status?.received ? 1 : 0;
+  })
+  return count;
 }

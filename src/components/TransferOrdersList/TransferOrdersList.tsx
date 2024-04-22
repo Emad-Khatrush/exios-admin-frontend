@@ -293,29 +293,34 @@ const TransferOrdersList = (props: Props) => {
 
   const customListForChosen = (title: React.ReactNode, items: readonly number[]) => {
     const filteredItems = items;
+    const weight = calculateWeightsOfPackages(rightChecked);
 
     return (
       <Card className='mt-2'>
         <button onClick={handleDownload}>Download Excel</button>
         <p className='p-1 text-center'>البضائع في قائمة الجرد</p>
-        <CardHeader
-          sx={{ px: 2, py: 1 }}
-          avatar={
-            <Checkbox
-              onClick={handleToggleAll(filteredItems)}
-              checked={numberOfChecked(filteredItems) === filteredItems.length && filteredItems.length !== 0}
-              indeterminate={
-                numberOfChecked(filteredItems) !== filteredItems.length && numberOfChecked(filteredItems) !== 0
-              }
-              disabled={filteredItems.length === 0}
-              inputProps={{
-                'aria-label': 'all items selected',
-              }}
-            />
-          }
-          title={title}
-          subheader={`${numberOfChecked(filteredItems)}/${filteredItems.length} selected`}
-        />
+        <div className='d-flex justify-content-between align-items-center'>
+          <CardHeader
+            sx={{ px: 2, py: 1 }}
+            avatar={
+              <Checkbox
+                onClick={handleToggleAll(filteredItems)}
+                checked={numberOfChecked(filteredItems) === filteredItems.length && filteredItems.length !== 0}
+                indeterminate={
+                  numberOfChecked(filteredItems) !== filteredItems.length && numberOfChecked(filteredItems) !== 0
+                }
+                disabled={filteredItems.length === 0}
+                inputProps={{
+                  'aria-label': 'all items selected',
+                }}
+              />
+            }
+            title={title}
+            subheader={`${numberOfChecked(filteredItems)}/${filteredItems.length} selected`}
+          />
+
+          {weight.length > 2 && <p className='mb-0' style={{ marginRight: '12px' }}>{weight}</p>}
+        </div>
         <Divider />
         <List
           sx={{
@@ -357,6 +362,7 @@ const TransferOrdersList = (props: Props) => {
                             {order?.orderId}
                           </a>
                           <Badge text={`${order?.paymentList?.status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} `} />
+                          {order?.paymentList?.status?.received && <Badge text={'تم تسليم'} color="success" />} 
                         </p>
                         <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
                         <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
@@ -518,6 +524,18 @@ const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: s
     return minPrice;
   }
   return Math.ceil(total);
+}
+
+const calculateWeightsOfPackages = (orders: any) => {
+  let weight = 0;
+  let unit = '';
+  orders.forEach((order: any) => {
+    if (!unit) {
+      unit = order?.paymentList?.deliveredPackages?.weight?.measureUnit || '';
+    }
+    weight += order?.paymentList?.deliveredPackages?.weight?.total || 0;
+  })
+  return `${weight} ${unit}`;
 }
 
 export default TransferOrdersList;

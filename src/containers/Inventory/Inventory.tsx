@@ -42,12 +42,12 @@ const Inventory = () => {
 
   const filterList = (list: any[]) => {
     let filteredList = list;
-    
     return filteredList.filter(data => (
       (data.voyage || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
       (data.inventoryPlace || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
       (data.shippedCountry || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data?._id || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1
+      (data?._id || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 || 
+      searchInsideOrders(data?.orders, searchValue)
     ))
   }
 
@@ -104,6 +104,18 @@ const Inventory = () => {
       </Dialog>
     </div>
   )
+}
+
+const searchInsideOrders = (orders: any = [], value: string) => {
+  for (const order of orders) {
+    if (
+      (order?.paymentList?.deliveredPackages?.trackingNumber || "").toLocaleLowerCase().indexOf(value.toLocaleLowerCase()) > -1 ||
+      (order?.orderId || "").toLocaleLowerCase().indexOf(value.toLocaleLowerCase()) > -1
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export default Inventory;
