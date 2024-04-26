@@ -351,6 +351,7 @@ class AddInvoice extends Component<Props, State> {
                   deteteRow={this.deteteRow}
                   isEmployee={isEmployee}
                   employees={employees}
+                  totalInvoice={0}
                 />
                 <div className="col-md-12 mb-2 text-end">
                   <CustomButton 

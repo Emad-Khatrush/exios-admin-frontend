@@ -31,6 +31,7 @@ type Props = {
   invoice?: Invoice | undefined
   isEmployee?: boolean
   employees?: User[]
+  totalInvoice: number
 }
 
 const InvoiceForm = (props: Props) => {
@@ -217,7 +218,7 @@ const InvoiceForm = (props: Props) => {
           <p className='title'> Order Items </p>
         </div>
         
-        {props.items.map((item: OrderItem, i: number) => (
+        {(props.items || []).map((item: OrderItem, i: number) => (
           <div className='col-md-12 mb-2'>
             <div className="d-flex mb-3">
               <TextField
@@ -333,9 +334,9 @@ const InvoiceForm = (props: Props) => {
             type={'number'}
             inputProps={{ inputMode: 'numeric' }}
             onChange={props.handleChange}
-            defaultValue={invoice?.totalInvoice}
+            value={props.totalInvoice || invoice?.totalInvoice}
             onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
+            disabled={true}
           />
         </div>
 
@@ -396,7 +397,7 @@ const InvoiceForm = (props: Props) => {
               }}
               defaultValue={invoice?.debt?.total}
               onWheel={(event: any) => event.target.blur()}
-              disabled={invoice?.isCanceled}
+              disabled={invoice?.isCanceled || props.isEmployee}
             />
             <FormControl 
               required={debt.total > 0 ? true : false} 
@@ -417,8 +418,8 @@ const InvoiceForm = (props: Props) => {
                   })
                   return props.handleChange(event);
                 }}
-                disabled={invoice?.isCanceled}
-              >
+                disabled={invoice?.isCanceled || props.isEmployee}
+                >
                 <MenuItem value={'USD'}>
                   <em> USD </em>
                 </MenuItem>
@@ -781,6 +782,19 @@ const InvoiceForm = (props: Props) => {
                         text={payment?.deliveredPackages?.locationPlace} 
                         color="primary"
                       />
+                    }
+
+                    {payment?.flight &&
+                      <a href={`/inventory/${payment?.flight?._id}/edit`} target='__blank' style={{ textDecoration: 'none' }}>
+                        <Badge
+                          style={{
+                            fontFamily: 'system-ui',
+                            marginLeft: '6px'
+                          }}
+                          text={payment?.flight.voyage}
+                          color="sky"
+                        />
+                      </a>
                     }
 
                     {payment?.images?.length > 0 &&

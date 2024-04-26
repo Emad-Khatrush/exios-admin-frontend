@@ -6,7 +6,7 @@ import ImageUploader from '../../components/ImageUploader/ImageUploader'
 import InvoiceForm from '../../components/InvoiceForm/InvoiceForm'
 import CustomButton from '../../components/CustomButton/CustomButton'
 import api from '../../api'
-import { Account, Debt, Invoice, OrderActivity, User } from '../../models'
+import { Account, Debt, Invoice, OrderActivity, OrderItem, User } from '../../models'
 import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
 import { getOrderSteps } from '../../utils/methods'
@@ -102,7 +102,7 @@ export class EditInvoice extends Component<Props, State> {
     inspectionCheckbox: false,
     userDebts: [],
     codeRef: React.createRef(),
-    showPreviewInvoice: false
+    showPreviewInvoice: false,
   }
 
   async componentDidMount() {
@@ -441,11 +441,16 @@ export class EditInvoice extends Component<Props, State> {
   submit = (event: MouseEvent) => {
     event.preventDefault();    
     this.setState({ isUpdating: true })
+    const totalInvoice = calculateTotalItems(this.state.formData?.items);
+
     const order = {
       isPayment: this.state.formData.isPayment,
       orderStatus: this.state.formData.orderStatus,
       ...this.state.changedFields
-    };    
+    };
+    if (this.state.formData.totalInvoice !== totalInvoice) {
+      order.totalInvoice = totalInvoice;
+    }
     const steps = getOrderSteps(order);
     const isOrderFinished = steps?.length - 1 === order.orderStatus;
     order.isFinished = isOrderFinished;    
@@ -453,7 +458,7 @@ export class EditInvoice extends Component<Props, State> {
     api.update(`order/${this.props.router.params.id}`, order)
       .then((res) => {
         this.setState({
-          formData: res.data,
+          formData: { ...res.data, customerId: res.data?.user?.customerId },
           changedFields: [],
           isUpdating: false,
           isFinished: true,
@@ -657,6 +662,7 @@ https://www.exioslibya.com/login
 
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
+    const totalInvoice = calculateTotalItems(formData?.items);
     
     return (
       <div className="m-4 edit-invoice">
@@ -938,6 +944,7 @@ https://www.exioslibya.com/login
                     invoice={formData || null}
                     isEmployee={this.props.isEmployee}
                     employees={employees}
+                    totalInvoice={totalInvoice}
                   />
                   <div className="col-md-12 mb-2 text-end">
                     <CustomButton 
@@ -1087,6 +1094,14 @@ const getTotalDebtOfUser = (debts: Debt[]) => {
   })
 
   return { totalLyd, totalUsd };
+}
+
+const calculateTotalItems = (items: OrderItem[]) => {
+  let total = 0;
+  (items || []).forEach((item: OrderItem) => {
+    total += item.unitPrice * item.quantity;
+  })
+  return total;
 }
 
 const mapStateToProps = (state: any) => {

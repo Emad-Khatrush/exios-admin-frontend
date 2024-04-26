@@ -39,7 +39,7 @@ const adminRoutes = [
         icon: <MdOutlineInput className="sidebar-icon" />,
      },
      {
-      title: 'Balances',
+      title: 'Debts',
       path: '/balances',
       icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
      },
@@ -107,7 +107,7 @@ const adminRoutes = [
         icon: <FaArchive className="sidebar-icon" />,
     },
     {
-      title: 'Balances',
+      title: 'Debts',
       path: '/balances',
       icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
      },
