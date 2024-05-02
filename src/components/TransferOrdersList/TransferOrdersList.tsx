@@ -19,6 +19,7 @@ import moment from 'moment';
 import { IoIosListBox } from 'react-icons/io';
 import ActivityDialog from './ActivityDialog';
 import EditPackageWeight from './EditPackageWeight';
+import { calculateMinTotalPrice } from '../../utils/methods';
 
 function not(a: readonly number[], b: readonly number[]) {
   return a.filter((value) => b.indexOf(value) === -1);
@@ -83,7 +84,7 @@ const TransferOrdersList = (props: Props) => {
         orderPackage.paymentList.deliveredPackages.receiptNo,
         `${orderPackage.paymentList.deliveredPackages.weight.total} ${orderPackage.paymentList.deliveredPackages.weight.measureUnit}`,
         `${orderPackage.paymentList.deliveredPackages.exiosPrice} $`,
-        `${calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry)} $`,
+        `${calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry, orderPackage.paymentList.deliveredPackages.weight.measureUnit)} $`,
         orderPackage.paymentList.deliveredPackages.locationPlace,
         orderPackage.shipment.toWhere
       ])
@@ -510,20 +511,6 @@ const TransferOrdersList = (props: Props) => {
       </Backdrop>
     </Grid>
   );
-}
-
-const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: string) => {
-  const total = price * weight;
-  let minPrice = price;
-
-  // The min weight from China is half of price
-  if (shippedCountry === 'CN') {
-    minPrice = price / 2;
-  }
-  if (total <= minPrice) {
-    return minPrice;
-  }
-  return Math.ceil(total);
 }
 
 const calculateWeightsOfPackages = (orders: any) => {

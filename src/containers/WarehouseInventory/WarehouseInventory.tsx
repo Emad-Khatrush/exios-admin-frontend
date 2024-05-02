@@ -38,7 +38,7 @@ const WarehouseInventory = () => {
       setIsLoading(true)
       const response = await api.get('warehouse/tripoli/goods');
       setOrders(response.data[0]?.orders || []);
-      setInventory(response.data[0] || [])
+      setInventory(response.data[0] || []);
     } catch (error) {
       setOrders([])
       console.log(error);

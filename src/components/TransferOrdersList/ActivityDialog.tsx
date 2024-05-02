@@ -3,7 +3,7 @@ import React from 'react'
 import { countries, orderActions } from '../../containers/EditInvoice/EditInvoice';
 import CustomButton from '../CustomButton/CustomButton';
 import { arrivedPackageDetails, reminderToReceiveGoodsText } from './readyTexts';
-import { replaceWords } from '../../utils/methods';
+import { calculateMinTotalPrice, replaceWords } from '../../utils/methods';
 import api from '../../api';
 import { Inventory } from '../../models';
 
@@ -54,7 +54,7 @@ const ActivityDialog = (props: Props) => {
       tokenOrderId.push(order.orderId)
     })
     
-    const totalPrice = calculateMinTotalPrice(exiosPrice, weight, props.inventory.shippedCountry);
+    const totalPrice = calculateMinTotalPrice(exiosPrice, weight, props.inventory.shippedCountry, measureUnit);
     const message = replaceWords(whatsupMessage, {
       fullName: fullName,
       orderId: orderId,
@@ -65,8 +65,8 @@ const ActivityDialog = (props: Props) => {
       noteForHandlingFeesInUSA: ['USA', 'UK'].includes(props.inventory.shippedCountry)  ? 'ملاحظة: يوجد رسوم مناولة على كل شحنة لم تضف الى حسبة الاجمالية' : ''
     })
     contacts.push({ phoneNumber: customerOrders[0].user.phone , message })
-  }  
-   
+  }
+
    api.post(`inventorySendWhatsupMessages`, { data: contacts })
    .then(() => {
      setShowResponseMessage('Whatsup message has been send successfully');
@@ -249,20 +249,6 @@ const ActivityDialog = (props: Props) => {
       </Backdrop>
     </div>
   )
-}
-
-const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: string) => {
-  const total = price * weight;
-  let minPrice = price;
-
-  // The min weight from China is half of price
-  if (shippedCountry === 'CN') {
-    minPrice = price / 2;
-  }
-  if (total <= minPrice) {
-    return minPrice;
-  }
-  return Math.ceil(total);
 }
 
 export default ActivityDialog;

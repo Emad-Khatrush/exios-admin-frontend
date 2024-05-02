@@ -4,6 +4,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import moment from "moment-timezone";
 import MenuWrapper from "../../components/MenuWrapper/MenuWrapper";
+import { calculateMinTotalPrice } from "../../utils/methods";
 
 export const defaultColumns = (setState: any) => ([
   {
@@ -157,7 +158,7 @@ export const generateDataToListType = (list: any[]) => {
     weight: `${data.paymentList?.deliveredPackages?.weight?.total || 0} ${data.paymentList.deliveredPackages?.weight?.measureUnit || ''}`,
     note: data.shipment.toWhere,
     exiosShipmentPrice: `${data.paymentList?.deliveredPackages?.exiosPrice} $`,
-    cost: `${Math.ceil(data.paymentList?.deliveredPackages?.exiosPrice * data.paymentList?.deliveredPackages?.weight?.total)} $`,
+    cost: `${calculateMinTotalPrice(data.paymentList?.deliveredPackages?.exiosPrice, data.paymentList?.deliveredPackages?.weight?.total, 'CN', data.paymentList.deliveredPackages?.weight?.measureUnit)} $`,
     createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
     locationPlace: data.paymentList?.deliveredPackages?.locationPlace
   }));
