@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -75,6 +75,11 @@ const adminRoutes = [
       icon: <FaWarehouse className="sidebar-icon" />,
      },
      {
+      title: 'Returned Payments',
+      path: '/returnedPayments',
+      icon: <FaMoneyCheckAlt className="sidebar-icon" />,
+     },
+     {
       mainTitle: 'Settings'
      },
      {
@@ -143,6 +148,11 @@ const adminRoutes = [
       title: 'Warehouse',
       path: '/mangage',
       icon: <FaWarehouse className="sidebar-icon" />,
+     },
+     {
+      title: 'Returned Payments',
+      path: '/returnedPayments',
+      icon: <FaMoneyCheckAlt className="sidebar-icon" />,
      },
      {
       mainTitle: 'Settings'

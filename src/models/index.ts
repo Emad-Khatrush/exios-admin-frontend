@@ -105,6 +105,7 @@ export type User = {
 }
 
 export type Package = {
+  _id: string
   deliveredPackages: {
     arrivedAt: Date
     exiosPrice: number
