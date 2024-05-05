@@ -453,8 +453,15 @@ export class EditInvoice extends Component<Props, State> {
     }
     const steps = getOrderSteps(order);
     const isOrderFinished = steps?.length - 1 === order.orderStatus;
-    order.isFinished = isOrderFinished;    
+    order.isFinished = isOrderFinished;
 
+    if (order?.paymentList?.length > 0) {
+      order.paymentList = order?.paymentList.map((data: any) => {
+        delete data?.flight;
+        return data;
+      }) 
+    }
+    
     api.update(`order/${this.props.router.params.id}`, order)
       .then((res) => {
         this.setState({
