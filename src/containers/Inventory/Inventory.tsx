@@ -5,9 +5,10 @@ import Card from "../../components/Card/Card";
 import TextInput from "../../components/TextInput/TextInput";
 import InfoTable from "../../components/InfoTable/InfoTable";
 import { useEffect, useState } from "react";
-import api from "../../api";
+import api, { base } from "../../api";
 import { defaultColumns, generateDataToListType } from "./generateData";
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper";
+import Badge from "../../components/Badge/Badge";
 
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">
@@ -20,19 +21,27 @@ const breadcrumbs = [
 
 const Inventory = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [inventories, setInventories] = useState([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [inventories, setInventories] = useState<any>([]);
   const [previewImages, setPreviewImages] = useState();
-  const [searchValue, setSearchValue] = useState('');
+  const [cancelToken, setCancelToken] = useState(null);
+  const [searchValue, setSearchValue] = useState(null);
+  const [lastMeta, setLastMeta] = useState<{ skip: string, limit: string, total: number }>({ skip: '0', limit: '10', total:  0});
 
   useEffect(() => {
     getAllInventory();
   }, [])
 
+  useEffect(() => {
+    
+  }, [cancelToken])
+
   const getAllInventory = async () => {
     try {
       setIsLoading(true)
-      const response = await api.get('inventory');
-      setInventories(response.data);
+      const response = (await api.get('inventory', { skip: 0, limit: 10 }))?.data;
+      setInventories(response.results);
+      setLastMeta(response);
     } catch (error) {
       console.log(error);
     } finally {
@@ -40,19 +49,41 @@ const Inventory = () => {
     }
   }
 
-  const filterList = (list: any[]) => {
-    let filteredList = list;
-    return filteredList.filter(data => (
-      (data.voyage || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data.inventoryPlace || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data.shippedCountry || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 ||
-      (data?._id || "").toLocaleLowerCase().indexOf(searchValue.toLocaleLowerCase()) > -1 || 
-      searchInsideOrders(data?.orders, searchValue)
-    ))
+  const filterList = async (event: any) => {
+    try {
+      const searchValue = event.target.value;
+      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+      setCancelToken(cancelTokenSource);
+      setSearchValue(searchValue);
+      if (!searchValue) {
+        getAllInventory();
+        return;
+      }
+
+      const response = (await api.get('inventory', { skip: 0, limit: 10000, searchValue, cancelToken }))?.data;
+      setInventories(response.results);
+      setLastMeta(response);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsFetching(false);
+    }
+  }
+
+  const fetchList = async () => {
+    try {
+      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+      const { skip } = lastMeta;
+      const response: any = (await api.get('inventory', { skip: Number(skip) + 10, limit: 10, cancelToken: cancelTokenSource }))?.data || [];
+      setInventories((prev: any) => ([...prev, ...response.results]));
+      setLastMeta(response);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   const columns = [...defaultColumns(setPreviewImages)];
-  const filteredList = generateDataToListType(filterList(inventories));
+  const filteredList = generateDataToListType(inventories);
 
   return (
     <div className="container mt-4">
@@ -75,12 +106,23 @@ const Inventory = () => {
         </div>
 
         <div className="col-12">
-          <Card>
+          <Card
+            tabs={[
+              {
+                label: 'All',
+                value: 'all',
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.total)} color="primary" />
+              },
+            ]}
+          >
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
               <TextInput 
                 placeholder="Search for inventory" 
                 icon={<AiOutlineSearch />}
-                onChange={(event: any) => setSearchValue(event.target.value)}
+                onChange={(event: any) => {
+                  setIsFetching(true);
+                  filterList(event);
+                }}
               />
             </div>
             {isLoading ?
@@ -89,6 +131,8 @@ const Inventory = () => {
               <InfoTable
                 columns={columns}
                 data={filteredList}
+                fetchList={!searchValue && fetchList}
+                isLoading={isFetching}
               />
             }
           </Card>
@@ -104,18 +148,6 @@ const Inventory = () => {
       </Dialog>
     </div>
   )
-}
-
-const searchInsideOrders = (orders: any = [], value: string) => {
-  for (const order of orders) {
-    if (
-      (order?.paymentList?.deliveredPackages?.trackingNumber || "").toLocaleLowerCase().indexOf(value.toLocaleLowerCase()) > -1 ||
-      (order?.orderId || "").toLocaleLowerCase().indexOf(value.toLocaleLowerCase()) > -1
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 export default Inventory;
