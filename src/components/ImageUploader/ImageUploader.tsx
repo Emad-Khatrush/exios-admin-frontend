@@ -25,7 +25,16 @@ class ImageUploader extends Component<Props, State> {
     
     return (
       <div>
-        <input id={id} multiple className='d-none' onChange={fileUploaderHandler} ref={inputFileRef} type="file" required={required || false} />
+        <input 
+          id={id} 
+          multiple 
+          className='d-none' 
+          onChange={fileUploaderHandler} 
+          ref={inputFileRef} 
+          type="file" 
+          required={required || false} 
+        />
+
         <div className='circle-border' onClick={() => inputFileRef.current.click()}>
           <div className='upload-section'>
             <BiImageAdd className='icon' />

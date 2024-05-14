@@ -237,7 +237,7 @@ const InvoiceForm = (props: Props) => {
                 onChange={props.handleChange}
                 disabled={invoice?.isCanceled}
                 type={'number'}
-                inputProps={{ inputMode: 'numeric' }}
+                inputProps={{ inputMode: 'numeric', step: .01 }}
                 onWheel={(event: any) => event.target.blur()}
                 defaultValue={item.quantity}
               />
@@ -248,7 +248,7 @@ const InvoiceForm = (props: Props) => {
                 onChange={props.handleChange}
                 disabled={invoice?.isCanceled}
                 type={'number'}
-                inputProps={{ inputMode: 'numeric' }}
+                inputProps={{ inputMode: 'numeric', step: .01 }}
                 onWheel={(event: any) => event.target.blur()}
                 defaultValue={item.unitPrice}
               />
