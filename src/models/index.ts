@@ -267,7 +267,7 @@ export type Debt = {
   amount: number,
   initialAmount: number,
   currency: 'LYD' | 'USD',
-  status: 'open' | 'closed' | 'overdue' | 'lost'
+  status: 'open' | 'closed' | 'overdue' | 'lost' | 'waitingApproval'
   notes: string,
   paymentHistory: [
     {

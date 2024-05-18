@@ -47,6 +47,17 @@ const DebtHistory = (props: Props) => {
     }
   }
 
+  const confirmDebt = async (event: any) => {
+    event.preventDefault();
+
+    try {
+      await api.update(`balances/${debt._id}/confirmed`, {});
+      props.fetchData();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   return (
     <div className='row debt-details mb-2'>
       <Badge 
@@ -63,6 +74,16 @@ const DebtHistory = (props: Props) => {
               height: '25px'
             }}
             onClick={() => props.setDialog({ customComponentTag: CreateDebtHistoryDialog, isOpen: true, item: debt })}
+          />
+        }
+        {debt.status === 'waitingApproval' && allowViewHiddenFields &&
+          <CustomButton 
+            children={'Confirm Debt'}
+            color="primary"
+            style={{
+              height: '25px'
+            }}
+            onDoubleClick={confirmDebt}
           />
         }
       </div>

@@ -22,6 +22,7 @@ const DebtsTable = (props: Props) => {
   const [countList, setCountList] = useState({
     openedDebtsCount: 0,
     closedDebtsCount: 0,
+    waitingApprovalDebtsCount: 0,
     overdueDebtsCount: 0,
     lostDebtsCount: 0
   });
@@ -80,8 +81,8 @@ const DebtsTable = (props: Props) => {
     }
   }
 
-  const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount } = countList;
-  const debtTabs = getTabsOfDebts({ openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount }, (account.roles.isAdmin || account.roles?.accountant))
+  const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount, waitingApprovalDebtsCount } = countList;
+  const debtTabs = getTabsOfDebts({ openedDebtsCount, closedDebtsCount, waitingApprovalDebtsCount, overdueDebtsCount, lostDebtsCount }, (account.roles.isAdmin || account.roles?.accountant))
   const { totalLyd, totalUsd } = calculateTotalDebt(debts as any, currentOffice);
   
   return (

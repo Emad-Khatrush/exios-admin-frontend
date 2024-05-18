@@ -3,14 +3,15 @@ import Badge from "../Badge/Badge"
 type DebtsCounter = {
   openedDebtsCount: number
   closedDebtsCount: number
+  waitingApprovalDebtsCount: number
   overdueDebtsCount: number
   lostDebtsCount: number
 }
 
 export const getTabsOfDebts = (countList: DebtsCounter, isAdminOrAccountant: boolean) => {
   const debtTabs: any = []
-  const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount } = countList;
-  
+  const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount, waitingApprovalDebtsCount } = countList;
+
   debtTabs.push(
     {
       label: 'Opened Debts',
@@ -18,10 +19,15 @@ export const getTabsOfDebts = (countList: DebtsCounter, isAdminOrAccountant: boo
       icon: <Badge style={{ marginLeft: '8px'}} text={String(openedDebtsCount)} color="primary" />
     },
     {
+      label: 'Waiting Approval',
+      value: 'waitingApproval',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(waitingApprovalDebtsCount)} color="sky" />
+    },
+    {
       label: 'Closed Debts',
       value: 'closed',
       icon: <Badge style={{ marginLeft: '8px'}} text={String(closedDebtsCount)} color="success" />
-    }
+    },
   )
 
   if (isAdminOrAccountant) {
