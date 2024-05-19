@@ -20,21 +20,19 @@ const breadcrumbs = [
 ];
 
 const Inventory = () => {
+  const [quickSearchDelayTimer, setQuickSearchDelayTimer] = useState();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [inventories, setInventories] = useState<any>([]);
   const [previewImages, setPreviewImages] = useState();
   const [cancelToken, setCancelToken] = useState(null);
   const [searchValue, setSearchValue] = useState(null);
-  const [lastMeta, setLastMeta] = useState<{ skip: string, limit: string, total: number }>({ skip: '0', limit: '10', total:  0});
+  const [searchType, setSearchType] = useState('all');
+  const [lastMeta, setLastMeta] = useState<{ skip: string, limit: string, total: number, countList: any }>({ skip: '0', limit: '10', total:  0, countList: null});
 
   useEffect(() => {
     getAllInventory();
   }, [])
-
-  useEffect(() => {
-    
-  }, [cancelToken])
 
   const getAllInventory = async () => {
     try {
@@ -51,40 +49,77 @@ const Inventory = () => {
 
   const filterList = async (event: any) => {
     try {
+      setIsLoading(true);
       const searchValue = event.target.value;
-      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
-      setCancelToken(cancelTokenSource);
       setSearchValue(searchValue);
+
       if (!searchValue) {
         getAllInventory();
         return;
       }
-
-      const response = (await api.get('inventory', { skip: 0, limit: 10000, searchValue, cancelToken }))?.data;
-      setInventories(response.results);
-      setLastMeta(response);
+      
+      clearTimeout(quickSearchDelayTimer);
+      setQuickSearchDelayTimer((): any => {
+        return setTimeout(async () => {
+          const response = (await api.get('inventory', { skip: 0, limit: 10000, searchValue, cancelToken }))?.data;
+          setInventories(response.results);
+          setLastMeta(response);
+          setIsLoading(false);
+        }, 1)
+      })
     } catch (error) {
       console.log(error);
-    } finally {
-      setIsFetching(false);
+      setIsLoading(false);
     }
   }
 
   const fetchList = async () => {
+    if (searchValue) return;
+    
     try {
+      setIsFetching(true);
       const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
       const { skip } = lastMeta;
-      const response: any = (await api.get('inventory', { skip: Number(skip) + 10, limit: 10, cancelToken: cancelTokenSource }))?.data || [];
-      setInventories((prev: any) => ([...prev, ...response.results]));
-      setLastMeta(response);
+
+      clearTimeout(quickSearchDelayTimer);
+      setQuickSearchDelayTimer((): any => {
+        return setTimeout(async () => {
+          const response: any = (await api.get('inventory', { skip: Number(skip) + 10, limit: 10, cancelToken: cancelTokenSource, searchType }))?.data || [];
+          setInventories((prev: any) => ([...prev, ...response.results]));
+          setLastMeta(response);
+          setIsFetching(false);
+        }, 1)
+      })
     } catch (error) {
       console.log(error);
+      setIsFetching(false);
+    }
+  }
+
+  const onTabChange = async (value: string) => {
+    try {
+      setIsLoading(true);
+      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+
+      clearTimeout(quickSearchDelayTimer);
+      setQuickSearchDelayTimer((): any => {
+        return setTimeout(async () => {
+          const response: any = (await api.get('inventory', { skip: 0, limit: 10, searchType: value, cancelToken: cancelTokenSource }))?.data || [];
+          setInventories(() => ([...response.results]));
+          setLastMeta(response);
+          setSearchType(value);
+          setIsLoading(false);
+        }, 1)
+      })
+    } catch (error) {
+      console.log(error);
+      setIsLoading(false);
     }
   }
 
   const columns = [...defaultColumns(setPreviewImages)];
   const filteredList = generateDataToListType(inventories);
-
+  
   return (
     <div className="container mt-4">
       <div className="row">
@@ -111,16 +146,38 @@ const Inventory = () => {
               {
                 label: 'All',
                 value: 'all',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.total)} color="primary" />
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.all || 0)} color="primary" />
+              },
+              {
+                label: 'Air Flights',
+                value: 'air',
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.air || 0)} color="warning" />
+              },
+              {
+                label: 'Sea Flights',
+                value: 'sea',
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.sea || 0)} color="warning" />
+              },
+              {
+                label: 'Domestic',
+                value: 'domestic',
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.domestic || 0)} color="warning" />
+              },
+              {
+                label: 'Finished Flights',
+                value: 'finished',
+                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.finished || 0)} color="success" />
               },
             ]}
+            tabsOnChange={onTabChange}
           >
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
               <TextInput 
                 placeholder="Search for inventory" 
                 icon={<AiOutlineSearch />}
                 onChange={(event: any) => {
-                  setIsFetching(true);
+                  const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+                  setCancelToken(cancelTokenSource);
                   filterList(event);
                 }}
               />
@@ -131,7 +188,7 @@ const Inventory = () => {
               <InfoTable
                 columns={columns}
                 data={filteredList}
-                fetchList={!searchValue && fetchList}
+                fetchList={fetchList}
                 isLoading={isFetching}
               />
             }

@@ -255,7 +255,7 @@ const AddInventory = () => {
           </FormControl>
         </div>
 
-        <div className="col-md-6 mb-4 d-flex">
+        <div className="col-md-4 mb-4 d-flex">
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <Stack spacing={3}>
               <DatePicker

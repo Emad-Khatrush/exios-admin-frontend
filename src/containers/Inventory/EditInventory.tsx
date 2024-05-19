@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../api";
-import { Alert, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from "@mui/material";
+import { Alert, AlertColor, CircularProgress, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack, TextField } from "@mui/material";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import DatePicker from "@mui/lab/DatePicker";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
@@ -10,13 +10,19 @@ import React from "react";
 import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
 import { Textarea } from "@mui/joy";
+import CustomButton from "../../components/CustomButton/CustomButton";
 
 const EditInventory = () => {
   const { id } = useParams();
 
   const [inventory, setInventory] = useState<Inventory | any>();
+  const [form, setForm] = useState<Inventory | any>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
+  const [alert, setAlert] = useState({
+    tint: 'success',
+    message: ''
+  });
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
   const filesRef = React.createRef();
@@ -69,7 +75,24 @@ const EditInventory = () => {
   }
 
   const onChangeHandler = (event: any) => {
-    setInventory({ ...inventory, [event.target.name]: event.target.value });
+    setForm((prevForm: any) => ({ ...prevForm, [event.target.name]: event.target.value }));
+  }
+
+  const onSubmit = async (event: any) => {
+    event.preventDefault();
+    try {
+      await api.update(`inventory?id=${inventory._id}`, { ...form });
+      setAlert({
+        tint: 'success',
+        message: 'Data updated'
+      })
+    } catch (error: any) {
+      console.log(error);
+      setAlert({
+        tint: 'error',
+        message: error.response.data.message
+      })
+    }
   }
   
   if (isLoading && !inventory) {
@@ -80,7 +103,7 @@ const EditInventory = () => {
     
   return (
     <div className="container mt-4">
-      <form className="row">
+      <form className="row" onSubmit={onSubmit}>
         {error &&
           <Alert className="mb-2" color="error">
             {error}
@@ -108,7 +131,7 @@ const EditInventory = () => {
             id={'outlined-helperText'}
             name="voyageAmount"
             type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
             label={'Voyage Amount'}
             required
             onChange={onChangeHandler}
@@ -219,19 +242,39 @@ const EditInventory = () => {
           </FormControl>
         </div>
 
-        <div className="col-md-6 mb-4 d-flex">
+        <div className="col-md-4 mb-4 d-flex">
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <Stack spacing={3}>
               <DatePicker
                 label="Inventory Finished Date"
                 inputFormat="dd/MM/yyyy"
-                value={inventory?.inventoryFinishedDate}
+                value={form?.inventoryFinishedDate || inventory?.inventoryFinishedDate}
                 renderInput={(params: any) => <TextField {...params} />} 
                 onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
-                disabled
               />
             </Stack>
           </LocalizationProvider>
+        </div>
+
+        <div className="col-md-4 mb-4">
+          <FormControl style={{ width: '100%' }} required>
+            <InputLabel id="demo-select-small">Status</InputLabel>
+            <Select
+              labelId={'Status'}
+              id={'status'}
+              label={'Status'}
+              name="status"
+              defaultValue={inventory?.status}
+              onChange={onChangeHandler}
+            >
+              <MenuItem value={'processing'}>
+                <em> لم تكتمل بعد </em>
+              </MenuItem>
+              <MenuItem value={'finished'}>
+                <em> اكتملت </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
         </div>
 
         <div className="col-12 mb-4">
@@ -256,6 +299,16 @@ const EditInventory = () => {
             files={filesInput}
           />
         </div>
+
+        <div className="col-12 text-end">
+          <CustomButton 
+            background='rgb(0, 171, 85)' 
+            size="small"
+            disabled={isLoading}
+          >
+            Update Inventory
+          </CustomButton>
+        </div>
       </form>
 
       <hr />
@@ -264,6 +317,20 @@ const EditInventory = () => {
         inventory={inventory}
         getInventory={getInventory}
       />
+
+      <Snackbar 
+        open={!!alert.message} 
+        autoHideDuration={2500}
+        onClose={() => setAlert({ tint: 'success', message: ''})}
+      >
+        <Alert 
+          severity={alert.tint as AlertColor}
+          onClose={() => setAlert({ tint: 'success', message: ''})}
+          style={{ fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '10px' }}
+        >
+          {alert.message}
+        </Alert>
+      </Snackbar>
     </div>
   )
 }
