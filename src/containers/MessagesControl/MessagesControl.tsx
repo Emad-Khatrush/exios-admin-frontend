@@ -63,6 +63,9 @@ const MessagesControl = (props: Props) => {
               name={'content'} 
               onChange={handleChange}
               disabled={isLoading}
+              style={{
+                direction: 'rtl'
+              }}
             />
 
             <FormControl className='mb-3' style={{ width: '100%' }} required>
