@@ -6,6 +6,8 @@ import { getErrorMessage } from "../../utils/errorHandler";
 
 type Props = {
   setDialog: (state: any) => void
+  orderId?: string
+  customerId?: string
 }
 
 const CreateDebtDialog = (props: Props) => {
@@ -21,10 +23,10 @@ const CreateDebtDialog = (props: Props) => {
 
   const onSubmit = async (event: any) => {
     event.preventDefault();
-    
+
     try {
       setIsLoading(true);
-      await api.post('balances', { ...form, balanceType: 'debt' });
+      await api.post('balances', { ...form, balanceType: 'debt', orderId: props.orderId || form.orderId, customerId: props.customerId || form.customerId });
       window.location.reload();
     } catch (error: any) {
       setError(error.response.data.message)
@@ -48,6 +50,8 @@ const CreateDebtDialog = (props: Props) => {
                 name="orderId"
                 label={'Order Id'}
                 onChange={onChangeHandler}
+                value={props.orderId}
+                disabled={!!props.orderId}
               />
             </div>
 
@@ -59,6 +63,8 @@ const CreateDebtDialog = (props: Props) => {
                 label={'Customer Id'}
                 required
                 onChange={onChangeHandler}
+                value={props.customerId}
+                disabled={!!props.customerId}
               />
             </div>
 

@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt, FaUsers } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -42,6 +42,11 @@ const adminRoutes = [
       title: 'Debts',
       path: '/balances',
       icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+     },
+     {
+      title: 'Clients',
+      path: '/clients',
+      icon: <FaUsers className="sidebar-icon" />,
      },
      {
       mainTitle: 'Management'
@@ -115,6 +120,11 @@ const adminRoutes = [
       title: 'Debts',
       path: '/balances',
       icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" />,
+     },
+     {
+      title: 'Clients',
+      path: '/clients',
+      icon: <FaUsers  className="sidebar-icon" />,
      },
      {   
         title: 'Invoice',

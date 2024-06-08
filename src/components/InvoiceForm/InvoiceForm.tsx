@@ -102,7 +102,7 @@ const InvoiceForm = (props: Props) => {
       props.handleChange({ target: { value: user.username, name: 'email' } })
       props.displayAlert({ type: 'success', message: 'User data updated' });
     } catch (error: any) {
-      props.displayAlert({ type: 'error', message: getErrorMessage(error.data.message) });
+      props.displayAlert({ type: 'error', message: getErrorMessage(error.response.data.message) });
     }
   }
   
@@ -530,6 +530,28 @@ const InvoiceForm = (props: Props) => {
             disabled={invoice?.isCanceled}
           />
           Unsure Order
+        </div>
+
+        <div className="col-md-6 mb-4">
+          <Checkbox
+            name='hasRemainingPayment' 
+            onChange={props.handleChange} 
+            defaultChecked={invoice?.hasRemainingPayment}
+            color="success"
+            disabled={invoice?.isCanceled}
+          />
+          Has Remaining Payment
+        </div>
+
+        <div className="col-md-4 mb-4">
+          <Checkbox
+            name='hasProblem' 
+            onChange={props.handleChange} 
+            defaultChecked={invoice?.hasProblem}
+            color="success"
+            disabled={invoice?.isCanceled}
+          />
+          Order has problem
         </div>
 
         {/* Received Money Section  */}

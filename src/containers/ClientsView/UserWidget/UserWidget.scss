@@ -1,0 +1,27 @@
+.order-widget {
+  h5 {
+    font-size: 1.2rem;
+  }
+
+  .preview-image {
+    img {
+      width: 150px;
+      height: 150px;
+    }
+  }
+
+  .description {
+    color: #afafb9;
+    font-weight: 500;
+    font-size: 0.8rem;
+    width: fit-content;
+    &:hover {
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  }
+
+  .order-image {
+    cursor: pointer;
+  }
+}

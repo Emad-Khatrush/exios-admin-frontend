@@ -32,6 +32,8 @@ export type Invoice = {
   isShipment: boolean,
   isPayment: boolean,
   unsureOrder: boolean,
+  hasRemainingPayment: boolean
+  hasProblem: boolean
   orderStatus: number,
   isFinished: boolean,
   netIncome: {

@@ -1,4 +1,4 @@
-import { Invoice } from "../models";
+import { Debt, Invoice } from "../models";
 import { IInvoice } from "../reducers/invoices";
 
 // General Methods
@@ -114,4 +114,22 @@ export const calculateMinTotalPrice = (price: number, weight: number, shippedCou
     }
   }
   return Math.ceil(total);
+}
+
+export const calculateTotalDebt = (debts: Debt[], currentOffice: string) => {
+  let totalUsd = 0, totalLyd = 0;
+  (debts || []).forEach(debt => {
+    const isDebtArray = checkIfDataArray(debt);
+    if (isDebtArray) {
+      (debt as any || []).forEach((d: Debt) => {
+        if (d.currency === 'USD' && d.createdOffice === currentOffice) totalUsd += d.amount
+        else if (d.currency === 'LYD' && d.createdOffice === currentOffice) totalLyd += d.amount;
+      })
+    } else {
+      if (debt.currency === 'USD' && debt.createdOffice === currentOffice) totalUsd += debt.amount
+      else if (debt.currency === 'LYD' && debt.createdOffice === currentOffice) totalLyd += debt.amount;
+    }
+  })
+
+  return { totalUsd, totalLyd }
 }

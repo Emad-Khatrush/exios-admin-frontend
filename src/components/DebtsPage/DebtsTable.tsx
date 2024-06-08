@@ -6,7 +6,7 @@ import { Account, Debt } from '../../models';
 import DebtDetails from './DebtDetails';
 import api, { base } from '../../api';
 import { CircularProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
-import { checkIfDataArray } from '../../utils/methods';
+import { calculateTotalDebt } from '../../utils/methods';
 
 type Props = {
   setDialog: (state: any) => void
@@ -152,24 +152,6 @@ const DebtsTable = (props: Props) => {
       </Card>
     </div>
   )
-}
-
-const calculateTotalDebt = (debts: Debt[], currentOffice: string) => {
-  let totalUsd = 0, totalLyd = 0;
-  (debts || []).forEach(debt => {
-    const isDebtArray = checkIfDataArray(debt);
-    if (isDebtArray) {
-      (debt as any || []).forEach((d: Debt) => {
-        if (d.currency === 'USD' && d.createdOffice === currentOffice) totalUsd += d.amount
-        else if (d.currency === 'LYD' && d.createdOffice === currentOffice) totalLyd += d.amount;
-      })
-    } else {
-      if (debt.currency === 'USD' && debt.createdOffice === currentOffice) totalUsd += debt.amount
-      else if (debt.currency === 'LYD' && debt.createdOffice === currentOffice) totalLyd += debt.amount;
-    }
-  })
-
-  return { totalUsd, totalLyd }
 }
 
 export default DebtsTable;

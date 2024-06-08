@@ -1,6 +1,6 @@
 .sidebar {
     flex: 1;
-    height: -webkit-fill-available;
+    height: calc(100vh - 101px);
     background-color: rgb(251, 251, 255);
     top: 50px;
     border-right: rgb(238, 238, 238) solid 1px;
@@ -8,6 +8,7 @@
     transition: all .5s ease;
     z-index: 500;
     overflow: auto;
+    min-width: 200px;
 
     .sidebar-wrapper {
         color: #555;
@@ -42,5 +43,18 @@
     .sidebar-icon {
         margin-right: 5px;
         font-size: 20px !important;
+    }
+
+    &::-webkit-scrollbar {
+        width: 6px;
+      }
+    
+    &::-webkit-scrollbar-track {
+    background-color: #eeeeee;
+    border-radius: 50px;
+    }
+    &::-webkit-scrollbar-thumb {
+    background-color: #c4c4c4;
+    border-radius: 50px;
     }
 }

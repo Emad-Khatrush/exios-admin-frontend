@@ -21,6 +21,8 @@ import AddInventory from './containers/Inventory/AddInventory';
 import EditInventory from './containers/Inventory/EditInventory';
 import WarehouseInventory from './containers/WarehouseInventory/WarehouseInventory';
 import ReturnedPayments from './containers/ReturnedPayments/ReturnedPayments';
+import { ClientsView } from './containers/ClientsView/ClientsView';
+import UserDetails from './containers/UserDetails/UserDetails';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -71,6 +73,8 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/:id/edit' element={<EditTask />} />
       <Route path='/settings' element={<Settings />} />
       <Route path='/balances' element={<Balances />} />
+      <Route path='/clients' element={<ClientsView />} />
+      <Route path='/user/:id' element={<UserDetails />} />
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
@@ -99,6 +103,8 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings' element={<Settings />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
+      <Route path='/clients' element={<ClientsView />} />
+      <Route path='/user/:id' element={<UserDetails />} />
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />

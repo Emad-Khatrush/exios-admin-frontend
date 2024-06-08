@@ -24,6 +24,16 @@ export const generateTabs = (tabs: any): any => {
       icon: <Badge style={{ marginLeft: '8px'}} text={String(tabs.unpaidOrdersCount)} color="warning" />
     },
     {
+      label: 'Remaining Payment Orders',
+      value: 'hasRemainingPayment',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(tabs.hasRemainingPaymentOrdersCount)} color="warning" />
+    },
+    {
+      label: 'Orders Problems',
+      value: 'hasProblem',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(tabs.hasProblemOrdersCount)} color="danger" />
+    },
+    {
       label: 'Finished',
       value: 'finished',
       icon: <Badge style={{ marginLeft: '8px'}} text={String(tabs.finishedOrdersCount)} color="success" />

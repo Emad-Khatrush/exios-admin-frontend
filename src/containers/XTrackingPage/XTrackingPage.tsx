@@ -98,7 +98,7 @@ class XTrackingPage extends Component<Props, State> {
   }
 
   onScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const scrollReached = event.currentTarget.scrollHeight - event.currentTarget.scrollTop <= event.currentTarget.clientHeight + 25;
+    const scrollReached = event.currentTarget.scrollHeight - event.currentTarget.scrollTop <= event.currentTarget.clientHeight + 50;
     const limit = Number(this.props.listData?.query?.limit);
     const currentOrdersCount = getTabOrdersCount(this.props.listData.tabType, this.props.listData);
     
@@ -153,7 +153,9 @@ class XTrackingPage extends Component<Props, State> {
       finishedOrdersCount: listData.finishedOrdersCount,
       unpaidOrdersCount: listData.unpaidOrdersCount,
       unsureOrdersCount: listData.unsureOrdersCount,
-      arrivingOrdersCount: listData.arrivingOrdersCount
+      arrivingOrdersCount: listData.arrivingOrdersCount,
+      hasProblemOrdersCount: listData.hasProblemOrdersCount,
+      hasRemainingPaymentOrdersCount: listData.hasRemainingPaymentOrdersCount,
     });
 
     const currentOrdersCount = getTabOrdersCount(this.props.listData.tabType, this.props.listData);    

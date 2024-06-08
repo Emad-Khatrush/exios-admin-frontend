@@ -20,6 +20,8 @@ import moment from 'moment'
 import { FaCopy } from 'react-icons/fa'
 import { MdOutlineLibraryAddCheck } from 'react-icons/md'
 import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplate'
+import UseWalletBalance from '../UserDetails/UseWalletBalance'
+import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog'
 
 type Props = {
   router: RouteMatch
@@ -50,6 +52,9 @@ type State = {
   userDebts: Debt[]
   codeRef: any
   showPreviewInvoice: boolean
+  walletDialog: boolean
+  wallet: any
+  debtDialog: boolean
 }
 
 const breadcrumbs = [
@@ -103,6 +108,9 @@ export class EditInvoice extends Component<Props, State> {
     userDebts: [],
     codeRef: React.createRef(),
     showPreviewInvoice: false,
+    walletDialog: false,
+    wallet: null,
+    debtDialog: false,
   }
 
   async componentDidMount() {
@@ -110,7 +118,8 @@ export class EditInvoice extends Component<Props, State> {
       const order = (await api.get(`order/${this.props.router.params.id}`)).data;
       const employees = (await api.get(`employees`)).data?.results;
       const userDebts = (await api.get(`debts/user/${order?.user?.customerId}`)).data || [];
-      this.setState({ userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
+      const walletResponse = (await api.get(`wallet/${order?.user?._id}`)).data;
+      this.setState({ wallet: walletResponse.results, userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
     } catch (error) {
       console.log(error);
     }
@@ -670,7 +679,8 @@ https://www.exioslibya.com/login
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
     const totalInvoice = calculateTotalItems(formData?.items);
-    
+    const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(this.state.wallet);
+
     return (
       <div className="m-4 edit-invoice">
         <div style={{ maxWidth: '1400px', margin: 'auto'}}>
@@ -725,6 +735,26 @@ https://www.exioslibya.com/login
                 </span>
                 {formData.orderId} : رقم الطلبية
               </h6>
+            </div>
+
+            <div className='d-flex justify-content-end align-items-center'>
+              <Button 
+                style={{ marginRight: '8px' }} 
+                variant="outlined" 
+                color="success" 
+                size='small'
+                onClick={() => this.setState({ walletDialog: true })}
+              >
+                Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
+              </Button>
+              <Button 
+                variant="outlined" 
+                color="secondary"
+                size='small'
+                onClick={() => this.setState({ debtDialog: true })}
+              >
+                Add Debt
+              </Button>
             </div>
           </div>
 
@@ -1083,6 +1113,28 @@ https://www.exioslibya.com/login
             <Button onClick={() => this.setState({ showPreviewInvoice: false })} >Back</Button>
           </DialogActions>
         </Dialog>
+
+        <Dialog 
+          open={this.state.walletDialog}
+          onClose={() => this.setState({ walletDialog: false })}
+        >
+          <UseWalletBalance 
+            balances={{ walletLyd, walletUsd}}
+            orderId={this.state.formData.orderId}
+            walletId={this.state.formData.user._id}
+          />
+        </Dialog>
+
+        <Dialog 
+          open={this.state.debtDialog}
+          onClose={() => this.setState({ debtDialog: false })}
+        >
+          <CreateDebtDialog
+            setDialog={() => this.setState({ debtDialog: false  })}
+            orderId={this.state.formData.orderId}
+            customerId={this.state.formData.user.customerId}
+          />
+        </Dialog>
       </div>
     )
   }
@@ -1109,6 +1161,16 @@ const calculateTotalItems = (items: OrderItem[]) => {
     total += item.unitPrice * item.quantity;
   })
   return total;
+}
+
+const calculateTotalWallet = (wallet: any) => {
+  let totalUsd = 0, totalLyd = 0;
+  (wallet || []).forEach((w: any) => {
+    if (w.currency === 'USD') totalUsd += w.balance
+    else if (w.currency === 'LYD') totalLyd += w.balance;
+  })
+
+  return { totalUsd, totalLyd }
 }
 
 const mapStateToProps = (state: any) => {

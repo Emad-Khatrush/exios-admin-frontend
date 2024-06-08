@@ -23,6 +23,8 @@ export interface IInvoice{
   unpaidOrdersCount: number
   unsureOrdersCount: number
   arrivingOrdersCount: number
+  hasProblemOrdersCount: number,
+  hasRemainingPaymentOrdersCount: number,
   tabType: string
   order?: Invoice
 }
@@ -47,6 +49,8 @@ export const initialState: IInvoice = {
   unpaidOrdersCount: 0,
   unsureOrdersCount: 0,
   arrivingOrdersCount: 0,
+  hasProblemOrdersCount: 0,
+  hasRemainingPaymentOrdersCount: 0,
   tabType: 'active' 
 }
 
@@ -171,6 +175,8 @@ export const invoice = (state: IInvoice = initialState, action: any) => {
               unpaidOrdersCount: action.payload?.data?.unpaidOrdersCount,
               unsureOrdersCount: action.payload?.data?.unsureOrdersCount,
               arrivingOrdersCount: action.payload?.data?.arrivingOrdersCount,
+              hasProblemOrdersCount: action.payload?.data?.hasProblemOrdersCount,
+              hasRemainingPaymentOrdersCount: action.payload?.data?.hasRemainingPaymentOrdersCount,
               tabType: action.payload?.data?.tabType,
               total: action.payload?.data?.total,
               query: action.payload?.data?.query

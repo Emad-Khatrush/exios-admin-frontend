@@ -55,7 +55,7 @@ export const InvoiceTemplate = (props: Props) => {
         const imgWidth = 210;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        pdf.save('code.pdf');
+        pdf.save('invoice.pdf');
       })
       .catch((error) => {
         console.error('Error generating PDF:', error);
