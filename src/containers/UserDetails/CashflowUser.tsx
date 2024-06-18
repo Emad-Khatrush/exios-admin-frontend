@@ -3,6 +3,7 @@ import Card from '../../components/Card/Card';
 import PaymentDetails from './PaymentDetails';
 import moment from 'moment';
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
 
 type Props = {
   userStatement: any
@@ -13,6 +14,7 @@ type Props = {
 const CashflowUser = (props: Props) => {
   const [statementCurrency, setStatementCurrency] = useState('USD');
   const { userStatement, isLoading } = props;
+  const isAdmin = useSelector((state: any) => state.session.account.roles.isAdmin);
 
   return (
     <Card
@@ -64,19 +66,24 @@ const CashflowUser = (props: Props) => {
         <CircularProgress />
       :
       <>
-        {userStatement.map((statement: any) => (
-          <PaymentDetails 
-            title={moment(statement.createdAt).format('DD/MM/YYYY')}
-            description={statement.description}
-            footer={`${statement.currency} ${statement.amount} ${statement.calculationType}`}
-            total={`${statement.currency} ${statement.total}`}
-            color={statement.calculationType === '-' ? 'danger' : 'success'}
-            tootipInfo={statement?.note}
-          />
-        ))}
+        {userStatement.map((statement: any) => {
+          const allowViewHiddenFields = isAdmin && !statement?.review?.isAdminConfirmed;
+
+          return (
+            <PaymentDetails 
+              title={moment(statement.createdAt).format('DD/MM/YYYY')}
+              description={statement.description}
+              footer={`${statement.currency} ${statement.amount} ${statement.calculationType}`}
+              total={`${statement.currency} ${statement.total}`}
+              color={statement.calculationType === '-' ? 'danger' : 'success'}
+              tootipInfo={statement?.note}
+              showVerifyButton={allowViewHiddenFields}
+              statement={statement}
+            />
+          )
+        })}
       </>
       }
-
     </Card>
   )
 }

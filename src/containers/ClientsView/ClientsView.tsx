@@ -10,13 +10,18 @@ type Props = {}
 export const ClientsView = (props: Props) => {
 
   const [clients, setClients] = useState([]);
-  const [totalClients, setTotalClients] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [tab, setTab] = useState('active');
   const [scrollReached, setScrollReached] = useState(false);
   const [meta, setMeta] = useState({
     limit: 10,
     skip: 0,
-    total: 0
+    counts: {
+      openedWalletCounts: 0,
+      verifyStatementCounts: 0,
+      userCounts: 0
+    }
+    
   });
 
   const [quickSearchDelayTimer, setQuickSearchDelayTimer] = useState();
@@ -32,7 +37,6 @@ export const ClientsView = (props: Props) => {
 
       const response = (await api.get(`clients`, { limit, skip }))?.data;
       setClients(response.results);
-      setTotalClients(response.meta.total);
       setMeta(response.meta);
 
       if (allowLoading) setIsLoading(false);
@@ -52,7 +56,6 @@ export const ClientsView = (props: Props) => {
         return setTimeout(async () => {
           const response = (await api.get(`clients?searchValue=${event.target.value}`, { cancelToken }))?.data;
           setClients(response.results);
-          setTotalClients(response.meta.total);
           setIsLoading(false);
         }, 1)
       })
@@ -65,20 +68,50 @@ export const ClientsView = (props: Props) => {
     const currentScrollReached = event.currentTarget.scrollHeight - event.currentTarget.scrollTop <= event.currentTarget.clientHeight + 25;
     const limit = Number(meta.limit);
 
-    if (currentScrollReached !== scrollReached && limit < meta.total) {
+    if (currentScrollReached !== scrollReached && limit < meta.counts.userCounts) {
       fetchClients(limit + 5, meta.skip, false);
       setScrollReached(currentScrollReached);
     }
   }
 
+  const tabChange = async (tab: string) => {
+    setTab(tab);
+
+    if (tab === 'active') {
+      fetchClients(10, 0, true);
+      return;
+    }
+
+    try {
+      const response = await api.get(`unverifiedUsersStatement?tab=${tab}`);
+      setClients(response.data.results)
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const tabs = [
+    {
+      label: 'Active',
+      value: 'active',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.userCounts)} color="sky" />
+    },
+    {
+      label: 'Verify Payments Client',
+      value: 'verifyPayments',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.verifyStatementCounts)} color="warning" />
+    },
+    {
+      label: 'Opened Wallets',
+      value: 'openedWallet',
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.openedWalletCounts)} color="success" />
+    },
+  ]
+
   return (
     <div className="m-4">
       <Card
-        tabs={[{
-          label: 'Active',
-          value: 'active',
-          icon: <Badge style={{ marginLeft: '8px'}} text={String(totalClients)} color="sky" />
-        }]}
+        tabs={tabs}
         showSearchInput={true}
         inputPlaceholder={'Search by User...'}
         bodyStyle={{
@@ -87,7 +120,8 @@ export const ClientsView = (props: Props) => {
           marginTop: '20px'
         }}
         searchInputOnChange={searchUser}
-        onScroll={onScroll}
+        onScroll={tab === 'active' && onScroll}
+        tabsOnChange={tabChange}
       >
         {isLoading ? 
           <CircularProgress />

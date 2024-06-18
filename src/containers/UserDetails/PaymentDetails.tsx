@@ -1,6 +1,13 @@
-import { Button, ClickAwayListener, Grid, Tooltip } from "@mui/material"
+import { Button, ClickAwayListener, Dialog, DialogActions, DialogContent, Grid, Stack, TextField, Tooltip } from "@mui/material"
 import { useState } from "react"
 import { FaRegQuestionCircle } from "react-icons/fa"
+import CustomButton from "../../components/CustomButton/CustomButton"
+import LocalizationProvider from "@mui/lab/LocalizationProvider"
+import AdapterDateFns from "@mui/lab/AdapterDateFns"
+import DatePicker from "@mui/lab/DatePicker"
+import api from "../../api"
+import { useParams } from "react-router-dom"
+import moment from "moment"
 
 type Props = {
   title: string
@@ -9,12 +16,19 @@ type Props = {
   total: string
   color?: 'danger' | 'success'
   tootipInfo?: string
+  showVerifyButton?: boolean
+  statement: any
 }
 
 const PaymentDetails = (props: Props) => {
-  const { description, title, footer, color, total, tootipInfo } = props;
+  const { description, title, footer, color, total, tootipInfo, showVerifyButton, statement } = props;
+
+  const { id } = useParams();
 
   const [open, setOpen] = useState(false);
+  const [dialog, setDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [receivedDate, setReceivedDate] = useState(new Date());
 
   const handleTooltipClose = () => {
     setOpen(false);
@@ -24,8 +38,30 @@ const PaymentDetails = (props: Props) => {
     setOpen(true);
   };
 
+  const verifyPayment = async () => {
+    try {
+      setIsLoading(true);
+      await api.post(`user/${id}/statement/${statement._id}`, { receivedDate });
+      window.location.reload();
+      setDialog(false);
+      setIsLoading(false);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+
   return (
     <div>
+      <CustomButton 
+        background='rgb(0, 171, 85)' 
+        size="small"
+        disabled={!showVerifyButton}
+        onClick={() => setDialog(true)}
+      >
+        {showVerifyButton ? 'Verify Payment' : `Verified at ${moment(statement?.review?.receivedDate).format('DD/MM/YYYY')}`}
+      </CustomButton>
+      
       <div className="d-flex justify-content-between" style={{ direction: 'rtl' }}>
         <div className="d-flex gap-3 align-items-center">
           <h5 style={{ fontSize: '16px', color: color === 'danger' ? '#c72205' : '#069612' }} className="m-0">{title}</h5>
@@ -59,6 +95,33 @@ const PaymentDetails = (props: Props) => {
       </div>
 
       <hr style={{ color: '#b7b7b7' }} />
+
+      <Dialog 
+        open={dialog}
+        onClose={() => setDialog(false)}
+      >
+        <DialogContent>
+          <p style={{ direction: 'rtl' }}>الرجاء التاكد من ان القيمة قد دخلت في الحسبة ثم قم بادخال في اي يوم تم ادخالها</p>
+          <p style={{ direction: 'rtl' }}>ايضا قم بالتاكد سبب اضافة دين او استعماله وان يكون مطابق وصحيح</p>
+          <div className="col-md-12 mb-4 d-flex">
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <Stack spacing={3}>
+                <DatePicker
+                  label="Received Date"
+                  inputFormat="dd/MM/yyyy"
+                  value={receivedDate}
+                  renderInput={(params: any) => <TextField {...params} />} 
+                  onChange={(value: any) => setReceivedDate(value)}
+                />
+              </Stack>
+            </LocalizationProvider>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={verifyPayment} >Close</Button>
+          <Button disabled={isLoading} color="success" onClick={verifyPayment}>Verify</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }

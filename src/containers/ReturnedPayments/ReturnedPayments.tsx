@@ -32,6 +32,13 @@ const ReturnedPayments = () => {
   const [searchValue, setSearchValue] = useState('');
   const [createPaymentDialog, setCreatePaymentDialog] = useState(false);
   const [finishPayment, setFinishPayment] = useState<any>();
+  const [meta, setMeta] = useState<any>({
+    counts: {
+      active: 0,
+      waitingApproval: 0,
+      finished: 0
+    }
+  });
   const [finishForm, setFinishForm] = useState<any>({
     paidDate: new Date()
   });
@@ -46,7 +53,8 @@ const ReturnedPayments = () => {
     try {
       setIsLoading(true)
       const response = await api.get('returnedPayments?status=active');
-      setReturnedPayments(response.data);
+      setReturnedPayments(response.data.results);
+      setMeta(response.data.meta);
     } catch (error) {
       console.log(error);
     } finally {
@@ -58,7 +66,8 @@ const ReturnedPayments = () => {
     try {
       setIsLoading(true)
       const response = await api.get(`returnedPayments?status=${value}`);
-      setReturnedPayments(response.data);
+      setReturnedPayments(response.data.results);
+      setMeta(response.data.meta);
     } catch (error) {
       console.log(error);
     } finally {
@@ -101,19 +110,19 @@ const ReturnedPayments = () => {
     {
       label: 'Active Payments',
       value: 'active',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(filteredList.length)} color="primary" />
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.active)} color="primary" />
     },
     {
       label: 'Finished Payments',
       value: 'finished',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(filteredList.length)} color="success" />
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.finished)} color="success" />
     },
   ]
   if (isAdmin) {
     tabs.splice(1, 0, {
       label: 'Waiting Approval Payments',
       value: 'waitingApproval',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(filteredList.length)} color="sky" />
+      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.waitingApproval)} color="sky" />
     })
   }
 

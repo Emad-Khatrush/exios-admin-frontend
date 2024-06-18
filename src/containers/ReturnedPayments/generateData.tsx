@@ -17,8 +17,6 @@ export const defaultColumns: any = (setPreviewImages: any, setFinishPaymentDialo
     headerName: 'Action',
     width: 100,
     renderCell: (params: GridRenderCellParams<String>) => {
-      console.log(params);
-      
       return (
         <div style={{ cursor: 'pointer' }} className='MuiDataGrid-cell MuiDataGrid-cell--textLeft MuiDataGrid-cell--editable'
           onClick={() => params.row.status === 'finished' ? undefined : setFinishPaymentDialog(params.row)}

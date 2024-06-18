@@ -28,10 +28,12 @@ const UserDetails = (props: Props) => {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     fetchUserStatement();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statementCurrency])
 
   const loadData = async () => {
