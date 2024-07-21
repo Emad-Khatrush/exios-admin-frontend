@@ -95,6 +95,9 @@ const InvoiceForm = (props: Props) => {
           fullName: `${user.firstName} ${user.lastName}`,
           phone: user.phone,
           email: user.username
+        },
+        shipment: {
+          toWhere: user.city
         }
       } as any)
       props.handleChange({ target: { value: `${user.firstName} ${user.lastName}`, name: 'fullName' } })
@@ -323,6 +326,7 @@ const InvoiceForm = (props: Props) => {
             defaultValue={invoice?.shipment?.toWhere}
             disabled={invoice?.isCanceled}
           />
+          {invoice?.shipment?.toWhere && <span style={{ color: '#04ad20' }}>Customer City: {invoice?.shipment?.toWhere}</span>}
         </div>
 
         <div className="col-md-6 mb-4">
