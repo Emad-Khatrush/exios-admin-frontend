@@ -719,13 +719,16 @@ https://www.exioslibya.com/login
               <Breadcrumbs separator="›" aria-label="breadcrumb">
                 {breadcrumbs}
               </Breadcrumbs>
-              <h6>
+              <h6 
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(formData.orderId);
+                  this.setState({ isFinished: true, isError: false, resMessage: 'Copied' })
+                }} 
+              >
                 <span 
                   className='mx-2' 
-                  onClick={() => {
-                    navigator.clipboard.writeText(formData.orderId);
-                    this.setState({ isFinished: true, isError: false, resMessage: 'Copied' })
-                  }} 
+                  
                 > 
                   {isFinished ?
                     <MdOutlineLibraryAddCheck style={{ color: 'darkgreen', cursor: 'pointer' }} />
@@ -953,6 +956,25 @@ https://www.exioslibya.com/login
                 }
               </Card>
 
+              <h6 
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(formData.orderId);
+                  this.setState({ isFinished: true, isError: false, resMessage: 'Copied' })
+                }} 
+              >
+                <span 
+                  className='mx-2' 
+                  
+                > 
+                  {isFinished ?
+                    <MdOutlineLibraryAddCheck style={{ color: 'darkgreen', cursor: 'pointer' }} />
+                    :
+                    <FaCopy style={{ color: 'grey', cursor: 'pointer' }} />
+                  }
+                </span>
+                {formData.orderId} : رقم الطلبية
+              </h6>
             </div>
 
             <div className="col-md-8">

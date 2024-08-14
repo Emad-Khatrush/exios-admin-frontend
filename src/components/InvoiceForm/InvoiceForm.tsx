@@ -16,6 +16,7 @@ import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import Badge from '../Badge/Badge';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import moment from 'moment';
 
 type Props = {
   handleChange?: any
@@ -768,6 +769,10 @@ const InvoiceForm = (props: Props) => {
           return(
             <div key={i} className="col-md-12 mb-4">
               <div>
+                {payment?.deliveredPackages?.deliveredInfo?.deliveredDate && (payment.received || payment?.status?.received) &&
+                  <p className='m-0' style={{ fontSize: 'small', color: '#2E7D32' }}>{moment(new Date(payment?.deliveredPackages?.deliveredInfo?.deliveredDate)).format('DD/MM/YYYY - HH:mm')} <BsCheck2Circle /></p>
+                }
+
                 <div className={`d-flex align-items-center gap-2 ${isMobile ? 'flex-column' : ''}`}>
                   <ButtonGroup disabled={invoice?.isCanceled} key={i} color='success' size="small" aria-label="small button group">
                     <Button id={String(i)} name="paid" onDoubleClick={props.handleChange} variant={payment.paid || payment?.status?.paid ? 'contained': 'outlined'} key="paid">Paid</Button>
