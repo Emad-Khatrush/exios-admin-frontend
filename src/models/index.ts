@@ -3,6 +3,7 @@ export type Invoice = {
   _id: string,
   madeBy: User,
   orderId: string,
+  invoiceConfirmed: boolean,
   activity: OrderActivity[],
   customerInfo: {
     fullName: string,

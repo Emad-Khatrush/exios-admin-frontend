@@ -27,6 +27,10 @@ export interface IInvoice{
   hasRemainingPaymentOrdersCount: number,
   tabType: string
   order?: Invoice
+  countList?: {
+    all: number
+    requestedEditInvoices: number
+  }
 }
 
 export const initialState: IInvoice = {
@@ -51,7 +55,11 @@ export const initialState: IInvoice = {
   arrivingOrdersCount: 0,
   hasProblemOrdersCount: 0,
   hasRemainingPaymentOrdersCount: 0,
-  tabType: 'active' 
+  tabType: 'active' ,
+  countList: {
+    all: 0,
+    requestedEditInvoices: 0
+  }
 }
 
 export const invoice = (state: IInvoice = initialState, action: any) => {
@@ -157,7 +165,8 @@ export const invoice = (state: IInvoice = initialState, action: any) => {
                 list: orders,
                 tabType: action.payload?.data?.tabType,
                 total: action.payload?.data?.total,
-                query: action.payload?.data?.query
+                query: action.payload?.data?.query,
+                countList: action.payload?.data?.countList
               }
             }
             return {
@@ -179,7 +188,8 @@ export const invoice = (state: IInvoice = initialState, action: any) => {
               hasRemainingPaymentOrdersCount: action.payload?.data?.hasRemainingPaymentOrdersCount,
               tabType: action.payload?.data?.tabType,
               total: action.payload?.data?.total,
-              query: action.payload?.data?.query
+              query: action.payload?.data?.query,
+              countList: action.payload?.data?.countList
             }
           }
           case STATUS_ERROR: {

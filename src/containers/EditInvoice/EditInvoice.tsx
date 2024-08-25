@@ -1,6 +1,6 @@
 import { connect } from 'react-redux'
 import React, { Component } from 'react'
-import { Alert, Autocomplete, Backdrop, Breadcrumbs, Button, ButtonGroup, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Link, Snackbar, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Alert, Autocomplete, Avatar, AvatarGroup, Backdrop, Breadcrumbs, Button, ButtonGroup, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Link, Snackbar, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import Card from '../../components/Card/Card'
 import ImageUploader from '../../components/ImageUploader/ImageUploader'
 import InvoiceForm from '../../components/InvoiceForm/InvoiceForm'
@@ -22,6 +22,11 @@ import { MdOutlineLibraryAddCheck } from 'react-icons/md'
 import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplate'
 import UseWalletBalance from '../UserDetails/UseWalletBalance'
 import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog'
+import PayCashDialog from '../../components/PayCash/PayCashDialog'
+import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper'
+import PackagesList from '../../components/PackagesList/PackagesList'
+import EditInvoiceItems from '../../components/EditInvoiceItems/EditInvoiceItems'
+import Badge from '../../components/Badge/Badge'
 
 type Props = {
   router: RouteMatch
@@ -55,6 +60,12 @@ type State = {
   walletDialog: boolean
   wallet: any
   debtDialog: boolean
+  payCashDialog: boolean
+  paymentHistory: any[]
+  previewImages: any
+  category: any
+  selectedPackages: any[]
+  openEditInvoiceDialog: boolean
 }
 
 const breadcrumbs = [
@@ -111,6 +122,12 @@ export class EditInvoice extends Component<Props, State> {
     walletDialog: false,
     wallet: null,
     debtDialog: false,
+    payCashDialog: false,
+    paymentHistory: [],
+    previewImages: undefined,
+    category: undefined,
+    selectedPackages: [],
+    openEditInvoiceDialog: false
   }
 
   async componentDidMount() {
@@ -119,7 +136,9 @@ export class EditInvoice extends Component<Props, State> {
       const employees = (await api.get(`employees`)).data?.results;
       const userDebts = (await api.get(`debts/user/${order?.user?.customerId}`)).data || [];
       const walletResponse = (await api.get(`wallet/${order?.user?._id}`)).data;
-      this.setState({ wallet: walletResponse.results, userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
+      const paymentHistoryResponse = (await api.get(`order/${order?._id}/payments`)).data;
+
+      this.setState({ paymentHistory: paymentHistoryResponse.results, wallet: walletResponse.results, userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
     } catch (error) {
       console.log(error);
     }
@@ -635,8 +654,17 @@ export class EditInvoice extends Component<Props, State> {
     })
   }
 
+  submitInvoiceChanges = async (status: string) => {
+    try {
+      await api.update(`orders/${this.state.formData._id}/confirmItemsChanges`, { status, requestedEditDetails: this.state.formData?.requestedEditDetails });
+      window.location.reload();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   render() {
-    const { formData, isInvoicePending, showPreviewInvoice, isUpdating, isError, isFinished, resMessage, whatsupMessage, employees, isCancelOrderDialogOpen, shippingLabelDialogOpen } = this.state;    
+    const { formData, isInvoicePending, previewImages, showPreviewInvoice, paymentHistory, isUpdating, isError, isFinished, resMessage, whatsupMessage, employees, isCancelOrderDialogOpen, shippingLabelDialogOpen } = this.state;    
     const { account } = this.props;
 
     const invoiceFileRef = React.createRef();
@@ -680,7 +708,9 @@ https://www.exioslibya.com/login
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
     const totalInvoice = calculateTotalItems(formData?.items);
     const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(this.state.wallet);
-
+    const { totalUsd: paidUsd, totalLyd: paidLyd, totalEuro: paidEuro } = calculateTotalPaid(this.state.paymentHistory);
+    const { totalUsd: paidReceivedUsd, totalLyd: paidReceivedLyd, totalEuro: paidReceivedEuro } = calculateTotalPaid(this.state.paymentHistory, 'receivedGoods');
+    
     return (
       <div className="m-4 edit-invoice">
         <div style={{ maxWidth: '1400px', margin: 'auto'}}>
@@ -1015,8 +1045,211 @@ https://www.exioslibya.com/login
                     </CustomButton>
                   </div>
                 </Card>
-              </form>
+              </form>     
             </div>
+          </div>
+          
+          {((formData?.requestedEditDetails && Object.keys(formData?.requestedEditDetails)?.length > 0) || formData?.editedAmounts?.length > 0) &&
+            <div className="col-12 mb-2">
+              <Card>
+                <h6>Invoice Changes</h6>
+
+                {(formData?.requestedEditDetails && Object.keys(formData?.requestedEditDetails)?.length > 0) &&
+                  <div>
+                    <Badge color="primary" text="Waiting For Approval From Admins" />
+                    <div style={{ fontSize: 'small' }} className='d-flex gap-3'>
+                      <p className='my-1'>{moment(formData?.requestedEditDetails?.createdAt).format('DD/MM/YYYY hh:mm A')}</p>
+                      <p className='my-1'>New Total Invoice: {formData?.requestedEditDetails?.amount} $</p>
+                    </div>
+                    {(formData?.requestedEditDetails?.items || []).map((item: any) => (
+                      <p className='my-1'>{item.quantity} Quantity - {item.unitPrice} $ - {item.description}</p>
+                    ))}
+
+                  {account.roles.isAdmin &&
+                    <div className='d-flex gap-2'>
+                      <CustomButton
+                        className='mr-2'
+                        background='rgb(0, 171, 85)' 
+                        size="small"
+                        onDoubleClick={() => this.submitInvoiceChanges('accepted')}
+                      >
+                        Accept New Invoice
+                      </CustomButton>
+                      <CustomButton 
+                        background='rgb(226, 39, 39)' 
+                        size="small"
+                        onDoubleClick={() => this.submitInvoiceChanges('rejected')}
+                      >
+                        Reject Invoice
+                      </CustomButton>
+                    </div>
+                  }
+                    <hr />
+                  </div>
+                }
+                
+                {formData?.editedAmounts?.length > 0 && formData?.editedAmounts.sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any)).map((oldItems: any) => (
+                  <div>
+                    <Badge color={oldItems.status === 'accepted' ? 'success' : 'danger'} text={getStatusTextOfInvoiceItems(oldItems.status)} />
+                    <div style={{ fontSize: 'small' }} className='d-flex gap-3'>
+                      <p className='my-1'>{moment(oldItems?.createdAt).format('DD/MM/YYYY hh:mm A')}</p>
+                      <p className='my-1' style={{ textDecoration: 'line-through' }}>Old Total Invoice: {oldItems.oldAmount} $</p>
+                      <p className='my-1'>New Total Invoice: {oldItems.newAmount} $</p>
+                    </div>
+                    {(oldItems?.items || []).map((item: any) => (
+                      <p className='my-1'>{item.quantity} Quantity - {item.unitPrice} $ - {item.description}</p>
+                    ))}
+                    <hr />
+                  </div>
+                ))
+                }
+              </Card>
+            </div>
+          }
+
+          <div className="col-12 mb-2">
+            <Card>
+              <h6>Invoice Cashflow</h6>
+              <div className='d-flex gap-2 mb-2'>
+                <p className='mb-1'>Total Confirmed Invoice: {formData.totalInvoice} $</p>
+                {account.roles.isAdmin &&
+                  <Button 
+                    variant="outlined" 
+                    color={formData?.invoiceConfirmed || formData?.requestedEditDetails ? 'primary' : 'success'} 
+                    size='small'
+                    onDoubleClick={async () => {
+                      if (formData?.invoiceConfirmed || formData?.requestedEditDetails) {
+                        return this.setState({ openEditInvoiceDialog: true });
+                      }
+                      await api.post(`orders/${formData._id}/confirmInvoice`, {});
+                      window.location.reload();
+                    }}
+                  >
+                    {formData?.invoiceConfirmed || formData?.requestedEditDetails ? 'Request Edit Invoice' : 'Confirm Invoice'}
+                  </Button>
+                }
+              </div>
+
+              <div className='d-flex gap-2'>
+                <Button 
+                  variant="outlined" 
+                  color="success" 
+                  size='small'
+                  onClick={() => this.setState({ walletDialog: true, category: 'invoice' })}
+                >
+                  Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
+                </Button>
+
+                <Button 
+                  variant="outlined" 
+                  color="success" 
+                  size='small'
+                  onClick={() => this.setState({ payCashDialog: true, category: 'invoice' })}
+                >
+                  Pay Cash
+                </Button>
+              </div>
+              
+              <p className='m-0 mt-2 mb-2'>
+                Paid Amounts: 
+                <span style={{ color: 'rgb(46, 125, 50)' }}>
+                  {paidUsd ? `(${paidUsd} $)` : ''}
+                  {paidLyd ? `(${paidLyd} LYD)` : ''}
+                  {paidEuro ? `(${paidEuro} EURO)` : ''}
+                </span>
+              </p>
+              {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'invoice').map(payment => (
+                <div>
+                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                    <AvatarGroup max={3}>
+                      {payment.attachments.map((img: any) => (
+                        <Avatar
+                          style={{ cursor: 'pointer' }}
+                          key={img.filename}
+                          alt={img.filename} 
+                          src={img.path}
+                          onClick={(event: React.MouseEvent) => this.setState({ previewImages: payment.attachments })}
+                        />
+                      ))}
+                    </AvatarGroup>
+                    {payment?.note && <span>{payment.note}</span>}
+                  </p>
+                  <hr />
+                </div>
+                )) 
+                :
+                <p>No Payments Found</p>
+              }
+            </Card>
+
+            
+            <Card>
+              <h6>Received Packages Cashflow</h6>
+              <div className='d-flex gap-2'>
+                <Button 
+                  variant="outlined" 
+                  color="success" 
+                  size='small'
+                  onClick={() => this.setState({ walletDialog: true, category: 'receivedGoods' })}
+                  disabled={this.state.selectedPackages.length === 0}
+                >
+                  Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
+                </Button>
+
+                <Button 
+                  variant="outlined" 
+                  color="success" 
+                  size='small'
+                  onClick={() => this.setState({ payCashDialog: true, category: 'receivedGoods' })}
+                  disabled={this.state.selectedPackages.length === 0}
+                >
+                  Pay Cash
+                </Button>
+              </div>
+
+              <p className='m-0 mt-2 mb-2'>
+                Paid Amounts: 
+                <span style={{ color: 'rgb(46, 125, 50)' }}>
+                  {paidReceivedUsd ? `(${paidReceivedUsd} $)` : ''}
+                  {paidReceivedLyd ? `(${paidReceivedLyd} LYD)` : ''}
+                  {paidReceivedEuro ? `(${paidReceivedEuro} EURO)` : ''}
+                </span>
+              </p>
+              {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'receivedGoods').map(payment => (
+                <div>
+                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                    <AvatarGroup max={3}>
+                      {payment.attachments.map((img: any) => (
+                        <Avatar
+                          style={{ cursor: 'pointer' }}
+                          key={img.filename}
+                          alt={img.filename} 
+                          src={img.path}
+                          onClick={(event: React.MouseEvent) => this.setState({ previewImages: payment.attachments })}
+                        />
+                      ))}
+                    </AvatarGroup>
+                    {payment?.note && <span>{payment.note}</span>}
+                  </p>
+                  {payment.list.length > 0 && payment.list.map((orderPackage: any, i: number) => (
+                    <p>
+                      {i + 1}. {orderPackage.deliveredPackages.trackingNumber} / {orderPackage.deliveredPackages.weight.total} {orderPackage.deliveredPackages.weight.measureUnit}
+                    </p>
+                  ))}
+                  <hr />
+                </div>
+                )) 
+                :
+                <p>No Payments Found</p>
+              }
+              
+              <PackagesList 
+                order={formData}
+                onListChange={(list) => this.setState({ selectedPackages: list })}
+              />
+            </Card>
           </div>
         </div>
         <Backdrop
@@ -1138,12 +1371,14 @@ https://www.exioslibya.com/login
 
         <Dialog 
           open={this.state.walletDialog}
-          onClose={() => this.setState({ walletDialog: false })}
+          onClose={() => this.setState({ walletDialog: false, category: undefined })}
         >
           <UseWalletBalance 
             balances={{ walletLyd, walletUsd}}
             orderId={this.state.formData.orderId}
             walletId={this.state.formData.user._id}
+            category={this.state.category}
+            selectedPackages={this.state.selectedPackages}
           />
         </Dialog>
 
@@ -1156,6 +1391,41 @@ https://www.exioslibya.com/login
             orderId={this.state.formData.orderId}
             customerId={this.state.formData.user.customerId}
           />
+        </Dialog>
+
+        <Dialog 
+          open={this.state.openEditInvoiceDialog}
+          onClose={() => this.setState({ openEditInvoiceDialog: false })}
+        >
+          <EditInvoiceItems
+            items={this.state.items}
+            orderId={formData._id}
+          />
+        </Dialog>
+
+        <Dialog 
+          open={this.state.payCashDialog}
+          onClose={() => this.setState({ payCashDialog: false })}
+        >
+          <PayCashDialog
+            setDialog={() => this.setState({ payCashDialog: false  })}
+            orderId={this.state.formData._id}
+            customerId={this.state.formData.user._id}
+            category={this.state.category}
+            selectedPackages={this.state.selectedPackages}
+          />
+        </Dialog>
+
+        <Dialog 
+          open={previewImages}
+          onClose={() => this.setState({ previewImages: undefined })}
+        >
+          <DialogContent>
+            <SwipeableTextMobileStepper data={previewImages} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => this.setState({ previewImages: undefined })} >Close</Button>
+          </DialogActions>
         </Dialog>
       </div>
     )
@@ -1193,6 +1463,25 @@ const calculateTotalWallet = (wallet: any) => {
   })
 
   return { totalUsd, totalLyd }
+}
+
+const calculateTotalPaid = (paymentHistroy: any, category = 'invoice') => {
+  let totalUsd = 0, totalLyd = 0, totalEuro = 0;
+  (paymentHistroy || []).filter((p: any) => p.category === category).forEach((p: any) => {
+    if (p.currency === 'USD') totalUsd += p.receivedAmount
+    else if (p.currency === 'LYD') totalLyd += p.receivedAmount;
+    else if (p.currency === 'EURO') totalLyd += p.receivedAmount;
+  })
+
+  return { totalUsd, totalLyd, totalEuro }
+}
+
+const getStatusTextOfInvoiceItems = (status: 'accepted' | 'rejected') => {
+  let label = 'Accepted';
+  if (status === 'rejected') {
+    label = 'Rejected';
+  }
+  return label;
 }
 
 const mapStateToProps = (state: any) => {

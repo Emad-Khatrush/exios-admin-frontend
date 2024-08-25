@@ -230,7 +230,7 @@ const InvoiceForm = (props: Props) => {
                 label={`Description (${i + 1})`}
                 name="description"
                 onChange={props.handleChange}
-                disabled={invoice?.isCanceled}
+                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
                 style={{ direction: 'rtl' }}
                 defaultValue={item.description}
               />
@@ -239,7 +239,7 @@ const InvoiceForm = (props: Props) => {
                 label={`Quantity`}
                 name="itemQuantity"
                 onChange={props.handleChange}
-                disabled={invoice?.isCanceled}
+                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
                 type={'number'}
                 inputProps={{ inputMode: 'numeric', step: .01 }}
                 onWheel={(event: any) => event.target.blur()}
@@ -250,7 +250,7 @@ const InvoiceForm = (props: Props) => {
                 label={`Unit Price $`}
                 name="unitPrice"
                 onChange={props.handleChange}
-                disabled={invoice?.isCanceled}
+                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
                 type={'number'}
                 inputProps={{ inputMode: 'numeric', step: .01 }}
                 onWheel={(event: any) => event.target.blur()}
@@ -260,14 +260,14 @@ const InvoiceForm = (props: Props) => {
           </div>
         ))}
         <div className='mb-4'>
-          <Button disabled={invoice?.isCanceled} style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewItemForOrder} type='button' size='small'>ADD</Button>
+          <Button disabled={invoice?.isCanceled || invoice?.invoiceConfirmed} style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewItemForOrder} type='button' size='small'>ADD</Button>
           <Button 
             color='error' 
             variant="contained" 
             type='button' 
             size='small'
             onDoubleClick={props.deteteItemRow} 
-            disabled={invoice?.isCanceled}
+            disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
           >
             Remove
           </Button>

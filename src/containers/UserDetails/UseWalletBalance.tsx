@@ -11,6 +11,8 @@ type Props = {
   balances?: any
   orderId?: string
   walletId?: string
+  category?: string
+  selectedPackages?: any
 }
 
 const UseWalletBalance = (props: Props) => {
@@ -61,7 +63,7 @@ const UseWalletBalance = (props: Props) => {
     
     try {
       setIsLoading(true);
-      await api.post(`wallet/${props.walletId || id}/usebalance`, { ...form, description, note })
+      await api.post(`wallet/${props.walletId || id}/usebalance`, { ...form, description, note, orderId: props.orderId || form.orderId, category: props.category, list: props.selectedPackages })
       window.location.reload();
     } catch (error: any) {
       setError(error.response.data.message);
@@ -172,7 +174,6 @@ const UseWalletBalance = (props: Props) => {
           </Box>
 
           <DialogActions>
-            {/* <Button disabled={isLoading} color="error" onClick={() => props.setDialog({ customComponentTag: undefined, isOpen: false })} >Close</Button> */}
             <Button disabled={isLoading || (balances.walletUsd <= 0 && balances.walletLyd <= 0)} type="submit" >Use Balance</Button>
             {isLoading &&
               <CircularProgress />

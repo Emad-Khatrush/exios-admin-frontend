@@ -23,6 +23,7 @@ import WarehouseInventory from './containers/WarehouseInventory/WarehouseInvento
 import ReturnedPayments from './containers/ReturnedPayments/ReturnedPayments';
 import { ClientsView } from './containers/ClientsView/ClientsView';
 import UserDetails from './containers/UserDetails/UserDetails';
+import MonthReport from './containers/MonthReport/MonthReport';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -80,6 +81,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
       <Route path='/mangage' element={<WarehouseInventory />} />
       <Route path='/returnedPayments' element={<ReturnedPayments />} />
+      <Route path='/reports' element={<MonthReport />} />
     </>
   } else if (roles?.isAdmin) {
     return <>
@@ -111,6 +113,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/mangage' element={<WarehouseInventory />} />
       <Route path='/messages' element={<MessagesControl />} />
       <Route path='/returnedPayments' element={<ReturnedPayments />} />
+      <Route path='/reports' element={<MonthReport />} />
     </>
   }
 }

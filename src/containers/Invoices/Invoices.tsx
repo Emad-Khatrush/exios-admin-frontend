@@ -96,36 +96,6 @@ class Invoices extends Component<Props, State> {
     }
   }
 
-  findOrdersForSelectedTab = (order: Invoice) => {
-    const { activeTabValue } = this.state;
-
-    switch (activeTabValue) {
-      case 'all':
-        // display all active orders
-        return !order.unsureOrder;
-      
-      case 'shipment':
-      // display shipment orders only
-      return order.isShipment && !order.isPayment && !order.unsureOrder && !order.isFinished;
-
-      case 'paid':
-      // display paid orders only
-      return !order.isShipment && order.isPayment && !order.unsureOrder && !order.isFinished;
-
-      case 'finished':
-      // display finished orders only      
-      return order.isFinished;
-
-      case 'unsure':
-      // display unsure orders only
-      return order.unsureOrder && !order.isFinished;
-    
-      default:
-        // default
-        return !order.isFinished && !order.unsureOrder;
-    }
-  }
-
   filterList = (event: any) => {
     const eventName = event?.target?.name;
     const searchValue = eventName === 'searchInput' ? event.target.value : this.state.searchValue;
@@ -151,6 +121,10 @@ class Invoices extends Component<Props, State> {
         }, 1)
       }
     })
+  }
+
+  onChangeTab = async (tab: string) => {
+    this.props.getAllInvoices({ skip: 0, limit: 15, tabType: tab });
   }
 
   fetchList = async () => {
@@ -209,13 +183,13 @@ class Invoices extends Component<Props, State> {
       {
         label: 'All',
         value: 'all',
-        icon: <Badge style={{ marginLeft: '8px'}} text={String(listData.total)} color="sky" />
+        icon: <Badge style={{ marginLeft: '8px'}} text={String(listData?.countList?.all)} color="sky" />
       },
-      // {
-      //   label: 'Shipment',
-      //   value: 'shipment',
-      //   icon: <Badge style={{ marginLeft: '8px'}} text={String(shipmentOrderCount)} color="primary" />
-      // },
+      {
+        label: 'Requested Edit Invoices',
+        value: 'requestedEditInvoices',
+        icon: <Badge style={{ marginLeft: '8px'}} text={String(listData?.countList?.requestedEditInvoices)} color="primary" />
+      },
       // {
       //   label: 'Paid',
       //   value: 'paid',
@@ -271,7 +245,7 @@ class Invoices extends Component<Props, State> {
 
             <Card
               tabs={tabs}
-              tabsOnChange={(value: string) => this.setState({ activeTabValue: value })}
+              tabsOnChange={(value: string) => this.onChangeTab(value)}
             >
               <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
                 <TextInput
