@@ -6,7 +6,9 @@ import { Account, Debt } from '../../models';
 import DebtDetails from './DebtDetails';
 import api, { base } from '../../api';
 import { CircularProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
-import { calculateTotalDebt } from '../../utils/methods';
+import { calculateTotalDebt, checkIfDataArray } from '../../utils/methods';
+import * as XLSX from 'xlsx';
+import moment from 'moment';
 
 type Props = {
   setDialog: (state: any) => void
@@ -81,28 +83,71 @@ const DebtsTable = (props: Props) => {
     }
   }
 
+  const handleDownload = async () => {
+    const data: any = [[`All Debts ${moment().format('MM/YYYY')}`], []];
+    data.push(["Created Date", "Customer Id", "Customer Full Name", "Office", "Total Debt / الدين الاصلي", "Remaining Amount / الدين المتبقي منه", 'Note'])
+    for (const debt of (debts || [])) {
+      const debtIsArray = checkIfDataArray(debt);
+      if (debtIsArray) {
+        const debtArray: any = debt as any;
+        for (const currentDebt of debtArray) {
+          data.push([
+            moment(currentDebt.createdAt).format('DD/MM/YYYY hh:mm A'),
+            `${currentDebt.owner.firstName} ${currentDebt.owner.lastName}`,
+            currentDebt.owner.customerId,
+            currentDebt.createdOffice,
+            `${currentDebt.initialAmount} ${currentDebt.currency}`,
+            `${currentDebt.amount} ${currentDebt.currency}`,
+            currentDebt.notes,
+          ])
+        }
+      } else {
+        data.push([
+          moment(debt.createdAt).format('DD/MM/YYYY hh:mm A'),
+          `${debt.owner.firstName} ${debt.owner.lastName}`,
+          debt.owner.customerId,
+          debt.createdOffice,
+          `${debt.initialAmount} ${debt.currency}`,
+          `${debt.amount} ${debt.currency}`,
+          debt.notes,
+        ])
+      }
+    }
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    // Merge cells A1 and B1
+    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Debts');
+
+    XLSX.writeFile(workbook, `Debts List.xlsx`);
+  }
+
   const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount, waitingApprovalDebtsCount } = countList;
   const debtTabs = getTabsOfDebts({ openedDebtsCount, closedDebtsCount, waitingApprovalDebtsCount, overdueDebtsCount, lostDebtsCount }, (account.roles.isAdmin || account.roles?.accountant))
   const { totalLyd, totalUsd } = calculateTotalDebt(debts as any, currentOffice);
   
   return (
     <div className='col-12'>
-      
       <div className='d-flex align-items-center justify-content-between'>
-        <ToggleButtonGroup
-          color="success"
-          value={currentOffice}
-          exclusive
-          onChange={(event: any, value: string) => {
-            setCurrentOffice(value);
-            fetchBalanceOfUsers(undefined, value);
-          }}
-          size="small"
-          className='mb-3'
-        >
-          <ToggleButton value="tripoli">Tripoli</ToggleButton>
-          <ToggleButton value="benghazi">Benghazi</ToggleButton>
-        </ToggleButtonGroup>
+        <div>
+          <ToggleButtonGroup
+            color="success"
+            value={currentOffice}
+            exclusive
+            onChange={(event: any, value: string) => {
+              setCurrentOffice(value);
+              fetchBalanceOfUsers(undefined, value);
+            }}
+            size="small"
+            className='mb-3'
+          >
+            <ToggleButton value="tripoli">Tripoli</ToggleButton>
+            <ToggleButton value="benghazi">Benghazi</ToggleButton>
+          </ToggleButtonGroup>
+
+          <button style={{ marginLeft: '10px' }} onClick={handleDownload}>Download Debts</button>
+        </div>
         
         {(totalLyd > 0 || totalUsd > 0) &&
           <p style={{ color: '#ec4848' }}>
