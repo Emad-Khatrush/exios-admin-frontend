@@ -14,8 +14,10 @@ const MonthReport = (props: Props) => {
   const [date, setDate] = useState(new Date());
 
   const handleDownload = async () => {
-    const reports = (await api.get(`monthReport?date=${date}`))?.data?.results;
-    const { receivedGoods, invoices, paymentHistory, paidDebts } = reports;
+    const receivedGoods = (await api.get(`monthReport?date=${date}&&fetchType=receivedGoods`))?.data?.results?.receivedGoods;
+    const invoices = (await api.get(`monthReport?date=${date}&&fetchType=invoices`))?.data?.results?.invoices;
+    const paymentHistory = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory`))?.data?.results?.paymentHistory;
+    const paidDebts = (await api.get(`monthReport?date=${date}&&fetchType=paidDebts`))?.data?.results?.paidDebts;
 
     const data: any = [[`Month Report Details of ${moment(date).format('MM/YYYY')}`], []];
     data.push(['CustomerId', 'Order Number', 'Customer Name', 'Phone Number', 'Placed Office', 'Total Invoice', 'Rate', 'Net Income', 'Shipped From', 'Shipped To', 'Made By', 'Created Date'])
