@@ -16,7 +16,13 @@ const MonthReport = (props: Props) => {
   const handleDownload = async () => {
     const receivedGoods = (await api.get(`monthReport?date=${date}&&fetchType=receivedGoods`))?.data?.results;
     const invoices = (await api.get(`monthReport?date=${date}&&fetchType=invoices`))?.data?.results;
-    const paymentHistory = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory`))?.data?.results;
+    const paymentHistory1 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=0&&limit=50`))?.data?.results;
+    const paymentHistory2 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=50&&limit=100`))?.data?.results;
+    const paymentHistory3 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=100&&limit=150`))?.data?.results;
+    const paymentHistory4 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=150&&limit=200`))?.data?.results;
+    const paymentHistory5 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=200&&limit=250`))?.data?.results;
+    const paymentHistory6 = (await api.get(`monthReport?date=${date}&&fetchType=paymentHistory&&skip=250&&limit=10000`))?.data?.results;
+    const paymentHistory = [...paymentHistory1, ...paymentHistory2,...paymentHistory3,...paymentHistory4,...paymentHistory5,...paymentHistory6]
     const paidDebts = (await api.get(`monthReport?date=${date}&&fetchType=paidDebts`))?.data?.results;
 
     const data: any = [[`Month Report Details of ${moment(date).format('MM/YYYY')}`], []];
