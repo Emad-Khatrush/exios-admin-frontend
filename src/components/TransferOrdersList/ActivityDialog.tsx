@@ -2,7 +2,7 @@ import { Alert, Autocomplete, Backdrop, Button, ButtonGroup, CircularProgress, D
 import React from 'react'
 import { countries, orderActions } from '../../containers/EditInvoice/EditInvoice';
 import CustomButton from '../CustomButton/CustomButton';
-import { arrivedPackageDetails, reminderToReceiveGoodsText } from './readyTexts';
+import { arrivedPackageDetails, arrivingGoodsToPortAlert, reminderToReceiveGoodsText } from './readyTexts';
 import { calculateMinTotalPrice, replaceWords } from '../../utils/methods';
 import api from '../../api';
 import { Inventory } from '../../models';
@@ -211,6 +211,7 @@ const ActivityDialog = (props: Props) => {
             <ButtonGroup variant="outlined" aria-label="outlined button group">
               <Button onClick={() => setWhatsupMessage(arrivedPackageDetails)}>وصلت ليبيا</Button>
               <Button onClick={() => setWhatsupMessage(reminderToReceiveGoodsText)}>تذكير للاستلام</Button>
+              <Button onClick={() => setWhatsupMessage(arrivingGoodsToPortAlert)}>موعد وصول الحاوية</Button>
               <Button onClick={() => setWhatsupMessage('')}>حقل فارغ</Button>
             </ButtonGroup>
           </div>
