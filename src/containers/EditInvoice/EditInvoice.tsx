@@ -704,6 +704,16 @@ https://www.exioslibya.com/login
 تحياتي لكم
     `;
 
+    const invoicePaidMessage = `
+مرحباً ${formData.customerInfo.fullName}
+نود إبلاغكم أن عملية الشراء تمت بنجاح، وتم إضافة صور الدفع إلى طلبكم. يُرجى منكم الدخول إلى موقعنا الإلكتروني للاطلاع على تفاصيل الطلبية:
+https://www.exioslibya.com/login
+كما يُرجى نسخ عنوان الشحن الخاص بالطلبية مع علامة الشحن وإرساله إلى البائع لتسهيل عملية التوصيل.
+لأي استفسارات أو مزيد من المعلومات، لا تترددوا في التواصل معنا عبر الأرقام التالية: 0915643265
+شكراً لكم لاختياركم شركة إكسيوس للشحن، ونتطلع لخدمتكم مجدداً.
+مع تحياتنا، شركة إكسيوس للشحن   
+    `
+
     const activities = (formData.activity || []).sort((a: any, b: any) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     const { totalLyd, totalUsd } = getTotalDebtOfUser(this.state.userDebts)
     const totalInvoice = calculateTotalItems(formData?.items);
@@ -917,6 +927,7 @@ https://www.exioslibya.com/login
                   <ButtonGroup variant="outlined" aria-label="outlined button group">
                     <Button onClick={() => this.setState({ whatsupMessage: warehouseDefaultMessage })}>وصلت مخزن</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: arrivedLibyaDefaultMessage })}>وصلت ليبيا</Button>
+                    <Button onClick={() => this.setState({ whatsupMessage: invoicePaidMessage })}>الفاتورة دفعت</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: '' })}>حقل فارغ</Button>
                   </ButtonGroup>
                 </div>
@@ -1320,6 +1331,10 @@ https://www.exioslibya.com/login
                 } 
               />
 
+              <p>
+                广东省佛山市南海区里水镇科顺路6号 威微物流（Exios仓) {this.state.shippingMethodForLabel}({formData?.user?.customerId}) 邓为军 13873096321
+              </p>
+
               <div style={{ background: 'white', textAlign: 'center', border: '2px solid black', width: '400px', height: '460px' }} id='test222'>
                 <div style={{ border: '2px solid black' }} className="p-3">
                   <img src="/images/exios-logo.png" alt="Exios" width={160} height={90} />
@@ -1328,7 +1343,7 @@ https://www.exioslibya.com/login
                   <QRCode value={`http://exios-admin-frontend.web.app/shouldAllowToAccessApp?id=${formData?._id}`} />
                 </div>
                 <div style={{ border: '2px solid black' }} className="p-3">
-                  <p> <strong>Customer ID:</strong> {formData?.orderId} </p>
+                  <p> <strong>Customer ID:</strong> {formData?.user?.customerId} </p>
                   <p className={this.state.inspectionCheckbox ? 'mb-1' : ''}> <strong>Shipment Method:</strong> {this.state.shippingMethodForLabel} </p>
                   {this.state.inspectionCheckbox && 
                     <p className='mt-0' style={{ color: 'red' }}>Inspection Required</p>

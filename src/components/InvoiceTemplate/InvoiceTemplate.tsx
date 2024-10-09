@@ -145,11 +145,23 @@ export const InvoiceTemplate = (props: Props) => {
         </div>
 
         <div className="text-end">
-          <p>
+          <div>
             <strong>
-              ملاحظة: توقيعك على هذه الفاتورة يقر ان العميل قد وافق على شروط وسياسات الشركة
+              ملاحظة:
             </strong>
-          </p>
+          </div>
+
+          <div style={{ direction: 'rtl' }}>
+            <strong>
+            1- توقيعك على هذه الفاتورة يقر ان العميل قد وافق على شروط وسياسات الشركة.
+            </strong>
+          </div>
+
+          <div style={{ direction: 'rtl' }}>
+            <strong>
+            2- عملية تتبع البضائع بعد الشراء هي مسؤولية العميل، والشركة غير مسؤولة عن ذلك بعد إتمام عملية الشراء.
+            </strong>
+          </div>
         </div>
       </div>
     </div>
