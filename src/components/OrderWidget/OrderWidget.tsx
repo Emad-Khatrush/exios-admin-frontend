@@ -17,10 +17,11 @@ type Props = {
   order: Invoice
   orderIndex: number
   isSearchingForTrackingNumber: boolean
+  currentTap?: string
 }
 
 const OrderWidget = (props: Props) => {
-  const { order, isSearchingForTrackingNumber } = props;
+  const { order, isSearchingForTrackingNumber, currentTap } = props;
 
   const [previewImages, setPreviewImages] = useState<any>();  
   const [hasCopiedText, setHasCopiedText] = useState<boolean>(false);  
@@ -55,6 +56,13 @@ const OrderWidget = (props: Props) => {
                       text={trackingNumber} 
                       color='warning'
                     />
+                  </div>
+                }
+
+                {currentTap === 'hasProblem' &&
+                  <div className='mb-2'>
+                    <h6 className='mb-1'> Note: </h6>
+                    <div style={{ background: '#d6d6d6', direction: 'rtl' }} dangerouslySetInnerHTML={{__html: order.orderNote}} />
                   </div>
                 }
             

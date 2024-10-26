@@ -209,6 +209,7 @@ class XTrackingPage extends Component<Props, State> {
                       order={order}
                       orderIndex={currentOrdersCount - i}
                       isSearchingForTrackingNumber={selectorValue === 'trackingNumber' && searchValue !== ''}
+                      currentTap={this.props.listData.tabType}
                     />
                   ))}
                 </>
