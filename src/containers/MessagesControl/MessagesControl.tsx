@@ -17,12 +17,12 @@ const MessagesControl = (props: Props) => {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
-  const onSubmit = async (event: any, testMode: boolean = false) => {
+  const onSubmit = async (event: any, query?: any) => {
     event.preventDefault();
 
     try {
       setIsLoading(true);
-      await api.post(`sendMessagesToClients`, { imgUrl: form?.imgUrl, content: form?.content, target: form?.target, testMode });
+      await api.post(`sendMessagesToClients`, { imgUrl: form?.imgUrl, content: form?.content, target: form?.target, ...query });
       setAlert({
         message: 'تم ارسال الرسائل بنجاح',
         type: 'success'
@@ -103,9 +103,19 @@ const MessagesControl = (props: Props) => {
             background='rgb(0, 88, 171)' 
             size="small"
             disabled={isLoading}
-            onClick={(event: any) => onSubmit(event, true)}
+            onClick={(event: any) => onSubmit(event, { testMode: true })}
           >
             Send Test Message
+          </CustomButton>
+
+          <CustomButton
+            className='mt-3'
+            background='rgb(0, 51, 99)' 
+            size="small"
+            disabled={isLoading}
+            onClick={(event: any) => onSubmit(event, { testBigData: true })}
+          >
+            Send Big Data Test
           </CustomButton>
         </div>
       </div>
