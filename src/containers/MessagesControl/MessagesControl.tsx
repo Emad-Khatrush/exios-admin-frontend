@@ -7,6 +7,8 @@ type Props = {}
 
 const MessagesControl = (props: Props) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [limit, setLimit] = useState(0);
+  const [skip, setSkip] = useState(0);
   const [form, setForm] = useState<any>({});
   const [alert, setAlert] = useState<any>({
     message: '',
@@ -22,7 +24,7 @@ const MessagesControl = (props: Props) => {
 
     try {
       setIsLoading(true);
-      await api.post(`sendMessagesToClients`, { imgUrl: form?.imgUrl, content: form?.content, target: form?.target, ...query });
+      await api.post(`sendMessagesToClients`, { imgUrl: form?.imgUrl, content: form?.content, target: form?.target, skip, limit, ...query });
       setAlert({
         message: 'تم ارسال الرسائل بنجاح',
         type: 'success'
@@ -117,6 +119,10 @@ const MessagesControl = (props: Props) => {
           >
             Send Big Data Test
           </CustomButton>
+
+
+          <input type="number" name='limit' placeholder='Limit' onChange={(e: any) => setLimit(e.target.value)} />
+          <input type="number" name='skip' placeholder='Skip' onChange={(e: any) => setSkip(e.target.value)} />
         </div>
       </div>
     </div>
