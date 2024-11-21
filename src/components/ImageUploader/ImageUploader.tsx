@@ -3,6 +3,9 @@ import { BiImageAdd } from 'react-icons/bi';
 
 import './ImageUploader.scss';
 import FilesPreviewers from '../FilesPreviewers/FilesPreviewers';
+import { WebcamCapture } from '../WebCamUploader/WebCamUploader';
+import { Dialog } from '@mui/material';
+import CustomButton from '../CustomButton/CustomButton';
 
 type Props = {
   id?: string
@@ -14,9 +17,15 @@ type Props = {
   required?: boolean
 }
 
-type State = {}
+type State = {
+  cameraDialog: boolean
+}
 
 class ImageUploader extends Component<Props, State> {
+
+  state: Readonly<State> = {
+    cameraDialog: false
+  }
 
   render() {
     const { inputFileRef, fileUploaderHandler, previewFiles, id, files, required } = this.props;
@@ -25,6 +34,13 @@ class ImageUploader extends Component<Props, State> {
     
     return (
       <div>
+        <CustomButton 
+          background='rgb(0, 171, 85)' 
+          size="small"
+          onClick={() => this.setState({ cameraDialog: true })}
+        >
+          Capture From Camera
+        </CustomButton>
         <input 
           id={id} 
           multiple 
@@ -48,6 +64,17 @@ class ImageUploader extends Component<Props, State> {
           files={previewFiles}
           deleteImage={this.props.deleteImage}
         />
+
+      <Dialog 
+        open={this.state.cameraDialog}
+        onClose={() => this.setState({ cameraDialog: false })}
+      >
+        <WebcamCapture 
+          fileUploaderHandler={fileUploaderHandler}
+          closeCamera={() => this.setState({ cameraDialog: false })}
+          packageId={id}
+        />
+      </Dialog>
       </div>
     )
   }
