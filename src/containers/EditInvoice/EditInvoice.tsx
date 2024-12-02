@@ -1262,7 +1262,14 @@ https://www.exioslibya.com/login
               
               <PackagesList 
                 order={formData}
-                onListChange={(list) => this.setState({ selectedPackages: list })}
+                onListChange={(list) => {
+                  list.forEach((data: any) => {
+                    if (data?.flight) {
+                      delete data.flight;
+                    }
+                  });
+                  this.setState({ selectedPackages: list });
+                }}
               />
             </Card>
           </div>
