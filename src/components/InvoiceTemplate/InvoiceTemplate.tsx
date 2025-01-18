@@ -12,7 +12,7 @@ export const officeDetails: any = {
     phone: '0915643265',
     address: 'فرع طرابلس، باب بن غشير'
   },
-  benghazi: {
+  benghazi: { 
     phone: '0919734019',
     address: 'فرع بنغازي، سيدي حسين'
   }
