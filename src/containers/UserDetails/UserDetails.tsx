@@ -11,6 +11,7 @@ import CashflowUser from './CashflowUser';
 import CustomButton from '../../components/CustomButton/CustomButton';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
+import ShippingMarkDialog from './ShippingMarkDialog';
 
 type Props = {}
 
@@ -122,12 +123,27 @@ const UserDetails = (props: Props) => {
         <InfoWidget title="Debts" value={`${totalUsd} $, ${totalLyd} LYD`} icon={<FaMoneyBillWave />} />
       </div>
       <div className="col-md-4">
-      <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
+        <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
       </div>
+
       <UserWidget
         client={user}
         index={1}
       />
+
+      <div className="col-md-4 mb-2">
+        <CustomButton
+          background='rgb(0, 171, 85)' 
+          size="small"
+          disabled={isLoading}
+          onClick={() => setDialog({ component: ShippingMarkDialog })}
+          style={{
+            marginRight: '8px'
+          }}
+        >
+          Shipping mark & Address
+        </CustomButton>
+      </div>
 
       <CashflowUser 
         userStatement={userStatement}
@@ -142,6 +158,7 @@ const UserDetails = (props: Props) => {
         {dialog?.component &&
           <Tag 
             balances={{ walletLyd, walletUsd }}
+            user={user}
           />
         }
       </Dialog>
