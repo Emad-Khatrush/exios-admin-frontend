@@ -16,6 +16,7 @@ type Props = {
   walletId?: string
   category?: string
   selectedPackages?: any
+  hideUploader?: boolean
 }
 
 const UseWalletBalance = (props: Props) => {
@@ -125,7 +126,6 @@ const UseWalletBalance = (props: Props) => {
     files.forEach((file: any) => {
       formData.append('files', file);
     });
-    console.log(formData);
     
     try {
       setIsLoading(true);
@@ -265,17 +265,19 @@ const UseWalletBalance = (props: Props) => {
               required
             />
           </Box>
-
-          <div className='col-md-4 mt-3'>
-            <h6>Upload Files</h6>
-            <ImageUploader
-              id={'attachments'}
-              inputFileRef={filesRef}
-              fileUploaderHandler={fileUploaderHandler}
-              previewFiles={previewFiles}
-              files={files}
-            />
-          </div>
+          
+          {!props.hideUploader && 
+            <div className='col-md-4 mt-3'>
+              <h6>Upload Files</h6>
+              <ImageUploader
+                id={'attachments'}
+                inputFileRef={filesRef}
+                fileUploaderHandler={fileUploaderHandler}
+                previewFiles={previewFiles}
+                files={files}
+              />
+            </div>
+          }
 
           <DialogActions>
             <Button disabled={isLoading || (balances.walletUsd <= 0 && balances.walletLyd <= 0)} type="submit" >Use Balance</Button>

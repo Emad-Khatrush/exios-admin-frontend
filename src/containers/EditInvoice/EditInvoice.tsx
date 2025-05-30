@@ -1448,6 +1448,7 @@ https://www.exioslibya.com/login
             walletId={this.state.formData.user._id}
             category={this.state.category}
             selectedPackages={this.state.selectedPackages}
+            hideUploader
           />
         </Dialog>
 
