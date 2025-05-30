@@ -366,4 +366,5 @@ export type Inventory = {
   inventoryType: 'inventoryGoods' | 'shippingVoyage',
   shippingType: 'air' | 'sea' | 'domestic'
   note: string
+  costPrice: number
 }

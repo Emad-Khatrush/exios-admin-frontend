@@ -59,7 +59,7 @@ const ExpenseForm = (props: Props) => {
             id={'outlined-helperText'}
             name="cost"
             type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
             required={true}
             label={'Cost'}
             onChange={props.handleChange}

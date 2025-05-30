@@ -337,7 +337,7 @@ const InvoiceForm = (props: Props) => {
             label={'Total Invoice'}
             name="totalInvoice"
             type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
             onChange={props.handleChange}
             value={props.totalInvoice || invoice?.totalInvoice}
             onWheel={(event: any) => event.target.blur()}

@@ -178,7 +178,7 @@ export const getInvoices = (config?: { skip?: number, limit?: number, tabType?: 
   }
 }
 
-export const getInvoicesBySearch = (query?: { searchValue: string, dateValue?: any[], selectorValue: string, tabType: string, cancelToken: any }) => {
+export const getInvoicesBySearch = (query?: { searchValue: string, dateValue?: any[], selectorValue: string, tabType: string, cancelToken: any, hideFinishedOrdersCheck: boolean }) => {
   return (dispatch: Dispatch<Action>): void => {
 
     dispatch({
@@ -192,7 +192,7 @@ export const getInvoicesBySearch = (query?: { searchValue: string, dateValue?: a
       endDate = query?.dateValue[1];
     }
 
-    api.get(`orders/search?tabType=${query?.tabType}`, { cancelToken: query?.cancelToken?.token, startDate, endDate, searchValue: query?.searchValue, searchType: query?.selectorValue })
+    api.get(`orders/search?tabType=${query?.tabType}`, { cancelToken: query?.cancelToken?.token, startDate, endDate, searchValue: query?.searchValue, searchType: query?.selectorValue, hideFinishedOrdersCheck: query?.hideFinishedOrdersCheck })
       .then(({ data }) => {
         dispatch({
           payload: { data, dontUpdateOrdersCount: true },

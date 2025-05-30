@@ -70,7 +70,7 @@ const CashflowUser = (props: Props) => {
           const allowViewHiddenFields = isAdmin && !statement?.review?.isAdminConfirmed;
 
           return (
-            <PaymentDetails 
+            <PaymentDetails
               title={moment(statement.createdAt).format('DD/MM/YYYY')}
               description={statement.description}
               footer={`${statement.currency} ${statement.amount} ${statement.calculationType}`}

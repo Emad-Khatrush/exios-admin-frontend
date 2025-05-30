@@ -74,7 +74,7 @@ const CreateDebtDialog = (props: Props) => {
                 id={'outlined-helperText'}
                 name="amount"
                 type={'number'}
-                inputProps={{ inputMode: 'numeric' }}
+                inputProps={{ inputMode: 'numeric', step: .01 }}
                 required={true}
                 label={'Amount'}
                 onChange={onChangeHandler}

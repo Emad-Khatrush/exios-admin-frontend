@@ -791,6 +791,7 @@ https://www.exioslibya.com/login
                 color="success" 
                 size='small'
                 onClick={() => this.setState({ walletDialog: true })}
+                disabled={true}
               >
                 Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
               </Button>
@@ -1155,14 +1156,14 @@ https://www.exioslibya.com/login
                   Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
                 </Button>
 
-                <Button 
+                {/* <Button 
                   variant="outlined" 
                   color="success" 
                   size='small'
                   onClick={() => this.setState({ payCashDialog: true, category: 'invoice' })}
                 >
                   Pay Cash
-                </Button>
+                </Button> */}
               </div>
               
               <p className='m-0 mt-2 mb-2'>
@@ -1175,8 +1176,8 @@ https://www.exioslibya.com/login
               </p>
               {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'invoice').map(payment => (
                 <div>
-                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
-                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                  <p className='m-0 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid / Rate: {payment?.rate || 0}
                     <AvatarGroup max={3}>
                       {payment.attachments.map((img: any) => (
                         <Avatar
@@ -1190,6 +1191,27 @@ https://www.exioslibya.com/login
                     </AvatarGroup>
                     {payment?.note && <span>{payment.note}</span>}
                   </p>
+                  <p>Created By: {`${payment?.createdBy.firstName} ${payment?.createdBy.lastName}` }</p>
+                  {account.roles.isAdmin &&
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      size='small'
+                      onDoubleClick={() => {
+                        this.setState({ isUpdating: true });
+                        api.delete(`wallet/${payment.customer._id}`, { payment })
+                          .then(() => {
+                            this.setState({ isUpdating: false, resMessage: 'Payment deleted successfully', isFinished: true });
+                            window.location.reload();
+                          })
+                          .catch((err) => {
+                            this.setState({ isUpdating: false, resMessage: err.data.message });
+                          })
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  }
                   <hr />
                 </div>
                 )) 
@@ -1212,7 +1234,7 @@ https://www.exioslibya.com/login
                   Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
                 </Button>
 
-                <Button 
+                {/* <Button 
                   variant="outlined" 
                   color="success" 
                   size='small'
@@ -1220,7 +1242,7 @@ https://www.exioslibya.com/login
                   disabled={this.state.selectedPackages.length === 0}
                 >
                   Pay Cash
-                </Button>
+                </Button> */}
               </div>
 
               <p className='m-0 mt-2 mb-2'>
@@ -1233,8 +1255,8 @@ https://www.exioslibya.com/login
               </p>
               {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'receivedGoods').map(payment => (
                 <div>
-                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
-                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                  <p className='m-0 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid / Rate: {payment?.rate || 0}
                     <AvatarGroup max={3}>
                       {payment.attachments.map((img: any) => (
                         <Avatar
@@ -1248,6 +1270,27 @@ https://www.exioslibya.com/login
                     </AvatarGroup>
                     {payment?.note && <span>{payment.note}</span>}
                   </p>
+                  <p>Created By: {`${payment?.createdBy.firstName} ${payment?.createdBy.lastName}` }</p>
+                  {account.roles.isAdmin &&
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      size='small'
+                      onDoubleClick={() => {
+                        this.setState({ isUpdating: true });
+                        api.delete(`wallet/${payment.customer._id}`, { payment })
+                          .then(() => {
+                            this.setState({ isUpdating: false, resMessage: 'Payment deleted successfully', isFinished: true });
+                            window.location.reload();
+                          })
+                          .catch((err) => {
+                            this.setState({ isUpdating: false, resMessage: err.data.message });
+                          })
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  }
                   {payment.list.length > 0 && payment.list.map((orderPackage: any, i: number) => (
                     <p>
                       {i + 1}. {orderPackage.deliveredPackages.trackingNumber} / {orderPackage.deliveredPackages.weight.total} {orderPackage.deliveredPackages.weight.measureUnit}

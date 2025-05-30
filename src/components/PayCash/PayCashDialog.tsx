@@ -183,6 +183,19 @@ const PayCashDialog = (props: Props) => {
             </FormControl>
           </div>
 
+          <div className='col-md-12 mt-3'>
+            <TextField
+              id={'outlined-helperText'}
+              name="rate"
+              type={'number'}
+              inputProps={{ inputMode: 'numeric', step: .01 }}
+              required={true}
+              label={'Rate / سعر الصرف'}
+              placeholder="اذا لا يوجد ضع 0"
+              onChange={onChangeHandler}
+            />
+          </div>
+
           <div className='col-md-4 mt-3'>
             <h6>Upload Files</h6>
             <ImageUploader

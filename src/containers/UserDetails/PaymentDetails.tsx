@@ -1,4 +1,4 @@
-import { Button, ClickAwayListener, Dialog, DialogActions, DialogContent, Grid, Stack, TextField, Tooltip } from "@mui/material"
+import { Avatar, AvatarGroup, Button, ClickAwayListener, Dialog, DialogActions, DialogContent, Grid, Stack, TextField, Tooltip } from "@mui/material"
 import { useState } from "react"
 import { FaRegQuestionCircle } from "react-icons/fa"
 import CustomButton from "../../components/CustomButton/CustomButton"
@@ -8,6 +8,7 @@ import DatePicker from "@mui/lab/DatePicker"
 import api from "../../api"
 import { useParams } from "react-router-dom"
 import moment from "moment"
+import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper"
 
 type Props = {
   title: string
@@ -29,6 +30,7 @@ const PaymentDetails = (props: Props) => {
   const [dialog, setDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [receivedDate, setReceivedDate] = useState(new Date());
+  const [previewImages, setPreviewImages] = useState<any>(undefined);
 
   const handleTooltipClose = () => {
     setOpen(false);
@@ -89,6 +91,19 @@ const PaymentDetails = (props: Props) => {
               </Grid>
             </span>
           }
+          {statement?.attachments?.length > 0 && 
+            <AvatarGroup style={{ borderColor: 'black' }} max={3}>
+              {statement?.attachments.map((img: any) => (
+                <Avatar
+                  style={{ cursor: 'pointer' }}
+                  key={img.filename}
+                  alt={img.filename} 
+                  src={img.path}
+                  onClick={() => setPreviewImages(statement.attachments)}
+                />
+              ))}
+            </AvatarGroup>
+          }
         </div>
         <p className="m-0" style={{ color: color === 'danger' ? '#c72205' : '#069612', minWidth: '50px' }}>{footer}</p>
         <p className="m-0" style={{ minWidth: '50px' }}>{total}</p>
@@ -122,7 +137,19 @@ const PaymentDetails = (props: Props) => {
           <Button disabled={isLoading} color="success" onClick={verifyPayment}>Verify</Button>
         </DialogActions>
       </Dialog>
-    </div>
+
+      <Dialog 
+        open={previewImages}
+        onClose={() => setPreviewImages(undefined)}
+      >
+        <DialogContent>
+          <SwipeableTextMobileStepper data={previewImages} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
+        </DialogActions>
+      </Dialog>
+</div>
   )
 }
 

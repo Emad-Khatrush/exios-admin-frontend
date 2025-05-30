@@ -6,6 +6,8 @@ import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, Dia
 import React, { useState } from 'react'
 import api from '../../api';
 import { useParams } from 'react-router-dom';
+import { getErrorMessage } from '../../utils/errorHandler';
+import ImageUploader from '../../components/ImageUploader/ImageUploader';
 
 type Props = {}
 
@@ -19,6 +21,45 @@ const AddBalanceToWallet = (props: Props) => {
   });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const [previewFiles, setPreviewFiles] = useState<any>([]);
+  const [files, setFiles] = useState<any>([]);
+  const filesRef = React.createRef();
+
+  const handleFileChosen = async (file: any) => {
+    return new Promise((resolve, reject) => {
+      let fileReader = new FileReader();
+      fileReader.readAsDataURL(file);
+      fileReader.onload = () => {
+        resolve(fileReader.result);
+      };
+    });
+  }
+
+  const previewFile = async (files: any, category: string) => {
+    const results = await Promise.all(files.map(async (file: any) => {
+      const fileContents = await handleFileChosen(file);
+      return fileContents;
+    }));
+
+    setPreviewFiles(results);
+  };
+
+  const fileUploaderHandler = async (event: any) => {
+    const files = event.target.files;
+    
+    const newFiles: any =[];
+    
+    for (const file of files) {
+      file.category = event.target.id;
+      newFiles.unshift(file)
+    }
+        
+    setFiles((previewState: any) => {
+      previewFile([ ...previewState, ...newFiles ], event.target.id);
+      return [ ...previewState, ...newFiles ];
+    })
+  }
 
   const onChangeHandler = (event: any) => {
     setForm({ ...form, [event.target.name]: event.target.value });
@@ -35,12 +76,40 @@ const AddBalanceToWallet = (props: Props) => {
       setError('لا يمكن اضافة 0 رصيد الى محفظة يرجى التاكد من المعلومات التي تم كتابتها')
       return;
     }
+    if (files.length === 0) {
+      return setError('يجب اضافة صورة من وصل الدفع')
+    }
 
     const description = `تم اضافة رصيد الى المحفظة بقيمة ${form?.amount + form?.currency}`;
+
+    const formData  = new FormData();
+    formData.append('description', description);
+    
+    for (const data in form) {
+      formData.append(data, form[data]);
+    }
+
+    files.forEach((file: any) => {
+      formData.append('files', file);
+    });
     
     try {
       setIsLoading(true);
-      await api.post(`wallet/${id}`, { ...form, description })
+      api.fetchFormData(`wallet/${id}`, 'POST', formData)
+        .then((res: any) => {
+          if (res?.success !== undefined && !res?.success) {
+            setError(getErrorMessage(res.message));
+            setIsLoading(false);  
+          } else {
+            // Add action
+            setError(undefined);
+            window.location.reload();
+          }
+        })
+        .catch((error) => {
+          setError(getErrorMessage(error.message));
+          setIsLoading(false);
+        })
       window.location.reload();
     } catch (error: any) {
       setError(error.response.data.message);
@@ -130,6 +199,17 @@ const AddBalanceToWallet = (props: Props) => {
               required
             />
           </Box>
+
+          <div className='col-md-4 mt-3'>
+            <h6>Upload Files</h6>
+            <ImageUploader
+              id={'attachments'}
+              inputFileRef={filesRef}
+              fileUploaderHandler={fileUploaderHandler}
+              previewFiles={previewFiles}
+              files={files}
+            />
+          </div>
 
           <DialogActions>
             <Button disabled={isLoading} type="submit" >Create Balance</Button>
