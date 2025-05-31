@@ -1293,7 +1293,7 @@ https://www.exioslibya.com/login
                   }
                   {payment.list.length > 0 && payment.list.map((orderPackage: any, i: number) => (
                     <p>
-                      {i + 1}. {orderPackage.deliveredPackages.trackingNumber} / {orderPackage.deliveredPackages.weight.total} {orderPackage.deliveredPackages.weight.measureUnit}
+                      {i + 1}. {orderPackage.deliveredPackages?.trackingNumber} / {orderPackage.deliveredPackages?.weight?.total} {orderPackage.deliveredPackages?.weight?.measureUnit}
                     </p>
                   ))}
                   <hr />

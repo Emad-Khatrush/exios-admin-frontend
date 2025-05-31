@@ -110,7 +110,7 @@ const UseWalletBalance = (props: Props) => {
 
     formData.append('description', description);
     formData.append('category', props.category ?? '');
-    formData.append('list', props.selectedPackages);
+    formData.append('list', JSON.stringify(props.selectedPackages || []));
     
     for (const data in form) {
       formData.append(data, form[data]);
