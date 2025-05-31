@@ -99,7 +99,7 @@ const UseWalletBalance = (props: Props) => {
       setError('لا يمكن اضافة 0 رصيد الى محفظة يرجى التاكد من المعلومات التي تم كتابتها')
       return;
     }
-    if (files.length === 0) {
+    if (files.length === 0 && !props.hideUploader) {
       return setError('يجب اضافة صورة من وصل الدفع')
     }
 
