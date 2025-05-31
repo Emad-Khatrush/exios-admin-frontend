@@ -103,7 +103,7 @@ const AddBalanceToWallet = (props: Props) => {
           } else {
             // Add action
             setError(undefined);
-            // window.location.reload();
+            window.location.reload();
           }
         })
         .catch((error) => {
