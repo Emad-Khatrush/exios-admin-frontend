@@ -123,7 +123,7 @@ const UserDetails = (props: Props) => {
         <InfoWidget title="Debts" value={`${totalUsd} $, ${totalLyd} LYD`} icon={<FaMoneyBillWave />} />
       </div>
       <div className="col-md-4">
-        <InfoWidget title="Wallet" value={`${walletUsd.toFixed(2)} $, ${walletLyd.toFixed(2)} LYD`} icon={<FaMoneyBillWave />} />
+        <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
       </div>
 
       <UserWidget

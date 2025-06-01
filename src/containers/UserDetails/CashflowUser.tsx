@@ -74,7 +74,7 @@ const CashflowUser = (props: Props) => {
               title={moment(statement.createdAt).format('DD/MM/YYYY')}
               description={statement.description}
               footer={`${statement.currency} ${statement.amount} ${statement.calculationType}`}
-              total={`${statement.currency} ${statement.total.toFixed(2)}`}
+              total={`${statement.currency} ${statement.total}`}
               color={statement.calculationType === '-' ? 'danger' : 'success'}
               tootipInfo={statement?.note}
               showVerifyButton={allowViewHiddenFields}
