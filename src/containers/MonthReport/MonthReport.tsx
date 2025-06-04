@@ -91,7 +91,7 @@ const MonthReport = (props: Props) => {
         const trackingNumbersInThisPayment = new Set<string>();
 
         payment.list.forEach((item: any) => {
-          const trackingNumber = item.deliveredPackages.trackingNumber;
+          const trackingNumber = item.deliveredPackages?.trackingNumber;
           trackingNumbersInThisPayment.add(trackingNumber);
 
           if (!allTrackingGroups.has(trackingNumber)) {
@@ -130,11 +130,11 @@ const MonthReport = (props: Props) => {
         processedTrackingNumbers.add(trackingNumber);
 
         const item = group.items[0]; // Reference item
-        const weight = item.deliveredPackages.weight?.total || 0;
-        const measure = item.deliveredPackages.weight?.measureUnit || '';
-        const exiosPrice = item.deliveredPackages.exiosPrice || 0;
+        const weight = item.deliveredPackages?.weight?.total || 0;
+        const measure = item.deliveredPackages?.weight?.measureUnit || '';
+        const exiosPrice = item.deliveredPackages?.exiosPrice || 0;
         const costFlight = item?.flight?.costPrice || 0;
-        const originPrice = item.deliveredPackages.originPrice || 0;
+        const originPrice = item.deliveredPackages?.originPrice || 0;
 
         const sellPrice = exiosPrice * weight;
         const costPrice = costFlight * weight;
