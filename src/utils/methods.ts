@@ -133,3 +133,13 @@ export const calculateTotalDebt = (debts: Debt[], currentOffice: string) => {
 
   return { totalUsd, totalLyd }
 }
+
+export const calculateTotalWallet = (wallet: any) => {
+  let totalUsd = 0, totalLyd = 0;
+  (wallet || []).forEach((w: any) => {
+    if (w.currency === 'USD') totalUsd += w.balance
+    else if (w.currency === 'LYD') totalLyd += w.balance;
+  })
+
+  return { totalUsd, totalLyd }
+}

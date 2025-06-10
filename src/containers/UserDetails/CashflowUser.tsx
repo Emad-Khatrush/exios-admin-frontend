@@ -4,6 +4,7 @@ import PaymentDetails from './PaymentDetails';
 import moment from 'moment';
 import { useState } from 'react';
 import { useSelector } from 'react-redux';
+import UserStatementDesign from './UserStatementDesign';
 
 type Props = {
   userStatement: any
@@ -24,6 +25,8 @@ const CashflowUser = (props: Props) => {
         marginTop: '20px'
       }}
     >
+      {userStatement && <UserStatementDesign  userStatements={[...userStatement].reverse()} />}
+      
       <div className='d-flex justify-content-between align-items-center'>
         <h5> Cashflow Statement </h5>
         <ToggleButtonGroup

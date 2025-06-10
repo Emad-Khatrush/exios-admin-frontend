@@ -1,18 +1,20 @@
 import { Textarea } from "@mui/joy";
 import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../api";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
 import DatePicker from "@mui/lab/DatePicker";
-import { arrayRemoveByValue } from "../../utils/methods";
+import { arrayRemoveByValue, calculateTotalWallet } from "../../utils/methods";
 import React from "react";
 import ImageUploader from "../ImageUploader/ImageUploader";
 import { getErrorMessage } from "../../utils/errorHandler";
+import { useSelector } from "react-redux";
 
 type Props = {
   setDialog: (state: any) => void
   item?: any
+  debtType?: string
 }
 
 const CreateDebtHistoryDialog = (props: Props) => {
@@ -25,8 +27,23 @@ const CreateDebtHistoryDialog = (props: Props) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [files, setFiles] = useState<any>([]);
   const [previewFiles, setPreviewFiles] = useState<any>([]);
+  const [wallet, setWallet] = useState<any>();
+  const [debtType, setDebtType] = useState(props.item?.debtType);
 
   const filesRef = React.createRef();
+
+  const { roles } = useSelector((state: any) => state.session.account);
+  
+
+  useEffect(() => {
+    loadWallet();    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const loadWallet = async () => {
+    const walletResponse = (await api.get(`wallet/${props.item.owner?._id}`)).data;
+    setWallet(walletResponse?.results);
+  }
 
   const onChangeHandler = (event: any) => {
     setForm({ ...form, [event.target.name]: event.target.value });
@@ -39,8 +56,24 @@ const CreateDebtHistoryDialog = (props: Props) => {
       return;
     }
 
-    if (files.length === 0) {
-      return setError('يجب اضافة صوره من وصل الخاص بالدين')
+    // if (files.length === 0) {
+    //   return setError('يجب اضافة صوره من وصل الخاص بالدين')
+    // }
+
+  const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(wallet);
+
+  let currentWallet = walletUsd;
+    if (currency === 'LYD') {
+      currentWallet = walletLyd;
+    }
+
+    if (form.amount > currentWallet) {
+      setError('ليست لديك الرصيد الكافي لتقوم باستعماله، يرجى التاكد من الرصيد قبل');
+      return;
+    }
+    if (form?.amount <= 0) {
+      setError('لا يمكن اضافة 0 رصيد الى محفظة يرجى التاكد من المعلومات التي تم كتابتها')
+      return;
     }
 
     const formData  = new FormData();
@@ -55,6 +88,9 @@ const CreateDebtHistoryDialog = (props: Props) => {
     }
 
     formData.append('sameCurrency', form.currency === props.item.currency ? 'true' : 'false');
+    if (!formData.get('debtType')) {
+      formData.append('debtType', debtType);
+    }
     
     setIsLoading(true);
 
@@ -121,15 +157,18 @@ const CreateDebtHistoryDialog = (props: Props) => {
     setPreviewFiles(newPreviewFiles);
   }
   
+  const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(wallet);
+  
   return (
     <>
-      <DialogTitle>Create Payment History</DialogTitle>
+      <DialogTitle>Create Payment History <span style={{ color: 'rgb(236, 72, 72)' }}>({props.item?.amount} {props.item?.currency})</span></DialogTitle>
         <DialogContent>
           {error &&
             <Alert className="mb-2" color="error">
               {error}
             </Alert>
           }
+          <p className="my-0" style={{ color: 'rgba(35, 97, 6, 0.675)' }}>Wallet({props.item?.owner?.customerId}) ({`${walletUsd} $, ${walletLyd} LYD`})</p>
           <form className="row" onSubmit={onSubmit}>
             <h6 className="mb-3">Payment Info</h6>
             <div className='col-md-5 mb-3'>
@@ -139,7 +178,8 @@ const CreateDebtHistoryDialog = (props: Props) => {
                     value={date}
                     label="Received Payment Date"
                     inputFormat="dd/MM/yyyy"
-                    renderInput={(params: any) => <TextField {...params} /> }                    
+                    renderInput={(params: any) => <TextField {...params} /> }          
+                    disabled={!roles.isAdmin}          
                     onChange={(value: any) => {
                       setDate(value);
                       onChangeHandler({ target: { value, name: 'createdAt' }});
@@ -191,6 +231,34 @@ const CreateDebtHistoryDialog = (props: Props) => {
                   </MenuItem>
                   <MenuItem value={'LYD'}>
                     <em> LYD </em>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
+            <div className="d-flex col-md-12 mb-4">
+              <FormControl style={{ width: '100%' }} required>
+                <InputLabel id="demo-select-small">اختار نوع الدين</InputLabel>
+                <Select
+                  labelId={'debtType'}
+                  id={'debtType'}
+                  defaultValue={debtType}
+                  label={'Debt Type'}
+                  name="debtType"
+                  onChange={(event: any) => {
+                    setDebtType(event.target.value);
+                    return onChangeHandler(event);
+                  }}
+                  disabled={debtType && !roles.isAdmin}
+                >
+                  <MenuItem value={'invoice'}>
+                    <em> دين لاجل تسديد فاتورة شراء </em>
+                  </MenuItem>
+                  <MenuItem value={'receivedGoods'}>
+                    <em> دين لاجل تسديد شحن </em>
+                  </MenuItem>
+                  <MenuItem value={'general'}>
+                    <em> دين عام لا يتعلق بطلبية </em>
                   </MenuItem>
                 </Select>
               </FormControl>

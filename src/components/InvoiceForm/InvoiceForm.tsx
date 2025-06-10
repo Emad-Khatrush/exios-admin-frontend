@@ -76,6 +76,7 @@ const InvoiceForm = (props: Props) => {
   const [ confirmRemoveLinkModal, setConfirmRemoveLinkModal ] = useState(false);
   const [ invoice, setInvoice ] = useState<Invoice | undefined>(props.invoice);
   const [ customerId, setCustomerId ] = useState<string | undefined>(props.invoice?.user?.customerId);
+  const [ userId, setUserId ] = useState<string | undefined>(props.invoice?.user?._id);
 
   const steps = getOrderSteps(invoice);
 
@@ -89,6 +90,7 @@ const InvoiceForm = (props: Props) => {
     try {
       const res = await api.get(`customer/${customerId}`);
       const user: User = res.data;
+      setUserId(user._id);
       setInvoice({ 
         ...invoice,
         netIncome: [],
@@ -121,19 +123,22 @@ const InvoiceForm = (props: Props) => {
           <p className='title'> Contact Info </p>
         </div>
 
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="customerId"
-            required={true}
-            label={'Customer Id'}
-            onChange={(event: any) => {
-              props.handleChange(event);
-              setCustomerId(event.target.value)
-            }}
-            defaultValue={invoice?.user?.customerId}
-            disabled={invoice?.isCanceled}
-          />
+        <div className="col-md-6">
+          <div className='grid mb-4'>
+            <TextField
+              id={'outlined-helperText'}
+              name="customerId"
+              required={true}
+              label={'Customer Id'}
+              onChange={(event: any) => {
+                props.handleChange(event);
+                setCustomerId(event.target.value)
+              }}
+              defaultValue={invoice?.user?.customerId}
+              disabled={invoice?.isCanceled}
+            />
+            {userId && <a target="_blank" href={`/user/${userId}`} rel="noreferrer">View User Page</a>}
+          </div>
         </div>
 
         <div className="col-md-3 d-flex align-items-center mb-4">

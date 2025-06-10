@@ -9,7 +9,7 @@ import api from '../../api'
 import { Account, Debt, Invoice, OrderActivity, OrderItem, User } from '../../models'
 import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
-import { getOrderSteps } from '../../utils/methods'
+import { calculateTotalWallet, getOrderSteps } from '../../utils/methods'
 import QRCode from 'qrcode.react'
 import { formatInvoiceFields } from '../XTrackingPage/utils'
 import { isMobile } from 'react-device-detect';
@@ -1523,16 +1523,6 @@ const calculateTotalItems = (items: OrderItem[]) => {
     total += item.unitPrice * item.quantity;
   })
   return total;
-}
-
-const calculateTotalWallet = (wallet: any) => {
-  let totalUsd = 0, totalLyd = 0;
-  (wallet || []).forEach((w: any) => {
-    if (w.currency === 'USD') totalUsd += w.balance
-    else if (w.currency === 'LYD') totalLyd += w.balance;
-  })
-
-  return { totalUsd, totalLyd }
 }
 
 const calculateTotalPaid = (paymentHistroy: any, category = 'invoice') => {

@@ -8,11 +8,13 @@ type Props = {
   setDialog: (state: any) => void
   orderId?: string
   customerId?: string
+  debtType?: string
 }
 
 const CreateDebtDialog = (props: Props) => {
   const [currency, setCurrency] = useState();
   const [office] = useState();
+  const [debtType, setDebtType] = useState(props.debtType);
   const [form, setForm] = useState<any>();
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -122,6 +124,33 @@ const CreateDebtDialog = (props: Props) => {
                   </MenuItem>
                   <MenuItem value={'benghazi'}>
                     <em> Benghazi Office </em>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
+            <div className="d-flex col-md-12 mb-4">
+              <FormControl style={{ width: '100%' }} required>
+                <InputLabel id="demo-select-small">اختار نوع الدين</InputLabel>
+                <Select
+                  labelId={'debtType'}
+                  id={'debtType'}
+                  defaultValue={debtType}
+                  label={'Debt Type'}
+                  name="debtType"
+                  onChange={(event: any) => {
+                    setDebtType(event.target.value);
+                    return onChangeHandler(event);
+                  }}
+                >
+                  <MenuItem value={'invoice'}>
+                    <em> دين لاجل تسديد فاتورة شراء </em>
+                  </MenuItem>
+                  <MenuItem value={'receivedGoods'}>
+                    <em> دين لاجل تسديد شحن </em>
+                  </MenuItem>
+                  <MenuItem value={'general'}>
+                    <em> دين عام لا يتعلق بطلبية </em>
                   </MenuItem>
                 </Select>
               </FormControl>

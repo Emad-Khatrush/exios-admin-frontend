@@ -33,6 +33,7 @@
     "install": "^0.13.0",
     "jsonwebtoken": "^8.5.1",
     "jspdf": "^2.5.1",
+    "lucide-react": "^0.513.0",
     "moment": "^2.29.3",
     "moment-timezone": "^0.5.34",
     "npm": "^8.9.0",
