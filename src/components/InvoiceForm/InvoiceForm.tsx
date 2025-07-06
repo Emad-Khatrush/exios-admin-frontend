@@ -733,6 +733,9 @@ const InvoiceForm = (props: Props) => {
               <MenuItem value={'sea'}>
                 <em> By Sea </em>
               </MenuItem>
+              <MenuItem value={'unknown'}>
+                <em> Unknown </em>
+              </MenuItem>
             </Select>
           </FormControl>
         </div>
@@ -1042,6 +1045,9 @@ const InvoiceForm = (props: Props) => {
                     </MenuItem>
                     <MenuItem id={deliveredPackages.id} value={'sea'}>
                       <em> By Sea </em>
+                    </MenuItem>
+                    <MenuItem id={deliveredPackages.id} value={'unknown'}>
+                      <em> Unknown </em>
                     </MenuItem>
                   </Select>
                 </FormControl>
