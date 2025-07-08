@@ -38,7 +38,10 @@ class ImageUploader extends Component<Props, State> {
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       // Create a synthetic event to match input onChange signature
-      const event = { target: { files } };
+      const event: any = { target: { files } };
+      if (this.props.id) {
+        event.target.id = this.props.id;
+      }
       this.props.fileUploaderHandler(event);
       e.dataTransfer.clearData();
     }
