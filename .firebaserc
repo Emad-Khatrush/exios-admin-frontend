@@ -5,7 +5,8 @@
     "ad": "exios-admin-frontend",
     "admin": "exios-admin-frontend",
     "f": "exios-admin-frontend",
-    "frontend": "exios-admin-frontend"
+    "frontend": "exios-admin-frontend",
+    "qa": "exios-admin-qa"
   },
   "targets": {},
   "etags": {}

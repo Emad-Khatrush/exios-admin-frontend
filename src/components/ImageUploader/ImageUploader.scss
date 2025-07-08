@@ -3,11 +3,16 @@
   height: 125px;
   border: 1px dashed rgba(145, 158, 171, 0.32);
   border-radius: 60%;
-  padding: 1px;
   margin: 25px auto;
   margin-bottom: 10px;
   padding: 6px;
   text-align: center;
+  transition: background 0.1s, border-color 0.1;
+
+  &.dragging {
+    border-color: #00ab55; // Your theme green
+    background: rgba(0, 171, 85, 0.1); // light green background
+  }
 
   .upload-section {
     display: flex;
