@@ -154,8 +154,8 @@ const MonthReport = (props: Props) => {
           sellPrice,
           costPrice,
           grossProfit,
-          group.lydPaid ? group.lydPaid : undefined,
-          group.usdPaid ? group.usdPaid : undefined,
+          group.lydPaid ? group?.lydPaid : undefined,
+          group.usdPaid ? group?.usdPaid : undefined,
           group.rate ? group.rate : undefined,
           (group.lydConverted + group.usdPaid ? (group.lydConverted + group.usdPaid).toFixed(2) : undefined),
         ];
