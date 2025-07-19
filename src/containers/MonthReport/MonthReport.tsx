@@ -114,7 +114,11 @@ const MonthReport = (props: Props) => {
 
         if (payment.currency === 'LYD') {
           const group = allTrackingGroups.get(mainTrackingNumber);
-          group.lydPaid += payment.receivedAmount;
+          if (!group) {
+            return;
+          }
+          
+          group.lydPaid += Number(payment.receivedAmount) || 0;
           if (payment.rate) {
             group.lydConverted += payment.receivedAmount / payment.rate;
             group.rate = payment.rate;
