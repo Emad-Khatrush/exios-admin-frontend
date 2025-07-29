@@ -1229,7 +1229,7 @@ https://www.exioslibya.com/login
                   color="success" 
                   size='small'
                   onClick={() => this.setState({ walletDialog: true, category: 'receivedGoods' })}
-                  disabled={this.state.selectedPackages.length === 0}
+                  disabled={this.state.selectedPackages.length === 0 || !account.roles.isAdmin}
                 >
                   Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
                 </Button>
