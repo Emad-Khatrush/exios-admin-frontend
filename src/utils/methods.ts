@@ -104,16 +104,16 @@ export const checkIfDataArray = (data: any) => {
 
 export const calculateMinTotalPrice = (price: number, weight: number, shippedCountry: string, measureUnit: string) => {
   const total = price * weight;
-  let minPrice = price;
-
-  // The min weight from China is half of price
-  if (shippedCountry === 'CN' && measureUnit === 'KG') {
-    minPrice = price / 2;
-    if (total <= minPrice && measureUnit === 'KG') {
-      return minPrice;
-    }
-  }
-  return Math.ceil(total);
+  
+  // let minPrice = price;
+  // // The min weight from China is half of price
+  // if (shippedCountry !== 'CN' && measureUnit === 'KG') {
+  //   minPrice = price / 2;
+  //   if (total <= minPrice && measureUnit === 'KG') {
+  //     return minPrice;
+  //   }
+  // }
+  return Number(total).toFixed(2);
 }
 
 export const calculateTotalDebt = (debts: Debt[], currentOffice: string) => {

@@ -106,7 +106,7 @@ const UseWalletBalance = (props: Props) => {
     const formData  = new FormData();
     const description = `تم خصم ${form?.amount + form?.currency} من المحفظة`;
     let note = `Order Id (${props.orderId || form.orderId}) => ${form?.note}`;
-    if (checkbox) note = `${form.note}`;
+    if (!checkbox) note = `${form.note}`;
 
     formData.append('description', description);
     formData.append('category', props.category ?? '');

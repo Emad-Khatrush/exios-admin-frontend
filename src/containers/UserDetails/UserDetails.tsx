@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
-import { CircularProgress, Dialog } from '@mui/material';
+import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
 import InfoWidget from '../../components/InfoWidget/InfoWidget';
 import { FaMoneyBillWave } from 'react-icons/fa';
 import { Debt } from '../../models';
@@ -12,6 +12,8 @@ import CustomButton from '../../components/CustomButton/CustomButton';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
 import ShippingMarkDialog from './ShippingMarkDialog';
+import UserOrders from './UserOrders';
+import UserInvoices from './UserInvoices';
 
 type Props = {}
 
@@ -25,16 +27,17 @@ const UserDetails = (props: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
   useEffect(() => {
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     fetchUserStatement();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statementCurrency])
 
   const loadData = async () => {
@@ -90,73 +93,95 @@ const UserDetails = (props: Props) => {
       <CircularProgress />
     )
   }
+
   const { totalUsd, totalLyd } = calculateTotal(debts);
   const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(wallet);
   const Tag = dialog?.component;
-  
+
   return (
     <div className="m-2 row">
-      <div className="col-md-12 mb-2">
-        <CustomButton
-          background='rgb(0, 171, 85)' 
-          size="small"
-          disabled={isLoading}
-          onClick={() => setDialog({ component: AddBalanceToWallet })}
-          style={{
-            marginRight: '8px'
-          }}
-        >
-          Add balance to wallet
-        </CustomButton>
+      <Tabs
+        className='mb-4'
+        value={activeTap}
+        onChange={(_, value) => setActiveTap(value as any)}
+        variant="scrollable"
+        scrollButtons={false}
+        aria-label="scrollable prevent tabs example"
+      >
+        <Tab label="Profile" value="profile" />
+        <Tab label="Orders" value="orders" />
+        <Tab label="Created Invoices" value="invoices" /> {/* ✅ New Tab */}
+      </Tabs>
 
-        <CustomButton 
-          background='rgb(8, 29, 121)' 
-          size="small"
-          disabled={isLoading}
-          onClick={() => setDialog({ component: UseWalletBalance })}
-        >
-          Use balance
-        </CustomButton>
-      </div>
+      {activeTap === 'profile' ? (
+        <div className="row">
+          <div className="col-md-12 mb-2">
+            <CustomButton
+              background='rgb(0, 171, 85)'
+              size="small"
+              disabled={isLoading}
+              onClick={() => setDialog({ component: AddBalanceToWallet })}
+              style={{ marginRight: '8px' }}
+            >
+              Add balance to wallet
+            </CustomButton>
 
-      <div className="col-md-4">
-        <InfoWidget title="Debts" value={`${totalUsd} $, ${totalLyd} LYD`} icon={<FaMoneyBillWave />} />
-      </div>
-      <div className="col-md-4">
-        <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
-      </div>
+            <CustomButton
+              background='rgb(8, 29, 121)'
+              size="small"
+              disabled={isLoading}
+              onClick={() => setDialog({ component: UseWalletBalance })}
+            >
+              Use balance
+            </CustomButton>
+          </div>
 
-      <UserWidget
-        client={user}
-        index={1}
-      />
+          <div className="col-md-4">
+            <InfoWidget title="Debts" value={`${totalUsd} $, ${totalLyd} LYD`} icon={<FaMoneyBillWave />} />
+          </div>
+          <div className="col-md-4">
+            <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
+          </div>
 
-      <div className="col-md-4 mb-2">
-        <CustomButton
-          background='rgb(0, 171, 85)' 
-          size="small"
-          disabled={isLoading}
-          onClick={() => setDialog({ component: ShippingMarkDialog })}
-          style={{
-            marginRight: '8px'
-          }}
-        >
-          Shipping mark & Address
-        </CustomButton>
-      </div>
+          <UserWidget client={user} index={1} />
 
-      <CashflowUser 
-        userStatement={userStatement}
-        onChangeCurrency={(value: string) => setStatementCurrency(value)}
-        isLoading={isStatementLoading}
-      />
+          <div className="col-md-4 mb-2">
+            <CustomButton
+              background='rgb(0, 171, 85)'
+              size="small"
+              disabled={isLoading}
+              onClick={() => setDialog({ component: ShippingMarkDialog })}
+              style={{ marginRight: '8px' }}
+            >
+              Shipping mark & Address
+            </CustomButton>
+          </div>
 
-      <Dialog 
+          <CashflowUser
+            userStatement={userStatement}
+            onChangeCurrency={(value: string) => setStatementCurrency(value)}
+            isLoading={isStatementLoading}
+          />
+        </div>
+      ) : activeTap === 'orders' ? (
+        <div className="col-md-12">
+          <UserOrders
+            customerId={user._id}
+            balances={{ walletLyd, walletUsd }}
+          />
+        </div>
+      ) : activeTap === 'invoices' && (
+        <div className="col-md-12">
+          <UserInvoices customerId={user._id} />
+        </div>
+      )}
+
+      <Dialog
         open={dialog}
         onClose={() => setDialog(undefined)}
       >
         {dialog?.component &&
-          <Tag 
+          <Tag
             balances={{ walletLyd, walletUsd }}
             user={user}
           />
@@ -193,6 +218,5 @@ const calculateTotalWallet = (wallet: any) => {
 
   return { totalUsd, totalLyd }
 }
-
 
 export default UserDetails;
