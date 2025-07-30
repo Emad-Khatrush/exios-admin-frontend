@@ -16,7 +16,10 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  AvatarGroup,
+  Avatar,
 } from '@mui/material';
+import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 
 const CustomerOrders = ({ customerId, balances }: any) => {
   const [orders, setOrders] = useState<Invoice[]>([]);
@@ -27,7 +30,9 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     weight: number;
     measureUnit: string;
     exiosPrice: number;
+    locationPlace?: string;
     orderId?: string;
+    images?: any
   }[]>([]);
   const [filter, setFilter] = useState<string>('active');
   const [selectAll, setSelectAll] = useState<boolean>(false);
@@ -42,6 +47,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     amountLYD: 0,
     rate: 0,
   });
+  const [previewImages, setPreviewImages] = useState<any>();  
 
   const [cancelToken, setCancelToken] = useState();
 
@@ -92,10 +98,12 @@ const CustomerOrders = ({ customerId, balances }: any) => {
       const weight = pkg?.deliveredPackages?.weight?.total || 0;
       const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
       const exiosPrice = pkg?.deliveredPackages?.exiosPrice || 0;
+      const locationPlace = pkg?.deliveredPackages?.locationPlace || '';
+      const images = pkg?.images || [];
 
       setSelectedPackages(prev => [
         ...prev,
-        { id: pkg._id, cost, trackingNumber, weight, measureUnit, exiosPrice, orderId },
+        { id: pkg._id, cost, trackingNumber, weight, measureUnit, exiosPrice, locationPlace, images, orderId },
       ]);
     }
   };
@@ -120,6 +128,8 @@ const CustomerOrders = ({ customerId, balances }: any) => {
         weight: pkg?.deliveredPackages?.weight?.total || 0,
         measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || '',
         exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
+        locationPlace: pkg?.deliveredPackages?.locationPlace || '',
+        images: pkg?.images || [],
         orderId: pkg.orderId,
       }));
 
@@ -270,6 +280,22 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                         <p>Measure: {measureValue} {measureUnit}</p>
                         <p>Exios Price: ${exiosPrice}</p>
                         <p>Cost: ${fees.toFixed(2)}</p>
+                        {pkg.deliveredPackages.locationPlace && <p>Placed At: {pkg.deliveredPackages.locationPlace}</p>}
+                        {pkg?.images?.length > 0 &&
+                          <div style={{ justifySelf: 'start'}}>
+                              <AvatarGroup max={3}>
+                                {pkg?.images.map((img: any) => (
+                                  <Avatar
+                                    style={{ cursor: 'pointer' }}
+                                    key={img.filename}
+                                    alt={img.filename} 
+                                    src={img.path}
+                                    onClick={() => setPreviewImages(pkg?.images)}
+                                  />
+                                ))}
+                              </AvatarGroup>
+                          </div>
+                        }
                       </div>
                     </div>
                   );
@@ -354,6 +380,22 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                   <Typography variant="body2">Measure: {pkg.weight} {pkg.measureUnit}</Typography>
                   <Typography variant="body2">Exios Price: ${pkg?.exiosPrice || 0}</Typography>
                   <Typography variant="body2">Cost: ${pkg.cost.toFixed(2)}</Typography>
+                  {pkg.locationPlace && <Typography variant="body2">Placed At: {pkg.locationPlace}</Typography>}
+                  {pkg?.images?.length > 0 &&
+                    <div style={{ justifySelf: 'start'}}>
+                        <AvatarGroup max={3}>
+                          {pkg?.images.map((img: any) => (
+                            <Avatar
+                              style={{ cursor: 'pointer' }}
+                              key={img.filename}
+                              alt={img.filename} 
+                              src={img.path}
+                              onClick={() => setPreviewImages(pkg?.images)}
+                            />
+                          ))}
+                        </AvatarGroup>
+                    </div>
+                  }
                 </Box>
               ))}
             </DialogContent>
@@ -389,6 +431,18 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               {resMessage}
             </Alert>
           </Snackbar>
+
+          <Dialog 
+            open={previewImages}
+            onClose={() => setPreviewImages(undefined)}
+          >
+            <DialogContent>
+              <SwipeableTextMobileStepper data={previewImages} />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
+            </DialogActions>
+          </Dialog>
         </div>
       }
     </div>

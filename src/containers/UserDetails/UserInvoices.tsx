@@ -70,7 +70,7 @@ const UserInvoices = ({ customerId }: { customerId: string }) => {
           invoices.map((invoice) => (
             <Card key={invoice._id} className="col-md-6 mb-3 mr-5">
               <CardContent>
-                <Typography variant="h6">Invoice #0{invoice.referenceId}</Typography>
+                <Typography variant="h6">Freight Invoice #0{invoice.referenceId}</Typography>
                 <Typography>Client Code: {invoice.customer.customerId}</Typography>
                 <Typography>Full Name: {`${invoice.customer.firstName} ${invoice.customer.lastName}`}</Typography>
                 <Typography>Date: {new Date(invoice.createdAt).toLocaleDateString()}</Typography>

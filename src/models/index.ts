@@ -116,6 +116,7 @@ export type Package = {
     receivedShipmentLYD: number
     receivedShipmentUSD: number
     trackingNumber: string
+    locationPlace: string
     weight: {
       total: number, 
       measureUnit: string
@@ -129,6 +130,7 @@ export type Package = {
     arrivedLibya: boolean,
     received: boolean
   }
+  images: []
 }
 
 export type ActivityType = {
