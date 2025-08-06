@@ -166,12 +166,16 @@ const CustomerOrders = ({ customerId, balances }: any) => {
       }
       
       const convertedAmount = Number((payment.amountLYD / payment.rate).toFixed(2));
-      console.log((payment.amountUSD + convertedAmount) - 3);
       if ((payment.amountUSD + convertedAmount) < Number(totals.totalFees) - 2) {
         alert('The total cost of the selected packages is greater than the total amount you entered');
         return;
       }
-      
+
+      // Delete images from selected packages to avoid sending them
+      selectedPackages.forEach(pkg => {
+        delete pkg.images;
+      })
+
       setIsPending(true);
       await api.post(`user/${customerId}/markAsDelivered`, {
         selectedPackages,
