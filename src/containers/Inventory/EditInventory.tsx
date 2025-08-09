@@ -12,6 +12,7 @@ import InventoryOrders from "./InventoryOrders";
 import { Textarea } from "@mui/joy";
 import CustomButton from "../../components/CustomButton/CustomButton";
 import { useSelector } from "react-redux";
+import InventoryExpenses from "./InventoryExpenses";
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -309,7 +310,7 @@ const EditInventory = () => {
 
         <div className="col-md-4 mb-4">
           <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Status</InputLabel>
+            <InputLabel id="demo-select-small">Inventory Status</InputLabel>
             <Select
               labelId={'Status'}
               id={'status'}
@@ -323,6 +324,27 @@ const EditInventory = () => {
               </MenuItem>
               <MenuItem value={'finished'}>
                 <em> اكتملت </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
+        <div className="col-md-3 mb-4">
+          <FormControl style={{ width: '100%' }} required>
+            <InputLabel id="demo-select-small">Calculation Done?</InputLabel>
+            <Select
+              labelId={'isCaclulationDone'}
+              id={'isCaclulationDone'}
+              label={'isCaclulationDone'}
+              name="isCaclulationDone"
+              defaultValue={inventory?.isCaclulationDone}
+              onChange={onChangeHandler}
+            >
+              <MenuItem value={'false'}>
+                <em> لم تكتمل بعد </em>
+              </MenuItem>
+              <MenuItem value={'true'}>
+                <em> تم احتساب كل شي </em>
               </MenuItem>
             </Select>
           </FormControl>
@@ -364,6 +386,16 @@ const EditInventory = () => {
 
       <hr />
 
+      {roles.isAdmin && (
+        <div>
+          <InventoryExpenses
+            inventoryId={inventory?._id}
+            inventory={inventory}
+          />
+          <hr />
+        </div>
+      )}
+      
       <InventoryOrders
         inventory={inventory}
         getInventory={getInventory}
