@@ -17,6 +17,7 @@ import { getErrorMessage } from '../../utils/errorHandler';
 import Badge from '../Badge/Badge';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import moment from 'moment';
+import ItemsSwitcher from '../ItemsSwitcher/ItemsSwitcher';
 
 type Props = {
   handleChange?: any
@@ -80,6 +81,7 @@ const InvoiceForm = (props: Props) => {
 
   const steps = getOrderSteps(invoice);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     props.handleChange({ target: { value: props.invoice?.user?.customerId, name: 'customerId' } })
   }, [])
@@ -295,7 +297,7 @@ const InvoiceForm = (props: Props) => {
           />
         </div>
 
-        <div className="col-md-6 mb-4">
+        {/* <div className="col-md-6 mb-4">
           <TextField
             id={'outlined-helperText'}
             required={true}
@@ -307,6 +309,21 @@ const InvoiceForm = (props: Props) => {
             defaultValue={invoice?.quantity}
             onWheel={(event: any) => event.target.blur()}
             disabled={invoice?.isCanceled}
+          />
+        </div> */}
+
+        <div className="col-md-6 mb-4">
+          <TextField
+            id={'outlined-helperText'}
+            required={true}
+            label={'Total Invoice'}
+            name="totalInvoice"
+            type={'number'}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
+            onChange={props.handleChange}
+            value={props.totalInvoice || invoice?.totalInvoice}
+            onWheel={(event: any) => event.target.blur()}
+            disabled={true}
           />
         </div>
 
@@ -333,21 +350,6 @@ const InvoiceForm = (props: Props) => {
             disabled={invoice?.isCanceled}
           />
           {invoice?.shipment?.toWhere && <span style={{ color: '#04ad20' }}>Customer City: {invoice?.shipment?.toWhere}</span>}
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Total Invoice'}
-            name="totalInvoice"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            onChange={props.handleChange}
-            value={props.totalInvoice || invoice?.totalInvoice}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={true}
-          />
         </div>
 
         {!props.isEmployee && 
@@ -389,7 +391,7 @@ const InvoiceForm = (props: Props) => {
           </FormControl>
         </div>
 
-        <div className="d-flex col-md-6 mb-4">
+        {/* <div className="d-flex col-md-6 mb-4">
           <TextField
               className='connect-field-right'
               id={'outlined-helperText'}
@@ -495,7 +497,7 @@ const InvoiceForm = (props: Props) => {
                 </MenuItem>
               </Select>
             </FormControl>
-        </div>
+        </div> */}
 
         <div className="col-md-12 mb-4">
           <textarea 
@@ -509,28 +511,42 @@ const InvoiceForm = (props: Props) => {
           >
           </textarea>
         </div>
+        
+        {invoice?.isPayment && invoice?.isShipment ?
+          <>
+            <div className="col-md-4 mb-4">
+              <Checkbox 
+                name='isPayment' 
+                onChange={props.handleChange} 
+                defaultChecked={invoice?.isPayment}
+                color="success"
+                disabled={invoice?.isCanceled}
+              /> 
+              Payment
+            </div>
 
-        <div className="col-md-4 mb-4">
-          <Checkbox 
-            name='isPayment' 
-            onChange={props.handleChange} 
-            defaultChecked={invoice?.isPayment}
-            color="success"
-            disabled={invoice?.isCanceled}
-          /> 
-          Payment
-        </div>
+            <div className="col-md-4 mb-4">
+              <Checkbox 
+                name='isShipment' 
+                onChange={props.handleChange} 
+                defaultChecked={invoice?.isShipment}
+                color="success"
+                disabled={invoice?.isCanceled}
+              />
+              Shipment
+            </div>
+          </>
+          :
+          <div className="col-md-4 mb-4">
+            <ItemsSwitcher
+              leftLabel='فاتورة شراء'
+              rightLabel='شحن'
+              checked={invoice?.isPayment ? false : true}
+              handleChange={props.handleChange}
+            />
+          </div>
+        }
 
-        <div className="col-md-4 mb-4">
-          <Checkbox 
-            name='isShipment' 
-            onChange={props.handleChange} 
-            defaultChecked={invoice?.isShipment}
-            color="success"
-            disabled={invoice?.isCanceled}
-          />
-          Shipment
-        </div>
         <div className="col-md-4 mb-4">
           <Checkbox
             name='unsureOrder' 
@@ -539,7 +555,7 @@ const InvoiceForm = (props: Props) => {
             color="success"
             disabled={invoice?.isCanceled}
           />
-          Unsure Order
+          Not Active Order
         </div>
 
         <div className="col-md-6 mb-4">
@@ -603,7 +619,7 @@ const InvoiceForm = (props: Props) => {
           />
         </div>
 
-        {!props.isEmployee &&
+        {/* {!props.isEmployee &&
           <div className="col-md-12 mb-4">
             <TextField
               id={'outlined-helperText'}
@@ -614,7 +630,7 @@ const InvoiceForm = (props: Props) => {
               disabled={invoice?.isCanceled || !!invoice?.paymentExistNote}
             />
           </div>
-        }
+        } */}
 
         {/* <div className="col-md-6 mb-4">
           <TextField
@@ -653,34 +669,6 @@ const InvoiceForm = (props: Props) => {
         {/* Packages Info Section  */}
         <div className="col-md-12">
           <p className='title'> Packages Info </p>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            label={'Packages Count'}
-            name="packageCount"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.packageCount}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            label={'Weight'}
-            name="weight"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.weight}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
         </div>
 
         <div className="col-md-6 mb-4">

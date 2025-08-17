@@ -1,6 +1,7 @@
 import Card from "../../components/Card/Card";
 import Announcements from "../../components/Announcements/Announcements";
 import ServicesPrice from "./ServicesPrice";
+import AdminPosts from "../AdminPosts/AdminPosts";
 
 const Settings = () => {
   return (
@@ -15,6 +16,10 @@ const Settings = () => {
               <ServicesPrice />
               <hr />
               <Announcements />
+
+              <hr />
+
+              <AdminPosts />
             </Card>
           </div>
         </div>

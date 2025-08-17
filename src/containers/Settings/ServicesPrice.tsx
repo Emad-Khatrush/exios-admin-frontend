@@ -1,4 +1,4 @@
-import { Alert, Backdrop, CircularProgress, FormControl, InputAdornment, InputLabel, OutlinedInput, Snackbar } from '@mui/material';
+import { Alert, Backdrop, CircularProgress, FormControl, InputAdornment, InputLabel, OutlinedInput, Snackbar, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import api from '../../api';
 import CustomButton from '../../components/CustomButton/CustomButton';
@@ -13,7 +13,7 @@ const ServicesPrice = (props: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [alert, setAlert] = useState({ message: '', type: 'success'});
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState<any>({});
 
   useEffect(() => {
     setIsLoading(true);
@@ -36,16 +36,16 @@ const ServicesPrice = (props: Props) => {
     event.preventDefault();
     try {
       setIsUpdating(true);
-      await api.update('shipmentPrices', form);
+      await api.update('shipmentPrices', form);  // now includes both sellingPrice + priceDescription
       await updateExchangeRate();
       setAlert({
-        message: 'Prices has been changed',
+        message: 'Prices and descriptions updated successfully',
         type: 'success'
       })
     } catch (error: any) {
       console.log(error);
       setAlert({
-        message: error.data.message,
+        message: error.data?.message || "Error updating",
         type: 'error'
       })
     } finally {
@@ -59,129 +59,190 @@ const ServicesPrice = (props: Props) => {
     } catch (error: any) {
       console.log(error);
       setAlert({
-        message: error.data.message,
+        message: error.data?.message || "Error updating exchange rate",
         type: 'error'
       })
     }
   }
 
   const onPriceChange = ({ target }: any) => {
-    setForm(prevState => ({ ...prevState, [target.name]: Number(target.value) }));
+    setForm((prevState: any) => ({ 
+      ...prevState, 
+      [target.name]: { 
+        ...prevState[target.name], 
+        sellingPrice: Number(target.value) 
+      }
+    }));
+  }
+
+  const onDescriptionChange = ({ target }: any) => {
+    setForm((prevState: any) => ({ 
+      ...prevState, 
+      [target.name]: { 
+        ...prevState[target.name], 
+        priceDescription: target.value 
+      }
+    }));
   }
 
   if (isLoading || !exchangeRate) {
-    return (
-      <CircularProgress />
-    )
+    return <CircularProgress />
   }
   
+  const getDefault = (country: string, type: string, field: "sellingPrice" | "priceDescription") =>
+    prices.find((p: any) => p.country === country && p.shippingType === type)?.[field] || "";
+
   return (
     <div className="col-md-12 services-price">
       <div className="row">
-      <p className='title'> USD To LYD Exchange Rate </p>
+        <p className='title'> USD To LYD Exchange Rate </p>
         <div className="col-md-12 mb-4">
           <FormControl fullWidth sx={{ m: 1 }}>
-            <InputLabel htmlFor="outlined-adornment-amount">Rate</InputLabel>
+            <InputLabel>Rate</InputLabel>
             <OutlinedInput
-              name='china-air'
-              id="outlined-adornment-amount"
               startAdornment={<InputAdornment position="start">LYD</InputAdornment>}
-              label="Amount"
               defaultValue={exchangeRate.rate}
-              onChange={({ target }) => setExchangeRate((prevState: any) => ({ ...prevState, rate: Number(target.value) }))}
+              onChange={({ target }) => setExchangeRate((prev: any) => ({ ...prev, rate: Number(target.value) }))}
             />
           </FormControl>
         </div>
 
-        <p className='title'> China Shipping Prices </p>
+        {/* China Air */}
         <div className="col-md-3 mb-4">
+          <p className='title'>China Air</p>
           <FormControl fullWidth sx={{ m: 1 }}>
-            <InputLabel htmlFor="outlined-adornment-amount">China Air Price</InputLabel>
+            <InputLabel>Price</InputLabel>
             <OutlinedInput
               name='china-air'
-              id="outlined-adornment-amount"
               startAdornment={<InputAdornment position="start">$</InputAdornment>}
-              label="Amount"
-              defaultValue={prices.find((price: any) => price.country === 'china' && price.shippingType === 'air')?.sellingPrice}
+              defaultValue={getDefault("china", "air", "sellingPrice")}
               onChange={onPriceChange}
             />
           </FormControl>
+          <TextField
+            name="china-air"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("china", "air", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
         </div>
 
+        {/* China Sea */}
         <div className="col-md-3 mb-4">
+          <p className='title'>China Sea</p>
           <FormControl fullWidth sx={{ m: 1 }}>
-            <InputLabel htmlFor="outlined-adornment-amount">China Sea Price</InputLabel>
+            <InputLabel>Price</InputLabel>
             <OutlinedInput
               name='china-sea'
-              id="outlined-adornment-amount"
               startAdornment={<InputAdornment position="start">$</InputAdornment>}
-              label="Amount"
-              defaultValue={prices.find((price: any) => price.country === 'china' && price.shippingType === 'sea')?.sellingPrice}
+              defaultValue={getDefault("china", "sea", "sellingPrice")}
               onChange={onPriceChange}
             />
           </FormControl>
+          <TextField
+            name="china-sea"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("china", "sea", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
         </div>
 
-        <div className="row">
-          <div className="col-md-3 mb-4">
-            <p className='title'> UAE Shipping Prices </p>
-            <FormControl fullWidth sx={{ m: 1 }}>
-              <InputLabel htmlFor="outlined-adornment-amount">UAE Air Price</InputLabel>
-              <OutlinedInput
-                name='uae-air'
-                id="outlined-adornment-amount"
-                startAdornment={<InputAdornment position="start">$</InputAdornment>}
-                label="Amount"
-                defaultValue={prices.find((price: any) => price.country === 'uae' && price.shippingType === 'air')?.sellingPrice}
-                onChange={onPriceChange}
-              />
-            </FormControl>
-          </div>
+        {/* UAE Air */}
+        <div className="col-md-3 mb-4">
+          <p className='title'>UAE Air</p>
+          <FormControl fullWidth sx={{ m: 1 }}>
+            <InputLabel>Price</InputLabel>
+            <OutlinedInput
+              name='uae-air'
+              startAdornment={<InputAdornment position="start">$</InputAdornment>}
+              defaultValue={getDefault("uae", "air", "sellingPrice")}
+              onChange={onPriceChange}
+            />
+          </FormControl>
+          <TextField
+            name="uae-air"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("uae", "air", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
+        </div>
 
-          <div className="col-md-3 mb-4">
-            <p className='title'> USA Shipping Prices </p>
-            <FormControl fullWidth sx={{ m: 1 }}>
-              <InputLabel htmlFor="outlined-adornment-amount">USA Air Price</InputLabel>
-              <OutlinedInput
-                name='usa-air'
-                id="outlined-adornment-amount"
-                startAdornment={<InputAdornment position="start">$</InputAdornment>}
-                label="Amount"
-                defaultValue={prices.find((price: any) => price.country === 'usa' && price.shippingType === 'air')?.sellingPrice}
-                onChange={onPriceChange}
-              />
-            </FormControl>
-          </div>
-          
-          <div className="col-md-3 mb-4">
-            <p className='title'> UK Shipping Prices </p>
-            <FormControl fullWidth sx={{ m: 1 }}>
-              <InputLabel htmlFor="outlined-adornment-amount">UK Air Price</InputLabel>
-              <OutlinedInput
-                name='uk-air'
-                id="outlined-adornment-amount"
-                startAdornment={<InputAdornment position="start">$</InputAdornment>}
-                label="Amount"
-                defaultValue={prices.find((price: any) => price.country === 'uk' && price.shippingType === 'air')?.sellingPrice}
-                onChange={onPriceChange}
-              />
-            </FormControl>
-          </div>
+        {/* USA Air */}
+        <div className="col-md-3 mb-4">
+          <p className='title'>USA Air</p>
+          <FormControl fullWidth sx={{ m: 1 }}>
+            <InputLabel>Price</InputLabel>
+            <OutlinedInput
+              name='usa-air'
+              startAdornment={<InputAdornment position="start">$</InputAdornment>}
+              defaultValue={getDefault("usa", "air", "sellingPrice")}
+              onChange={onPriceChange}
+            />
+          </FormControl>
+          <TextField
+            name="usa-air"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("usa", "air", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
+        </div>
 
-          <div className="col-md-3 mb-4">
-            <p className='title'> Turkey Shipping Prices </p>
-            <FormControl fullWidth sx={{ m: 1 }}>
-              <InputLabel htmlFor="outlined-adornment-amount">Turkey Air Price</InputLabel>
-              <OutlinedInput
-                name='turkey-air'
-                id="outlined-adornment-amount"
-                startAdornment={<InputAdornment position="start">$</InputAdornment>}
-                label="Amount"
-                defaultValue={prices.find((price: any) => price.country === 'turkey' && price.shippingType === 'air')?.sellingPrice}
-                onChange={onPriceChange}
-              />
-            </FormControl>
-          </div>
+        {/* UK Air */}
+        <div className="col-md-3 mb-4">
+          <p className='title'>UK Air</p>
+          <FormControl fullWidth sx={{ m: 1 }}>
+            <InputLabel>Price</InputLabel>
+            <OutlinedInput
+              name='uk-air'
+              startAdornment={<InputAdornment position="start">$</InputAdornment>}
+              defaultValue={getDefault("uk", "air", "sellingPrice")}
+              onChange={onPriceChange}
+            />
+          </FormControl>
+          <TextField
+            name="uk-air"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("uk", "air", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
+        </div>
+
+        {/* Turkey Air */}
+        <div className="col-md-3 mb-4">
+          <p className='title'>Turkey Air</p>
+          <FormControl fullWidth sx={{ m: 1 }}>
+            <InputLabel>Price</InputLabel>
+            <OutlinedInput
+              name='turkey-air'
+              startAdornment={<InputAdornment position="start">$</InputAdornment>}
+              defaultValue={getDefault("turkey", "air", "sellingPrice")}
+              onChange={onPriceChange}
+            />
+          </FormControl>
+          <TextField
+            name="turkey-air"
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            defaultValue={getDefault("turkey", "air", "priceDescription")}
+            onChange={onDescriptionChange}
+          />
         </div>
 
         <div className="col-md-12 mb-2 text-end">
@@ -190,7 +251,7 @@ const ServicesPrice = (props: Props) => {
             size="small"
             onClick={updatePrices}
           >
-            Update Prices
+            Update Prices & Descriptions
           </CustomButton>
         </div>
 
@@ -213,10 +274,9 @@ const ServicesPrice = (props: Props) => {
             {alert.message}
           </Alert>
         </Snackbar>
-
       </div>
     </div>
   )
 }
 
-export default ServicesPrice
+export default ServicesPrice;

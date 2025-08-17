@@ -371,6 +371,14 @@ export class EditInvoice extends Component<Props, State> {
         paymentList[event.target.id][fieldName] = event.target.value;
       }
       this.setState({ paymentList, changedFields: { ...this.state.changedFields, paymentList } });
+    } else if (event.target.id === 'newSwitcher') {
+      if (fieldName === 'isPayment') {
+        this.setFormState(true, fieldName, event.target.id, child);
+        this.setFormState(false, 'isShipment', event.target.id, child);
+      } else if (fieldName === 'isShipment') {
+        this.setFormState(true, fieldName, event.target.id, child);
+        this.setFormState(false, 'isPayment', event.target.id, child);
+      }
     } else {
       let value = event.target.inputMode === 'numeric' ? Number(event.target.value) : event.target.value;
       // if checked has a value
@@ -696,12 +704,13 @@ https://www.exioslibya.com/login
 شكرا لكم
     `;
 
-    const arrivedLibyaDefaultMessage = `
+    const arrivedWarehouseWithoutPricesDefaultMessage = `
 اهلا بك عميلنا ${formData.customerInfo.fullName}
-رقم الطلبية ${formData.orderId} الخاص بك قد وصل الى مخزننا في ليبيا
-يرجى التواصل مع اقرب مندوب لك او زيارة مقر الشركة للاستلام
+لقد حدثنا طلبيتك رقم ${formData.orderId} على ان تم وصوله الى مخازننا الخارجية
+يرجى زيارة موقعنا الاكتروني لكي تتابع شحنتك بالتفصيل
+https://www.exioslibya.com/login
 شركة اكسيوس للشراء والشحن
-تحياتي لكم
+شكرا لكم
     `;
 
     const invoicePaidMessage = `
@@ -930,8 +939,18 @@ https://www.exioslibya.com/login
 
                 <div className="col-md-12 mb-4 text-end">
                   <ButtonGroup variant="outlined" aria-label="outlined button group">
-                    <Button onClick={() => this.setState({ whatsupMessage: warehouseDefaultMessage })}>وصلت مخزن</Button>
-                    <Button onClick={() => this.setState({ whatsupMessage: arrivedLibyaDefaultMessage })}>وصلت ليبيا</Button>
+                    <Button 
+                      onClick={async () => {
+                        const results = (await api.get('shipmentPrices'))?.data;
+                        const price = results.find((data: any) => data.shippingType === formData?.shipment?.method)
+                        const message = `${warehouseDefaultMessage} -----------------------
+${price.priceDescription}
+                        `
+                        const filtredMessage = removeBr(message);
+                        this.setState({ whatsupMessage: filtredMessage });
+                      }}
+                    >وصلت مخزن باسعار</Button>
+                    <Button onClick={() => this.setState({ whatsupMessage: arrivedWarehouseWithoutPricesDefaultMessage })}>وصلت المخزن بدون اسعار</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: invoicePaidMessage })}>الفاتورة دفعت</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: '' })}>حقل فارغ</Button>
                   </ButtonGroup>
@@ -1543,6 +1562,12 @@ const getStatusTextOfInvoiceItems = (status: 'accepted' | 'rejected') => {
   }
   return label;
 }
+
+// utils/stringUtils.ts
+export const removeBr = (text: string): string => {
+  if (!text) return "";
+  return text.replace(/<\/br>/g, "");  // remove every </br>
+};
 
 const mapStateToProps = (state: any) => {
 	return {

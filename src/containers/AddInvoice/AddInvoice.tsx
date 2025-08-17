@@ -57,7 +57,12 @@ class AddInvoice extends Component<Props, State> {
     receiptsFilesInput: [],
     previewInvoiceFiles: [],
     previewReceiptsFiles: [],
-    formData: [],
+    formData: {
+      isPayment: false,
+      isShipment: true
+    },
+    isPayment: false,
+    isShipment: true,
     items: [{
       index: Math.floor(Math.random() * 1000),
       description: '',
@@ -180,6 +185,24 @@ class AddInvoice extends Component<Props, State> {
       let items: any = [...this.state.items!];
       items[index][fieldName] = event.target.value;
       this.setState({ items });
+    } else if (event.target.id === 'newSwitcher') {
+      if (fieldName === 'isPayment') {
+        this.setState((oldValues) => ({
+          formData: {
+            ...oldValues.formData,
+            isPayment: true,
+            isShipment: false
+          }
+        }))
+      } else if (fieldName === 'isShipment') {
+        this.setState((oldValues) => ({
+          formData: {
+            ...oldValues.formData,
+            isPayment: false,
+            isShipment: true
+          }
+        }))
+      }
     } else {
       const value = event.target.inputMode === 'numeric' ? Number(event.target.value) : event.target.value;
       
@@ -298,7 +321,7 @@ class AddInvoice extends Component<Props, State> {
     const { invoice, isEmployee } = this.props;
     const invoiceFileRef = React.createRef();
     const receiptsFileRef = React.createRef();    
-    
+
     return (
       <div className="m-4">
         <div style={{ maxWidth: '1400px', margin: 'auto'}}>
