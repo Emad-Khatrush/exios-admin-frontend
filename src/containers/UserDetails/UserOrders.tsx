@@ -84,7 +84,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const getPackageCost = (pkg: Package): number => {
     const weight = pkg?.deliveredPackages?.weight?.total || 0;
     const price = pkg?.deliveredPackages?.exiosPrice || 0;
-    return weight * price;
+    return Number((weight * price).toFixed(2));
   };
 
   const handlePackageSelect = (pkg: Package, orderId: string) => {
