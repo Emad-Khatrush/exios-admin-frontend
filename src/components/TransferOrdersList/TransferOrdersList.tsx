@@ -135,9 +135,8 @@ const TransferOrdersList = (props: Props) => {
           }
         });
       })
-      const response = await api.get(`warehouse/${office}/goods`);
-      const tripoliInventory = response.data[0];
-      await api.update(`inventory/orders?id=${tripoliInventory?._id}`, ids);
+      const inventoryId = office === 'tripoli' ? '65df50f59f69b8fcc658762b' : '65df51099f69b8fcc6587636';
+      await api.update(`inventory/orders?id=${inventoryId}`, ids);
       setShowResponseMessage('تم اضافة طلبيات الى قائمة الجرد بنجاح');
       setIsSucceed(true);
     } catch (error) {
