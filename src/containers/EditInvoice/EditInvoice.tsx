@@ -9,7 +9,7 @@ import api from '../../api'
 import { Account, Debt, Invoice, OrderActivity, OrderItem, User } from '../../models'
 import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
-import { getOrderSteps } from '../../utils/methods'
+import { calculateTotalWallet, getOrderSteps } from '../../utils/methods'
 import QRCode from 'qrcode.react'
 import { formatInvoiceFields } from '../XTrackingPage/utils'
 import { isMobile } from 'react-device-detect';
@@ -371,6 +371,14 @@ export class EditInvoice extends Component<Props, State> {
         paymentList[event.target.id][fieldName] = event.target.value;
       }
       this.setState({ paymentList, changedFields: { ...this.state.changedFields, paymentList } });
+    } else if (event.target.id === 'newSwitcher') {
+      if (fieldName === 'isPayment') {
+        this.setFormState(true, fieldName, event.target.id, child);
+        this.setFormState(false, 'isShipment', event.target.id, child);
+      } else if (fieldName === 'isShipment') {
+        this.setFormState(true, fieldName, event.target.id, child);
+        this.setFormState(false, 'isPayment', event.target.id, child);
+      }
     } else {
       let value = event.target.inputMode === 'numeric' ? Number(event.target.value) : event.target.value;
       // if checked has a value
@@ -696,12 +704,13 @@ https://www.exioslibya.com/login
 شكرا لكم
     `;
 
-    const arrivedLibyaDefaultMessage = `
+    const arrivedWarehouseWithoutPricesDefaultMessage = `
 اهلا بك عميلنا ${formData.customerInfo.fullName}
-رقم الطلبية ${formData.orderId} الخاص بك قد وصل الى مخزننا في ليبيا
-يرجى التواصل مع اقرب مندوب لك او زيارة مقر الشركة للاستلام
+لقد حدثنا طلبيتك رقم ${formData.orderId} على ان تم وصوله الى مخازننا الخارجية
+يرجى زيارة موقعنا الاكتروني لكي تتابع شحنتك بالتفصيل
+https://www.exioslibya.com/login
 شركة اكسيوس للشراء والشحن
-تحياتي لكم
+شكرا لكم
     `;
 
     const invoicePaidMessage = `
@@ -791,6 +800,7 @@ https://www.exioslibya.com/login
                 color="success" 
                 size='small'
                 onClick={() => this.setState({ walletDialog: true })}
+                disabled={true}
               >
                 Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
               </Button>
@@ -929,8 +939,18 @@ https://www.exioslibya.com/login
 
                 <div className="col-md-12 mb-4 text-end">
                   <ButtonGroup variant="outlined" aria-label="outlined button group">
-                    <Button onClick={() => this.setState({ whatsupMessage: warehouseDefaultMessage })}>وصلت مخزن</Button>
-                    <Button onClick={() => this.setState({ whatsupMessage: arrivedLibyaDefaultMessage })}>وصلت ليبيا</Button>
+                    <Button 
+                      onClick={async () => {
+                        const results = (await api.get('shipmentPrices'))?.data;
+                        const price = results.find((data: any) => data.shippingType === formData?.shipment?.method)
+                        const message = `${warehouseDefaultMessage} -----------------------
+${price.priceDescription}
+                        `
+                        const filtredMessage = removeBr(message);
+                        this.setState({ whatsupMessage: filtredMessage });
+                      }}
+                    >وصلت مخزن باسعار</Button>
+                    <Button onClick={() => this.setState({ whatsupMessage: arrivedWarehouseWithoutPricesDefaultMessage })}>وصلت المخزن بدون اسعار</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: invoicePaidMessage })}>الفاتورة دفعت</Button>
                     <Button onClick={() => this.setState({ whatsupMessage: '' })}>حقل فارغ</Button>
                   </ButtonGroup>
@@ -1155,14 +1175,14 @@ https://www.exioslibya.com/login
                   Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
                 </Button>
 
-                <Button 
+                {/* <Button 
                   variant="outlined" 
                   color="success" 
                   size='small'
                   onClick={() => this.setState({ payCashDialog: true, category: 'invoice' })}
                 >
                   Pay Cash
-                </Button>
+                </Button> */}
               </div>
               
               <p className='m-0 mt-2 mb-2'>
@@ -1175,8 +1195,8 @@ https://www.exioslibya.com/login
               </p>
               {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'invoice').map(payment => (
                 <div>
-                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
-                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                  <p className='m-0 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid / Rate: {payment?.rate || 0}
                     <AvatarGroup max={3}>
                       {payment.attachments.map((img: any) => (
                         <Avatar
@@ -1190,6 +1210,27 @@ https://www.exioslibya.com/login
                     </AvatarGroup>
                     {payment?.note && <span>{payment.note}</span>}
                   </p>
+                  <p>Created By: {`${payment?.createdBy.firstName} ${payment?.createdBy.lastName}` }</p>
+                  {account.roles.isAdmin &&
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      size='small'
+                      onDoubleClick={() => {
+                        this.setState({ isUpdating: true });
+                        api.delete(`wallet/${payment.customer._id}`, { payment })
+                          .then(() => {
+                            this.setState({ isUpdating: false, resMessage: 'Payment deleted successfully', isFinished: true });
+                            window.location.reload();
+                          })
+                          .catch((err) => {
+                            this.setState({ isUpdating: false, resMessage: err.data.message });
+                          })
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  }
                   <hr />
                 </div>
                 )) 
@@ -1207,12 +1248,12 @@ https://www.exioslibya.com/login
                   color="success" 
                   size='small'
                   onClick={() => this.setState({ walletDialog: true, category: 'receivedGoods' })}
-                  disabled={this.state.selectedPackages.length === 0}
+                  disabled={this.state.selectedPackages.length === 0 || !account.roles.isAdmin}
                 >
                   Use Wallet ({`${walletUsd} $, ${walletLyd} LYD`})
                 </Button>
 
-                <Button 
+                {/* <Button 
                   variant="outlined" 
                   color="success" 
                   size='small'
@@ -1220,7 +1261,7 @@ https://www.exioslibya.com/login
                   disabled={this.state.selectedPackages.length === 0}
                 >
                   Pay Cash
-                </Button>
+                </Button> */}
               </div>
 
               <p className='m-0 mt-2 mb-2'>
@@ -1233,8 +1274,8 @@ https://www.exioslibya.com/login
               </p>
               {paymentHistory.length > 0 ? paymentHistory.filter(payment => payment.category === 'receivedGoods').map(payment => (
                 <div>
-                  <p className='m-0 mb-2 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
-                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid
+                  <p className='m-0 d-flex gap-3' style={{ color: 'rgb(46, 125, 50)' }}>
+                    {moment(payment?.createdAt).format('DD/MM/YYYY hh:mm A')} - {payment?.receivedAmount} {payment?.currency} {payment?.paymentType === 'wallet' ? 'Wallet' : 'Cash'} paid / Rate: {payment?.rate || 0}
                     <AvatarGroup max={3}>
                       {payment.attachments.map((img: any) => (
                         <Avatar
@@ -1248,9 +1289,30 @@ https://www.exioslibya.com/login
                     </AvatarGroup>
                     {payment?.note && <span>{payment.note}</span>}
                   </p>
+                  <p>Created By: {`${payment?.createdBy.firstName} ${payment?.createdBy.lastName}` }</p>
+                  {account.roles.isAdmin &&
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      size='small'
+                      onDoubleClick={() => {
+                        this.setState({ isUpdating: true });
+                        api.delete(`wallet/${payment.customer._id}`, { payment })
+                          .then(() => {
+                            this.setState({ isUpdating: false, resMessage: 'Payment deleted successfully', isFinished: true });
+                            window.location.reload();
+                          })
+                          .catch((err) => {
+                            this.setState({ isUpdating: false, resMessage: err.data.message });
+                          })
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  }
                   {payment.list.length > 0 && payment.list.map((orderPackage: any, i: number) => (
                     <p>
-                      {i + 1}. {orderPackage.deliveredPackages.trackingNumber} / {orderPackage.deliveredPackages.weight.total} {orderPackage.deliveredPackages.weight.measureUnit}
+                      {i + 1}. {orderPackage.deliveredPackages?.trackingNumber} / {orderPackage.deliveredPackages?.weight?.total} {orderPackage.deliveredPackages?.weight?.measureUnit}
                     </p>
                   ))}
                   <hr />
@@ -1405,6 +1467,7 @@ https://www.exioslibya.com/login
             walletId={this.state.formData.user._id}
             category={this.state.category}
             selectedPackages={this.state.selectedPackages}
+            hideUploader
           />
         </Dialog>
 
@@ -1481,16 +1544,6 @@ const calculateTotalItems = (items: OrderItem[]) => {
   return total;
 }
 
-const calculateTotalWallet = (wallet: any) => {
-  let totalUsd = 0, totalLyd = 0;
-  (wallet || []).forEach((w: any) => {
-    if (w.currency === 'USD') totalUsd += w.balance
-    else if (w.currency === 'LYD') totalLyd += w.balance;
-  })
-
-  return { totalUsd, totalLyd }
-}
-
 const calculateTotalPaid = (paymentHistroy: any, category = 'invoice') => {
   let totalUsd = 0, totalLyd = 0, totalEuro = 0;
   (paymentHistroy || []).filter((p: any) => p.category === category).forEach((p: any) => {
@@ -1509,6 +1562,12 @@ const getStatusTextOfInvoiceItems = (status: 'accepted' | 'rejected') => {
   }
   return label;
 }
+
+// utils/stringUtils.ts
+export const removeBr = (text: string): string => {
+  if (!text) return "";
+  return text.replace(/<\/br>/g, "");  // remove every </br>
+};
 
 const mapStateToProps = (state: any) => {
 	return {

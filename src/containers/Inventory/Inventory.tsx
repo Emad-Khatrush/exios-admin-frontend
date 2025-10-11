@@ -1,6 +1,18 @@
 import { AiOutlineSearch } from "react-icons/ai";
 import CustomButton from "../../components/CustomButton/CustomButton";
-import { Breadcrumbs, Button, CircularProgress, Dialog, DialogActions, DialogContent, Link, Typography } from '@mui/material';
+import {
+  Breadcrumbs,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  Link,
+  Typography,
+  Tabs,
+  Tab,
+  Box
+} from '@mui/material';
 import Card from "../../components/Card/Card";
 import TextInput from "../../components/TextInput/TextInput";
 import InfoTable from "../../components/InfoTable/InfoTable";
@@ -9,6 +21,8 @@ import api, { base } from "../../api";
 import { defaultColumns, generateDataToListType } from "./generateData";
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper";
 import Badge from "../../components/Badge/Badge";
+import { useSelector } from "react-redux";
+import FlightsManagement from "./FlightsManagement";
 
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">
@@ -28,11 +42,20 @@ const Inventory = () => {
   const [cancelToken, setCancelToken] = useState(null);
   const [searchValue, setSearchValue] = useState(null);
   const [searchType, setSearchType] = useState('all');
-  const [lastMeta, setLastMeta] = useState<{ skip: string, limit: string, total: number, countList: any }>({ skip: '0', limit: '10', total:  0, countList: null});
+  const [lastMeta, setLastMeta] = useState<{ skip: string, limit: string, total: number, countList: any }>({ skip: '0', limit: '10', total: 0, countList: null });
+
+  const [tabIndex, setTabIndex] = useState<number>(0); // Tab state
+
+  const { roles } = useSelector((state: any) => state.session.account);
+  
 
   useEffect(() => {
     getAllInventory();
   }, [])
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabIndex(newValue);
+  };
 
   const getAllInventory = async () => {
     try {
@@ -57,7 +80,7 @@ const Inventory = () => {
         getAllInventory();
         return;
       }
-      
+
       clearTimeout(quickSearchDelayTimer);
       setQuickSearchDelayTimer((): any => {
         return setTimeout(async () => {
@@ -75,10 +98,10 @@ const Inventory = () => {
 
   const fetchList = async () => {
     if (searchValue) return;
-    
+
     try {
       setIsFetching(true);
-      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+      const cancelTokenSource: any = base.cancelRequests();
       const { skip } = lastMeta;
 
       clearTimeout(quickSearchDelayTimer);
@@ -99,7 +122,7 @@ const Inventory = () => {
   const onTabChange = async (value: string) => {
     try {
       setIsLoading(true);
-      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
+      const cancelTokenSource: any = base.cancelRequests();
 
       clearTimeout(quickSearchDelayTimer);
       setQuickSearchDelayTimer((): any => {
@@ -119,82 +142,104 @@ const Inventory = () => {
 
   const columns = [...defaultColumns(setPreviewImages)];
   const filteredList = generateDataToListType(inventories);
-  
+
   return (
     <div className="container mt-4">
-      <div className="row">
-        <div className="col-12">
-          <h4 className='mb-2'> Inventory Table</h4>
-          <div className='mb-4 d-flex justify-content-between'>
-            <Breadcrumbs separator="›" aria-label="breadcrumb">
-              {breadcrumbs}
-            </Breadcrumbs>
+      {roles.isAdmin && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+          <Tabs value={tabIndex} onChange={handleTabChange} aria-label="Inventory Tabs">
+            <Tab label="Inventory Table" />
+            <Tab label="flights Management" />
+          </Tabs>
+        </Box>
+      )}
 
-            <CustomButton 
-              href="/inventory/add"
-              background='rgb(0, 171, 85)' 
-              size="small"
+      {/* Inventory Table Page */}
+      {tabIndex === 0 && (
+        <div className="row">
+          <div className="col-12">
+            <h4 className='mb-2'> Inventory Table</h4>
+            <div className='mb-4 d-flex justify-content-between'>
+              <Breadcrumbs separator="›" aria-label="breadcrumb">
+                {breadcrumbs}
+              </Breadcrumbs>
+
+              <CustomButton
+                href="/inventory/add"
+                background='rgb(0, 171, 85)'
+                size="small"
+              >
+                Add New Inventory
+              </CustomButton>
+            </div>
+          </div>
+
+          <div className="col-12">
+            <Card
+              tabs={[
+                {
+                  label: 'All',
+                  value: 'all',
+                  icon: <Badge style={{ marginLeft: '8px' }} text={String(lastMeta.countList?.all || 0)} color="primary" />
+                },
+                {
+                  label: 'Air Flights',
+                  value: 'air',
+                  icon: <Badge style={{ marginLeft: '8px' }} text={String(lastMeta.countList?.air || 0)} color="warning" />
+                },
+                {
+                  label: 'Sea Flights',
+                  value: 'sea',
+                  icon: <Badge style={{ marginLeft: '8px' }} text={String(lastMeta.countList?.sea || 0)} color="warning" />
+                },
+                {
+                  label: 'Domestic',
+                  value: 'domestic',
+                  icon: <Badge style={{ marginLeft: '8px' }} text={String(lastMeta.countList?.domestic || 0)} color="warning" />
+                },
+                {
+                  label: 'Finished Flights',
+                  value: 'finished',
+                  icon: <Badge style={{ marginLeft: '8px' }} text={String(lastMeta.countList?.finished || 0)} color="success" />
+                },
+              ]}
+              tabsOnChange={onTabChange}
             >
-            Add New Inventory
-          </CustomButton>
+              <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <TextInput
+                  placeholder="Search for inventory"
+                  icon={<AiOutlineSearch />}
+                  onChange={(event: any) => {
+                    const cancelTokenSource: any = base.cancelRequests();
+                    setCancelToken(cancelTokenSource);
+                    filterList(event);
+                  }}
+                />
+              </div>
+              {isLoading ?
+                <CircularProgress />
+                :
+                <InfoTable
+                  columns={columns}
+                  data={filteredList}
+                  fetchList={fetchList}
+                  isLoading={isFetching}
+                />
+              }
+            </Card>
           </div>
         </div>
+      )}
 
-        <div className="col-12">
-          <Card
-            tabs={[
-              {
-                label: 'All',
-                value: 'all',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.all || 0)} color="primary" />
-              },
-              {
-                label: 'Air Flights',
-                value: 'air',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.air || 0)} color="warning" />
-              },
-              {
-                label: 'Sea Flights',
-                value: 'sea',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.sea || 0)} color="warning" />
-              },
-              {
-                label: 'Domestic',
-                value: 'domestic',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.domestic || 0)} color="warning" />
-              },
-              {
-                label: 'Finished Flights',
-                value: 'finished',
-                icon: <Badge style={{ marginLeft: '8px'}} text={String(lastMeta.countList?.finished || 0)} color="success" />
-              },
-            ]}
-            tabsOnChange={onTabChange}
-          >
-            <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <TextInput 
-                placeholder="Search for inventory" 
-                icon={<AiOutlineSearch />}
-                onChange={(event: any) => {
-                  const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
-                  setCancelToken(cancelTokenSource);
-                  filterList(event);
-                }}
-              />
-            </div>
-            {isLoading ?
-              <CircularProgress />
-              :
-              <InfoTable
-                columns={columns}
-                data={filteredList}
-                fetchList={fetchList}
-                isLoading={isFetching}
-              />
-            }
-          </Card>
+      {tabIndex === 1 && (
+        <div className="row">
+          <div className="col-12">
+            <FlightsManagement />
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Image Preview Dialog */}
       <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
         <DialogContent>
           <SwipeableTextMobileStepper data={previewImages} />
@@ -204,7 +249,7 @@ const Inventory = () => {
         </DialogActions>
       </Dialog>
     </div>
-  )
-}
+  );
+};
 
 export default Inventory;

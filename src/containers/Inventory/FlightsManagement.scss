@@ -1,0 +1,68 @@
+.flights-management {
+  padding: 2rem;
+
+  .page-title {
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+
+  .filters-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+
+    .flight-type-toggle {
+      background: #f8f9fa;
+      border-radius: 8px;
+      .MuiToggleButton-root {
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+      }
+    }
+
+    .search-field {
+      max-width: 300px;
+    }
+  }
+
+  .summary-bar {
+    margin-bottom: 1rem;
+    color: #555;
+    font-size: 0.9rem;
+  }
+
+  .status-tabs {
+    margin-bottom: 2rem;
+    .MuiTab-root {
+      font-weight: 500;
+    }
+  }
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 40vh;
+  }
+
+  .no-results {
+    padding-left: 1rem;
+    color: #777;
+  }
+
+  .flight-card {
+    border-radius: 12px;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: #fff;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .attachments {
+      margin-top: 0.5rem;
+    }
+  }
+}

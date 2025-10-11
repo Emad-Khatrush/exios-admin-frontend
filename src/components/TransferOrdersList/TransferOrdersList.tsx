@@ -73,7 +73,7 @@ const TransferOrdersList = (props: Props) => {
   const rightChecked = intersection(checked, right);
 
   const handleDownload = () => {
-    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'السعر المحسوب', 'تكلفة اكسيوس', 'موقعها', 'ملاحظات']];
+    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
     right.forEach((orderPackage: any, i) => {
       data.push([
         i + 1, 
@@ -82,9 +82,12 @@ const TransferOrdersList = (props: Props) => {
         orderPackage.orderId,
         orderPackage.paymentList.deliveredPackages.trackingNumber, 
         orderPackage.paymentList.deliveredPackages.receiptNo,
-        `${orderPackage.paymentList.deliveredPackages.weight.total} ${orderPackage.paymentList.deliveredPackages.weight.measureUnit}`,
-        `${orderPackage.paymentList.deliveredPackages.exiosPrice} $`,
-        `${calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry, orderPackage.paymentList.deliveredPackages.weight.measureUnit)} $`,
+        orderPackage.paymentList.deliveredPackages.weight.total,
+        orderPackage.paymentList.deliveredPackages.weight.measureUnit,
+        orderPackage.paymentList.deliveredPackages.exiosPrice,
+        props.inventory.costPrice,
+        calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry, orderPackage.paymentList.deliveredPackages.weight.measureUnit),
+        orderPackage.paymentList.deliveredPackages.weight.total * props.inventory.costPrice,
         orderPackage.paymentList.deliveredPackages.locationPlace,
         orderPackage.shipment.toWhere
       ])
@@ -132,9 +135,8 @@ const TransferOrdersList = (props: Props) => {
           }
         });
       })
-      const response = await api.get(`warehouse/${office}/goods`);
-      const tripoliInventory = response.data[0];
-      await api.update(`inventory/orders?id=${tripoliInventory?._id}`, ids);
+      const inventoryId = office === 'tripoli' ? '65df50f59f69b8fcc658762b' : '65df51099f69b8fcc6587636';
+      await api.update(`inventory/orders?id=${inventoryId}`, ids);
       setShowResponseMessage('تم اضافة طلبيات الى قائمة الجرد بنجاح');
       setIsSucceed(true);
     } catch (error) {

@@ -2,7 +2,7 @@ import { Alert, Autocomplete, Backdrop, Button, ButtonGroup, CircularProgress, D
 import React from 'react'
 import { countries, orderActions } from '../../containers/EditInvoice/EditInvoice';
 import CustomButton from '../CustomButton/CustomButton';
-import { arrivedPackageDetails, arrivingGoodsToPortAlert, reminderToReceiveGoodsText } from './readyTexts';
+import { acceptingPaymentAlertText, arrivedPackageDetails, arrivingGoodsToPortAlert, reminderToReceiveGoodsText } from './readyTexts';
 import { calculateMinTotalPrice, replaceWords } from '../../utils/methods';
 import api from '../../api';
 import { Inventory } from '../../models';
@@ -64,7 +64,9 @@ const ActivityDialog = (props: Props) => {
       totalPrice: `${totalPrice} $`,
       noteForHandlingFeesInUSA: ['USA', 'UK'].includes(props.inventory.shippedCountry)  ? 'ملاحظة: يوجد رسوم مناولة على كل شحنة لم تضف الى حسبة الاجمالية' : ''
     })
+    const message2 = acceptingPaymentAlertText;
     contacts.push({ phoneNumber: customerOrders[0].user.phone , message })
+    contacts.push({ phoneNumber: customerOrders[0].user.phone , message: message2 })
   }
 
    api.post(`inventorySendWhatsupMessages`, { data: contacts })

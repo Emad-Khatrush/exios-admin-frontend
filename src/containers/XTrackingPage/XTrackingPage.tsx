@@ -1,4 +1,4 @@
-import { CircularProgress } from "@mui/material";
+import { Checkbox, CircularProgress } from "@mui/material";
 import { Component } from "react";
 import { AiOutlinePlus } from "react-icons/ai";
 import { connect } from "react-redux";
@@ -28,13 +28,14 @@ type Props = {
     limit?: number
     tabType?: string
   }) => void
-  getInvoicesBySearch: (query: { searchValue: string, selectorValue: string, tabType: string, cancelToken: any }) => void
+  getInvoicesBySearch: (query: { searchValue: string, selectorValue: string, tabType: string, cancelToken: any, hideFinishedOrdersCheck: boolean }) => void
   listData: IInvoice
 }
 
 type State = {
   searchValue: string
   selectorValue: string
+  hideFinishedOrdersCheck: boolean
   scrollReached: boolean
   filteredOrders: IInvoice[]
   searchForOrder: boolean
@@ -72,7 +73,8 @@ class XTrackingPage extends Component<Props, State> {
     searchForOrder: false,
     isTabOrdersLoading: false,
     quickSearchDelayTimer: undefined,
-    cancelToken: null
+    cancelToken: null,
+    hideFinishedOrdersCheck: false
   }
 
   componentDidMount() {
@@ -134,7 +136,8 @@ class XTrackingPage extends Component<Props, State> {
               searchValue: searchValue,
               selectorValue: selectorValue,
               tabType: this.props.listData.tabType,
-              cancelToken: this.state.cancelToken
+              cancelToken: this.state.cancelToken,
+              hideFinishedOrdersCheck: this.state.hideFinishedOrdersCheck
             })
           }, 1)
         }
@@ -175,6 +178,14 @@ class XTrackingPage extends Component<Props, State> {
             </CustomButton>
           </div>
           <div className="col-md-12">
+            <div>
+              <Checkbox 
+                name='Hide Finished Orders'
+                onChange={(event: any) => { this.setState({ hideFinishedOrdersCheck: event.target.checked }) }} 
+                color="success"
+              />
+              Hide Finished Orders
+            </div>
             <Card
               tabs={tabs}
               showSearchInput={true}

@@ -11,9 +11,12 @@ import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
 import { Textarea } from "@mui/joy";
 import CustomButton from "../../components/CustomButton/CustomButton";
+import { useSelector } from "react-redux";
+import InventoryExpenses from "./InventoryExpenses";
 
 const EditInventory = () => {
   const { id } = useParams();
+  const { roles } = useSelector((state: any) => state.session.account);
 
   const [inventory, setInventory] = useState<Inventory | any>();
   const [form, setForm] = useState<Inventory | any>();
@@ -121,47 +124,8 @@ const EditInventory = () => {
             label={'Voyage Number'}
             onChange={onChangeHandler}
             defaultValue={inventory?.voyage}
-            disabled
+            disabled={!roles.isAdmin}
           />
-        </div>
-
-        <div className="d-flex col-md-3 mb-4">
-          <TextField
-            className='connect-field-right'
-            id={'outlined-helperText'}
-            name="voyageAmount"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            label={'Voyage Amount'}
-            required
-            onChange={onChangeHandler}
-            onWheel={(event: any) => event.target.blur()}
-            defaultValue={inventory?.voyageAmount}
-            disabled
-          />
-          <FormControl 
-            required
-            style={{ width: '100%' }}
-          >
-            <InputLabel id="demo-select-small">Currency</InputLabel>
-            <Select
-              className='connect-field-left'
-              labelId={'currency'}
-              id={'voyageCurrency'}
-              defaultValue={inventory?.voyageCurrency}
-              label={'Currency'}
-              name="voyageCurrency"
-              onChange={onChangeHandler}
-              disabled
-            >
-              <MenuItem value={'USD'}>
-                <em> USD </em>
-              </MenuItem>
-              <MenuItem value={'LYD'}>
-                <em> LYD </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
         </div>
 
         <div className="col-md-3 mb-4">
@@ -174,8 +138,8 @@ const EditInventory = () => {
               label={'Shipped Country'}
               name="shippedCountry"
               onChange={onChangeHandler}
-              disabled
-            >
+              disabled={!roles.isAdmin}
+              >
               <MenuItem value={'CN'}>
                 <em> China </em>
               </MenuItem>
@@ -195,6 +159,44 @@ const EditInventory = () => {
           </FormControl>
         </div>
 
+
+        <div className="d-flex col-md-3 mb-4">
+          <TextField
+            className='connect-field-right'
+            id={'outlined-helperText'}
+            name="voyageAmount"
+            type={'number'}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
+            label={'Voyage Expenses'}
+            onChange={onChangeHandler}
+            onWheel={(event: any) => event.target.blur()}
+            defaultValue={inventory?.voyageAmount}
+            disabled={!roles.isAdmin}
+            />
+          <FormControl 
+            style={{ width: '100%' }}
+          >
+            <InputLabel id="demo-select-small">Currency</InputLabel>
+            <Select
+              className='connect-field-left'
+              labelId={'currency'}
+              id={'voyageCurrency'}
+              defaultValue={inventory?.voyageCurrency}
+              label={'Currency'}
+              name="voyageCurrency"
+              onChange={onChangeHandler}
+              disabled={!roles.isAdmin}
+            >
+              <MenuItem value={'USD'}>
+                <em> USD </em>
+              </MenuItem>
+              <MenuItem value={'LYD'}>
+                <em> LYD </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
         <div className="col-md-3 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Shipping Type</InputLabel>
@@ -205,8 +207,8 @@ const EditInventory = () => {
               name="shippingType"
               onChange={onChangeHandler}
               defaultValue={inventory?.shippingType}
-              disabled
-            >
+              disabled={!roles.isAdmin}
+              >
               <MenuItem value={'air'}>
                 <em> جوي </em>
               </MenuItem>
@@ -230,8 +232,8 @@ const EditInventory = () => {
               label={'Inventory Place'}
               name="inventoryPlace"
               onChange={onChangeHandler}
-              disabled
-            >
+              disabled={!roles.isAdmin}
+              >
               <MenuItem value={'tripoli'}>
                 <em> Tripoli Office </em>
               </MenuItem>
@@ -240,6 +242,56 @@ const EditInventory = () => {
               </MenuItem>
             </Select>
           </FormControl>
+        </div>
+
+        <div className="d-flex col-md-3 mb-4">
+          <TextField
+            className='connect-field-right'
+            id={'outlined-helperText'}
+            name="costPrice"
+            type={'number'}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
+            label={'Cost Price'}
+            onChange={onChangeHandler}
+            onWheel={(event: any) => event.target.blur()}
+            defaultValue={inventory?.costPrice}
+          />
+          <FormControl 
+            required
+            style={{ width: '100%' }}
+          >
+            <InputLabel id="demo-select-small">Currency</InputLabel>
+            <Select
+              className='connect-field-left'
+              labelId={'currency'}
+              id={'voyageCurrency'}
+              defaultValue={inventory?.voyageCurrency}
+              label={'Currency'}
+              name="voyageCurrency"
+              onChange={onChangeHandler}
+            >
+              <MenuItem value={'USD'}>
+                <em> USD </em>
+              </MenuItem>
+              <MenuItem value={'LYD'}>
+                <em> LYD </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
+        <div className="col-md-4 mb-4 d-flex">
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Stack spacing={3}>
+              <DatePicker
+                label="Departure Date"
+                inputFormat="dd/MM/yyyy"
+                value={form?.departureDate || inventory?.departureDate}
+                renderInput={(params: any) => <TextField {...params} />} 
+                onChange={(value) => onChangeHandler({ target: { name: 'departureDate', value } })}
+              />
+            </Stack>
+          </LocalizationProvider>
         </div>
 
         <div className="col-md-4 mb-4 d-flex">
@@ -258,7 +310,7 @@ const EditInventory = () => {
 
         <div className="col-md-4 mb-4">
           <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Status</InputLabel>
+            <InputLabel id="demo-select-small">Inventory Status</InputLabel>
             <Select
               labelId={'Status'}
               id={'status'}
@@ -272,6 +324,27 @@ const EditInventory = () => {
               </MenuItem>
               <MenuItem value={'finished'}>
                 <em> اكتملت </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+
+        <div className="col-md-3 mb-4">
+          <FormControl style={{ width: '100%' }} required>
+            <InputLabel id="demo-select-small">Calculation Done?</InputLabel>
+            <Select
+              labelId={'isCaclulationDone'}
+              id={'isCaclulationDone'}
+              label={'isCaclulationDone'}
+              name="isCaclulationDone"
+              defaultValue={inventory?.isCaclulationDone}
+              onChange={onChangeHandler}
+            >
+              <MenuItem value={'false'}>
+                <em> لم تكتمل بعد </em>
+              </MenuItem>
+              <MenuItem value={'true'}>
+                <em> تم احتساب كل شي </em>
               </MenuItem>
             </Select>
           </FormControl>
@@ -313,6 +386,16 @@ const EditInventory = () => {
 
       <hr />
 
+      {roles.isAdmin && (
+        <div>
+          <InventoryExpenses
+            inventoryId={inventory?._id}
+            inventory={inventory}
+          />
+          <hr />
+        </div>
+      )}
+      
       <InventoryOrders
         inventory={inventory}
         getInventory={getInventory}

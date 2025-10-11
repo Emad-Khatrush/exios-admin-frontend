@@ -72,7 +72,7 @@ const OrderWidget = (props: Props) => {
                     style={{
                       fontFamily: 'system-ui'
                     }}
-                    text={`${steps[order.orderStatus].label} - ${remainingActivityDay} يوم`} 
+                    text={`${steps[order.orderStatus]?.label} - ${remainingActivityDay} يوم`} 
                     color='success' 
                   />
                   <Badge 

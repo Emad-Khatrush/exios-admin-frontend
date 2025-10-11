@@ -250,7 +250,7 @@ const EditExpense = (props: Props) => {
                       value={formData?.cost}
                       name="cost"
                       type={'number'}
-                      inputProps={{ inputMode: 'numeric' }}
+                      inputProps={{ inputMode: 'numeric', step: .01 }}
                       required={true}
                       label={'Cost'}
                       onChange={handleChange}

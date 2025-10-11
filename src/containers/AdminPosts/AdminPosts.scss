@@ -1,0 +1,19 @@
+.admin-posts {
+  margin-top: 2rem;
+
+  .posts-table {
+    margin-top: 1.5rem;
+  }
+
+  .loading {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+
+  .dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

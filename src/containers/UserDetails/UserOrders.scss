@@ -1,0 +1,161 @@
+.customer-orders, .user-invoices {
+  padding: 20px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+
+  a {
+    text-decoration: none;
+    color: #007bff;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+      color: #0056b3;
+    }
+  }
+
+  .filters {
+    margin-bottom: 20px;
+
+    button {
+      background-color: #f0f0f0;
+      border: none;
+      padding: 10px 15px;
+      margin-right: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+
+      &.active {
+        background-color: #007bff;
+        color: white;
+      }
+
+      &:hover {
+        background-color: #007bff;
+        color: white;
+      }
+    }
+  }
+
+  .order-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background-color: #fafafa;
+
+    .order-header {
+      h3 {
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
+      p {
+        margin: 2px 0;
+        color: #555;
+      }
+    }
+
+    .packages {
+      margin-top: 15px;
+
+      h4 {
+        font-size: 16px;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .package-item {
+        display: flex;
+        align-items: center;
+        border: 1px solid #eee;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        background: #fff;
+
+        input {
+          margin-right: 10px;
+        }
+
+        .package-details {
+          p {
+            margin: 0;
+            font-size: 14px;
+
+            &:first-child {
+              font-weight: 500;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .mark-delivered {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    margin-top: 10px;
+
+    &:hover {
+      background-color: #218838;
+    }
+  }
+
+  .select-all-container {
+    margin: 10px 0;
+
+    label {
+      font-weight: 500;
+
+      input {
+        margin-right: 8px;
+      }
+    }
+  }
+
+  .totals-summary {
+    background: #f9fafb;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+
+    h4 {
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .summary-grid {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .summary-item {
+      display: flex;
+      flex-direction: column;
+      min-width: 100px;
+
+      .label {
+        font-size: 0.85rem;
+        color: #6b7280; // gray-600
+      }
+
+      .value {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #111827; // gray-900
+      }
+    }
+  }
+}

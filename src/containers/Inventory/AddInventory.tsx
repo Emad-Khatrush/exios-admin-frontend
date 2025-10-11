@@ -140,45 +140,6 @@ const AddInventory = () => {
           />
         </div>
 
-        <div className="d-flex col-md-3 mb-4">
-          <TextField
-            className='connect-field-right'
-            id={'outlined-helperText'}
-            name="voyageAmount"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            label={'Voyage Amount'}
-            required
-            onChange={onChangeHandler}
-            // defaultValue={invoice?.debt?.total}
-            onWheel={(event: any) => event.target.blur()}
-            // disabled={invoice?.isCanceled}
-          />
-          <FormControl 
-            required
-            style={{ width: '100%' }}
-          >
-            <InputLabel id="demo-select-small">Currency</InputLabel>
-            <Select
-              className='connect-field-left'
-              labelId={'currency'}
-              id={'voyageCurrency'}
-              // defaultValue={invoice?.debt?.currency}
-              label={'Currency'}
-              name="voyageCurrency"
-              onChange={onChangeHandler}
-              // disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'USD'}>
-                <em> USD </em>
-              </MenuItem>
-              <MenuItem value={'LYD'}>
-                <em> LYD </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
         <div className="col-md-3 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Shipped Country</InputLabel>
@@ -267,6 +228,44 @@ const AddInventory = () => {
               />
             </Stack>
           </LocalizationProvider>
+        </div>
+
+        <div className="d-flex col-md-3 mb-4">
+          <TextField
+            className='connect-field-right'
+            id={'outlined-helperText'}
+            name="costPrice"
+            type={'number'}
+            inputProps={{ inputMode: 'numeric', step: .01 }}
+            label={'Cost Price'}
+            onChange={onChangeHandler}
+            // defaultValue={invoice?.debt?.total}
+            onWheel={(event: any) => event.target.blur()}
+            // disabled={invoice?.isCanceled}
+          />
+          <FormControl 
+            required
+            style={{ width: '100%' }}
+          >
+            <InputLabel id="demo-select-small">Currency</InputLabel>
+            <Select
+              className='connect-field-left'
+              labelId={'currency'}
+              id={'voyageCurrency'}
+              // defaultValue={invoice?.debt?.currency}
+              label={'Currency'}
+              name="voyageCurrency"
+              onChange={onChangeHandler}
+              // disabled={invoice?.isCanceled}
+            >
+              <MenuItem value={'USD'}>
+                <em> USD </em>
+              </MenuItem>
+              <MenuItem value={'LYD'}>
+                <em> LYD </em>
+              </MenuItem>
+            </Select>
+          </FormControl>
         </div>
 
         <div className="col-12 mb-4">

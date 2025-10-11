@@ -66,6 +66,11 @@ const adminRoutes = [
       path: '/ratings',
       icon: <MdOutlineStarRate className="sidebar-icon" />,
      },
+     {   
+        title: 'Daily Report',
+        path: '/dailyReport',      
+        icon: <FaFileInvoice className="sidebar-icon" />,
+     },
      {
       title: 'Reports',
       path: '/reports',
