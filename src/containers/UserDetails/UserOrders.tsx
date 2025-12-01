@@ -330,7 +330,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     type="number"
                     inputProps={{ inputMode: 'numeric', step: 0.01 }}
                     value={payment.amountUSD}
-                    onChange={e => setPayment(prev => ({ ...prev, amountUSD: parseFloat(e.target.value) || 0 }))}
+                    onChange={e => setPayment(prev => ({ ...prev, amountUSD: parseFloat(e.target.value) || 0, rate: Number((prev.amountLYD / (totals.totalFees - parseFloat(e.target.value) || 0)).toFixed(2)) }))}
                   />
                 </div>
                 <div className="col-md-4 mb-2">
@@ -340,7 +340,9 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     type="number"
                     inputProps={{ inputMode: 'numeric', step: 0.01 }}
                     value={payment.amountLYD}
-                    onChange={e => setPayment(prev => ({ ...prev, amountLYD: parseFloat(e.target.value) || 0 }))}
+                    onChange={e => {
+                      setPayment(prev => ({ ...prev, amountLYD: parseFloat(e.target.value) || 0, rate: Number((parseFloat(e.target.value) / (totals.totalFees - prev.amountUSD)).toFixed(2)) }));
+                    }}
                   />
                 </div>
                 <div className="col-md-4 mb-2">
@@ -348,6 +350,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     fullWidth
                     label="Exchange Rate"
                     type="number"
+                    disabled={true}
                     inputProps={{ inputMode: 'numeric', step: 0.01 }}
                     value={payment.rate}
                     onChange={e => setPayment(prev => ({ ...prev, rate: parseFloat(e.target.value) || 0 }))}
