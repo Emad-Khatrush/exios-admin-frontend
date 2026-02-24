@@ -1,0 +1,70 @@
+.clients-view-wrapper {
+  // View Switcher CSS (Switcher Pill)
+  .view-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+    .switcher-pill {
+      background: #e9ecef;
+      padding: 4px;
+      border-radius: 10px;
+      display: flex;
+      button {
+        border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer;
+        font-weight: 600; background: transparent; color: #6c757d;
+        &.active { background: white; color: #1976d2; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      }
+    }
+  }
+
+  // Summary Bar UI
+  .totals-summary-bar {
+    display: flex;
+    gap: 15px;
+    padding: 20px;
+    background: #fff;
+
+    .stat-card {
+      flex: 1; display: flex; align-items: center; padding: 12px 20px;
+      border-radius: 12px; border: 1px solid #edf2f7; transition: transform 0.2s;
+      
+      .icon-wrapper {
+        width: 40px; height: 40px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center; margin-right: 12px;
+      }
+      .stat-content {
+        .stat-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #718096; }
+        .stat-value { font-size: 1.2rem; font-weight: 800; display: block; small { font-size: 0.8rem; } }
+      }
+
+      &.lyd-card { background: #eef2ff; .icon-wrapper { background: #4f46e5; color: white; } .stat-value { color: #3730a3; } }
+      &.usd-card { background: #ecfdf5; .icon-wrapper { background: #10b981; color: white; } .stat-value { color: #065f46; } }
+    }
+  }
+
+  // Row Details
+  .wallet-row-container {
+    .wallet-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px;
+
+      .amounts-container {
+        display: flex;
+        gap: 10px;
+        margin-right: 20px;
+
+        .balance-box {
+          min-width: 85px; text-align: center; padding: 5px; border-radius: 6px;
+          border: 1px solid #eee;
+          .label { display: block; font-size: 0.6rem; font-weight: bold; }
+          .value { font-size: 0.9rem; font-weight: 700; }
+          &.active-lyd { background: #e3f2fd; color: #1565c0; }
+          &.active-usd { background: #e8f5e9; color: #2e7d32; }
+          &.zero { opacity: 0.4; background: #f9fafb; }
+        }
+      }
+    }
+  }
+}

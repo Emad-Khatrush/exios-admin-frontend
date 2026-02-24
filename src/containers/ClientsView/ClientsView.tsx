@@ -1,141 +1,122 @@
-import React, { useEffect, useState } from 'react'
-import UserWidget from './UserWidget/UserWidget'
-import Card from '../../components/Card/Card'
-import Badge from '../../components/Badge/Badge'
-import api, { base } from '../../api'
-import { CircularProgress } from '@mui/material'
+import React, { useEffect, useState } from 'react';
+import Card from '../../components/Card/Card';
+import Badge from '../../components/Badge/Badge';
+import api, { base } from '../../api';
+import { CircularProgress } from '@mui/material';
 
-type Props = {}
+// Sub-components
+import ListView from './ListView';
+import WalletsView from './WalletsView';
+import './ClientsView.scss';
+import { Account } from '../../models';
+import { useSelector } from 'react-redux';
 
-export const ClientsView = (props: Props) => {
-
+export const ClientsView = () => {
+  const account: Account = useSelector((state: any) => state.session?.account)
+  
+  const [view, setView] = useState<'list' | 'wallets'>('list');
   const [clients, setClients] = useState([]);
+  const [wallets, setWallets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [tab, setTab] = useState('active');
   const [scrollReached, setScrollReached] = useState(false);
+  
   const [meta, setMeta] = useState({
     limit: 10,
     skip: 0,
-    counts: {
-      openedWalletCounts: 0,
-      verifyStatementCounts: 0,
-      userCounts: 0
-    }
-    
+    counts: { openedWalletCounts: 0, verifyStatementCounts: 0, userCounts: 0 }
   });
 
-  const [quickSearchDelayTimer, setQuickSearchDelayTimer] = useState();
+  const [quickSearchDelayTimer, setQuickSearchDelayTimer] = useState<any>();
   const [cancelToken, setCancelToken] = useState(null);
 
   useEffect(() => {
     fetchClients(); 
-  }, [])
+  }, []);
 
-  const fetchClients = async (limit: number = 10, skip: number = 0, allowLoading: boolean = false) => {
+  const fetchClients = async (limit = 10, skip = 0, allowLoading = false) => {
     try {
       if (allowLoading) setIsLoading(true);
-
       const response = (await api.get(`clients`, { limit, skip }))?.data;
       setClients(response.results);
       setMeta(response.meta);
-
-      if (allowLoading) setIsLoading(false);
+      setIsLoading(false);
     } catch (error) {
-      if (allowLoading) setIsLoading(false);
+      setIsLoading(false);
     }
-  }
+  };
+
+  const fetchActiveWallets = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get(`wallets`);
+      setWallets(response.data.results);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const searchUser = async (event: any) => {
     try {
       setIsLoading(true);
-      const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
-      setCancelToken(cancelTokenSource)
+      const cancelTokenSource: any = base.cancelRequests();
+      setCancelToken(cancelTokenSource);
 
       clearTimeout(quickSearchDelayTimer);
-      setQuickSearchDelayTimer((): any => {
-        return setTimeout(async () => {
-          const response = (await api.get(`clients?searchValue=${event.target.value}`, { cancelToken }))?.data;
-          setClients(response.results);
-          setIsLoading(false);
-        }, 1)
-      })
+      const timer = setTimeout(async () => {
+        const response = (await api.get(`clients?searchValue=${event.target.value}`, { cancelToken }))?.data;
+        setClients(response.results);
+        setIsLoading(false);
+      }, 1);
+      setQuickSearchDelayTimer(timer);
     } catch (error) {
       setIsLoading(false);
     }
-  }
+  };
 
   const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const currentScrollReached = event.currentTarget.scrollHeight - event.currentTarget.scrollTop <= event.currentTarget.clientHeight + 25;
-    const limit = Number(meta.limit);
-
-    if (currentScrollReached !== scrollReached && limit < meta.counts.userCounts) {
-      fetchClients(limit + 5, meta.skip, false);
+    if (currentScrollReached !== scrollReached && Number(meta.limit) < meta.counts.userCounts) {
+      fetchClients(Number(meta.limit) + 5, meta.skip, false);
       setScrollReached(currentScrollReached);
     }
-  }
+  };
 
-  const tabChange = async (tab: string) => {
-    setTab(tab);
-
-    if (tab === 'active') {
-      fetchClients(10, 0, true);
-      return;
-    }
-
-    try {
-      const response = await api.get(`unverifiedUsersStatement?tab=${tab}`);
-      setClients(response.data.results)
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  const handleViewChange = (newView: 'list' | 'wallets') => {
+    setView(newView);
+    newView === 'wallets' ? fetchActiveWallets() : fetchClients();
+  };
 
   const tabs = [
-    {
-      label: 'Active',
-      value: 'active',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.userCounts)} color="sky" />
-    },
-    {
-      label: 'Verify Payments Client',
-      value: 'verifyPayments',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.verifyStatementCounts)} color="warning" />
-    },
-    {
-      label: 'Opened Wallets',
-      value: 'openedWallet',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(meta.counts.openedWalletCounts)} color="success" />
-    },
-  ]
+    { label: 'Active', value: 'active', icon: <Badge text={String(meta.counts.userCounts)} color="sky" /> },
+    { label: 'Verify', value: 'verifyPayments', icon: <Badge text={String(meta.counts.verifyStatementCounts)} color="warning" /> },
+    { label: 'Opened', value: 'openedWallet', icon: <Badge text={String(meta.counts.openedWalletCounts)} color="success" /> },
+  ];
 
   return (
-    <div className="m-4">
+    <div className="clients-view-wrapper m-4">
+      <div className="view-header">
+        <div className="switcher-pill">
+          <button className={view === 'list' ? 'active' : ''} onClick={() => handleViewChange('list')}>Clients</button>
+          {account.roles.isAdmin && <button className={view === 'wallets' ? 'active' : ''} onClick={() => handleViewChange('wallets')}>Wallets</button>}
+        </div>
+      </div>
+
       <Card
-        tabs={tabs}
-        showSearchInput={true}
-        inputPlaceholder={'Search by User...'}
-        bodyStyle={{
-          height: '60vh',
-          overflow: 'auto',
-          marginTop: '20px'
-        }}
+        tabs={view === 'list' ? tabs : undefined}
+        showSearchInput={view === 'list'}
         searchInputOnChange={searchUser}
-        onScroll={tab === 'active' && onScroll}
-        tabsOnChange={tabChange}
+        onScroll={view === 'list' && tab === 'active' ? onScroll : undefined}
+        bodyStyle={{ height: '60vh', overflow: 'auto', marginTop: '20px' }}
       >
-        {isLoading ? 
-          <CircularProgress />
-          :
-          <div>
-            {clients.map((client, i) => (
-              <UserWidget
-                client={client}
-                index={i + 1}
-              />
-            ))}
-          </div>
-        }
+        {isLoading ? (
+          <div className="text-center p-5"><CircularProgress /></div>
+        ) : (
+          view === 'list' ? <ListView clients={clients} /> : <WalletsView wallets={wallets} />
+        )}
       </Card>
     </div>
-  )
-}
+  );
+};

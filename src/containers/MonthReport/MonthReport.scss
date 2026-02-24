@@ -1,0 +1,56 @@
+.report-container {
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  background-color: #f4f7f6;
+
+  .report-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+
+    h2 {
+      margin-bottom: 0.5rem;
+      color: #333;
+      font-weight: 600;
+    }
+
+    p {
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+
+    .picker-wrapper {
+      margin-bottom: 2rem;
+    }
+
+    .download-btn {
+      padding: 12px 24px;
+      font-weight: bold;
+      text-transform: none;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      
+      &.loading {
+        background-color: #ccc;
+      }
+    }
+  }
+}
+
+// Mobile responsiveness
+@media (max-width: 600px) {
+  .report-container {
+    padding: 1rem;
+    .report-card {
+      padding: 1.5rem;
+    }
+  }
+}
