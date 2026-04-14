@@ -4,7 +4,9 @@ import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
 import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
 import InfoWidget from '../../components/InfoWidget/InfoWidget';
+import TextInput from '../../components/TextInput/TextInput';
 import { FaMoneyBillWave } from 'react-icons/fa';
+import { AiOutlineSearch } from 'react-icons/ai';
 import { Debt } from '../../models';
 import { checkIfDataArray } from '../../utils/methods';
 import CashflowUser from './CashflowUser';
@@ -27,8 +29,9 @@ const UserDetails = (props: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
-  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices'>('profile');
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'settings'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
+  const [customerId, setCustomerId] = useState();
 
   useEffect(() => {
     loadData();
@@ -70,6 +73,7 @@ const UserDetails = (props: Props) => {
       setUser(response.data);
       setWallet(walletResponse.data.results);
       setUserStatement(statementResponse.data.results);
+      setCustomerId(response.data.customerId);
       setIsLoading(false);
     } catch (error) {
       console.log(error);
@@ -86,6 +90,19 @@ const UserDetails = (props: Props) => {
       console.log(error);
     }
     setIsLoading(false);
+  }
+
+  const changeCustomerId = async () => {
+    try {
+      setIsLoading(true);
+      await api.update(`customerId/${id}/update`, { customerId });
+      alert('Customer ID updated successfully');
+      setIsLoading(false);
+    } catch (error: any) {
+      console.log(error);
+      alert(error.response?.data?.message || 'Error updating customer ID');
+      setIsLoading(false);
+    }
   }
 
   if (isLoading || !user) {
@@ -110,7 +127,8 @@ const UserDetails = (props: Props) => {
       >
         <Tab label="Profile" value="profile" />
         <Tab label="Orders" value="orders" />
-        <Tab label="Created Invoices" value="invoices" /> {/* ✅ New Tab */}
+        <Tab label="Created Invoices" value="invoices" />
+        <Tab label="Settings" value="settings" />
       </Tabs>
 
       {activeTap === 'profile' ? (
@@ -169,6 +187,29 @@ const UserDetails = (props: Props) => {
             customerId={user._id}
             balances={{ walletLyd, walletUsd }}
           />
+        </div>
+      ) : activeTap === 'settings' ? (
+        <div className="col-md-12">
+          <h3 className='mb-3'>Change Customer Code</h3>
+          <TextInput
+            name="customerId"
+            placeholder="Customer ID"
+            icon={<AiOutlineSearch />}
+            value={customerId}
+            onChange={(event: any) => setCustomerId(event.target.value)}
+            maxLength={4}
+          />
+
+          <CustomButton
+            className='mt-3'
+            background='rgb(0, 171, 85)'
+            size="small"
+            disabled={isLoading}
+            onClick={() => changeCustomerId() }
+          >
+            Change Code
+          </CustomButton>
+            
         </div>
       ) : activeTap === 'invoices' && (
         <div className="col-md-12">

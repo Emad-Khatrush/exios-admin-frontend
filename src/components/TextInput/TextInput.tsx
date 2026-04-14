@@ -12,9 +12,10 @@ type Props = {
   name?: string
   defaultValue?: string
   value?: string
+  maxLength?: number
 }
 
-const SearchInput = ({ placeholder, icon, className, type, onChange, id, name, defaultValue, value }: Props) => {
+const SearchInput = ({ placeholder, icon, className, type, onChange, id, name, defaultValue, value, maxLength }: Props) => {
   return (
     <div className={`d-flex`}>
       <div className={`search-icon`}>
@@ -29,6 +30,7 @@ const SearchInput = ({ placeholder, icon, className, type, onChange, id, name, d
         type={type}
         defaultValue={defaultValue}
         value={value}
+        maxLength={maxLength}
       />
     </div>
   )
