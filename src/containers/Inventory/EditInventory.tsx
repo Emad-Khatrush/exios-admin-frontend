@@ -386,7 +386,7 @@ const EditInventory = () => {
 
       <hr />
 
-      {roles.isAdmin || ['69defecbf7304449473b748b', '69decb4cf7304449473b7462'].includes(accountId) && (
+      {(roles.isAdmin || ['69defecbf7304449473b748b', '69decb4cf7304449473b7462'].includes(accountId)) && (
         <div>
           <InventoryExpenses
             inventoryId={inventory?._id}
