@@ -16,7 +16,7 @@ import InventoryExpenses from "./InventoryExpenses";
 
 const EditInventory = () => {
   const { id } = useParams();
-  const { roles, accountId } = useSelector((state: any) => state.session.account);
+  const { roles, customerId } = useSelector((state: any) => state.session.account);
 
   const [inventory, setInventory] = useState<Inventory | any>();
   const [form, setForm] = useState<Inventory | any>();
@@ -386,7 +386,7 @@ const EditInventory = () => {
 
       <hr />
 
-      {(roles.isAdmin || ['69defecbf7304449473b748b', '69decb4cf7304449473b7462'].includes(accountId)) && (
+      {(roles.isAdmin || ['S092', 'A647'].includes(customerId)) && (
         <div>
           <InventoryExpenses
             inventoryId={inventory?._id}
