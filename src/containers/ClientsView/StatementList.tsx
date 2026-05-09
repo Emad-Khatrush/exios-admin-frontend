@@ -5,6 +5,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AttachFileIcon from '@mui/icons-material/AttachFile'; // New Icon
 import moment from 'moment';
 import api from '../../api';
+import { convertGoogleStorageUrl } from '../../utils/methods';
 
 // Updated Types to include attachments
 interface UserStatement {
@@ -103,7 +104,7 @@ const StatementList = ({ navigate }: { navigate: any }) => {
                           sx={{ p: 0, color: 'primary.main' }}
                           onClick={(e) => {
                             e.stopPropagation(); // Prevents navigating to user profile
-                            window.open(item.attachments![0].path, '_blank');
+                            window.open(convertGoogleStorageUrl(item.attachments![0].path), '_blank');
                           }}
                         >
                           <AttachFileIcon sx={{ fontSize: 16, transform: 'rotate(45deg)' }} />
