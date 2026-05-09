@@ -20,6 +20,7 @@ import {
   Avatar,
 } from '@mui/material';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import { convertGoogleStorageUrl } from '../../utils/methods';
 
 const CustomerOrders = ({ customerId, balances }: any) => {
   const [orders, setOrders] = useState<Invoice[]>([]);
@@ -293,7 +294,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                                     style={{ cursor: 'pointer' }}
                                     key={img.filename}
                                     alt={img.filename} 
-                                    src={img.path}
+                                    src={convertGoogleStorageUrl(img.path)}
                                     onClick={() => setPreviewImages(pkg?.images)}
                                   />
                                 ))}
@@ -396,7 +397,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                               style={{ cursor: 'pointer' }}
                               key={img.filename}
                               alt={img.filename} 
-                              src={img.path}
+                              src={convertGoogleStorageUrl(img.path)}
                               onClick={() => setPreviewImages(pkg?.images)}
                             />
                           ))}

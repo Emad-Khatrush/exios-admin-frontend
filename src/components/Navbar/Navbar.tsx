@@ -41,7 +41,7 @@ class Navbar extends Component<MyProps, MyState> {
                             onClick={() => this.props.toggleSidebar()}
                           />
                           :
-                          <img src="https://storage.googleapis.com/exios-bucket/8424e4c2a34ab9e29b3b.png" alt="Exios" width={'150px'} height={'80px'} />
+                          <img src="https://storage.cloud.google.com/exios-bucket/8424e4c2a34ab9e29b3b.png" alt="Exios" width={'150px'} height={'80px'} />
                         }
                     </div>
                     <div className="nav-right">

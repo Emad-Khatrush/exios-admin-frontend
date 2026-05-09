@@ -9,7 +9,7 @@ import api from '../../api'
 import { Account, Debt, Invoice, OrderActivity, OrderItem, User } from '../../models'
 import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
-import { calculateTotalWallet, getOrderSteps } from '../../utils/methods'
+import { calculateTotalWallet, convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods'
 import QRCode from 'qrcode.react'
 import { formatInvoiceFields } from '../XTrackingPage/utils'
 import { isMobile } from 'react-device-detect';
@@ -1203,7 +1203,7 @@ ${price.priceDescription}
                           style={{ cursor: 'pointer' }}
                           key={img.filename}
                           alt={img.filename} 
-                          src={img.path}
+                          src={convertGoogleStorageUrl(img.path)}
                           onClick={(event: React.MouseEvent) => this.setState({ previewImages: payment.attachments })}
                         />
                       ))}
@@ -1282,7 +1282,7 @@ ${price.priceDescription}
                           style={{ cursor: 'pointer' }}
                           key={img.filename}
                           alt={img.filename} 
-                          src={img.path}
+                          src={convertGoogleStorageUrl(img.path)}
                           onClick={(event: React.MouseEvent) => this.setState({ previewImages: payment.attachments })}
                         />
                       ))}

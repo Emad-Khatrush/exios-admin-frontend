@@ -4,7 +4,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import moment from "moment-timezone";
 import MenuWrapper from "../../components/MenuWrapper/MenuWrapper";
-import { calculateMinTotalPrice } from "../../utils/methods";
+import { calculateMinTotalPrice, convertGoogleStorageUrl } from "../../utils/methods";
 
 export const defaultColumns = (setState: any) => ([
   {
@@ -40,7 +40,7 @@ export const defaultColumns = (setState: any) => ([
       
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setState(invImages)} max={3}>
         {invImages && invImages.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }
@@ -55,7 +55,7 @@ export const defaultColumns = (setState: any) => ([
 
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setState(repImages)} max={3}>
         {repImages && repImages.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }

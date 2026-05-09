@@ -4,6 +4,7 @@ import { AiFillCloseCircle } from 'react-icons/ai';
 import FilePreviewer from '../FilePreviewer/FilePreviewer';
 
 import './FilesPreviewers.scss'
+import { convertGoogleStorageUrl } from '../../utils/methods';
 
 type Props = {
   previewFiles: any[]
@@ -111,7 +112,7 @@ const DeletingItemMessage = ({ selectedItem, deleteItem, cancelModel }: any): an
   return <Box sx={{ maxWidth: 600, flexGrow: 1 }}>
   <Box className='image-previewer' style={{ height: '70%' }}>
       <h5 style={{ color: '#c70d0d' }}>Are you sure you want to delete this photo ?</h5>
-      <img src={selectedItem?.path} width={'80%'} height={'80%'} alt="" />
+      <img src={convertGoogleStorageUrl(selectedItem?.path)} width={'80%'} height={'80%'} alt="" />
       <div className='flex text-end mt-2'>
         <button onClick={() => cancelModel()}>Cancel</button>
         <button onClick={() => { deleteItem(); cancelModel(); }} style={{ marginLeft: '10px' }}>Yes Delete</button>

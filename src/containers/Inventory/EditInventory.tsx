@@ -13,6 +13,7 @@ import { Textarea } from "@mui/joy";
 import CustomButton from "../../components/CustomButton/CustomButton";
 import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
+import { convertGoogleStorageUrl } from "../../utils/methods";
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -68,7 +69,7 @@ const EditInventory = () => {
       setIsLoading(true);
       const res = await api.get(`inventory/${id}`);
       setInventory(res.data);
-      setPreviewFiles(res.data.attachments.map((img: any) => img.path ));
+      setPreviewFiles(res.data.attachments.map((img: any) => convertGoogleStorageUrl(img.path) ));
       setFilesInput(res.data.attachments);
     } catch (error: any) {
       setError(error.response.data.message);

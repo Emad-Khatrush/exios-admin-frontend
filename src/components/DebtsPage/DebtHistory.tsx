@@ -8,6 +8,7 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import Badge from '../Badge/Badge';
+import { convertGoogleStorageUrl } from '../../utils/methods';
 
 type Props = {
   debt: Debt
@@ -142,7 +143,7 @@ const DebtHistory = (props: Props) => {
                     key={img.filename}
                     className='file-view'
                     alt={img.filename} 
-                    src={img.path}
+                    src={convertGoogleStorageUrl(img.path)}
                     onClick={() => setPreviewImages(payment.attachments)}
                   />
                 ))}

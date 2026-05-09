@@ -5,6 +5,7 @@ import EditIcon from '@mui/icons-material/Edit';
 
 import moment from 'moment-timezone';
 import MenuWrapper from "../../components/MenuWrapper/MenuWrapper";
+import { convertGoogleStorageUrl } from "../../utils/methods";
 
 export const defaultColumns: any = (setPreviewImages: any) => ([
   {
@@ -37,7 +38,7 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     renderCell: (params: GridRenderCellParams<any>) => {
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setPreviewImages(params.value)} max={3}>
         {params.value && params.value.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }

@@ -4,6 +4,7 @@ import { GridRenderCellParams } from "@mui/x-data-grid";
 import moment from 'moment-timezone';
 import { Package } from "../../models";
 import { MdOutlineDoneOutline } from "react-icons/md";
+import { convertGoogleStorageUrl } from "../../utils/methods";
 
 export const defaultColumns: any = (setPreviewImages: any, setFinishPaymentDialog: any) => ([
   {
@@ -34,7 +35,7 @@ export const defaultColumns: any = (setPreviewImages: any, setFinishPaymentDialo
     renderCell: (params: GridRenderCellParams<any>) => {
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setPreviewImages(params.value)} max={3}>
         {params.value && params.value.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }

@@ -9,6 +9,7 @@ import ImageUploader from "../../components/ImageUploader/ImageUploader";
 import React from "react";
 import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
+import { convertGoogleStorageUrl } from "../../utils/methods";
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -58,7 +59,7 @@ const EditInventory = () => {
     setIsLoading(true);
     const res = await api.get(`inventory/${id}`);
     setInventory(res.data);
-    setPreviewFiles(res.data.attachments.map((img: any) => img.path ));
+    setPreviewFiles(res.data.attachments.map((img: any) => convertGoogleStorageUrl(img.path) ));
     setFilesInput(res.data.attachments);
     setIsLoading(false);
   }

@@ -6,7 +6,7 @@ import { BiNote, BiPackage } from 'react-icons/bi';
 import { BsCheck2Circle } from 'react-icons/bs';
 import { Invoice, OrderItem, User } from '../../models';
 import './InvoiceForm.scss';
-import { getOrderSteps } from '../../utils/methods';
+import { convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
@@ -831,7 +831,7 @@ const InvoiceForm = (props: Props) => {
                             key={img.filename}
                             className='order-image'
                             alt={img.filename} 
-                            src={img.path}
+                            src={convertGoogleStorageUrl(img.path)}
                             onClick={(event: React.MouseEvent) => setPreviewImages(payment.images)}
                           />
                         ))}

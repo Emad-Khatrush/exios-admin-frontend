@@ -8,6 +8,7 @@ import { useParams } from 'react-router-dom';
 import api from '../../api';
 
 import './EditIncome.scss';
+import { convertGoogleStorageUrl } from '../../utils/methods';
 
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">
@@ -50,7 +51,7 @@ const EditIncome = (props: Props) => {
           currency: data.cost.currency
         });
         setFilesInput(data.images);
-        setPreviewFiles(data.images.map((img: any) => img.path ));
+        setPreviewFiles(data.images.map((img: any) => convertGoogleStorageUrl(img.path) ));
         setLoading(false);
       })
   }, [imagesLoading])
@@ -136,7 +137,7 @@ const EditIncome = (props: Props) => {
           currency: data.cost.currency
         });
         setFilesInput(data.images);
-        setPreviewFiles(data.images.map((img: any) => img.path ));
+        setPreviewFiles(data.images.map((img: any) => convertGoogleStorageUrl(img.path) ));
         setIsSucceed(true);
         setShowResponseMessage("Images uploaded successfully");
         setImagesLoading(false);

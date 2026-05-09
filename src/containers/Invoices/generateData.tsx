@@ -5,6 +5,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import moment from "moment-timezone";
 import MenuWrapper from "../../components/MenuWrapper/MenuWrapper";
 import { Invoice } from "../../models";
+import { convertGoogleStorageUrl } from "../../utils/methods";
 
 export const defaultColumns = (setState: any) => ([
   {
@@ -40,7 +41,7 @@ export const defaultColumns = (setState: any) => ([
       
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setState({ selectedRowImages: invImages, openImagesModal: true })} max={3}>
         {invImages && invImages.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }
@@ -55,7 +56,7 @@ export const defaultColumns = (setState: any) => ([
 
       return <AvatarGroup style={{ cursor: 'pointer' }} onClick={() => setState({ selectedRowImages: repImages, openImagesModal: true })} max={3}>
         {repImages && repImages.map((image: any) => (
-          <Avatar key={image._id} alt="" src={image.path} />
+          <Avatar key={image._id} alt="" src={convertGoogleStorageUrl(image.path)} />
         ))}
     </AvatarGroup>
     }

@@ -10,7 +10,7 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 import moment from 'moment-timezone';
 
 import './OrderWidget.scss';
-import { getOrderSteps } from '../../utils/methods';
+import { convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods';
 import ActionCard from '../ActionCard/ActionCard';
 
 type Props = {
@@ -145,7 +145,7 @@ const OrderWidget = (props: Props) => {
                   key={img.filename}
                   className='order-image'
                   alt={img.filename} 
-                  src={img.path}
+                  src={convertGoogleStorageUrl(img.path)}
                   onClick={(event: React.MouseEvent) => setPreviewImages(order.images)}
                 />
               ))}

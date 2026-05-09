@@ -9,6 +9,7 @@ import api from "../../api"
 import { useParams } from "react-router-dom"
 import moment from "moment"
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper"
+import { convertGoogleStorageUrl } from "../../utils/methods"
 
 type Props = {
   title: string
@@ -98,7 +99,7 @@ const PaymentDetails = (props: Props) => {
                   style={{ cursor: 'pointer' }}
                   key={img.filename}
                   alt={img.filename} 
-                  src={img.path}
+                  src={convertGoogleStorageUrl(img.path)}
                   onClick={() => setPreviewImages(statement.attachments)}
                 />
               ))}
