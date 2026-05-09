@@ -5,7 +5,7 @@ export function convertGoogleStorageUrl(url: string) {
   const oldBase = "https://storage.googleapis.com";
   const newBase = "https://storage.cloud.google.com";
 
-  if (url.startsWith(oldBase)) {
+  if (url?.startsWith(oldBase)) {
     return url.replace(oldBase, newBase);
   }
 
