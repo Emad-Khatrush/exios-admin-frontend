@@ -47,14 +47,14 @@ const FilesPreviewers = (props: Props) => {
             {( !!type && (type !== 'image/jpeg' && type !== 'image/png')) ?
               <FilePreviewer 
                 uploadedFile={{
-                  path: file.path,
+                  path: convertGoogleStorageUrl(file.path),
                   type: type
                 }}
               />
               :
               <img 
                 style={{ cursor: 'pointer' }} 
-                src={files[index]?.path || files[index] || file}
+                src={convertGoogleStorageUrl(files[index]?.path) || convertGoogleStorageUrl(files[index]) || convertGoogleStorageUrl(file)}
                 alt='' 
                 onClick={(event: any) => {
                   setOpenModal(true);
@@ -103,7 +103,7 @@ const FilesPreviewers = (props: Props) => {
 const PreviewImage = ({ selectedImg }: any): any => {
   return <Box sx={{ maxWidth: 600, flexGrow: 1 }}>
   <Box className='image-previewer' style={{ height: '80%' }}>
-      <img src={selectedImg?.src} width={'100%'} height={'100%'} alt="" />
+      <img src={convertGoogleStorageUrl(selectedImg?.src)} width={'100%'} height={'100%'} alt="" />
   </Box>
 </Box>
 }
