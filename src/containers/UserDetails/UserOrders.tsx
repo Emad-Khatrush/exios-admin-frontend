@@ -201,6 +201,72 @@ const CustomerOrders = ({ customerId, balances }: any) => {
 
   const filteredOrders = orders;
 
+  const groupedFlights = useMemo(() => {
+  const map = new Map();
+
+  filteredOrders.forEach((order: any) => {
+    (order.paymentList || []).forEach((pkg: any) => {
+      const flightId = pkg.flight?._id || "unassigned";
+
+      if (!map.has(flightId)) {
+        map.set(flightId, {
+          id: flightId,
+          flight: pkg.flight || null,
+          packages: [],
+        });
+      }
+
+      map.get(flightId).packages.push({
+        ...pkg,
+        orderId: order.orderId,
+        orderMongoId: order._id,
+      });
+    });
+  });
+
+  return Array.from(map.values());
+}, [filteredOrders]);
+
+const isPackageSelected = (id: string) =>
+  selectedPackages.some((p) => p.id === id);
+
+const isFlightSelected = (group: any) => {
+  return (
+    group.packages.length > 0 &&
+    group.packages.every((pkg: any) => isPackageSelected(pkg._id))
+  );
+};
+
+const handleFlightSelect = (group: any) => {
+  const allSelected = isFlightSelected(group);
+
+  if (allSelected) {
+    const ids = group.packages.map((p: any) => p._id);
+
+    setSelectedPackages((prev) =>
+      prev.filter((p) => !ids.includes(p.id))
+    );
+
+    return;
+  }
+
+    const newPackages = group.packages
+      .filter((pkg: any) => !isPackageSelected(pkg._id))
+      .map((pkg: any) => ({
+        id: pkg._id,
+        cost: getPackageCost(pkg),
+        trackingNumber: pkg?.deliveredPackages?.trackingNumber || "",
+        weight: pkg?.deliveredPackages?.weight?.total || 0,
+        measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || "",
+        exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
+        locationPlace: pkg?.deliveredPackages?.locationPlace || "",
+        images: pkg?.images || [],
+        orderId: pkg.orderId,
+      }));
+
+    setSelectedPackages((prev) => [...prev, ...newPackages]);
+  };
+
   const totals = useMemo(() => {
     let totalKG = 0;
     let totalCBM = 0;
@@ -256,56 +322,158 @@ const CustomerOrders = ({ customerId, balances }: any) => {
 
           {filteredOrders.length === 0 && <p>No orders found for this filter.</p>}
 
-          {filteredOrders.map(order => (
-            <div key={order._id} className="order-card">
-              <div className="order-header">
-                <h3>Order: <a href={`/invoice/${order._id}/edit`} target="_blank" rel="noopener noreferrer">{order.orderId}</a></h3>
-                <p>Placed At: {order.placedAt}</p>
-              </div>
-              <div className="packages">
-                <h4>Packages</h4>
-                {order.paymentList.map((pkg: Package) => {
-                  const measureValue = pkg?.deliveredPackages.weight?.total || 0;
-                  const measureUnit = pkg.deliveredPackages?.weight?.measureUnit || '';
-                  const exiosPrice = pkg.deliveredPackages?.exiosPrice || 0;
-                  const fees = measureValue * exiosPrice;
+          {groupedFlights.map((group: any) => (
+            <div
+              key={group.id}
+              style={{
+                marginBottom: 35,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  background: "#f5f5f5",
+                  padding: "15px 20px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  {group.flight ? (
+                    <>
+                      <h2 style={{ margin: 0 }}>
+                        <a
+                          href={`/inventory/${group.flight._id || ""}/edit`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {" "}
+                          ✈ Flight {group.flight.voyage}
+                        </a>
+                      </h2>
 
-                  return (
-                    <div key={pkg._id} className="package-item">
-                      {(filter !== 'finished' && !pkg.status.received) &&
+                      <small>
+                        {group.flight.shippingType} •{" "}
+                        {group.flight.inventoryPlace}
+                      </small>
+                    </>
+                  ) : (
+                    <h2 style={{ margin: 0 }}>
+                      📦 Packages Without Flight
+                    </h2>
+                  )}
+                </div>
+
+                {filter !== "finished" && (
+                  <label style={{ fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={isFlightSelected(group)}
+                      onChange={() => handleFlightSelect(group)}
+                      style={{ marginRight: 8 }}
+                    />
+                    Select Flight
+                  </label>
+                )}
+              </div>
+
+              {group.packages.map((pkg: any) => {
+                console.log('Package:', pkg);
+                const measureValue =
+                  pkg?.deliveredPackages?.weight?.total || 0;
+
+                const measureUnit =
+                  pkg?.deliveredPackages?.weight?.measureUnit || "";
+
+                const exiosPrice =
+                  pkg?.deliveredPackages?.exiosPrice || 0;
+
+                const fees = measureValue * exiosPrice;
+
+                return (
+                  <div
+                    key={pkg._id}
+                    className="order-card"
+                    style={{ marginBottom: 15 }}
+                  >
+                    <div className="order-header">
+                      <h3>
+                        Order:
+                        <a
+                          href={`/invoice/${pkg?.orderMongoId || ""}/edit`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {" "}
+                          {pkg.orderId}
+                        </a>
+                      </h3>
+                    </div>
+
+                    <div className="package-item">
+                      {filter !== "finished" && !pkg.status.received && (
                         <input
                           type="checkbox"
-                          checked={selectedPackages.some(p => p.id === pkg._id)}
-                          onChange={() => handlePackageSelect(pkg, order.orderId)}
+                          checked={isPackageSelected(pkg._id)}
+                          onChange={() =>
+                            handlePackageSelect(pkg, pkg.orderId)
+                          }
                         />
-                      }
+                      )}
+
                       <div className="package-details">
-                        <p>Tracking: {pkg.deliveredPackages?.trackingNumber || 'N/A'}</p>
-                        <p>Status: {pkg.status.received ? 'Received✅' : 'Active📦'}</p>
-                        <p>Measure: {measureValue} {measureUnit}</p>
+                        <p>
+                          Tracking:{" "}
+                          {pkg.deliveredPackages?.trackingNumber || "N/A"}
+                        </p>
+
+                        <p>
+                          Status:{" "}
+                          {pkg.status.received
+                            ? "Received ✅"
+                            : "Active 📦"}
+                        </p>
+
+                        <p>
+                          Measure: {measureValue} {measureUnit}
+                        </p>
+
                         <p>Exios Price: ${exiosPrice}</p>
+
                         <p>Cost: ${fees.toFixed(2)}</p>
-                        {pkg.deliveredPackages.locationPlace && <p>Placed At: {pkg.deliveredPackages.locationPlace}</p>}
-                        {pkg?.images?.length > 0 &&
-                          <div style={{ justifySelf: 'start'}}>
-                              <AvatarGroup max={3}>
-                                {pkg?.images.map((img: any) => (
-                                  <Avatar
-                                    style={{ cursor: 'pointer' }}
-                                    key={img.filename}
-                                    alt={img.filename} 
-                                    src={convertGoogleStorageUrl(img.path)}
-                                    onClick={() => setPreviewImages(pkg?.images)}
-                                  />
-                                ))}
-                              </AvatarGroup>
+
+                        {pkg.deliveredPackages?.locationPlace && (
+                          <p>
+                            Placed At:{" "}
+                            {pkg.deliveredPackages.locationPlace}
+                          </p>
+                        )}
+
+                        {pkg.images?.length > 0 && (
+                          <div style={{ justifySelf: "start" }}>
+                            <AvatarGroup max={3}>
+                              {pkg.images.map((img: any) => (
+                                <Avatar
+                                  key={img.filename}
+                                  alt={img.filename}
+                                  src={convertGoogleStorageUrl(img.path)}
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() =>
+                                    setPreviewImages(pkg.images)
+                                  }
+                                />
+                              ))}
+                            </AvatarGroup>
                           </div>
-                        }
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
 
