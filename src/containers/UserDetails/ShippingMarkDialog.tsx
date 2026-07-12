@@ -40,13 +40,13 @@ const ShippingMarkDialog = ({ user }: { user: any }) => {
       dataUrls.push(imgUrl2);
     }
 
-    // phoneNumber: `${user.phone}@c.us`
-    api.post(`sendWhatsupMessage`, { phoneNumber: `${user.phone}@c.us`, message: replaceWords(guideForShippingInChina, {
+    // phoneNumber: `${user.phone}@s.whatsapp.net`
+    api.post(`sendWhatsupMessage`, { phoneNumber: `${user.phone}@s.whatsapp.net`, message: replaceWords(guideForShippingInChina, {
       fullName: `${user.firstName}`,
       customerId: user.customerId
     })})
       .then(async () => {
-        await api.post(`sendWhatsupImages`, { imgUrls: dataUrls, phoneNumber: `${user.phone}@c.us` });
+        await api.post(`sendWhatsupImages`, { imgUrls: dataUrls, phoneNumber: `${user.phone}@s.whatsapp.net` });
         setIsSending(false);
         setIsFinished(true);
         setResMessage('Whatsup message has been send successfully');

@@ -196,7 +196,7 @@ export class MyTasks extends Component<MyProps, State> {
     }
 
     (task.reviewers || []).forEach((user: User) => {
-      const phoneNumber = (user.phone as any) === "5535728209" ? '5535728209@c.us' : `${user.phone}@c.us`
+      const phoneNumber = (user.phone as any) === "5535728209" ? '5535728209@s.whatsapp.net' : `${user.phone}@s.whatsapp.net`
       if (user._id !== account._id) {
         api.post(`sendWhatsupMessage`, { phoneNumber, message })
           .then((res) => {

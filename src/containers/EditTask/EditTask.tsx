@@ -154,7 +154,7 @@ export class EditTask extends Component<Props, State> {
       https://exios-admin-frontend.web.app/mytasks?id=${task._id}
       شكرا لكم
     `;
-    const phoneNumber = (task.createdBy.phone as any) === "5535728209" ? '5535728209@c.us' : `${task.createdBy.phone}@c.us`
+    const phoneNumber = (task.createdBy.phone as any) === "5535728209" ? '5535728209@s.whatsapp.net' : `${task.createdBy.phone}@s.whatsapp.net`
 
     api.post(`sendWhatsupMessage`, { phoneNumber, message })
       .then((res) => {

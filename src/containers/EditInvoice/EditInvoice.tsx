@@ -587,7 +587,7 @@ export class EditInvoice extends Component<Props, State> {
 
     this.setState({ isUpdating: true })    
 
-    api.post(`sendWhatsupMessage`, { phoneNumber: `${formData.customerInfo.phone}@c.us`, message: whatsupMessage })
+    api.post(`sendWhatsupMessage`, { phoneNumber: `${formData.customerInfo.phone}@s.whatsapp.net`, message: whatsupMessage })
       .then((res) => {
         this.setState({
           isUpdating: false,
