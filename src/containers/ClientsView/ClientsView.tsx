@@ -16,7 +16,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import moment from 'moment';
 
 export const ClientsView = () => {
-  const account: Account = useSelector((state: any) => state.session?.account)
+  const account: Account = useSelector((state: any) => state.session?.account);
+  const allowViewHiddenFields = useSelector((state: any) => state.session.account.roles.isAdmin || state.session.account.roles.accountant);
   
   const [view, setView] = useState<'list' | 'wallets'>('list');
   const [clients, setClients] = useState([]);
@@ -154,15 +155,17 @@ export const ClientsView = () => {
         ) : (
           view === 'list' ?
           <>
-            <Button 
-              variant="contained" 
-              color="success" 
-              startIcon={<FileDownloadIcon />}
-              onClick={handleDownloadExcel}
+            {allowViewHiddenFields && (
+              <Button 
+                variant="contained" 
+                color="success" 
+                startIcon={<FileDownloadIcon />}
+                onClick={handleDownloadExcel}
               sx={{ borderRadius: '10px', height: '42px', px: 3, fontWeight: 'bold' }}
             >
               Export All Clients
             </Button>
+            )}
 
             <ListView clients={clients} />
           </>
