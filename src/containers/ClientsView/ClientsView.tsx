@@ -2,20 +2,25 @@ import React, { useEffect, useState } from 'react';
 import Card from '../../components/Card/Card';
 import Badge from '../../components/Badge/Badge';
 import api, { base } from '../../api';
-import { CircularProgress } from '@mui/material';
+import { Button, CircularProgress } from '@mui/material';
+import * as XLSX from 'xlsx';
 
 // Sub-components
 import ListView from './ListView';
 import WalletsView from './WalletsView';
+// @ts-ignore
 import './ClientsView.scss';
 import { Account } from '../../models';
 import { useSelector } from 'react-redux';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import moment from 'moment';
 
 export const ClientsView = () => {
   const account: Account = useSelector((state: any) => state.session?.account)
   
   const [view, setView] = useState<'list' | 'wallets'>('list');
   const [clients, setClients] = useState([]);
+  const [downloadedClients, setDownloadedClients] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [tab, setTab] = useState('active');
@@ -41,6 +46,39 @@ export const ClientsView = () => {
       setClients(response.results);
       setMeta(response.meta);
       setIsLoading(false);
+    } catch (error) {
+      setIsLoading(false);
+    }
+  };
+
+    const handleDownloadExcel = async () => {
+      const clients = await fetchAllClients();
+      const excelData = clients.map((client: any) => ({
+        'ID': client?.customerId,
+        'Name*': `${client?.firstName} ${client?.lastName}`,
+        'Related Company': ``,
+        'Email': client?.username,
+        'Phone': `${client?.phone}`,
+        'City': client?.city,
+        'Country': 'ليبيا',
+        'Reference': client?.customerId,
+        'Notes': '',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'last 1000 Clients');
+      XLSX.writeFile(workbook, `All_Clients_Report_${moment().format('YYYY-MM-DD')}.xlsx`);
+    };
+
+  const fetchAllClients = async () => {
+    try {
+      setIsLoading(true);
+      const response = (await api.get(`clients`, { skip: Math.max(0, meta.counts.userCounts - 1000), limit: 1000 }))?.data;
+      setDownloadedClients(response.results);
+      setIsLoading(false);
+
+      return response.results;
     } catch (error) {
       setIsLoading(false);
     }
@@ -114,7 +152,22 @@ export const ClientsView = () => {
         {isLoading ? (
           <div className="text-center p-5"><CircularProgress /></div>
         ) : (
-          view === 'list' ? <ListView clients={clients} /> : <WalletsView wallets={wallets} />
+          view === 'list' ?
+          <>
+            <Button 
+              variant="contained" 
+              color="success" 
+              startIcon={<FileDownloadIcon />}
+              onClick={handleDownloadExcel}
+              sx={{ borderRadius: '10px', height: '42px', px: 3, fontWeight: 'bold' }}
+            >
+              Export All Clients
+            </Button>
+
+            <ListView clients={clients} />
+          </>
+            : 
+            <WalletsView wallets={wallets} />
         )}
       </Card>
     </div>
