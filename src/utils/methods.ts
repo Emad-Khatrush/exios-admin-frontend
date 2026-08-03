@@ -3,7 +3,7 @@ import { IInvoice } from "../reducers/invoices";
 
 export function convertGoogleStorageUrl(url: string) {
   const oldBase = "https://storage.googleapis.com";
-  const newBase = "https://storage.cloud.google.com";
+  const newBase = "https://storage.googleapis.com";
 
   if (typeof url == 'string' && url?.startsWith(oldBase)) {
     return url.replace(oldBase, newBase);
