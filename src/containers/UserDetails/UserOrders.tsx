@@ -32,6 +32,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     measureUnit: string;
     exiosPrice: number;
     locationPlace?: string;
+    boxesCount?: string | number;
     orderId?: string;
     images?: any
   }[]>([]);
@@ -100,11 +101,12 @@ const CustomerOrders = ({ customerId, balances }: any) => {
       const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
       const exiosPrice = pkg?.deliveredPackages?.exiosPrice || 0;
       const locationPlace = pkg?.deliveredPackages?.locationPlace || '';
+      const boxesCount = pkg?.deliveredPackages?.boxesCount || '';
       const images = pkg?.images || [];
 
       setSelectedPackages(prev => [
         ...prev,
-        { id: pkg._id, cost, trackingNumber, weight, measureUnit, exiosPrice, locationPlace, images, orderId },
+        { id: pkg._id, cost, trackingNumber, weight, measureUnit, exiosPrice, locationPlace, boxesCount, images, orderId },
       ]);
     }
   };
@@ -130,6 +132,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
         measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || '',
         exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
         locationPlace: pkg?.deliveredPackages?.locationPlace || '',
+        boxesCount: pkg?.deliveredPackages?.boxesCount || '',
         images: pkg?.images || [],
         orderId: pkg.orderId,
       }));
@@ -260,6 +263,7 @@ const handleFlightSelect = (group: any) => {
         measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || "",
         exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
         locationPlace: pkg?.deliveredPackages?.locationPlace || "",
+        boxesCount: pkg?.deliveredPackages?.boxesCount || '',
         images: pkg?.images || [],
         orderId: pkg.orderId,
       }));
@@ -381,7 +385,6 @@ const handleFlightSelect = (group: any) => {
               </div>
 
               {group.packages.map((pkg: any) => {
-                console.log('Package:', pkg);
                 const measureValue =
                   pkg?.deliveredPackages?.weight?.total || 0;
 
@@ -449,6 +452,13 @@ const handleFlightSelect = (group: any) => {
                           <p>
                             Placed At:{" "}
                             {pkg.deliveredPackages.locationPlace}
+                          </p>
+                        )}
+
+                        {pkg.deliveredPackages?.boxesCount && (
+                          <p>
+                            Boxes Count:{" "}
+                            {pkg.deliveredPackages.boxesCount}
                           </p>
                         )}
 
@@ -556,6 +566,7 @@ const handleFlightSelect = (group: any) => {
                   <Typography variant="body2">Measure: {pkg.weight} {pkg.measureUnit}</Typography>
                   <Typography variant="body2">Exios Price: ${pkg?.exiosPrice || 0}</Typography>
                   <Typography variant="body2">Cost: ${pkg.cost.toFixed(2)}</Typography>
+                  {pkg.boxesCount && <Typography variant="body2">Boxes Count: {pkg.boxesCount}</Typography>}
                   {pkg.locationPlace && <Typography variant="body2">Placed At: {pkg.locationPlace}</Typography>}
                   {pkg?.images?.length > 0 &&
                     <div style={{ justifySelf: 'start'}}>

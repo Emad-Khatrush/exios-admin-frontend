@@ -86,7 +86,8 @@ class AddInvoice extends Component<Props, State> {
         originPrice: null,
         containerInfo: {
           billOfLading: ''
-        }
+        },
+        boxesCount: null
       }
     }],
     showResponseMessage: false,
@@ -167,7 +168,7 @@ class AddInvoice extends Component<Props, State> {
       paymentList[event.target.id][fieldName] = fieldName ===  'paymentLink' || fieldName ===  'note' ? event.target.value : !inputValue;
       
       this.setState({ paymentList });
-    } else if (['trackingNumber', 'packageWeight', 'receiptNo', 'containerNumber', 'locationPlace', 'measureUnit', 'originPrice', 'exiosPrice', 'receivedShipmentLYDPackage', 'receivedShipmentUSDPackage', 'arrivedAt', 'shipmentMethod'].includes(fieldName)) {
+    } else if (['trackingNumber', 'packageWeight', 'receiptNo', 'containerNumber', 'locationPlace', 'measureUnit', 'originPrice', 'exiosPrice', 'receivedShipmentLYDPackage', 'receivedShipmentUSDPackage', 'arrivedAt', 'shipmentMethod', 'boxesCount'].includes(fieldName)) {
       
       const convertToApiFieldName = formatInvoiceFields(fieldName);
       const id = child ? Number(child.props.id) : event.target.id;
@@ -272,7 +273,8 @@ class AddInvoice extends Component<Props, State> {
           arrivedAt: new Date(),
           measureUnit: '',
           exiosPrice: 0,
-          originPrice: 0
+          originPrice: 0,
+          boxesCount: 0,
         }
       }],
     }));

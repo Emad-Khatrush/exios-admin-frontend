@@ -77,6 +77,11 @@ const adminRoutes = [
       icon: <FaFileInvoiceDollar className="sidebar-icon" />,
      },
      {
+      title: 'Odo Export',
+      path: '/odo-export',
+      icon: <FaFileInvoiceDollar className="sidebar-icon" />,
+     },
+     {
       mainTitle: 'Inventory'
      },
      {

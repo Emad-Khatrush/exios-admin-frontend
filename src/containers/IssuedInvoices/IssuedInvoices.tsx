@@ -154,6 +154,7 @@ const DailyInvoices = () => {
                           <div className="package-details">
                             <p>Tracking: {pkg.trackingNumber || 'N/A'}</p>
                             <p>Measure: {measureValue} {measureUnit}</p>
+                            {pkg.boxesCount && <p>Boxes Count: {pkg.boxesCount}</p>}
                           </div>
                         </div>
                       );

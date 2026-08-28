@@ -62,6 +62,7 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
                   <TableCell>#</TableCell>
                   <TableCell>Order Id</TableCell>
                   <TableCell>Tracking Number</TableCell>
+                  <TableCell>Boxes Count</TableCell>
                   <TableCell align="right">Cost</TableCell>
                 </TableRow>
               </TableHead>
@@ -71,6 +72,9 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{item.orderId || '—'}</TableCell>
                     <TableCell>{item.trackingNumber || 'N/A'}</TableCell>
+                    <TableCell>
+                      {item.boxesCount || '-'}
+                    </TableCell>
                     <TableCell align="right">
                       {item.cost?.toFixed(2) || '0.00'} {invoice.currency}
                     </TableCell>

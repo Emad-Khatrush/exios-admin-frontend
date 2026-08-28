@@ -117,6 +117,7 @@ export type Package = {
     receivedShipmentUSD: number
     trackingNumber: string
     locationPlace: string
+    boxesCount: string
     weight: {
       total: number, 
       measureUnit: string

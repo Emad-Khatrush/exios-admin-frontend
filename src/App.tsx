@@ -24,6 +24,7 @@ import ReturnedPayments from './containers/ReturnedPayments/ReturnedPayments';
 import { ClientsView } from './containers/ClientsView/ClientsView';
 import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
+import OdoExport from './containers/OdoExport/OdoExport';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -116,6 +117,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/messages' element={<MessagesControl />} />
       <Route path='/returnedPayments' element={<ReturnedPayments />} />
       <Route path='/reports' element={<MonthReport />} />
+      <Route path='/odo-export' element={<OdoExport />} />
     </>
   }
 }

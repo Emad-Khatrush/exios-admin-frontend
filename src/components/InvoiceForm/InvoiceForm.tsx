@@ -53,6 +53,7 @@ const InvoiceForm = (props: Props) => {
     receiptNo: '',
     packageWeight: null,
     measureUnit: '',
+    boxesCount: null,
     exiosShipmentPrice: '',
     originShipmentPrice: '',
     locationPlace: '',
@@ -862,6 +863,7 @@ const InvoiceForm = (props: Props) => {
                           packageWeight: payment?.deliveredPackages?.weight, 
                           trackingNumber: payment?.deliveredPackages?.trackingNumber,
                           containerNumber: payment?.deliveredPackages?.containerInfo?.billOfLading,
+                          boxesCount: payment?.deliveredPackages?.boxesCount,
                           receiptNo: payment?.deliveredPackages?.receiptNo,
                           originPrice: payment?.deliveredPackages?.originPrice,  
                           exiosPrice: payment?.deliveredPackages?.exiosPrice,
@@ -973,25 +975,10 @@ const InvoiceForm = (props: Props) => {
               <div className="col-md-6 mb-4 d-flex">
                 <TextField
                   id={deliveredPackages.id}
-                  label={'Received Shipment USD'}
-                  name="receivedShipmentUSDPackage"
-                  type={'number'}
-                  inputProps={{ inputMode: 'numeric' }}
+                  label={'Boxes Count'}
+                  name="boxesCount"
                   onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.receivedShipmentUSD}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Received Shipment LYD'}
-                  name="receivedShipmentLYDPackage"
-                  type={'number'}
-                  inputProps={{ inputMode: 'numeric' }}
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.receivedShipmentLYD}
+                  defaultValue={deliveredPackages?.boxesCount}
                   onWheel={(event: any) => event.target.blur()}
                 />
               </div>

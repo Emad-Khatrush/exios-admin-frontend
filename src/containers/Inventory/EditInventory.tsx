@@ -295,7 +295,7 @@ const EditInventory = () => {
           </LocalizationProvider>
         </div>
 
-        <div className="col-md-4 mb-4 d-flex">
+        <div className="col-md-3 mb-4 d-flex">
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <Stack spacing={3}>
               <DatePicker
@@ -309,7 +309,7 @@ const EditInventory = () => {
           </LocalizationProvider>
         </div>
 
-        <div className="col-md-4 mb-4">
+        <div className="col-md-2 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Inventory Status</InputLabel>
             <Select
@@ -330,7 +330,7 @@ const EditInventory = () => {
           </FormControl>
         </div>
 
-        <div className="col-md-3 mb-4">
+        <div className="col-md-2 mb-4">
           <FormControl style={{ width: '100%' }} required>
             <InputLabel id="demo-select-small">Calculation Done?</InputLabel>
             <Select
@@ -349,6 +349,16 @@ const EditInventory = () => {
               </MenuItem>
             </Select>
           </FormControl>
+        </div>
+
+        <div className="col-md-2 mb-4">
+          <TextField
+            id={'outlined-helperText'}
+            name="odoReferenceCode"
+            label={'Odo Reference Code'}
+            onChange={onChangeHandler}
+            defaultValue={inventory?.odoReferenceCode}
+          />
         </div>
 
         <div className="col-12 mb-4">

@@ -182,6 +182,7 @@ export class EditInvoice extends Component<Props, State> {
       deliveredPackages: {
         trackingNumber: '',
         arrivedAt: new Date(),
+        boxesCount: null,
         weight: {
           total: null,
           measureUnit: null
@@ -309,7 +310,7 @@ export class EditInvoice extends Component<Props, State> {
           netIncome
         }
       }))
-    } else if (['trackingNumber', 'packageWeight', 'measureUnit', 'originPrice', 'exiosPrice', 'receiptNo', 'locationPlace', 'containerNumber', 'receivedShipmentLYDPackage', 'receivedShipmentUSDPackage', 'arrivedAt', 'visableForClient', 'shipmentMethod'].includes(name)) {      
+    } else if (['trackingNumber', 'boxesCount', 'packageWeight', 'measureUnit', 'originPrice', 'exiosPrice', 'receiptNo', 'locationPlace', 'containerNumber', 'receivedShipmentLYDPackage', 'receivedShipmentUSDPackage', 'arrivedAt', 'visableForClient', 'shipmentMethod'].includes(name)) {      
       const fieldName = formatInvoiceFields(name);
       const fieldId = child ? Number(child.props.id) : id;      
       let paymentList: any = [...this.state.paymentList!];

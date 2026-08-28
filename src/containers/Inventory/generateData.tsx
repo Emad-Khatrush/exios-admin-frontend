@@ -92,6 +92,12 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     },
   },
   {
+    field: 'odoReferenceCode',
+    headerName: 'Odo Reference Code',
+    width: 200,
+    align: 'start'
+  },
+  {
     field: 'note',
     headerName: 'Note',
     width: 300,
@@ -119,7 +125,8 @@ export const generateDataToListType = (list: any[]) => {
     ordersCount: data?.orders?.length,
     createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
     received: `${countReceivedGoods(data?.orders)} / ${data?.orders?.length}`,
-    receivedOrdersCount: countReceivedGoods(data?.orders)
+    receivedOrdersCount: countReceivedGoods(data?.orders),
+    odoReferenceCode: data?.odoReferenceCode
   }));
 }
 

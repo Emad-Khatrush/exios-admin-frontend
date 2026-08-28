@@ -150,6 +150,22 @@ const EditPackageWeight = (props: Props) => {
             <div className="col-md-6 mb-4 d-flex">
               <TextField
                 id={deliveredPackages.id}
+                label={'Boxes Count'}
+                name="boxesCount"
+                onChange={(event: any) => {
+                  setDeliveredPackages({
+                    ...deliveredPackages,
+                    boxesCount: event.target.value
+                  })
+                }}                
+                defaultValue={deliveredPackages?.boxesCount}
+                onWheel={(event: any) => event.target.blur()}
+              />
+            </div>
+
+            <div className="col-md-6 mb-4 d-flex">
+              <TextField
+                id={deliveredPackages.id}
                 label={'Placed At'}
                 name="locationPlace"
                 onChange={(event: any) => {

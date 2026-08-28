@@ -376,6 +376,7 @@ const TransferOrdersList = (props: Props) => {
                           {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
                           {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
                         </div>
+                        <div className='mt-2'>{order?.paymentList?.deliveredPackages?.boxesCount && <Badge text={`Boxes Count: ${order?.paymentList?.deliveredPackages?.boxesCount}`} />}</div>
                       </div>
                     }
                   />
