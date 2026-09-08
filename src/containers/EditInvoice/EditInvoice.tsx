@@ -11,7 +11,7 @@ import withRouter from '../../utils/WithRouter/WithRouter'
 import { RouteMatch } from 'react-router-dom'
 import { calculateTotalWallet, convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods'
 import QRCode from 'qrcode.react'
-import { formatInvoiceFields } from '../XTrackingPage/utils'
+import { formatInvoiceFields, formatPurchaseFields } from '../XTrackingPage/utils'
 import { isMobile } from 'react-device-detect';
 import * as htmlToImage from 'html-to-image';
 
@@ -40,6 +40,7 @@ type State = {
   changedFields: Invoice | any
   isInvoicePending: boolean
   paymentList: any[]
+  purchaseItems: any[]
   items: any[]
   activity: OrderActivity,
   isError: boolean
@@ -100,6 +101,7 @@ export class EditInvoice extends Component<Props, State> {
     isInvoicePending: true,
     paymentList: [],
     items: [],
+    purchaseItems: [],
     activity: {
       country: '',
       description: ''
@@ -138,7 +140,7 @@ export class EditInvoice extends Component<Props, State> {
       const walletResponse = (await api.get(`wallet/${order?.user?._id}`)).data;
       const paymentHistoryResponse = (await api.get(`order/${order?._id}/payments`)).data;
 
-      this.setState({ paymentHistory: paymentHistoryResponse.results, wallet: walletResponse.results, userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
+      this.setState({ paymentHistory: paymentHistoryResponse.results, wallet: walletResponse.results, userDebts, formData: order, paymentList: order?.paymentList, items: order?.items, purchaseItems: order?.purchaseItems, employees, isInvoicePending: false, shippingMethodForLabel: order.shipment.method })
     } catch (error) {
       console.log(error);
     }
@@ -151,18 +153,45 @@ export class EditInvoice extends Component<Props, State> {
       quantity: 1,
       unitPrice: 0
     };
-    
-    this.setState((prevState: any) => ({
-      formData: {
-        ...prevState.formData,
-        items: [...prevState.formData.items, newLink]
-      },
-      changedFields: {
-        ...this.state.changedFields,
-        items: [...prevState.formData.items, newLink]
-      },
-      items: [...prevState.formData.items, newLink]
-    }));
+
+    this.setState((prevState: any) => {
+      return ({
+        formData: {
+          ...prevState.formData,
+          items: [...prevState.formData.items, newLink],
+        },
+        changedFields: {
+          ...this.state.changedFields,
+          items: [...prevState.formData.items, newLink],
+        },
+        items: [...prevState.formData.items, newLink],
+      })
+    });
+  }
+
+    addNewPurchaseItemForOrder = () => {
+    const purchaseLink = {
+      index: Math.floor(Math.random() * 5000),
+      date: new Date(),
+      description: '',
+      currency: '',
+      unitPrice: 0
+    };
+
+    this.setState((prevState: any) => {
+      const purchaseItems = prevState.formData?.purchaseItems && prevState.formData?.purchaseItems.length > 0 ? [...prevState.formData?.purchaseItems] : [];
+      return ({
+        formData: {
+          ...prevState.formData,
+          purchaseItems: [...purchaseItems, purchaseLink]
+        },
+        changedFields: {
+          ...this.state.changedFields,
+          purchaseItems: [...purchaseItems, purchaseLink]
+        },
+        purchaseItems: [...purchaseItems, purchaseLink]
+      })
+    });
   }
 
   addNewPaymentField = () => {
@@ -207,7 +236,7 @@ export class EditInvoice extends Component<Props, State> {
   }
 
   deteteItemRow = () => {
-    const { items } = this.state;
+    const { items, purchaseItems } = this.state;
     // delete last row of the list
     // in v2, I will delete rows depending on his index
     if (items?.length > 1) {
@@ -221,6 +250,20 @@ export class EditInvoice extends Component<Props, State> {
         changedFields: {
           ...this.state.changedFields,
           items
+        }
+      });
+    }
+    if (purchaseItems?.length > 0) {
+      purchaseItems.pop();
+      this.setState({
+        purchaseItems,
+        formData: {
+          ...this.state.formData,
+          purchaseItems
+        },
+        changedFields: {
+          ...this.state.changedFields,
+          purchaseItems
         }
       });
     }
@@ -345,6 +388,19 @@ export class EditInvoice extends Component<Props, State> {
         }
       }))
 
+    } else if (['purchaseItemDate', 'purchaseItemDescription', 'purchaseItemUnitPrice', 'purchaseItemCurrency'].includes(name)) {
+      const fieldName = formatPurchaseFields(name);
+      const index = id;
+      let purchaseItems: any = [...this.state.purchaseItems!];
+      console.log('fieldName', fieldName, value);
+      console.log('purchaseItems', purchaseItems[index]);
+      purchaseItems[index][fieldName] = value;
+      this.setState((oldValues) => ({
+        changedFields: {
+          ...oldValues.changedFields,
+          purchaseItems
+        }
+      }))
     } else {            
       this.setState((oldValues) => ({
         changedFields: {
@@ -357,7 +413,7 @@ export class EditInvoice extends Component<Props, State> {
 
   handleChange = (event: any, checked?: any, child?: any, customFieldName?: string) => {
     const fieldName = customFieldName ? customFieldName : event.target.name;
-    
+
     if (['paid', 'arrived', 'arrivedLibya', 'received', 'paymentLink', 'note'].includes(fieldName)) {      
       let paymentList: any = [...this.state.paymentList!];
       let inputValue;
@@ -734,7 +790,7 @@ https://www.exioslibya.com/login
     const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(this.state.wallet);
     const { totalUsd: paidUsd, totalLyd: paidLyd, totalEuro: paidEuro } = calculateTotalPaid(this.state.paymentHistory);
     const { totalUsd: paidReceivedUsd, totalLyd: paidReceivedLyd, totalEuro: paidReceivedEuro } = calculateTotalPaid(this.state.paymentHistory, 'receivedGoods');
-    
+
     return (
       <div className="m-4 edit-invoice">
         <div style={{ maxWidth: '1400px', margin: 'auto'}}>
@@ -1061,7 +1117,9 @@ ${price.priceDescription}
                     addNewPaymentField={this.addNewPaymentField}
                     fileUploaderHandler={this.uploadFilesToLinks}
                     items={this.state.items}
+                    purchaseItems={this.state.purchaseItems}
                     addNewItemForOrder={this.addNewItemForOrder}
+                    addNewPurchaseItemForOrder={this.addNewPurchaseItemForOrder}
                     deteteItemRow={this.deteteItemRow}
                     displayAlert={this.displayAlert}
                     deleteFileOfLink={this.deleteFileOfLink}
@@ -1406,7 +1464,14 @@ ${price.priceDescription}
               />
 
               <p>
-                广东省佛山市南海区里水镇科顺路6号 威微物流（Exios仓) {this.state.shippingMethodForLabel}({formData?.user?.customerId}) 邓为军 13873096321
+                (Exios仓）{this.state.shippingMethodForLabel}({formData?.user?.customerId}) 广东省佛山市南区里水镇洲村工业区一横路15号之三A 
+                联系人/Contact person:
+                杨生:19700263771
+                备注(请认真阅读):（导航搜索：明都LOFT青年社区）
+                送货时间:周一至周六早上9点至下午6点，周日休息，(送货之前一定要提前电话联系)
+                空运货外箱需要套编织袋并注明“空运/BYAIR”及客户唛头，海运货(重货需套编织袋)并标注“海运/BYSEA”及客户唛头，仓库不提供卸货。
+                所有货物品牌货不收(如果不如实告知目送至此仓库地址，本公司不承担任何责任后果需供货商自负)，货物如带电需贴电池防火标，随货需装箱单一份(并且需
+                要发电子版给公司)。
               </p>
 
               <div style={{ background: 'white', textAlign: 'center', border: '2px solid black', width: '400px', height: '460px' }} id='test222'>

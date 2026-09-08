@@ -8,7 +8,7 @@ interface DateFilter {
   endDate: string;
 }
 
-const processDescription = (description: string = '', defaultNote: string = '') => {
+const processDescription = (description: string = '', defaultNote: string = '', currency: string = '') => {
   let productName = 'شحن بضاعة'; // الافتراضي
   let orderLineName = defaultNote || description || 'سعر الصرف';
   let trackingRef = '';
@@ -68,23 +68,33 @@ const formatDate = (dateString?: string) => {
 // --- Mock / API Fetch & Mapping Functions ---
 
 // 1. إيداعات المحفظة (التعامل مع عمليات الشحن والمبالغ المضافة)
-const fetchShipmentsAPI = async (filters: DateFilter): Promise<any[]> => {
+const fetchWalletAPI = async (filters: DateFilter): Promise<any[]> => {
   const response = await api.get(
     `statements/latest?startDate=${filters.startDate}&endDate=${filters.endDate}&calculationType=${'plus'}&limit=0`
   );
   const rawData = response?.data?.statements || [];
-
+  
   // تحويل البيانات لتناسب أعمدة شيت "إيداعات المحفظة"
-  return rawData.map((item: any) => ({
+  return rawData.map((item: any) => {
+    let productId = item.currency === 'USD' ? 'شحن محفظة إلكترونية USD' : 'شحن محفظة إلكترونية LYD';
+    let orderLineName = `${item.description || 'إيداع محفظة'} - نوع ${item.note || ''}`;
+    // 4. اذا تم الغاء محفظة وارجاع القيمة (Refund)
+    if (item.note.trim().includes('Cancellation Refund')) {
+      productId = `استرداد قيمة ملغاة - محفظة ${item.currency}`;
+    }
+
+    return ({
     'id': item._id || item.id || '',
     'partner_id/id': item.user?.customerId || item.user?._id || '',
     'validity_date': formatDate(item.createdAt),
-    'order_line/product_id': item.currency === 'USD' ? 'شحن محفظة إلكترونية USD' : 'شحن محفظة إلكترونية LYD',
+    'order_line/product_id': productId,
+    'order_line/name': orderLineName,
     'order_line/price_unit': item.amount || 0,
     'pricelist_id': item.currency || 'LYD',
     'order_line/product_uom_qty': 1,
     'client_order_ref': item._id || item.id || '',
-  }));
+    })
+  });
 };
 
 // 2. فواتير الشراء والشحن (التعامل مع الخصومات والمبيعات)
@@ -97,7 +107,7 @@ const fetchPaymentsAPI = async (filters: DateFilter): Promise<any[]> => {
   // تحويل البيانات لتناسب أعمدة شيت "فواتير الشراء والشحن"
   return rawData.map((item: any) => {
     // معالجة الوصف واستخراج اسم المنتج والوصف ورقم التتبع
-    const { productName, orderLineName, trackingRef } = processDescription(item.description, item.note);
+    const { productName, orderLineName, trackingRef } = processDescription(item.description, item.note, item.currency);
 
     // إذا تم استخراج رقم التتبع نضعه في client_order_ref، وإلا نعتمد المرجع الافتراضي
     const clientOrderRef = trackingRef || item._id || item.id || '';
@@ -117,18 +127,41 @@ const fetchPaymentsAPI = async (filters: DateFilter): Promise<any[]> => {
   });
 };
 
+// 3. فواتير المشتريات (التعامل مع عمليات الشراء من الموردين)
+const fetchPurchaseItemsAPI = async (filters: DateFilter): Promise<any[]> => {
+  const response = await api.get(
+    `odoReport?startDate=${filters.startDate}&endDate=${filters.endDate}&type=purchaseItems`
+  );
+  const rawData = response?.data?.results || [];
+
+  // تحويل البيانات لتناسب أعمدة شيت "فواتير المشتريات"
+  return rawData.map((item: any) => ({
+    'id': item._id || item._id || '',
+    'partner_id': 'الشراء من مواقع العالمية',
+    'invoice_date': formatDate(item.date),
+    'invoice_line_ids/product_id': 'خدمة شراء',
+    'invoice_line_ids/name': `Order ID: ${item.orderId} => ${item.description}` || 'شراء من المورد',
+    'invoice_line_ids/price_unit': item.unitPrice || 0,
+    'currency_id': item.currency || 'USD',
+    'invoice_line_ids/quantity': 1,
+    'ref': item._id || '',
+  }));
+}
+
 // --- Component ---
 const OdoExport = (): JSX.Element => {
   const [shipmentFilters, setShipmentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
   const [paymentFilters, setPaymentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
+  const [purchaseFilters, setPurchaseFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
 
   const [loadingShipment, setLoadingShipment] = useState(false);
   const [loadingPayment, setLoadingPayment] = useState(false);
+  const [loadingPurchase, setLoadingPurchase] = useState(false);
 
   const handleExportShipments = async () => {
     setLoadingShipment(true);
     try {
-      const data = await fetchShipmentsAPI(shipmentFilters);
+      const data = await fetchWalletAPI(shipmentFilters);
       exportToExcel(data, `Odoo_Wallet_Deposits_${shipmentFilters.startDate || 'all'}`);
     } catch (error) {
       console.error('Failed to export shipments:', error);
@@ -146,6 +179,18 @@ const OdoExport = (): JSX.Element => {
       console.error('Failed to export payments:', error);
     } finally {
       setLoadingPayment(false);
+    }
+  };
+
+  const handleExportPurchaseItems = async () => {
+    setLoadingPurchase(true);
+    try {
+      const data = await fetchPurchaseItemsAPI(purchaseFilters);
+      exportToExcel(data, `Odoo_Purchase_Items_${purchaseFilters.startDate || 'all'}`);
+    } catch (error) {
+      console.error('Failed to export purchase items:', error);
+    } finally {
+      setLoadingPurchase(false);
     }
   };
 
@@ -232,6 +277,45 @@ const OdoExport = (): JSX.Element => {
                 className="btn btn-info text-white w-100 mt-2"
               >
                 {loadingPayment ? 'جاري التحضير...' : 'تصدير فواتير الشراء والشحن (Excel)'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* --- 3. قسم استيراد المشتريات--- */}
+        <div className="col-12 col-md-6">
+          <div className="card h-100 shadow-sm border-0 bg-light">
+            <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
+              <h5 className="card-title mb-0 fw-bold text-secondary">فواتير المشتريات</h5>
+              <span className="badge bg-secondary text-light">فواتير خصم</span>
+            </div>
+            <div className="card-body d-flex flex-column justify-content-between">
+              <div className="mb-3">
+                <div className="mb-3">
+                  <label className="form-label small fw-semibold text-muted">من تاريخ</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={purchaseFilters.startDate}
+                    onChange={(e) => setPurchaseFilters({ ...purchaseFilters, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label small fw-semibold text-muted">إلى تاريخ</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={purchaseFilters.endDate}
+                    onChange={(e) => setPurchaseFilters({ ...purchaseFilters, endDate: e.target.value })}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleExportPurchaseItems}
+                disabled={loadingPurchase}
+                className="btn btn-secondary text-white w-100 mt-2"
+              >
+                {loadingPurchase ? 'جاري التحضير...' : 'تصدير فواتير المشتريات (Excel)'}
               </button>
             </div>
           </div>

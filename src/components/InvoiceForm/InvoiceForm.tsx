@@ -18,12 +18,15 @@ import Badge from '../Badge/Badge';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import moment from 'moment';
 import ItemsSwitcher from '../ItemsSwitcher/ItemsSwitcher';
+import { useSelector } from 'react-redux';
 
 type Props = {
   handleChange?: any
   paymentList?: any
   items?: any
+  purchaseItems?: any
   addNewItemForOrder?: any
+  addNewPurchaseItemForOrder?: any
   deteteItemRow?: any
   addNewPaymentField?: any
   fileUploaderHandler?: any
@@ -38,6 +41,8 @@ type Props = {
 
 const InvoiceForm = (props: Props) => {
   const filesRef = useRef();
+  
+  const { roles } = useSelector((state: any) => state.session.account);
 
   const [previewImages, setPreviewImages] = useState<any>();  
   const [ note, setNote ] = useState({
@@ -280,6 +285,112 @@ const InvoiceForm = (props: Props) => {
             Remove
           </Button>
         </div>
+
+        {(roles.isAccountant || roles.isAdmin) &&
+          <>
+            {/* Purchase Items Section  */}
+            <div className="col-md-12">
+              <p className='title'> Purchase Items </p>
+            </div>
+
+
+            {(props?.purchaseItems || []).map((item: any, i: number) => (
+              <div className='col-md-12'>
+                <div className="d-flex mb-1">
+                  <div className="col-md-3 mb-4 d-flex">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <Stack spacing={3}>
+                        <DatePicker
+                          label={`Payment Date (${i + 1})`}
+                          inputFormat="dd/MM/yyyy"
+                          value={new Date(item?.date) || new Date()}
+                          renderInput={(params: any) => <TextField {...params} /> }          
+                          onChange={(value) => {
+                            props.handleChange({ target: { value, id: String(i) }}, undefined, undefined, 'purchaseItemDate');
+                          }}
+                        />
+                      </Stack>
+                    </LocalizationProvider>
+                  </div>
+
+                  <TextField
+                    id={String(i)}
+                    label={`Description (${i + 1})`}
+                    name="purchaseItemDescription"
+                    onChange={props.handleChange}
+                    style={{ direction: 'rtl' }}
+                    defaultValue={item.description}
+                  />
+                  <TextField
+                    id={String(i)}
+                    label={`Unit Price`}
+                    name="purchaseItemUnitPrice"
+                    onChange={props.handleChange}
+                    type={'number'}
+                    inputProps={{ inputMode: 'numeric', step: .01 }}
+                    onWheel={(event: any) => event.target.blur()}
+                    defaultValue={item.unitPrice}
+                  />
+                  <FormControl 
+                  required={debt.total > 0 ? true : false} 
+                  style={{ width: '100%' }}
+                >
+
+                  <InputLabel id="demo-select-small">Currency</InputLabel>
+                  <Select
+                    className='connect-field-left'
+                    labelId={'Currency'}
+                    id={String(i)}
+                    defaultValue={item?.currency}
+                    label={'Currency'}
+                    name="purchaseItemCurrency"
+                    onChange={(event) => {
+                      props.handleChange({ target: { value: event.target.value, id: String(i) } }, undefined, undefined, 'purchaseItemCurrency');
+                    }}
+                    >
+                    <MenuItem value={'USD'}>USD - US Dollar</MenuItem>
+                    <MenuItem value={'LYD'}>LYD - Libyan Dinar</MenuItem>
+                    <MenuItem value={'EUR'}>EUR - Euro</MenuItem>
+                    <MenuItem value={'CNY'}>CNY - Chinese Yuan</MenuItem>
+                    <MenuItem value={'TRY'}>TRY - Turkish Lira</MenuItem>
+                    <MenuItem value={'AED'}>AED - UAE Dirham</MenuItem>
+                    <MenuItem value={'GBP'}>GBP - UK</MenuItem>
+                    <MenuItem value={'SAR'}>SAR - Saudi Riyal</MenuItem>
+                    <MenuItem value={'KWD'}>KWD - Kuwaiti Dinar</MenuItem>
+                    <MenuItem value={'QAR'}>QAR - Qatari Riyal</MenuItem> 
+                    <MenuItem value={'OMR'}>OMR - Omani Rial</MenuItem>
+                    <MenuItem value={'BHD'}>BHD - Bahraini Dinar</MenuItem>
+                    <MenuItem value={'JPY'}>JPY - Japanese Yen</MenuItem>
+                    <MenuItem value={'INR'}>INR - Indian Rupee</MenuItem>
+
+                    <MenuItem value={'JOD'}>JOD - Jordanian Dinar</MenuItem>
+                    <MenuItem value={'EGP'}>EGP - Egyptian Pound</MenuItem>
+                    <MenuItem value={'IQD'}>IQD - Iraqi Dinar</MenuItem>
+                    <MenuItem value={'LBP'}>LBP - Lebanese Pound</MenuItem>
+
+                    <MenuItem value={'YER'}>YER - Yemeni Rial</MenuItem>
+                    <MenuItem value={'SYP'}>SYP - Syrian Pound</MenuItem>
+                    <MenuItem value={'SDG'}>SDG - Sudanese Pound</MenuItem>
+                    <MenuItem value={'IRR'}>IRR - Iranian Rial</MenuItem>
+                  </Select>
+                </FormControl>
+                </div>
+              </div>
+            ))}
+            <div className='mb-4'>
+              <Button style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewPurchaseItemForOrder} type='button' size='small'>ADD</Button>
+              <Button 
+                color='error' 
+                variant="contained" 
+                type='button' 
+                size='small'
+                onDoubleClick={props.deteteItemRow} 
+              >
+                Remove
+              </Button>
+            </div>
+          </>
+        }
 
         {/* Order Info Section  */}
         <div className="col-md-12">

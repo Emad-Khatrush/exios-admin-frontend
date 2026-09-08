@@ -67,3 +67,22 @@ export const formatInvoiceFields = (name: string) => {
       return name;
   }
 }
+
+export const formatPurchaseFields = (name: string) => {
+  switch (name) {
+    case 'purchaseItemDate':
+      return 'date';
+
+    case 'purchaseItemDescription':
+      return 'description';
+
+    case 'purchaseItemUnitPrice':
+      return 'unitPrice';
+
+    case 'purchaseItemCurrency':
+      return 'currency';
+
+    default:
+      return name;
+  }
+}
