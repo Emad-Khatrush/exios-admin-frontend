@@ -17,7 +17,7 @@ import moment from 'moment';
 
 export const ClientsView = () => {
   const account: Account = useSelector((state: any) => state.session?.account);
-  const allowViewHiddenFields = useSelector((state: any) => state.session.account.roles.isAdmin || state.session.account.roles.accountant);
+  const allowViewHiddenFields = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.accountant));
   
   const [view, setView] = useState<'list' | 'wallets'>('list');
   const [clients, setClients] = useState([]);

@@ -193,6 +193,16 @@ const getRoutes = (roles: any) => {
     if (roles?.isAdmin) {
         return adminRoutes;
     } else if (roles?.isEmployee) {
+      if (roles?.isAccountant) {
+        return [
+          ...employeeRoutes,
+         {
+            title: 'Odo Export',
+            path: '/odo-export',
+            icon: <FaFileInvoiceDollar className="sidebar-icon" />,
+         }
+        ];
+      }
         return employeeRoutes;
     }
 }
