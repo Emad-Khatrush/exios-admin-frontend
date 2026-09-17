@@ -18,6 +18,7 @@ const offices = [
 
 const actionTypes = [
   { value: 'cash', label: 'كاش' },
+  { value: 'bank', label: 'ايداع بنك' },
   { value: 'refund', label: 'استرداد / Refund' },
   { value: 'compensation', label: 'تعويض' },
 ];
