@@ -150,7 +150,7 @@ const UserDetails = (props: Props) => {
               disabled={isLoading}
               onClick={() => setDialog({ component: UseWalletBalance, actionType: 'cash' })}
             >
-              Use balance
+              سحب من المحفظة كاش
             </CustomButton>
           </div>
 
