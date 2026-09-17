@@ -3,10 +3,9 @@ import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import { Alert, Box, Button, Checkbox, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
-import { useState } from 'react'
+import React, { useState } from 'react'
 import api from '../../api';
 import { useParams } from 'react-router-dom';
-import React from 'react';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
 
@@ -17,12 +16,19 @@ type Props = {
   category?: string
   selectedPackages?: any
   hideUploader?: boolean
+  actionType?: 'cash' | 'refund' | 'compensation' | 'wallet'
 }
+
+const offices = [
+  { value: 'tripoli', label: 'Tripoli' },
+  { value: 'benghazi', label: 'Benghazi' },
+];
 
 const UseWalletBalance = (props: Props) => {
   const { id } = useParams();
 
-  const [currency, setCurrency] = useState();
+  const [currency, setCurrency] = useState<string>('');
+  const [office, setOffice] = useState<string>('');
   const [checkbox, setCheckbox] = useState(true);
   const [date, setDate] = useState(new Date());
   const [form, setForm] = useState<any>({
@@ -36,7 +42,6 @@ const UseWalletBalance = (props: Props) => {
 
   const { balances, orderId } = props;
 
-
   const handleFileChosen = async (file: any) => {
     return new Promise((resolve, reject) => {
       let fileReader = new FileReader();
@@ -44,6 +49,7 @@ const UseWalletBalance = (props: Props) => {
       fileReader.onload = () => {
         resolve(fileReader.result);
       };
+      fileReader.onerror = reject;
     });
   }
 
@@ -58,17 +64,17 @@ const UseWalletBalance = (props: Props) => {
 
   const fileUploaderHandler = async (event: any) => {
     const files = event.target.files;
-    
-    const newFiles: any =[];
-    
+
+    const newFiles: any = [];
+
     for (const file of files) {
       file.category = event.target.id;
       newFiles.unshift(file)
     }
-        
+
     setFiles((previewState: any) => {
-      previewFile([ ...previewState, ...newFiles ], event.target.id);
-      return [ ...previewState, ...newFiles ];
+      previewFile([...previewState, ...newFiles], event.target.id);
+      return [...previewState, ...newFiles];
     })
   }
 
@@ -82,6 +88,11 @@ const UseWalletBalance = (props: Props) => {
 
     if (!form || !currency) {
       setError('الرجاء تعبيئة جميع الخانات');
+      return;
+    }
+
+    if (props.actionType === 'cash' && !office) {
+      setError('يرجى اختيار المكتب');
       return;
     }
 
@@ -103,24 +114,27 @@ const UseWalletBalance = (props: Props) => {
       return setError('يجب اضافة صورة من وصل الدفع')
     }
 
-    const formData  = new FormData();
-    const description = `تم خصم ${form?.amount + form?.currency} من المحفظة`;
+    const formData = new FormData();
+    const description = `تم خصم ${form?.amount} ${form?.currency} من المحفظة`;
     let note = `Order Id (${props.orderId || form.orderId}) => ${form?.note}`;
     if (!checkbox) note = `${form.note}`;
 
     formData.append('description', description);
     formData.append('category', props.category ?? '');
+    if (props.actionType) {
+      formData.append('actionType', props.actionType);
+    }
     if (props.selectedPackages && props.selectedPackages.length > 0) {
       formData.append('list', JSON.stringify(props.selectedPackages || []));
     }
-    
+
     for (const data in form) {
       formData.append(data, form[data]);
     }
     formData.delete('note');
     formData.append('note', note);
 
-    if ((props.orderId || form.orderId)) {
+    if (props.orderId || form.orderId) {
       formData.delete('orderId');
       formData.append('orderId', props.orderId || form.orderId)
     }
@@ -128,16 +142,15 @@ const UseWalletBalance = (props: Props) => {
     files.forEach((file: any) => {
       formData.append('files', file);
     });
-    
+
     try {
       setIsLoading(true);
       api.fetchFormData(`wallet/${props.walletId || id}/usebalance`, 'POST', formData)
         .then((res: any) => {
           if (res?.success !== undefined && !res?.success) {
             setError(getErrorMessage(res.message));
-            setIsLoading(false);  
+            setIsLoading(false);
           } else {
-            // Add action
             setError(undefined);
             window.location.reload();
           }
@@ -146,13 +159,12 @@ const UseWalletBalance = (props: Props) => {
           setError(getErrorMessage(error.message));
           setIsLoading(false);
         })
-      // window.location.reload();
     } catch (error: any) {
-      setError(error.response.data.message);
+      setError(error?.response?.data?.message);
       setIsLoading(false);
     }
   }
-  
+
   return (
     <>
       <DialogTitle>Use Balance <span style={{ color: '#236106ac' }}>({`${balances.walletUsd} $, ${balances.walletLyd} LYD`})</span></DialogTitle>
@@ -165,16 +177,16 @@ const UseWalletBalance = (props: Props) => {
         <form className="row" onSubmit={onSubmit}>
           <h6 className="mb-3">Wallet</h6>
           <div className='col-md-6 mb-3'>
-            <LocalizationProvider required dateAdapter={AdapterDateFns}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
               <Stack spacing={3}>
                 <DatePicker
                   value={date}
                   label="Received Payment Date"
                   inputFormat="dd/MM/yyyy"
-                  renderInput={(params: any) => <TextField {...params} /> }                    
+                  renderInput={(params: any) => <TextField {...params} />}
                   onChange={(value: any) => {
                     setDate(value);
-                    onChangeHandler({ target: { value, name: 'createdAt' }});
+                    onChangeHandler({ target: { value, name: 'createdAt' } });
                   }}
                 />
               </Stack>
@@ -193,10 +205,10 @@ const UseWalletBalance = (props: Props) => {
               onChange={onChangeHandler}
             />
             <FormControl style={{ width: '100%' }} required>
-              <InputLabel id="demo-select-small">Currency</InputLabel>
+              <InputLabel id="currency-label">Currency</InputLabel>
               <Select
                 className='connect-field-left'
-                labelId={'currency'}
+                labelId={'currency-label'}
                 id={'currency'}
                 value={currency}
                 label={'Currency'}
@@ -216,7 +228,32 @@ const UseWalletBalance = (props: Props) => {
             </FormControl>
           </div>
 
-          <div className='col-md-12 mb-3'>
+          {props.actionType === 'cash' &&
+            <div className='col-md-6 mb-3'>
+              <FormControl style={{ width: '100%' }} required>
+                <InputLabel id="office-label">Office</InputLabel>
+                <Select
+                  labelId="office-label"
+                  id="office"
+                  value={office}
+                  label="Office"
+                  name="office"
+                  onChange={(event: any) => {
+                    setOffice(event.target.value);
+                    return onChangeHandler(event);
+                  }}
+                >
+                  {offices.map((item) => (
+                    <MenuItem key={item.value} value={item.value}>
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </div>
+          }
+
+          <div className='col-md-6 mb-3'>
             <TextField
               id={'outlined-helperText'}
               name="rate"
@@ -228,8 +265,8 @@ const UseWalletBalance = (props: Props) => {
               onChange={onChangeHandler}
             />
           </div>
-          
-          <div className='col-12'>
+
+          <div className='col-md-6 col-12'>
             <TextField
               id={'outlined-helperText'}
               name="orderId"
@@ -240,8 +277,8 @@ const UseWalletBalance = (props: Props) => {
               disabled={!!orderId || checkbox}
               defaultValue={orderId}
             />
-            <Checkbox 
-              defaultChecked={!!!orderId || checkbox}
+            <Checkbox
+              defaultChecked={!orderId || checkbox}
               onChange={(e: any, checked) => setCheckbox(checked)}
               disabled={!!orderId}
             />
@@ -267,8 +304,8 @@ const UseWalletBalance = (props: Props) => {
               required
             />
           </Box>
-          
-          {!props.hideUploader && 
+
+          {!props.hideUploader &&
             <div className='col-md-4 mt-3'>
               <h6>Upload Files</h6>
               <ImageUploader
@@ -282,7 +319,7 @@ const UseWalletBalance = (props: Props) => {
           }
 
           <DialogActions>
-            <Button disabled={isLoading || (balances.walletUsd <= 0 && balances.walletLyd <= 0)} type="submit" >Use Balance</Button>
+            <Button disabled={isLoading || (balances.walletUsd <= 0 && balances.walletLyd <= 0)} type="submit">Use Balance</Button>
             {isLoading &&
               <CircularProgress />
             }

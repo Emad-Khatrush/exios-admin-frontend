@@ -1534,6 +1534,7 @@ ${price.priceDescription}
             category={this.state.category}
             selectedPackages={this.state.selectedPackages}
             hideUploader
+            actionType={'wallet'}
           />
         </Dialog>
 

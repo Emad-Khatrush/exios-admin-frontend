@@ -11,13 +11,27 @@ import ImageUploader from '../../components/ImageUploader/ImageUploader';
 
 type Props = {}
 
+const offices = [
+  { value: 'tripoli', label: 'Tripoli' },
+  { value: 'benghazi', label: 'Benghazi' },
+];
+
+const actionTypes = [
+  { value: 'cash', label: 'كاش' },
+  { value: 'refund', label: 'استرداد / Refund' },
+  { value: 'compensation', label: 'تعويض' },
+];
+
 const AddBalanceToWallet = (props: Props) => {
   const { id } = useParams();
 
-  const [currency, setCurrency] = useState();
+  const [currency, setCurrency] = useState<string>('');
+  const [office, setOffice] = useState<string>('');
+  const [actionType, setActionType] = useState<string>('cash');
   const [date, setDate] = useState(new Date());
   const [form, setForm] = useState<any>({
-    createdAt: date
+    createdAt: date,
+    actionType: 'cash',
   });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -33,6 +47,7 @@ const AddBalanceToWallet = (props: Props) => {
       fileReader.onload = () => {
         resolve(fileReader.result);
       };
+      fileReader.onerror = reject;
     });
   }
 
@@ -47,17 +62,17 @@ const AddBalanceToWallet = (props: Props) => {
 
   const fileUploaderHandler = async (event: any) => {
     const files = event.target.files;
-    
-    const newFiles: any =[];
-    
+
+    const newFiles: any = [];
+
     for (const file of files) {
       file.category = event.target.id;
       newFiles.unshift(file)
     }
-        
+
     setFiles((previewState: any) => {
-      previewFile([ ...previewState, ...newFiles ], event.target.id);
-      return [ ...previewState, ...newFiles ];
+      previewFile([...previewState, ...newFiles], event.target.id);
+      return [...previewState, ...newFiles];
     })
   }
 
@@ -76,15 +91,21 @@ const AddBalanceToWallet = (props: Props) => {
       setError('لا يمكن اضافة 0 رصيد الى محفظة يرجى التاكد من المعلومات التي تم كتابتها')
       return;
     }
+    if (!form?.office) {
+      return setError('يرجى اختيار المكتب')
+    }
+    if (!form?.actionType) {
+      return setError('يرجى اختيار نوع العملية')
+    }
     if (files.length === 0) {
       return setError('يجب اضافة صورة من وصل الدفع')
     }
 
-    const description = `تم اضافة رصيد الى المحفظة بقيمة ${form?.amount + form?.currency}`;
+    const description = `تم اضافة رصيد الى المحفظة بقيمة ${form?.amount} ${form?.currency}`;
 
-    const formData  = new FormData();
+    const formData = new FormData();
     formData.append('description', description);
-    
+
     for (const data in form) {
       formData.append(data, form[data]);
     }
@@ -92,16 +113,15 @@ const AddBalanceToWallet = (props: Props) => {
     files.forEach((file: any) => {
       formData.append('files', file);
     });
-    
+
     try {
       setIsLoading(true);
       api.fetchFormData(`wallet/${id}`, 'POST', formData)
         .then((res: any) => {
           if (res?.success !== undefined && !res?.success) {
             setError(getErrorMessage(res.message));
-            setIsLoading(false);  
+            setIsLoading(false);
           } else {
-            // Add action
             setError(undefined);
             window.location.reload();
           }
@@ -111,11 +131,11 @@ const AddBalanceToWallet = (props: Props) => {
           setIsLoading(false);
         })
     } catch (error: any) {
-      setError(error.response.data.message);
+      setError(error?.response?.data?.message);
       setIsLoading(false);
     }
   }
-  
+
   return (
     <>
       <DialogTitle>Add balance to wallet</DialogTitle>
@@ -128,16 +148,16 @@ const AddBalanceToWallet = (props: Props) => {
         <form className="row" onSubmit={onSubmit}>
           <h6 className="mb-3">Wallet</h6>
           <div className='col-md-6 mb-3'>
-            <LocalizationProvider required dateAdapter={AdapterDateFns}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
               <Stack spacing={3}>
                 <DatePicker
                   value={date}
                   label="Received Payment Date"
                   inputFormat="dd/MM/yyyy"
-                  renderInput={(params: any) => <TextField {...params} /> }                    
+                  renderInput={(params: any) => <TextField {...params} />}
                   onChange={(value: any) => {
                     setDate(value);
-                    onChangeHandler({ target: { value, name: 'createdAt' }});
+                    onChangeHandler({ target: { value, name: 'createdAt' } });
                   }}
                 />
               </Stack>
@@ -156,10 +176,10 @@ const AddBalanceToWallet = (props: Props) => {
               onChange={onChangeHandler}
             />
             <FormControl style={{ width: '100%' }} required>
-              <InputLabel id="demo-select-small">Currency</InputLabel>
+              <InputLabel id="currency-label">Currency</InputLabel>
               <Select
                 className='connect-field-left'
-                labelId={'currency'}
+                labelId={'currency-label'}
                 id={'currency'}
                 value={currency}
                 label={'Currency'}
@@ -175,6 +195,51 @@ const AddBalanceToWallet = (props: Props) => {
                 <MenuItem value={'LYD'}>
                   <em> LYD </em>
                 </MenuItem>
+              </Select>
+            </FormControl>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <FormControl style={{ width: '100%' }} required>
+              <InputLabel id="office-label">Office</InputLabel>
+              <Select
+                labelId="office-label"
+                id="office"
+                value={office}
+                label="Office"
+                name="office"
+                onChange={(event: any) => {
+                  setOffice(event.target.value);
+                  return onChangeHandler(event);
+                }}
+              >
+                {offices.map((item) => (
+                  <MenuItem key={item.value} value={item.value}>
+                    {item.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <FormControl style={{ width: '100%' }} required>
+              <InputLabel id="action-type-label">نوع العملية</InputLabel>
+              <Select
+                labelId="action-type-label"
+                id="actionType"
+                label="نوع العملية"
+                name="actionType"
+                onChange={(event: any) => {
+                  setActionType(event.target.value);
+                  return onChangeHandler(event);
+                }}
+              >
+                {actionTypes.map((item) => (
+                  <MenuItem key={item.value} value={item.value}>
+                    {item.label}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </div>
@@ -211,7 +276,7 @@ const AddBalanceToWallet = (props: Props) => {
           </div>
 
           <DialogActions>
-            <Button disabled={isLoading} type="submit" >Create Balance</Button>
+            <Button disabled={isLoading} type="submit">Create Balance</Button>
             {isLoading &&
               <CircularProgress />
             }

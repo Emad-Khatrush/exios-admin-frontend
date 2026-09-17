@@ -148,7 +148,7 @@ const UserDetails = (props: Props) => {
               background='rgb(8, 29, 121)'
               size="small"
               disabled={isLoading}
-              onClick={() => setDialog({ component: UseWalletBalance })}
+              onClick={() => setDialog({ component: UseWalletBalance, actionType: 'cash' })}
             >
               Use balance
             </CustomButton>
@@ -225,6 +225,7 @@ const UserDetails = (props: Props) => {
           <Tag
             balances={{ walletLyd, walletUsd }}
             user={user}
+            actionType={dialog?.actionType}
           />
         }
       </Dialog>
