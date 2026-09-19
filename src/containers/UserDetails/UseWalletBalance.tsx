@@ -16,7 +16,7 @@ type Props = {
   category?: string
   selectedPackages?: any
   hideUploader?: boolean
-  actionType?: 'cash' | 'refund' | 'compensation' | 'wallet'
+  actionType?: 'cash' | 'refund' | 'compensation' | 'wallet' | 'withdrawal'
 }
 
 const offices = [
@@ -91,7 +91,7 @@ const UseWalletBalance = (props: Props) => {
       return;
     }
 
-    if (props.actionType === 'cash' && !office) {
+    if (props.actionType === 'withdrawal' && !office) {
       setError('يرجى اختيار المكتب');
       return;
     }
@@ -228,7 +228,7 @@ const UseWalletBalance = (props: Props) => {
             </FormControl>
           </div>
 
-          {props.actionType === 'cash' &&
+          {props.actionType === 'withdrawal' &&
             <div className='col-md-6 mb-3'>
               <FormControl style={{ width: '100%' }} required>
                 <InputLabel id="office-label">Office</InputLabel>

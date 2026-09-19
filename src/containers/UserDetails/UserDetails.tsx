@@ -148,7 +148,7 @@ const UserDetails = (props: Props) => {
               background='rgb(8, 29, 121)'
               size="small"
               disabled={isLoading}
-              onClick={() => setDialog({ component: UseWalletBalance, actionType: 'cash' })}
+              onClick={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
             >
               سحب من المحفظة كاش
             </CustomButton>

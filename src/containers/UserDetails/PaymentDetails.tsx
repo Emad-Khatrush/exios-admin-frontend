@@ -10,6 +10,7 @@ import { useParams } from "react-router-dom"
 import moment from "moment"
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper"
 import { convertGoogleStorageUrl } from "../../utils/methods"
+import Badge from "../../components/Badge/Badge"
 
 type Props = {
   title: string
@@ -69,6 +70,7 @@ const PaymentDetails = (props: Props) => {
         <div className="d-flex gap-3 align-items-center">
           <h5 style={{ fontSize: '16px', color: color === 'danger' ? '#c72205' : '#069612' }} className="m-0">{title}</h5>
           <p style={{ fontSize: '16px', color: color === 'danger' ? '#c72205' : '#069612' }} className="m-0" dangerouslySetInnerHTML={{ __html: description }} />
+          {statement?.actionType && <Badge text={`${statement?.actionType}`} />}
           {tootipInfo &&
             <span>
               <Grid item>
