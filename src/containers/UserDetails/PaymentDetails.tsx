@@ -11,6 +11,7 @@ import moment from "moment"
 import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper"
 import { convertGoogleStorageUrl } from "../../utils/methods"
 import Badge from "../../components/Badge/Badge"
+import StatementReceipt from "./StatementReceipt"
 
 type Props = {
   title: string
@@ -57,15 +58,18 @@ const PaymentDetails = (props: Props) => {
 
   return (
     <div>
-      <CustomButton 
-        background='rgb(0, 171, 85)' 
-        size="small"
-        disabled={!showVerifyButton}
-        onClick={() => setDialog(true)}
-      >
-        {showVerifyButton ? 'Verify Payment' : `Verified at ${moment(statement?.review?.receivedDate).format('DD/MM/YYYY')}`}
-      </CustomButton>
-      
+      <div className="d-flex gap-2 align-items-center">
+        <CustomButton
+          background='rgb(0, 171, 85)'
+          size="small"
+          disabled={!showVerifyButton}
+          onClick={() => setDialog(true)}
+        >
+          {showVerifyButton ? 'Verify Payment' : `Verified at ${moment(statement?.review?.receivedDate).format('DD/MM/YYYY')}`}
+        </CustomButton>
+        <StatementReceipt statement={statement} />
+      </div>
+
       <div className="d-flex justify-content-between" style={{ direction: 'rtl' }}>
         <div className="d-flex gap-3 align-items-center">
           <h5 style={{ fontSize: '16px', color: color === 'danger' ? '#c72205' : '#069612' }} className="m-0">{title}</h5>
