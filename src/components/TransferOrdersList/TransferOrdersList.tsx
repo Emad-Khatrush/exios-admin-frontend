@@ -1,22 +1,32 @@
 import * as React from 'react';
-import Grid from '@mui/material/Grid';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
 import List from '@mui/material/List';
-import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
-import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Checkbox from '@mui/material/Checkbox';
-import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Chip from '@mui/material/Chip';
+import { alpha } from '@mui/material/styles';
 import Badge from '../Badge/Badge';
 import api from '../../api';
 import { Inventory } from '../../models';
 import { Alert, Backdrop, CircularProgress, Dialog, Snackbar } from '@mui/material';
-import { FaWarehouse, FaWhatsapp, FaWeight } from "react-icons/fa";
+import { FaArrowLeft, FaArrowRight, FaBuilding, FaFileExcel, FaSortAlphaDown, FaSortAlphaUp, FaWarehouse, FaWhatsapp, FaWeight } from "react-icons/fa";
 import * as XLSX from 'xlsx';
 import moment from 'moment';
-import { IoIosListBox } from 'react-icons/io';
+import { IoIosCloseCircle, IoIosListBox } from 'react-icons/io';
+import { AiOutlineInbox, AiOutlineSearch } from 'react-icons/ai';
 import ActivityDialog from './ActivityDialog';
 import EditPackageWeight from './EditPackageWeight';
 import { calculateMinTotalPrice } from '../../utils/methods';
@@ -33,6 +43,17 @@ function union(a: readonly number[], b: readonly number[]) {
   return [...a, ...not(b, a)];
 }
 
+// يبحث عن الطلبية باسم الزبون، رمز العميل (customerId)، رقم تتبع الصين، أو رقم تتبع المصدر
+const matchesCustomerSearch = (order: any, query: string) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const name = (order?.customerInfo?.fullName || '').toLowerCase();
+  const customerId = String(order?.user?.customerId ?? '').toLowerCase();
+  const trackingNumber = String(order?.paymentList?.deliveredPackages?.trackingNumber ?? '').toLowerCase();
+  const receiptNo = String(order?.paymentList?.deliveredPackages?.receiptNo ?? '').toLowerCase();
+  return name.includes(q) || customerId.includes(q) || trackingNumber.includes(q) || receiptNo.includes(q);
+};
+
 type Props = {
   takenOrders: any
   orders: any
@@ -41,17 +62,69 @@ type Props = {
   fetchSelectedOrders?: () => void
 }
 
+type PanelColor = 'success' | 'error' | 'info' | 'warning' | 'primary' | 'secondary';
+
+type ActionButtonProps = {
+  icon: React.ReactNode
+  label: string
+  tooltip: string
+  color: PanelColor
+  onClick: () => void
+  disabled?: boolean
+}
+
+const ActionButton = ({ icon, label, tooltip, color, onClick, disabled }: ActionButtonProps) => (
+  <Tooltip title={tooltip} arrow placement="top">
+    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      <IconButton
+        color={color}
+        onClick={onClick}
+        disabled={disabled}
+        size="small"
+        aria-label={tooltip}
+        sx={{
+          border: '1px solid',
+          borderColor: disabled ? 'divider' : `${color}.main`,
+          borderRadius: 2,
+          width: 46,
+          height: 46,
+        }}
+      >
+        {icon}
+      </IconButton>
+      <Typography
+        variant="caption"
+        sx={{ mt: 0.25, fontSize: 10, lineHeight: 1.2, color: disabled ? 'text.disabled' : 'text.secondary' }}
+      >
+        {label}
+      </Typography>
+    </span>
+  </Tooltip>
+);
+
+const EmptyState = ({ text }: { text: string }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 340, color: 'text.disabled' }}>
+    <AiOutlineInbox size={40} />
+    <Typography variant="body2" sx={{ mt: 1 }}>{text}</Typography>
+  </Box>
+);
+
 const TransferOrdersList = (props: Props) => {
   const [checked, setChecked] = React.useState<readonly number[]>([]);
   const [left, setLeft] = React.useState<readonly number[]>([]);
   const [right, setRight] = React.useState<readonly number[]>([]);
-  
+
+  const [ rightSearch, setRightSearch ] = React.useState('');
+  const [ officeFilter, setOfficeFilter ] = React.useState<string[]>([]);
+  const [ sortBy, setSortBy ] = React.useState<'none' | 'name' | 'customerId'>('none');
+  const [ sortDir, setSortDir ] = React.useState<'asc' | 'desc'>('asc');
+
   const [ showResponseMessage, setShowResponseMessage ] = React.useState<String | undefined>();
   const [ isSucceed, setIsSucceed ] = React.useState<boolean>(false);
   const [ isLoading, setLoading ] = React.useState(false);
   const [ component, setComponent ] = React.useState<any>();
   const [ showDialog, setShowDialog ] = React.useState(false);
-  
+
   React.useEffect(() => {
     const searchedOrders = props.orders.filter((order: any) => {
       const orderFound = right.find((data: any) => data?.paymentList?._id === order.paymentList?._id);
@@ -60,7 +133,7 @@ const TransferOrdersList = (props: Props) => {
       }
       return  true;
     })
-    
+
     setLeft(searchedOrders);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.orders])
@@ -72,15 +145,39 @@ const TransferOrdersList = (props: Props) => {
   const leftChecked = intersection(checked, left);
   const rightChecked = intersection(checked, right);
 
+  // المكاتب/الوجهات المتوفرة فعلياً داخل قائمة الجرد الحالية (shipment.toWhere)
+  const availableOffices = React.useMemo(() => {
+    const offices = new Set<string>();
+    right.forEach((order: any) => {
+      const office = order?.shipment?.toWhere;
+      if (office) offices.add(office);
+    });
+    return Array.from(offices).sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [right]);
+
+  const sortOrders = (items: any[]) => {
+    if (sortBy === 'none') return items;
+    const sorted = [...items].sort((a: any, b: any) => {
+      const aValue = sortBy === 'name'
+        ? (a?.customerInfo?.fullName || '')
+        : String(a?.user?.customerId ?? '');
+      const bValue = sortBy === 'name'
+        ? (b?.customerInfo?.fullName || '')
+        : String(b?.user?.customerId ?? '');
+      return aValue.localeCompare(bValue, 'ar', { numeric: true });
+    });
+    return sortDir === 'asc' ? sorted : sorted.reverse();
+  };
+
   const handleDownload = () => {
     const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
     right.forEach((orderPackage: any, i) => {
       data.push([
-        i + 1, 
+        i + 1,
         orderPackage.customerInfo.fullName,
         orderPackage.user.customerId,
         orderPackage.orderId,
-        orderPackage.paymentList.deliveredPackages.trackingNumber, 
+        orderPackage.paymentList.deliveredPackages.trackingNumber,
         orderPackage.paymentList.deliveredPackages.receiptNo,
         orderPackage.paymentList.deliveredPackages.weight.total,
         orderPackage.paymentList.deliveredPackages.weight.measureUnit,
@@ -148,6 +245,13 @@ const TransferOrdersList = (props: Props) => {
     }
   };
 
+  const addInventoryToWarehouseWithConfirm = (office: string) => {
+    if (rightChecked.length === 0) return;
+    const officeLabel = office === 'tripoli' ? 'طرابلس' : 'بنغازي';
+    const confirmed = window.confirm(`هل أنت متأكد من إضافة ${rightChecked.length} عنصر إلى مخزن ${officeLabel}؟`);
+    if (confirmed) addInventoryToWarehouse(office);
+  };
+
   const handleCheckedRight = async () => {
     try {
       const res = await api.update(`inventory/orders?id=${props.inventory?._id}`, leftChecked);
@@ -188,6 +292,12 @@ const TransferOrdersList = (props: Props) => {
     }
   };
 
+  const handleCheckedLeftWithConfirm = () => {
+    if (rightChecked.length === 0) return;
+    const confirmed = window.confirm(`هل أنت متأكد من حذف ${rightChecked.length} عنصر من قائمة الجرد؟`);
+    if (confirmed) handleCheckedLeft();
+  };
+
   const updateSelectedOrdersStatus = async () => {
     try {
       setLoading(true);
@@ -213,14 +323,35 @@ const TransferOrdersList = (props: Props) => {
     }
   };
 
-  const customList = (title: React.ReactNode, items: readonly number[]) => {
-    return (
-      <Card className='mt-2'>
-        <p className='p-1 text-center'>قائمة البحث</p>
+  const updateSelectedOrdersStatusWithConfirm = () => {
+    if (rightChecked.length === 0) return;
+    const confirmed = window.confirm(`هل أنت متأكد من تحديث حالة ${rightChecked.length} عنصر إلى "وصلت ليبيا"؟ سيتم إعادة تحميل الصفحة.`);
+    if (confirmed) updateSelectedOrdersStatus();
+  };
 
-        <CardHeader
-          sx={{ px: 2, py: 1 }}
-          avatar={
+  const customList = (title: string, items: readonly number[]) => {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 4,
+          width: { xs: '100%', sm: 400 },
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
+        }}
+      >
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            background: (theme) => `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.main, 0.01)} 100%)`,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1}>
             <Checkbox
               onClick={handleToggleAll(items)}
               checked={numberOfChecked(items) === items.length && items.length !== 0}
@@ -229,143 +360,321 @@ const TransferOrdersList = (props: Props) => {
               }
               disabled={items.length === 0}
               inputProps={{
-                'aria-label': 'all items selected',
+                'aria-label': 'تحديد كل نتائج البحث',
               }}
             />
-          }
-          title={title}
-          subheader={`${numberOfChecked(items)}/${items.length} selected`}
-        />
-        <Divider />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {numberOfChecked(items)} / {items.length} محدد
+              </Typography>
+            </Box>
+            {props.isSearching && <CircularProgress size={18} />}
+          </Stack>
+        </Box>
+
         <List
           sx={{
-            width: 400,
-            height: 400,
+            width: '100%',
+            height: 420,
             bgcolor: 'background.paper',
             overflow: 'auto',
-            flexDirection: 'column'
+            p: 0,
           }}
           dense
           component="div"
           role="list"
         >
-          {props.isSearching ?
-            <CircularProgress />
-          :
-          items.map((value: any) => {
-            const labelId = `transfer-list-all-item-${value}-label`;
-            
-            return (
-              <ListItem
-                key={value}
-                role="listitem"
-                button
-                onClick={handleToggle(value)}
-              >
-                <ListItemIcon>
-                  <Checkbox
-                    checked={checked.indexOf(value) !== -1}
-                    tabIndex={-1}
-                    disableRipple
-                    inputProps={{
-                      'aria-labelledby': labelId,
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText 
-                  id={labelId}
-                  primary={
-                    <div>
-                      <p className='m-0'>
-                        <a style={{ textDecoration: 'none' }} className='m-0' href={`/invoice/${value?._id}/edit`} target='__blank'>{value.orderId}</a>
-                      </p>
-                      <p className='m-0'>{`${value?.customerInfo?.fullName}`}</p>
-                      <Badge text={`Tracking Number: ${value?.paymentList?.deliveredPackages?.trackingNumber} `} />
-                      <br />
-                      {value?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${value?.paymentList?.deliveredPackages?.receiptNo} `} /> }
-                    </div>
-                  }
-                />
-              </ListItem>
-            );
-          })}
-        </List>
-      </Card>
-    )
-  }
+          {props.isSearching ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : items.length === 0 ? (
+            <EmptyState text="لا توجد نتائج بحث" />
+          ) : (
+            items.map((value: any) => {
+              const labelId = `transfer-list-all-item-${value?._id}-label`;
+              const isItemChecked = checked.indexOf(value) !== -1;
 
-  const customListForChosen = (title: React.ReactNode, items: readonly number[]) => {
-    const filteredItems = items;
-    const weight = calculateWeightsOfPackages(rightChecked);
-
-    return (
-      <Card className='mt-2'>
-        <button onClick={handleDownload}>Download Excel</button>
-        <p className='p-1 text-center'>البضائع في قائمة الجرد</p>
-        <div className='d-flex justify-content-between align-items-center'>
-          <CardHeader
-            sx={{ px: 2, py: 1 }}
-            avatar={
-              <Checkbox
-                onClick={handleToggleAll(filteredItems)}
-                checked={numberOfChecked(filteredItems) === filteredItems.length && filteredItems.length !== 0}
-                indeterminate={
-                  numberOfChecked(filteredItems) !== filteredItems.length && numberOfChecked(filteredItems) !== 0
-                }
-                disabled={filteredItems.length === 0}
-                inputProps={{
-                  'aria-label': 'all items selected',
-                }}
-              />
-            }
-            title={title}
-            subheader={`${numberOfChecked(filteredItems)}/${filteredItems.length} selected`}
-          />
-
-          {weight.length > 2 && <p className='mb-0' style={{ marginRight: '12px' }}>{weight}</p>}
-        </div>
-        <Divider />
-        <List
-          sx={{
-            width: 400,
-            height: 400,
-            bgcolor: 'background.paper',
-            overflow: 'auto',
-            flexDirection: 'column'
-          }}
-          dense
-          component="div"
-          role="list"
-        >
-          {items.map((order: any) => {
-            return (
-              <div>
-                <ListItem
-                  key={order}
+              return (
+                <ListItemButton
+                  key={value?._id}
                   role="listitem"
-                  button
-                  onClick={handleToggle(order)}
+                  selected={isItemChecked}
+                  onClick={handleToggle(value)}
+                  sx={{ alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider', py: 1.25 }}
                 >
-                  <ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
                     <Checkbox
-                      checked={checked.indexOf(order) !== -1}
+                      edge="start"
+                      checked={isItemChecked}
                       tabIndex={-1}
                       disableRipple
                       inputProps={{
-                        'aria-labelledby': order,
+                        'aria-labelledby': labelId,
                       }}
                     />
                   </ListItemIcon>
-                  <ListItemText 
-                    id={order}
+                  <ListItemText
+                    id={labelId}
                     primary={
-                      <div>
+                      <Stack spacing={0.5}>
+                        <p className='m-0'>
+                          <a
+                            style={{ textDecoration: 'none' }}
+                            className='m-0'
+                            href={`/invoice/${value?._id}/edit`}
+                            target='__blank'
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {value.orderId}
+                          </a>
+                        </p>
+                        <p className='m-0'>{`${value?.customerInfo?.fullName}`}</p>
+                        <Badge text={`Tracking Number: ${value?.paymentList?.deliveredPackages?.trackingNumber} `} />
+                        <br />
+                        {value?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${value?.paymentList?.deliveredPackages?.receiptNo} `} /> }
+                      </Stack>
+                    }
+                  />
+                </ListItemButton>
+              );
+            })
+          )}
+        </List>
+      </Paper>
+    )
+  }
+
+  const customListForChosen = (title: string, items: readonly number[]) => {
+    const filteredItems = sortOrders(
+      items
+        .filter((order: any) => matchesCustomerSearch(order, rightSearch))
+        .filter((order: any) => officeFilter.length === 0 || officeFilter.includes((order as any)?.shipment?.toWhere))
+    );
+    const weight = calculateWeightsOfPackages(rightChecked);
+    const isFiltered = !!rightSearch || officeFilter.length > 0;
+
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 4,
+          width: { xs: '100%', sm: 400 },
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
+        }}
+      >
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            background: (theme) => `linear-gradient(180deg, ${alpha(theme.palette.success.main, 0.07)} 0%, ${alpha(theme.palette.success.main, 0.01)} 100%)`,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Checkbox
+              onClick={handleToggleAll(filteredItems)}
+              checked={numberOfChecked(filteredItems) === filteredItems.length && filteredItems.length !== 0}
+              indeterminate={
+                numberOfChecked(filteredItems) !== filteredItems.length && numberOfChecked(filteredItems) !== 0
+              }
+              disabled={filteredItems.length === 0}
+              inputProps={{
+                'aria-label': 'تحديد كل عناصر قائمة الجرد',
+              }}
+            />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {numberOfChecked(filteredItems)} / {filteredItems.length}{isFiltered ? ` (من أصل ${items.length})` : ''} محدد
+              </Typography>
+            </Box>
+            <Tooltip title="تصدير قائمة الجرد إلى Excel" arrow>
+              <span>
+                <IconButton size="small" color="success" onClick={handleDownload} aria-label="تصدير Excel">
+                  <FaFileExcel />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+
+          {weight.length > 2 && (
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }} color="text.secondary">
+              الوزن الإجمالي للمحدد: {weight}
+            </Typography>
+          )}
+
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="بحث بالاسم، رمز العميل، أو رقم التتبع"
+            value={rightSearch}
+            onChange={(e) => setRightSearch(e.target.value)}
+            sx={{ mt: 1.9, bgcolor: 'background.paper', borderRadius: 1.5 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <AiOutlineSearch />
+                </InputAdornment>
+              ),
+              endAdornment: rightSearch ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setRightSearch('')} aria-label="مسح البحث">
+                    <IoIosCloseCircle />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            }}
+          />
+
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <FormControl size="small" sx={{ flex: 1, minWidth: 0, bgcolor: 'background.paper', borderRadius: 1.5 }}>
+              <Select
+                displayEmpty
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'none' | 'name' | 'customerId')}
+                renderValue={(value) => (
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    {sortDir === 'asc' ? <FaSortAlphaDown size={12} /> : <FaSortAlphaUp size={12} />}
+                    <Typography variant="caption" noWrap>
+                      {value === 'name' ? 'ترتيب: الاسم' : value === 'customerId' ? 'ترتيب: رمز العميل' : 'بدون ترتيب'}
+                    </Typography>
+                  </Stack>
+                )}
+              >
+                <MenuItem value="none">بدون ترتيب</MenuItem>
+                <MenuItem value="name">الاسم (أ-ي)</MenuItem>
+                <MenuItem value="customerId">رمز العميل</MenuItem>
+              </Select>
+            </FormControl>
+            <Tooltip title={sortDir === 'asc' ? 'تصاعدي — اضغط للعكس' : 'تنازلي — اضغط للعكس'} arrow>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                  disabled={sortBy === 'none'}
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}
+                >
+                  {sortDir === 'asc' ? <FaSortAlphaDown size={14} /> : <FaSortAlphaUp size={14} />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+
+          {availableOffices.length > 0 && (
+            <FormControl size="small" fullWidth sx={{ mt: 1, bgcolor: 'background.paper', borderRadius: 1.5 }}>
+              <Select
+                multiple
+                displayEmpty
+                value={officeFilter}
+                onChange={(e) => setOfficeFilter(
+                  typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[])
+                )}
+                renderValue={(selected: any) => (
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <FaBuilding size={12} />
+                    <Typography variant="caption" noWrap>
+                      {selected.length === 0 ? 'كل المكاتب / الوجهات' : `${selected.length} مكتب محدد`}
+                    </Typography>
+                  </Stack>
+                )}
+              >
+                {availableOffices.map((office) => (
+                  <MenuItem key={office} value={office}>
+                    <Checkbox size="small" checked={officeFilter.indexOf(office) > -1} />
+                    {office}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {(rightSearch || officeFilter.length > 0 || sortBy !== 'none') && (
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" sx={{ mt: 1, rowGap: 0.5 }}>
+              {rightSearch && (
+                <Chip size="small" label={`بحث: ${rightSearch}`} onDelete={() => setRightSearch('')} />
+              )}
+              {officeFilter.map((office) => (
+                <Chip
+                  key={office}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  label={office}
+                  onDelete={() => setOfficeFilter(officeFilter.filter((o) => o !== office))}
+                />
+              ))}
+              {sortBy !== 'none' && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={sortBy === 'name' ? 'ترتيب بالاسم' : 'ترتيب برمز العميل'}
+                  onDelete={() => setSortBy('none')}
+                />
+              )}
+            </Stack>
+          )}
+        </Box>
+
+        <List
+          sx={{
+            width: '100%',
+            height: 420,
+            bgcolor: 'background.paper',
+            overflow: 'auto',
+            p: 0,
+          }}
+          dense
+          component="div"
+          role="list"
+        >
+          {filteredItems.length === 0 ? (
+            <EmptyState text={isFiltered ? 'لا توجد نتائج مطابقة لبحثك أو تصفيتك' : 'لا توجد طلبيات في قائمة الجرد'} />
+          ) : (
+            filteredItems.map((order: any) => {
+              const labelId = `transfer-list-chosen-item-${order?._id}-label`;
+              const isItemChecked = checked.indexOf(order) !== -1;
+
+              return (
+                <ListItemButton
+                  key={order?._id}
+                  role="listitem"
+                  selected={isItemChecked}
+                  onClick={handleToggle(order)}
+                  sx={{ alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider', py: 1.25 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
+                    <Checkbox
+                      edge="start"
+                      checked={isItemChecked}
+                      tabIndex={-1}
+                      disableRipple
+                      inputProps={{
+                        'aria-labelledby': labelId,
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    id={labelId}
+                    primary={
+                      <Stack spacing={0.5}>
                         <p className='m-0 d-flex gap-2'>
-                          <a style={{ textDecoration: 'none' }} className='m-0' href={`/invoice/${order?._id}/edit`} target='__blank'>
+                          <a
+                            style={{ textDecoration: 'none' }}
+                            className='m-0'
+                            href={`/invoice/${order?._id}/edit`}
+                            target='__blank'
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {order?.orderId}
                           </a>
                           <Badge text={`${order?.paymentList?.status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} `} />
-                          {order?.paymentList?.status?.received && <Badge text={'تم تسليم'} color="success" />} 
+                          {order?.paymentList?.status?.received && <Badge text={'تم تسليم'} color="success" />}
                         </p>
                         <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
                         <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
@@ -377,113 +686,171 @@ const TransferOrdersList = (props: Props) => {
                           {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
                         </div>
                         <div className='mt-2'>{order?.paymentList?.deliveredPackages?.boxesCount && <Badge text={`Boxes Count: ${order?.paymentList?.deliveredPackages?.boxesCount}`} />}</div>
-                      </div>
+                      </Stack>
                     }
                   />
-                </ListItem>
-                <hr />
-              </div>
-            );
-          })}
+                </ListItemButton>
+              );
+            })
+          )}
         </List>
-      </Card>
+      </Paper>
     )
   }
 
   const Tag = component === 'ActivityDialog' ? ActivityDialog : EditPackageWeight;
 
+  const totalWeight = calculateWeightsOfPackages(right);
+
   return (
-    <Grid container spacing={2} justifyContent="center" alignItems="center">
-      <Grid item>{customList('Choices', left)}</Grid>
-      
-      <Grid item>
-        <Grid container direction="column" alignItems="center">
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
-            onDoubleClick={handleCheckedRight}
+    <Box>
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 2.5,
+          p: { xs: 1.75, sm: 2.25 },
+          borderRadius: 4,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: (theme) => `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.success.main, 0.05)} 100%)`,
+        }}
+      >
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5}>
+          <Stack direction="row" spacing={1.25} alignItems="center">
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'background.paper',
+                color: 'primary.main',
+                boxShadow: '0 2px 8px rgba(20, 30, 60, 0.08)',
+                flexShrink: 0,
+              }}
+            >
+              <FaWarehouse size={18} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={800}>
+                {props.inventory?.voyage || 'قائمة الجرد'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {[props.inventory?.shippedCountry, props.inventory?.inventoryFinishedDate ? moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY') : ''].filter(Boolean).join(' • ')}
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
+            <Chip size="small" color="primary" variant="outlined" sx={{ bgcolor: 'background.paper' }} label={`${right.length} عنصر بالجرد`} />
+            {totalWeight.length > 2 && (
+              <Chip size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} label={`الوزن الكلي: ${totalWeight}`} />
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="center" alignItems="flex-start" flexWrap="wrap">
+        <Box>{customList('نتائج البحث', left)}</Box>
+
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 4,
+            p: 1.25,
+            display: 'flex',
+            flexDirection: { xs: 'row', md: 'column' },
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: { md: 88 },
+            alignSelf: { xs: 'stretch', md: 'center' },
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
+          }}
+        >
+          <ActionButton
+            icon={<FaArrowRight />}
+            label="إضافة"
+            tooltip="إضافة العناصر المحددة إلى قائمة الجرد"
+            color="success"
+            onClick={handleCheckedRight}
             disabled={leftChecked.length === 0}
-            aria-label="move selected right"
-            color='success'
-          >
-            &gt;
-          </Button>
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
-            onDoubleClick={handleCheckedLeft}
+          />
+          <ActionButton
+            icon={<FaArrowLeft />}
+            label="إزالة"
+            tooltip="إزالة العناصر المحددة من قائمة الجرد"
+            color="error"
+            onClick={handleCheckedLeftWithConfirm}
             disabled={rightChecked.length === 0}
-            aria-label="move selected left"
-            color='error'
-          >
-            &lt;
-          </Button>
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
-            onDoubleClick={updateSelectedOrdersStatus}
+          />
+
+          <Divider flexItem orientation="vertical" sx={{ display: { xs: 'block', md: 'none' } }} />
+          <Divider flexItem sx={{ display: { xs: 'none', md: 'block' }, my: 0.25 }} />
+
+          <ActionButton
+            icon={<FaWarehouse />}
+            label="وصلت"
+            tooltip="تحديد حالة العناصر المحددة: وصلت ليبيا"
+            color="info"
+            onClick={updateSelectedOrdersStatusWithConfirm}
             disabled={rightChecked.length === 0}
-            aria-label="move selected left"
-          >
-            <FaWarehouse />
-          </Button>
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
+          />
+          <ActionButton
+            icon={<FaWhatsapp />}
+            label="واتساب"
+            tooltip="إرسال رسالة واتساب / إضافة نشاط للعناصر المحددة"
+            color="success"
             onClick={() => {
               setComponent('ActivityDialog');
               setShowDialog(true);
             }}
             disabled={rightChecked.length === 0}
-            aria-label="move selected left"
-          >
-            <FaWhatsapp />
-          </Button>
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
+          />
+          <ActionButton
+            icon={<FaWeight />}
+            label="الوزن"
+            tooltip="تعديل الوزن (عنصر واحد فقط)"
+            color="warning"
             onClick={() => {
               setComponent('EditPackageWeight');
               setShowDialog(true);
             }}
             disabled={rightChecked.length !== 1}
-            aria-label="move selected left"
-          >
-            <FaWeight />
-          </Button> 
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
-            onDoubleClick={() => addInventoryToWarehouse('tripoli')}
-            disabled={rightChecked.length === 0}
-            aria-label="move selected left"
-          >
-            <IoIosListBox /> Tripoli
-          </Button>
-          <Button
-            sx={{ my: 0.5 }}
-            variant="outlined"
-            size="small"
-            onDoubleClick={() => addInventoryToWarehouse('benghazi')}
-            disabled={rightChecked.length === 0}
-            aria-label="move selected left"
-          >
-            <IoIosListBox /> Benghazi
-          </Button>
-        </Grid>
-      </Grid>
+          />
 
-      <Grid item>{customListForChosen('Chosen', right)}</Grid>
+          <Divider flexItem orientation="vertical" sx={{ display: { xs: 'block', md: 'none' } }} />
+          <Divider flexItem sx={{ display: { xs: 'none', md: 'block' }, my: 0.25 }} />
+
+          <ActionButton
+            icon={<IoIosListBox />}
+            label="طرابلس"
+            tooltip="إضافة العناصر المحددة إلى مخزن طرابلس"
+            color="primary"
+            onClick={() => addInventoryToWarehouseWithConfirm('tripoli')}
+            disabled={rightChecked.length === 0}
+          />
+          <ActionButton
+            icon={<IoIosListBox />}
+            label="بنغازي"
+            tooltip="إضافة العناصر المحددة إلى مخزن بنغازي"
+            color="secondary"
+            onClick={() => addInventoryToWarehouseWithConfirm('benghazi')}
+            disabled={rightChecked.length === 0}
+          />
+        </Paper>
+
+        <Box>{customListForChosen('قائمة الجرد', right)}</Box>
+      </Stack>
 
       <Dialog open={showDialog} onClose={() => setShowDialog(false)} className='p-5' fullWidth>
-        <Tag 
-          checked={checked} 
+        <Tag
+          checked={checked}
           setShowDialog={setShowDialog}
           package={rightChecked[0]}
           inventory={props.inventory}
@@ -492,12 +859,12 @@ const TransferOrdersList = (props: Props) => {
         />
       </Dialog>
 
-      <Snackbar 
+      <Snackbar
         open={!!showResponseMessage}
         autoHideDuration={6000}
         onClose={() => setShowResponseMessage(undefined)}
       >
-        <Alert 
+        <Alert
           severity={isSucceed ? 'success' : 'error'}
           sx={{ width: '100%' }}
           onClose={() => setShowResponseMessage(undefined)}
@@ -512,7 +879,7 @@ const TransferOrdersList = (props: Props) => {
         >
         <CircularProgress color="inherit" />
       </Backdrop>
-    </Grid>
+    </Box>
   );
 }
 

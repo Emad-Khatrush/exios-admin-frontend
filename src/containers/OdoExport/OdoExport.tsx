@@ -22,6 +22,10 @@ interface ImportGuide {
 const OFFICE_TEAM_IDS: Record<string, string> = {
   tripoli: '4',   // مكتب طرابلس
   benghazi: '5',  // مكتب بنغازي
+  bank: '6',  // بنك الليبي شركة
+  almutahidaTrBank: '7',  // حساب شركة المتحدة تركيا
+  // alipayCompany1: '8',  // حساب شركة Alipay 1
+  // alipayCompany2: '9',  // حساب شركة Alipay 2
 };
 
 // يوميات صناديق المكاتب — اسم اليومية في أودو بالضبط، لكل مكتب وعملة
@@ -35,6 +39,22 @@ const OFFICE_CASH_JOURNALS: Record<string, Record<string, string>> = {
     USD: 'الخزينة الفرعية بنغازي $',
     LYD: 'الخزينة الفرعية بنغازي LYD',
   },
+  bank: {
+    USD: 'الخزينة الفرعية بنك الليبي $',
+    LYD: 'الخزينة الفرعية بنك الليبي LYD',
+  },
+  almutahidaTrBank: {
+    USD: 'ALMUTAHEDA BANK USD',
+    LYD: 'ALMUTAHEDA BANK LYD',
+  },
+  // alipayCompany1: {
+  //   USD: 'ALIPAY COMPANY 1 USD',
+  //   LYD: 'ALIPAY COMPANY 1 LYD',
+  // },
+  // alipayCompany2: {
+  //   USD: 'ALIPAY COMPANY 2 USD',
+  //   LYD: 'ALIPAY COMPANY 2 LYD',
+  // },
 };
 
 // حسابات الإيراد المستخدمة في عكس الطلبيات الملغاة
@@ -113,7 +133,10 @@ const formatDate = (dateString?: string) => {
 };
 
 const resolveOffice = (office?: string) => {
-  const key = (office || '').trim().toLowerCase();
+  const key = (office || '').trim();
+  console.log('Resolving office:', office, '-> key:', key);
+  console.log('OFFICE_TEAM_IDS[key]:', OFFICE_TEAM_IDS[key]);
+
   return OFFICE_TEAM_IDS[key] ? key : '';
 };
 
@@ -308,7 +331,7 @@ const fetchWalletWithdrawalsAPI = async (filters: DateFilter): Promise<any[]> =>
     .filter((item: any) => item?.actionType === 'withdrawal')
     .map((item: any) => {
       const currency = item.currency || 'USD';
-      const officeKey = resolveOffice(item.office);
+      const officeKey = resolveOffice(item?.office);
       const cashJournal = officeKey ? OFFICE_CASH_JOURNALS[officeKey]?.[currency] : '';
 
       return {

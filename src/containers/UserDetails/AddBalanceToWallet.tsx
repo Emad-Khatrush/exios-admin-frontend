@@ -12,8 +12,12 @@ import ImageUploader from '../../components/ImageUploader/ImageUploader';
 type Props = {}
 
 const offices = [
-  { value: 'tripoli', label: 'Tripoli' },
-  { value: 'benghazi', label: 'Benghazi' },
+  { value: 'tripoli', label: 'مكتب طرابلس' },
+  { value: 'benghazi', label: 'مكتب بنغازي' },
+  { value: 'bank', label: 'بنك الليبي' },
+  { value: 'almutahidaTrBank', label: 'حساب الشركة المتحدة تركيا' },
+  // { value: 'alipayCompany1', label: 'محفظة Alipay - الشركة' },
+  // { value: 'alipayCompany2', label: 'محفظة Alipay - الشخصي' },
 ];
 
 const actionTypes = [
@@ -202,7 +206,7 @@ const AddBalanceToWallet = (props: Props) => {
 
           <div className="col-md-6 mb-3">
             <FormControl style={{ width: '100%' }} required>
-              <InputLabel id="office-label">Office</InputLabel>
+              <InputLabel id="office-label">مكان/حساب الايداع</InputLabel>
               <Select
                 labelId="office-label"
                 id="office"
