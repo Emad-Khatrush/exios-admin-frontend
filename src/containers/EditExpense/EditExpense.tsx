@@ -30,7 +30,7 @@ type Props = {
 
 const EditExpense = (props: Props) => {
   const [ office, setOffice ] = useState();
-  const [ currency, setCurrency ] = useState();
+  const [ , setCurrency ] = useState();
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
   const [ formData, setFormData ] = useState<any>();
@@ -56,7 +56,7 @@ const EditExpense = (props: Props) => {
         setPreviewFiles(data.images.map((img: any) => convertGoogleStorageUrl(img.path) ));
         setLoading(false);
       })
-  }, [imagesLoading])
+  }, [imagesLoading, id])
 
   const submitForm = async (event: any) => {
     event.preventDefault();

@@ -70,11 +70,14 @@ const InvoiceForm = (props: Props) => {
     _id: ''
   });
   
+  // setDebt and credit are used by the debt/credit inputs that are commented out below
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [ debt, setDebt ] = useState<{total: number, currency: string}>({
     total: 0,
     currency: ''
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [ credit, setCredit ] = useState<{total: number, currency: string}>({
     total: 0,
     currency: ''
@@ -87,9 +90,10 @@ const InvoiceForm = (props: Props) => {
 
   const steps = getOrderSteps(invoice);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     props.handleChange({ target: { value: props.invoice?.user?.customerId, name: 'customerId' } })
+    // Run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const getCustomerData = async (event: MouseEvent) => {

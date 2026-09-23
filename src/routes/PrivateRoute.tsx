@@ -8,6 +8,8 @@ import { Session } from '../models';
 import { Suspense, useEffect } from 'react';
 import { CLOSE_SIDEBAR } from '../constants/actions';
 
+// TypeScript does not resolve SCSS side-effect imports without a stylesheet declaration.
+// @ts-expect-error SCSS is processed by the bundler at runtime.
 import '../App.scss';
 
 type Props = {
@@ -33,6 +35,8 @@ const PrivateRoute = (props: Props) => {
       history(redirectPathFound)
       localStorage.removeItem('rd_path');
     }
+    // Only redirect once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
   return props.session.isLoggedIn ?

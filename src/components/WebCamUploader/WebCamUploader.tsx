@@ -8,6 +8,7 @@ interface Props {
 }
 
 export const WebcamCapture = (props: Props) => {
+  const { fileUploaderHandler, closeCamera, packageId } = props;
   const webcamRef = useRef<any>(null);
 
   const capture = useCallback(
@@ -16,10 +17,10 @@ export const WebcamCapture = (props: Props) => {
       // Convert the Base64 string to a File object
       const uniqueFilename = `photo_${Date.now()}.png`;
       const file = base64ToFile(imageSrc, uniqueFilename);
-      props.fileUploaderHandler({ target: { files: [file], id: props.packageId } });
-      props.closeCamera();
+      fileUploaderHandler({ target: { files: [file], id: packageId } });
+      closeCamera();
     },
-    [webcamRef]
+    [webcamRef, fileUploaderHandler, closeCamera, packageId]
   );
 
   return (

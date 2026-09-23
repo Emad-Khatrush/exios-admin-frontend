@@ -5,6 +5,7 @@ import api from '../../api';
 
 const AllowToAccessApp = (props: any) => {
   const history = useNavigate();
+  const token = props.session?.token;
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -12,14 +13,14 @@ const AllowToAccessApp = (props: any) => {
       window.location.href = 'https://www.exioslibya.com';
     }
     
-    api.post('verifyToken', { token: props.session?.token })
+    api.post('verifyToken', { token })
       .then(() => {
         history(`/invoice/${id}/edit`)
       })
       .catch(error => {
         window.location.href = 'https://www.exioslibya.com';
       })
-  }, [])
+  }, [history, token])
 
   return (
     <div>Loading...</div>

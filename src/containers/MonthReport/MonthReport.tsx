@@ -44,7 +44,7 @@ const MonthReport = () => {
       const formattedDate = moment(date).format('YYYY-MM-DD');
       
       // 1. Concurrent Initial Data Fetch
-      const [receivedRes, invoicesRes, paidDebtsRes] = await Promise.all([
+      const [, invoicesRes, paidDebtsRes] = await Promise.all([
         api.get(`monthReport?date=${formattedDate}&&fetchType=receivedGoods`),
         api.get(`monthReport?date=${formattedDate}&&fetchType=invoices`),
         api.get(`monthReport?date=${formattedDate}&&fetchType=paidDebts`)

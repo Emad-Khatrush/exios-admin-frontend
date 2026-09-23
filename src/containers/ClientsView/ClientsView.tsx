@@ -21,10 +21,9 @@ export const ClientsView = () => {
   
   const [view, setView] = useState<'list' | 'wallets'>('list');
   const [clients, setClients] = useState([]);
-  const [downloadedClients, setDownloadedClients] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [tab, setTab] = useState('active');
+  const [tab] = useState('active');
   const [scrollReached, setScrollReached] = useState(false);
   
   const [meta, setMeta] = useState({
@@ -76,7 +75,6 @@ export const ClientsView = () => {
     try {
       setIsLoading(true);
       const response = (await api.get(`clients`, { skip: Math.max(0, meta.counts.userCounts - 1000), limit: 1000 }))?.data;
-      setDownloadedClients(response.results);
       setIsLoading(false);
 
       return response.results;

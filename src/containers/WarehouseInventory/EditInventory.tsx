@@ -16,14 +16,15 @@ const EditInventory = () => {
 
   const [inventory, setInventory] = useState<Inventory | any>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>();
+  const [error] = useState<string>();
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
-  const [ imagesLoading, setImagesLoading ] = useState<boolean>(false);
+  const [ , setImagesLoading ] = useState<boolean>(false);
   const filesRef = React.createRef();
 
   useEffect(() => {
     getInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fileUploaderHandler = async (event: any) => {

@@ -82,7 +82,7 @@ const TaskForm = (props: Props) => {
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {(employeeIds || []).map((empId: any) => {
                       const employee = props.employees.find((emp: any) => emp._id === empId);
-                      if (!employee) return;
+                      if (!employee) return null;
                       
                       return(
                         <Chip 
@@ -160,11 +160,6 @@ const TaskForm = (props: Props) => {
         </div>
     </div>
   )
-}
-
-const removeDuplicates = (data: any[]) => {
-  return data.filter((v,i,a)=>a.findIndex(v2=>(v2._id===v._id))===i)
-
 }
 
 export default TaskForm;

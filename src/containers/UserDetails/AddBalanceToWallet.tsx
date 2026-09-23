@@ -32,7 +32,7 @@ const AddBalanceToWallet = (props: Props) => {
 
   const [currency, setCurrency] = useState<string>('');
   const [office, setOffice] = useState<string>('');
-  const [actionType, setActionType] = useState<string>('cash');
+  const [, setActionType] = useState<string>('cash');
   const [date, setDate] = useState(new Date());
   const [form, setForm] = useState<any>({
     createdAt: date,

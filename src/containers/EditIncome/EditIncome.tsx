@@ -27,8 +27,8 @@ type Props = {
 }
 
 const EditIncome = (props: Props) => {
-  const [ office, setOffice ] = useState();
-  const [ currency, setCurrency ] = useState();
+  const [ , setOffice ] = useState();
+  const [ , setCurrency ] = useState();
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
   const [ formData, setFormData ] = useState<any>();
@@ -54,7 +54,7 @@ const EditIncome = (props: Props) => {
         setPreviewFiles(data.images.map((img: any) => convertGoogleStorageUrl(img.path) ));
         setLoading(false);
       })
-  }, [imagesLoading])
+  }, [imagesLoading, id])
 
   const submitForm = async (event: any) => {
     event.preventDefault();
