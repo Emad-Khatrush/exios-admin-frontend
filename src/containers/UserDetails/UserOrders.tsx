@@ -4,13 +4,9 @@ import api, { base } from '../../api';
 import { Invoice, Package } from '../../models';
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  Divider,
-  Typography,
-  Box,
   TextField,
   Backdrop,
   CircularProgress,
@@ -18,49 +14,99 @@ import {
   Alert,
   AvatarGroup,
   Avatar,
+  InputAdornment,
 } from '@mui/material';
+import { Boxes, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 
+// Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
+const PAYMENT_TOLERANCE_USD = 2;
+
+type SelectedPackage = {
+  id: string;
+  cost: number;
+  trackingNumber: string;
+  weight: number;
+  measureUnit: string;
+  exiosPrice: number;
+  locationPlace?: string;
+  boxesCount?: string | number;
+  orderId?: string;
+  images?: any;
+};
+
+type PaymentInput = { amountUSD: string; amountLYD: string };
+
+const emptyPayment: PaymentInput = { amountUSD: '', amountLYD: '' };
+
+const toNumber = (value: string | number | undefined) => {
+  const parsed = parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+// Same rounding as calculateRate on the server (4 decimals)
+const calculateRate = (amountLYD: number, remainingUSD: number) => Math.round((amountLYD / remainingUSD) * 10000) / 10000;
+
+const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const getPackageCost = (pkg: Package): number => {
+  const weight = pkg?.deliveredPackages?.weight?.total || 0;
+  const price = pkg?.deliveredPackages?.exiosPrice || 0;
+  return Number((weight * price).toFixed(2));
+};
+
+const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
+  id: pkg._id,
+  cost: getPackageCost(pkg),
+  trackingNumber: pkg?.deliveredPackages?.trackingNumber || '',
+  weight: pkg?.deliveredPackages?.weight?.total || 0,
+  measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || '',
+  exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
+  locationPlace: pkg?.deliveredPackages?.locationPlace || '',
+  boxesCount: pkg?.deliveredPackages?.boxesCount || '',
+  images: pkg?.images || [],
+  orderId,
+});
+
+// Received packages were already delivered (and paid for), so they can never be selected again
+const isSelectable = (pkg: any) => !pkg?.status?.received;
+
+const tabs = [
+  { value: 'active', label: 'Active', tabType: 'active' },
+  { value: 'readyToDeliver', label: 'Ready to deliver', tabType: 'readyForPickup' },
+  { value: 'finished', label: 'Finished', tabType: 'finished' },
+];
+
 const CustomerOrders = ({ customerId, balances }: any) => {
   const [orders, setOrders] = useState<Invoice[]>([]);
-  const [selectedPackages, setSelectedPackages] = useState<{
-    id: string;
-    cost: number;
-    trackingNumber: string;
-    weight: number;
-    measureUnit: string;
-    exiosPrice: number;
-    locationPlace?: string;
-    boxesCount?: string | number;
-    orderId?: string;
-    images?: any
-  }[]>([]);
+  const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
   const [filter, setFilter] = useState<string>('active');
-  const [selectAll, setSelectAll] = useState<boolean>(false);
   const [openDialog, setOpenDialog] = useState<boolean>(false);
   const [isOrdersLoading, setIsOrdersLoading] = useState<boolean>(false);
   const [isPending, setIsPending] = useState<boolean>(false);
   const [isFinished, setIsFinished] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
   const [resMessage, setResMessage] = useState<string>();
-  const [payment, setPayment] = useState<{ amountUSD: number; amountLYD: number; rate: number }>({
-    amountUSD: 0,
-    amountLYD: 0,
-    rate: 0,
-  });
-  const [previewImages, setPreviewImages] = useState<any>();  
+  const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
+  const [previewImages, setPreviewImages] = useState<any>();
 
   const [cancelToken, setCancelToken] = useState();
+
+  const walletUsd = toNumber(balances?.walletUsd);
+  const walletLyd = toNumber(balances?.walletLyd);
 
   const fetchOrders = async (tabType: string) => {
     try {
       setIsOrdersLoading(true);
       const res = await api.get(`user/${customerId}/packages`, { cancelToken, tabType });
       setOrders(res.data.results || []);
-      setIsOrdersLoading(false);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsOrdersLoading(false);
     }
   };
 
@@ -73,202 +119,77 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
     setCancelToken(cancelTokenSource);
     setFilter(newFilter);
-    setSelectAll(false);
     setSelectedPackages([]);
 
-    let tabType = 'active';
-    if (newFilter === 'readyToDeliver') tabType = 'readyForPickup';
-    if (newFilter === 'finished') tabType = 'finished';
-
+    const tabType = tabs.find(tab => tab.value === newFilter)?.tabType || 'active';
     fetchOrders(tabType);
   };
 
-  const getPackageCost = (pkg: Package): number => {
-    const weight = pkg?.deliveredPackages?.weight?.total || 0;
-    const price = pkg?.deliveredPackages?.exiosPrice || 0;
-    return Number((weight * price).toFixed(2));
+  const groupedFlights = useMemo(() => {
+    const map = new Map();
+
+    orders.forEach((order: any) => {
+      (order.paymentList || []).forEach((pkg: any) => {
+        const flightId = pkg.flight?._id || 'unassigned';
+
+        if (!map.has(flightId)) {
+          map.set(flightId, {
+            id: flightId,
+            flight: pkg.flight || null,
+            packages: [],
+          });
+        }
+
+        map.get(flightId).packages.push({
+          ...pkg,
+          orderId: order.orderId,
+          orderMongoId: order._id,
+        });
+      });
+    });
+
+    return Array.from(map.values());
+  }, [orders]);
+
+  const selectablePackages = useMemo(
+    () => groupedFlights.flatMap((group: any) => group.packages.filter(isSelectable)),
+    [groupedFlights]
+  );
+
+  const isPackageSelected = (id: string) => selectedPackages.some((p) => p.id === id);
+
+  const allSelected = selectablePackages.length > 0 && selectablePackages.every((pkg: any) => isPackageSelected(pkg._id));
+
+  const addPackages = (packages: any[]) => {
+    setSelectedPackages(prev => [
+      ...prev,
+      ...packages
+        .filter(pkg => !prev.some(p => p.id === pkg._id))
+        .map(pkg => toSelectedPackage(pkg, pkg.orderId)),
+    ]);
   };
 
-  const handlePackageSelect = (pkg: Package, orderId: string) => {
-    const alreadySelected = selectedPackages.find(p => p.id === pkg._id);
+  const removePackages = (packages: any[]) => {
+    const ids = packages.map(pkg => pkg._id);
+    setSelectedPackages(prev => prev.filter(p => !ids.includes(p.id)));
+  };
 
-    if (alreadySelected) {
-      setSelectedPackages(prev => prev.filter(p => p.id !== pkg._id));
-    } else {
-      const cost = getPackageCost(pkg);
-      const trackingNumber = pkg.deliveredPackages?.trackingNumber || '';
-      const weight = pkg?.deliveredPackages?.weight?.total || 0;
-      const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
-      const exiosPrice = pkg?.deliveredPackages?.exiosPrice || 0;
-      const locationPlace = pkg?.deliveredPackages?.locationPlace || '';
-      const boxesCount = pkg?.deliveredPackages?.boxesCount || '';
-      const images = pkg?.images || [];
-
-      setSelectedPackages(prev => [
-        ...prev,
-        { id: pkg._id, cost, trackingNumber, weight, measureUnit, exiosPrice, locationPlace, boxesCount, images, orderId },
-      ]);
-    }
+  const handlePackageSelect = (pkg: any) => {
+    isPackageSelected(pkg._id) ? removePackages([pkg]) : addPackages([pkg]);
   };
 
   const handleSelectAll = () => {
-    const allPackages = filteredOrders.flatMap(order => {
-      return order.paymentList.map(pkg => ({
-        ...pkg,
-        orderId: order.orderId,
-      }))
-      .filter(pkg => !pkg.status.received); // Only select active packages
-    });
-
-    if (selectAll) {
-      const allIds = allPackages.map(pkg => pkg._id);
-      setSelectedPackages(prev => prev.filter(p => !allIds.includes(p.id)));
-    } else {
-      const newSelections = allPackages.map(pkg => ({
-        id: pkg._id,
-        cost: getPackageCost(pkg),
-        trackingNumber: pkg?.deliveredPackages?.trackingNumber || '',
-        weight: pkg?.deliveredPackages?.weight?.total || 0,
-        measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || '',
-        exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
-        locationPlace: pkg?.deliveredPackages?.locationPlace || '',
-        boxesCount: pkg?.deliveredPackages?.boxesCount || '',
-        images: pkg?.images || [],
-        orderId: pkg.orderId,
-      }));
-
-      const merged = [...selectedPackages];
-      newSelections.forEach(newPkg => {
-        if (!merged.some(p => p.id === newPkg.id)) {
-          merged.push(newPkg);
-        }
-      });
-
-      setSelectedPackages(merged);
-    }
-
-    setSelectAll(!selectAll);
+    allSelected ? removePackages(selectablePackages) : addPackages(selectablePackages);
   };
 
-  const markAsDelivered = async () => {
-    try {
-      if (selectedPackages.length === 0) return;
-
-      if (payment.amountLYD > 0 && payment.rate <= 0) {
-        alert('Please enter valid exchange rate for LYD');
-        return;
-      }
-
-      if (payment.amountUSD > Number(balances.walletUsd)) {
-        alert('You do not have enough balance in your USD wallet');
-        return;
-      }
-
-      if (payment.amountLYD > Number(balances.walletLyd)) {
-        alert('You do not have enough balance in your LYD wallet');
-        return;
-      }
-      
-      const convertedAmount = Number((payment.amountLYD / payment.rate).toFixed(2));
-      if ((payment.amountUSD + convertedAmount) < Number(totals.totalFees) - 2) {
-        alert('The total cost of the selected packages is greater than the total amount you entered');
-        return;
-      }
-
-      // Delete images from selected packages to avoid sending them
-      selectedPackages.forEach(pkg => {
-        delete pkg.images;
-      })
-
-      setIsPending(true);
-      await api.post(`user/${customerId}/markAsDelivered`, {
-        selectedPackages,
-        payment,
-        totalCost: totals.totalFees,
-      });
-
-      setPayment({ amountUSD: 0, amountLYD: 0, rate: 0 });
-      handleFilterChange(filter);
-      setOpenDialog(false);
-      setIsPending(false);
-      setIsFinished(true);
-      setResMessage('Packages marked as delivered successfully');
-    } catch (err: any) {
-      console.error(err);
-      setIsError(true);
-      setIsFinished(true);
-      setResMessage(err.response.data.message);
-      setIsPending(false);
-    }
+  const isFlightSelected = (group: any) => {
+    const selectable = group.packages.filter(isSelectable);
+    return selectable.length > 0 && selectable.every((pkg: any) => isPackageSelected(pkg._id));
   };
 
-  const filteredOrders = orders;
-
-  const groupedFlights = useMemo(() => {
-  const map = new Map();
-
-  filteredOrders.forEach((order: any) => {
-    (order.paymentList || []).forEach((pkg: any) => {
-      const flightId = pkg.flight?._id || "unassigned";
-
-      if (!map.has(flightId)) {
-        map.set(flightId, {
-          id: flightId,
-          flight: pkg.flight || null,
-          packages: [],
-        });
-      }
-
-      map.get(flightId).packages.push({
-        ...pkg,
-        orderId: order.orderId,
-        orderMongoId: order._id,
-      });
-    });
-  });
-
-  return Array.from(map.values());
-}, [filteredOrders]);
-
-const isPackageSelected = (id: string) =>
-  selectedPackages.some((p) => p.id === id);
-
-const isFlightSelected = (group: any) => {
-  return (
-    group.packages.length > 0 &&
-    group.packages.every((pkg: any) => isPackageSelected(pkg._id))
-  );
-};
-
-const handleFlightSelect = (group: any) => {
-  const allSelected = isFlightSelected(group);
-
-  if (allSelected) {
-    const ids = group.packages.map((p: any) => p._id);
-
-    setSelectedPackages((prev) =>
-      prev.filter((p) => !ids.includes(p.id))
-    );
-
-    return;
-  }
-
-    const newPackages = group.packages
-      .filter((pkg: any) => !isPackageSelected(pkg._id))
-      .map((pkg: any) => ({
-        id: pkg._id,
-        cost: getPackageCost(pkg),
-        trackingNumber: pkg?.deliveredPackages?.trackingNumber || "",
-        weight: pkg?.deliveredPackages?.weight?.total || 0,
-        measureUnit: pkg?.deliveredPackages?.weight?.measureUnit || "",
-        exiosPrice: pkg?.deliveredPackages?.exiosPrice || 0,
-        locationPlace: pkg?.deliveredPackages?.locationPlace || "",
-        boxesCount: pkg?.deliveredPackages?.boxesCount || '',
-        images: pkg?.images || [],
-        orderId: pkg.orderId,
-      }));
-
-    setSelectedPackages((prev) => [...prev, ...newPackages]);
+  const handleFlightSelect = (group: any) => {
+    const selectable = group.packages.filter(isSelectable);
+    isFlightSelected(group) ? removePackages(selectable) : addPackages(selectable);
   };
 
   const totals = useMemo(() => {
@@ -285,353 +206,363 @@ const handleFlightSelect = (group: any) => {
     return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)) };
   }, [selectedPackages]);
 
+  // The rate is calculated, never typed (the server calculates it the same way):
+  // USD only -> 0, LYD only -> LYD / total, both -> USD is taken first and LYD pays the rest.
+  const paymentSummary = useMemo(() => {
+    const amountUSD = toNumber(payment.amountUSD);
+    const amountLYD = toNumber(payment.amountLYD);
+    const remainingUSD = round2(totals.totalFees - amountUSD);
+    const rate = amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
+    const lydInUsd = rate > 0 ? remainingUSD : 0;
+    const covered = round2(amountUSD + lydInUsd);
+    const difference = round2(covered - totals.totalFees);
+
+    const errors: string[] = [];
+    if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
+    if (amountUSD > walletUsd + 0.001) errors.push(`USD wallet only has $${formatMoney(walletUsd)}.`);
+    if (amountLYD > walletLyd + 0.001) errors.push(`LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
+    if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
+    if (amountUSD === 0 && amountLYD === 0) errors.push('Enter a USD or LYD amount.');
+    if (amountLYD === 0 && amountUSD > 0) {
+      if (difference < -PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(-difference)} short of the total (max $${PAYMENT_TOLERANCE_USD}).`);
+      if (difference > PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(difference)} more than the total (max $${PAYMENT_TOLERANCE_USD}).`);
+    }
+
+    return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
+  }, [payment, totals.totalFees, walletUsd, walletLyd]);
+
+  const updatePayment = (field: keyof PaymentInput) => (event: any) => {
+    const value = event.target.value;
+    setPayment(prev => ({ ...prev, [field]: value }));
+  };
+
+  const payFullInUsd = () => {
+    setPayment({ amountUSD: String(round2(Math.min(totals.totalFees, walletUsd))), amountLYD: '' });
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setPayment(emptyPayment);
+  };
+
+  const markAsDelivered = async () => {
+    if (selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
+
+    try {
+      setIsPending(true);
+      await api.post(`user/${customerId}/markAsDelivered`, {
+        // Images are only needed for the preview, so don't send them
+        selectedPackages: selectedPackages.map(({ images, ...pkg }) => pkg),
+        payment: {
+          amountUSD: paymentSummary.amountUSD,
+          amountLYD: paymentSummary.amountLYD,
+          rate: paymentSummary.rate,
+        },
+        totalCost: totals.totalFees,
+      });
+
+      closeDialog();
+      handleFilterChange(filter);
+      setIsError(false);
+      setResMessage('Packages marked as delivered successfully');
+    } catch (err: any) {
+      console.error(err);
+      setIsError(true);
+      setResMessage(err?.response?.data?.message || 'Could not mark the packages as delivered. Please try again.');
+    } finally {
+      setIsPending(false);
+      setIsFinished(true);
+    }
+  };
+
+  const closeSnackbar = () => {
+    setIsFinished(false);
+    setIsError(false);
+    setResMessage('');
+  };
+
+  const canSelect = filter !== 'finished';
+
   return (
     <div className="customer-orders">
-      <div className="filters">
-        <button className={filter === 'active' ? 'active' : ''} onClick={() => handleFilterChange('active')}>
-          Active Orders
-        </button>
-        <button className={filter === 'readyToDeliver' ? 'active' : ''} onClick={() => handleFilterChange('readyToDeliver')}>
-          Ready to Deliver
-        </button>
-        <button className={filter === 'finished' ? 'active' : ''} onClick={() => handleFilterChange('finished')}>
-          Finished Orders
-        </button>
+      <div className="co-toolbar">
+        <div className="co-tabs" role="tablist">
+          {tabs.map(tab => (
+            <button
+              key={tab.value}
+              role="tab"
+              aria-selected={filter === tab.value}
+              className={filter === tab.value ? 'is-active' : ''}
+              onClick={() => handleFilterChange(tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {canSelect && selectablePackages.length > 0 && !isOrdersLoading && (
+          <label className="co-check">
+            <input type="checkbox" checked={allSelected} onChange={handleSelectAll} />
+            Select all ({selectablePackages.length})
+          </label>
+        )}
       </div>
 
-      { isOrdersLoading ? 
-        <CircularProgress />
-        :
-        <div>
-          {selectedPackages.length > 0 && (
-            <div className="totals-summary card">
-              <h4>📦 Selected Packages Summary</h4>
-              <div className="summary-grid">
-                <div className="summary-item"><span className="label">Packages</span><span className="value">{selectedPackages.length}</span></div>
-                <div className="summary-item"><span className="label">Total KG</span><span className="value">{totals.totalKG.toFixed(2)} kg</span></div>
-                <div className="summary-item"><span className="label">Total CBM</span><span className="value">{totals.totalCBM.toFixed(2)} cbm</span></div>
-                <div className="summary-item"><span className="label">Total Cost</span><span className="value">${totals.totalFees.toFixed(2)}</span></div>
-                <button className="mark-delivered" onClick={() => { setOpenDialog(true); }}>Mark Selected as Delivered</button>
-              </div>
-            </div>
-          )}
-
-          {filteredOrders.length > 0 && filter !== 'finished' && (
-            <div className="select-all-container">
-              <label className='mr-2'>
-                <input type="checkbox" checked={selectAll} onChange={handleSelectAll} /> Select All Packages
-              </label>
-            </div>
-          )}
-
-          {filteredOrders.length === 0 && <p>No orders found for this filter.</p>}
-
-          {groupedFlights.map((group: any) => (
-            <div
-              key={group.id}
-              style={{
-                marginBottom: 35,
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  background: "#f5f5f5",
-                  padding: "15px 20px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  {group.flight ? (
-                    <>
-                      <h2 style={{ margin: 0 }}>
-                        <a
-                          href={`/inventory/${group.flight._id || ""}/edit`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {" "}
-                          ✈ Flight {group.flight.voyage}
-                        </a>
-                      </h2>
-
-                      <small>
-                        {group.flight.shippingType} •{" "}
-                        {group.flight.inventoryPlace}
-                      </small>
-                    </>
-                  ) : (
-                    <h2 style={{ margin: 0 }}>
-                      📦 Packages Without Flight
-                    </h2>
-                  )}
-                </div>
-
-                {filter !== "finished" && (
-                  <label style={{ fontWeight: 600 }}>
-                    <input
-                      type="checkbox"
-                      checked={isFlightSelected(group)}
-                      onChange={() => handleFlightSelect(group)}
-                      style={{ marginRight: 8 }}
-                    />
-                    Select Flight
-                  </label>
-                )}
-              </div>
-
-              {group.packages.map((pkg: any) => {
-                const measureValue =
-                  pkg?.deliveredPackages?.weight?.total || 0;
-
-                const measureUnit =
-                  pkg?.deliveredPackages?.weight?.measureUnit || "";
-
-                const exiosPrice =
-                  pkg?.deliveredPackages?.exiosPrice || 0;
-
-                const fees = measureValue * exiosPrice;
-
-                return (
-                  <div
-                    key={pkg._id}
-                    className="order-card"
-                    style={{ marginBottom: 15 }}
-                  >
-                    <div className="order-header">
-                      <h3>
-                        Order:
-                        <a
-                          href={`/invoice/${pkg?.orderMongoId || ""}/edit`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {" "}
-                          {pkg.orderId}
-                        </a>
-                      </h3>
-                    </div>
-
-                    <div className="package-item">
-                      {filter !== "finished" && !pkg.status.received && (
-                        <input
-                          type="checkbox"
-                          checked={isPackageSelected(pkg._id)}
-                          onChange={() =>
-                            handlePackageSelect(pkg, pkg.orderId)
-                          }
-                        />
-                      )}
-
-                      <div className="package-details">
-                        <p>
-                          Tracking:{" "}
-                          {pkg.deliveredPackages?.trackingNumber || "N/A"}
-                        </p>
-
-                        <p>
-                          Status:{" "}
-                          {pkg.status.received
-                            ? "Received ✅"
-                            : "Active 📦"}
-                        </p>
-
-                        <p>
-                          Measure: {measureValue} {measureUnit}
-                        </p>
-
-                        <p>Exios Price: ${exiosPrice}</p>
-
-                        <p>Cost: ${fees.toFixed(2)}</p>
-
-                        {pkg.deliveredPackages?.locationPlace && (
-                          <p>
-                            Placed At:{" "}
-                            {pkg.deliveredPackages.locationPlace}
-                          </p>
-                        )}
-
-                        {pkg.deliveredPackages?.boxesCount && (
-                          <p>
-                            Boxes Count:{" "}
-                            {pkg.deliveredPackages.boxesCount}
-                          </p>
-                        )}
-
-                        {pkg.images?.length > 0 && (
-                          <div style={{ justifySelf: "start" }}>
-                            <AvatarGroup max={3}>
-                              {pkg.images.map((img: any) => (
-                                <Avatar
-                                  key={img.filename}
-                                  alt={img.filename}
-                                  src={convertGoogleStorageUrl(img.path)}
-                                  style={{ cursor: "pointer" }}
-                                  onClick={() =>
-                                    setPreviewImages(pkg.images)
-                                  }
-                                />
-                              ))}
-                            </AvatarGroup>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+      {isOrdersLoading ? (
+        <div className="co-skeleton" aria-busy="true" aria-label="Loading orders">
+          {[0, 1].map(i => (
+            <div key={i} className="co-skeleton-group">
+              <div className="co-skeleton-line is-title" />
+              <div className="co-skeleton-line" />
+              <div className="co-skeleton-line" />
             </div>
           ))}
+        </div>
+      ) : (
+        <>
+          {orders.length === 0 && (
+            <div className="co-empty">
+              <PackageOpen size={36} strokeWidth={1.5} />
+              <h3>No packages here</h3>
+              <p>Packages will show up once this customer has {filter === 'finished' ? 'delivered' : 'active'} orders.</p>
+            </div>
+          )}
 
-          <Dialog 
-            open={openDialog} 
-            onClose={() => {
-              setOpenDialog(false);
-              setSelectedPackages([]);
-              setPayment({ amountUSD: 0, amountLYD: 0, rate: 0 });
-            }} 
-            maxWidth="sm" 
-            fullWidth
-          >
-            <DialogTitle>
-              Confirm Delivery <span style={{ color: '#236106ac' }}>Wallet({`${balances.walletUsd} $, ${balances.walletLyd} LYD`})</span>
-            </DialogTitle>
-            <DialogContent dividers>
-              <div className="row">
-                <div className="col-md-4 mb-2">
-                  <TextField
-                    fullWidth
-                    label="Amount (USD)"
-                    type="number"
-                    inputProps={{ inputMode: 'numeric', step: 0.01 }}
-                    value={payment.amountUSD}
-                    onChange={e => setPayment(prev => ({ ...prev, amountUSD: parseFloat(e.target.value) || 0, rate: Number((prev.amountLYD / (totals.totalFees - parseFloat(e.target.value) || 0)).toFixed(2)) }))}
-                  />
+          {groupedFlights.map((group: any) => (
+            <section key={group.id} className="co-flight">
+              <header className="co-flight-header">
+                <div className="co-flight-title">
+                  <span className="co-flight-icon">
+                    {group.flight ? <Plane size={18} strokeWidth={2} /> : <PackageIcon size={18} strokeWidth={2} />}
+                  </span>
+                  <div>
+                    {group.flight ? (
+                      <>
+                        <a href={`/inventory/${group.flight._id || ''}/edit`} target="_blank" rel="noopener noreferrer">
+                          Flight {group.flight.voyage}
+                        </a>
+                        <small>{[group.flight.shippingType, group.flight.inventoryPlace].filter(Boolean).join(' / ')}</small>
+                      </>
+                    ) : (
+                      <span className="co-flight-name">Packages without a flight</span>
+                    )}
+                  </div>
                 </div>
-                <div className="col-md-4 mb-2">
-                  <TextField
-                    fullWidth
-                    label="Amount (LYD)"
-                    type="number"
-                    inputProps={{ inputMode: 'numeric', step: 0.01 }}
-                    value={payment.amountLYD}
-                    onChange={e => {
-                      setPayment(prev => ({ ...prev, amountLYD: parseFloat(e.target.value) || 0, rate: Number((parseFloat(e.target.value) / (totals.totalFees - prev.amountUSD)).toFixed(2)) }));
-                    }}
-                  />
-                </div>
-                <div className="col-md-4 mb-2">
-                  <TextField
-                    fullWidth
-                    label="Exchange Rate"
-                    type="number"
-                    disabled={true}
-                    inputProps={{ inputMode: 'numeric', step: 0.01 }}
-                    value={payment.rate}
-                    onChange={e => setPayment(prev => ({ ...prev, rate: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-              </div>
 
-              <Typography variant="h6" gutterBottom>📦 Selected Packages Summary</Typography>
-              <Box display="flex" justifyContent="space-between" mb={2}>
-                <Box>
-                  <Typography variant="body2" color="textSecondary">Packages</Typography>
-                  <Typography variant="subtitle1">{selectedPackages.length}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="textSecondary">Total KG</Typography>
-                  <Typography variant="subtitle1">{totals.totalKG.toFixed(2)} kg</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="textSecondary">Total CBM</Typography>
-                  <Typography variant="subtitle1">{totals.totalCBM.toFixed(2)} cbm</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="textSecondary">Total Fees</Typography>
-                  <Typography variant="subtitle1">${totals.totalFees.toFixed(2)}</Typography>
-                </Box>
-              </Box>
+                {canSelect && group.packages.some(isSelectable) && (
+                  <label className="co-check">
+                    <input type="checkbox" checked={isFlightSelected(group)} onChange={() => handleFlightSelect(group)} />
+                    Select flight
+                  </label>
+                )}
+              </header>
 
-              <Divider />
+              <div className="co-packages">
+                {group.packages.map((pkg: any) => {
+                  const measureValue = pkg?.deliveredPackages?.weight?.total || 0;
+                  const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
+                  const exiosPrice = pkg?.deliveredPackages?.exiosPrice || 0;
+                  const selectable = canSelect && isSelectable(pkg);
+                  const selected = isPackageSelected(pkg._id);
 
-              <Typography variant="h6" gutterBottom mt={2}>Selected Packages</Typography>
-              {selectedPackages.map(pkg => (
-                <Box key={pkg.id} my={1} p={1} border="1px solid #e0e0e0" borderRadius="8px">
-                  <Typography variant="body2">Tracking: {pkg.trackingNumber || 'N/A'}</Typography>
-                  <Typography variant="body2">Measure: {pkg.weight} {pkg.measureUnit}</Typography>
-                  <Typography variant="body2">Exios Price: ${pkg?.exiosPrice || 0}</Typography>
-                  <Typography variant="body2">Cost: ${pkg.cost.toFixed(2)}</Typography>
-                  {pkg.boxesCount && <Typography variant="body2">Boxes Count: {pkg.boxesCount}</Typography>}
-                  {pkg.locationPlace && <Typography variant="body2">Placed At: {pkg.locationPlace}</Typography>}
-                  {pkg?.images?.length > 0 &&
-                    <div style={{ justifySelf: 'start'}}>
-                        <AvatarGroup max={3}>
-                          {pkg?.images.map((img: any) => (
+                  return (
+                    <div key={pkg._id} className={`co-package${selected ? ' is-selected' : ''}`}>
+                      <div className="co-package-select">
+                        {selectable && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Select package ${pkg.deliveredPackages?.trackingNumber || pkg.orderId}`}
+                            checked={selected}
+                            onChange={() => handlePackageSelect(pkg)}
+                          />
+                        )}
+                      </div>
+
+                      <div className="co-package-main">
+                        <div className="co-package-top">
+                          <a href={`/invoice/${pkg?.orderMongoId || ''}/edit`} target="_blank" rel="noopener noreferrer">
+                            {pkg.orderId}
+                          </a>
+                          <span className={`co-status ${pkg.status?.received ? 'is-received' : ''}`}>
+                            {pkg.status?.received ? 'Received' : 'Active'}
+                          </span>
+                        </div>
+                        <span className="co-tracking">{pkg.deliveredPackages?.trackingNumber || 'No tracking number'}</span>
+                        <div className="co-package-meta">
+                          {pkg.deliveredPackages?.locationPlace && (
+                            <span><MapPin size={14} strokeWidth={2} /> {pkg.deliveredPackages.locationPlace}</span>
+                          )}
+                          {pkg.deliveredPackages?.boxesCount && (
+                            <span><Boxes size={14} strokeWidth={2} /> {pkg.deliveredPackages.boxesCount} boxes</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <dl className="co-package-figures">
+                        <div><dt>Measure</dt><dd>{measureValue} {measureUnit}</dd></div>
+                        <div><dt>Price</dt><dd>${exiosPrice}</dd></div>
+                        <div><dt>Cost</dt><dd className="is-strong">${formatMoney(getPackageCost(pkg))}</dd></div>
+                      </dl>
+
+                      {pkg.images?.length > 0 && (
+                        <AvatarGroup max={3} className="co-package-images">
+                          {pkg.images.map((img: any) => (
                             <Avatar
-                              style={{ cursor: 'pointer' }}
                               key={img.filename}
-                              alt={img.filename} 
+                              alt={img.filename}
                               src={convertGoogleStorageUrl(img.path)}
-                              onClick={() => setPreviewImages(pkg?.images)}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setPreviewImages(pkg.images)}
                             />
                           ))}
                         </AvatarGroup>
+                      )}
                     </div>
-                  }
-                </Box>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+
+          {selectedPackages.length > 0 && (
+            <div className="co-selection-bar">
+              <dl>
+                <div><dt>Packages</dt><dd>{selectedPackages.length}</dd></div>
+                <div><dt>KG</dt><dd>{totals.totalKG.toFixed(2)}</dd></div>
+                <div><dt>CBM</dt><dd>{totals.totalCBM.toFixed(2)}</dd></div>
+                <div><dt>Total</dt><dd className="is-strong">${formatMoney(totals.totalFees)}</dd></div>
+              </dl>
+              <div className="co-selection-actions">
+                <button className="co-btn-ghost" onClick={() => setSelectedPackages([])}>Clear</button>
+                <button className="co-btn-primary" onClick={() => setOpenDialog(true)}>Deliver selected</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <Dialog open={openDialog} onClose={closeDialog} maxWidth="sm" fullWidth PaperProps={{ className: 'co-dialog' }}>
+        <DialogContent>
+          <div className="co-dialog-head">
+            <h2>Confirm delivery</h2>
+            <p>{selectedPackages.length} package{selectedPackages.length === 1 ? '' : 's'}, paid from the customer's wallet.</p>
+          </div>
+
+          <div className="co-wallets">
+            <div>
+              <span><Wallet size={14} strokeWidth={2} /> USD wallet</span>
+              <strong>${formatMoney(walletUsd)}</strong>
+            </div>
+            <div>
+              <span><Wallet size={14} strokeWidth={2} /> LYD wallet</span>
+              <strong>{formatMoney(walletLyd)} LYD</strong>
+            </div>
+            <div className="is-due">
+              <span>Total due</span>
+              <strong>${formatMoney(totals.totalFees)}</strong>
+            </div>
+          </div>
+
+          <div className="co-payment-grid">
+            <TextField
+              fullWidth
+              label="From USD wallet"
+              type="number"
+              inputProps={{ inputMode: 'decimal', step: 0.01, min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              value={payment.amountUSD}
+              onChange={updatePayment('amountUSD')}
+              onWheel={(event: any) => event.target.blur()}
+              helperText={<button type="button" className="co-link-btn" onClick={payFullInUsd}>Pay all in USD</button>}
+            />
+            <TextField
+              fullWidth
+              label="From LYD wallet"
+              type="number"
+              inputProps={{ inputMode: 'decimal', step: 0.01, min: 0 }}
+              InputProps={{ endAdornment: <InputAdornment position="end">LYD</InputAdornment> }}
+              value={payment.amountLYD}
+              onChange={updatePayment('amountLYD')}
+              onWheel={(event: any) => event.target.blur()}
+              helperText={paymentSummary.amountUSD > 0 ? `Pays the $${formatMoney(Math.max(0, paymentSummary.remainingUSD))} left after USD` : 'Pays the whole total'}
+            />
+            <TextField
+              fullWidth
+              label="Exchange rate"
+              value={paymentSummary.rate > 0 ? paymentSummary.rate : 0}
+              disabled
+              InputProps={{ endAdornment: <InputAdornment position="end">LYD / $</InputAdornment> }}
+              helperText={paymentSummary.rate > 0
+                ? `${formatMoney(paymentSummary.amountLYD)} LYD / $${formatMoney(paymentSummary.remainingUSD)}`
+                : 'Calculated from the LYD amount'}
+            />
+          </div>
+
+          <dl className="co-breakdown">
+            <div><dt>USD</dt><dd>${formatMoney(paymentSummary.amountUSD)}</dd></div>
+            <div>
+              <dt>LYD {paymentSummary.rate > 0 && <small>({formatMoney(paymentSummary.amountLYD)} LYD at {paymentSummary.rate})</small>}</dt>
+              <dd>${formatMoney(paymentSummary.lydInUsd)}</dd>
+            </div>
+            <div className="is-total">
+              <dt>Covered</dt>
+              <dd>${formatMoney(paymentSummary.covered)} of ${formatMoney(totals.totalFees)}</dd>
+            </div>
+          </dl>
+
+          {paymentSummary.errors.length > 0 ? (
+            <ul className="co-errors" role="alert">
+              {paymentSummary.errors.map(error => (
+                <li key={error}><TriangleAlert size={16} strokeWidth={2} /> {error}</li>
               ))}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => {
-                setOpenDialog(false);
-                setSelectedPackages([]);
-                setPayment({ amountUSD: 0, amountLYD: 0, rate: 0 });
-              }} color="secondary">Cancel</Button>
-              <Button onClick={markAsDelivered} variant="contained" color="primary">
-                Confirm Delivery
-              </Button>
-            </DialogActions>
-          </Dialog>
+            </ul>
+          ) : (
+            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> Payment covers the total.</p>
+          )}
 
-          <Backdrop
-            sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000 }}
-            open={isPending}
-          >
-            <CircularProgress color="inherit" />
-          </Backdrop>
+          <details className="co-selected-list">
+            <summary>Selected packages ({selectedPackages.length})</summary>
+            {selectedPackages.map(pkg => (
+              <div key={pkg.id} className="co-selected-item">
+                <div>
+                  <span className="co-tracking">{pkg.trackingNumber || 'No tracking number'}</span>
+                  <small>
+                    {pkg.weight} {pkg.measureUnit} x ${pkg.exiosPrice || 0}
+                    {pkg.boxesCount ? `, ${pkg.boxesCount} boxes` : ''}
+                    {pkg.locationPlace ? `, ${pkg.locationPlace}` : ''}
+                  </small>
+                </div>
+                <strong>${formatMoney(pkg.cost)}</strong>
+              </div>
+            ))}
+          </details>
+        </DialogContent>
+        <DialogActions className="co-dialog-actions">
+          <button className="co-btn-ghost" onClick={closeDialog}>Cancel</button>
+          <button className="co-btn-primary" onClick={markAsDelivered} disabled={paymentSummary.errors.length > 0 || isPending}>
+            Confirm delivery
+          </button>
+        </DialogActions>
+      </Dialog>
 
-          <Snackbar 
-            open={isFinished} 
-            autoHideDuration={6000}
-            onClose={() => { setIsFinished(false); setIsError(false); setResMessage(''); }}
-          >
-            <Alert 
-              severity={isError ? 'error' : 'success'}
-              sx={{ width: '100%' }}
-              onClose={() => { setIsFinished(false); setIsError(false); setResMessage(''); }}
-            >
-              {resMessage}
-            </Alert>
-          </Snackbar>
+      <Backdrop sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000 }} open={isPending}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
 
-          <Dialog 
-            open={previewImages}
-            onClose={() => setPreviewImages(undefined)}
-          >
-            <DialogContent>
-              <SwipeableTextMobileStepper data={previewImages} />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
-            </DialogActions>
-          </Dialog>
-        </div>
-      }
+      <Snackbar open={isFinished} autoHideDuration={6000} onClose={closeSnackbar}>
+        <Alert severity={isError ? 'error' : 'success'} sx={{ width: '100%' }} onClose={closeSnackbar}>
+          {resMessage}
+        </Alert>
+      </Snackbar>
+
+      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
+        <DialogContent>
+          <SwipeableTextMobileStepper data={previewImages} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewImages(undefined)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
