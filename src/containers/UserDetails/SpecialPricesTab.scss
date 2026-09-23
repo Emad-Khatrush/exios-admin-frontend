@@ -1,0 +1,185 @@
+$sp-accent: #1d4ed8;
+$sp-accent-soft: #eff4ff;
+$sp-ink: #18212b;
+$sp-muted: #5b6673;
+$sp-line: #e3e7ec;
+$sp-danger: #b42318;
+
+.special-prices-tab {
+  max-width: 760px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid $sp-line;
+  border-radius: 12px;
+  color: $sp-ink;
+
+  .spt-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .spt-heading {
+    display: flex;
+    gap: 12px;
+
+    h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+    p { margin: 2px 0 0; font-size: 0.875rem; color: $sp-muted; max-width: 52ch; }
+  }
+
+  .spt-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: $sp-accent-soft;
+    color: $sp-accent;
+    flex-shrink: 0;
+  }
+
+  .spt-toggle {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .spt-readonly {
+    margin: -8px 0 16px;
+    font-size: 0.85rem;
+    color: $sp-muted;
+  }
+
+  .spt-grid {
+    display: grid;
+    gap: 10px;
+    transition: opacity 0.2s;
+
+    &.is-off { opacity: 0.6; }
+  }
+
+  .spt-grid-head,
+  .spt-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) 36px;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .spt-grid-head span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $sp-muted;
+  }
+
+  .spt-no-rows {
+    margin: 4px 0;
+    font-size: 0.875rem;
+    color: $sp-muted;
+  }
+
+  .spt-remove {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 40px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: $sp-muted;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+
+    &:hover:not(:disabled) { background: #fdecea; color: $sp-danger; }
+    &:focus-visible { outline: 2px solid $sp-accent; outline-offset: 2px; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+
+  .spt-add {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px dashed $sp-line;
+    border-radius: 8px;
+    background: transparent;
+    color: $sp-accent;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+
+    &:hover:not(:disabled) { border-color: $sp-accent; background: $sp-accent-soft; }
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:focus-visible { outline: 2px solid $sp-accent; outline-offset: 2px; }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+
+  .MuiOutlinedInput-root { border-radius: 8px; }
+
+  .spt-error {
+    margin: 10px 0 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: $sp-danger;
+  }
+
+  .spt-note { margin-top: 20px; }
+
+  .spt-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .spt-meta {
+    font-size: 0.8rem;
+    color: $sp-muted;
+  }
+
+  .spt-save {
+    border: 0;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    background: $sp-accent;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+
+    &:hover:not(:disabled) { background: #1a44bf; }
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:focus-visible { outline: 2px solid $sp-accent; outline-offset: 2px; }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+
+  @media (max-width: 599px) {
+    padding: 16px;
+
+    .spt-grid-head { display: none; }
+
+    // Name and delete on the first line, air and sea prices below
+    .spt-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid $sp-line;
+
+      > :first-child { grid-column: 1 / 3; }
+      > .spt-remove { grid-column: 3; grid-row: 1; }
+    }
+  }
+}

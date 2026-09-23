@@ -19,6 +19,8 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 import moment from 'moment';
 import ItemsSwitcher from '../ItemsSwitcher/ItemsSwitcher';
 import { useSelector } from 'react-redux';
+import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
+import { SpecialPrices, getShippingMode } from '../../utils/specialPrices';
 
 type Props = {
   handleChange?: any
@@ -87,6 +89,23 @@ const InvoiceForm = (props: Props) => {
   const [ invoice, setInvoice ] = useState<Invoice | undefined>(props.invoice);
   const [ customerId, setCustomerId ] = useState<string | undefined>(props.invoice?.user?.customerId);
   const [ userId, setUserId ] = useState<string | undefined>(props.invoice?.user?._id);
+  const [ specialPrices, setSpecialPrices ] = useState<SpecialPrices | undefined>((props.invoice?.user as any)?.specialPrices);
+  const [ shipmentMethod, setShipmentMethod ] = useState<string | undefined>(props.invoice?.shipment?.method);
+  const [ shipmentPrice, setShipmentPrice ] = useState<number | string | undefined>(props.invoice?.shipment?.exiosShipmentPrice);
+  // The price inputs are uncontrolled, so a new key re-mounts them with a picked price
+  const [ pickedPriceKey, setPickedPriceKey ] = useState(0);
+
+  const pickShipmentPrice = (price: number) => {
+    props.handleChange({ target: { name: 'exiosShipmentPrice', value: price } });
+    setShipmentPrice(price);
+    setPickedPriceKey(key => key + 1);
+  };
+
+  const pickPackagePrice = (price: number) => {
+    props.handleChange({ target: { name: 'exiosPrice', value: price, id: deliveredPackages.id } });
+    setDeliveredPackages({ ...deliveredPackages, exiosPrice: price });
+    setPickedPriceKey(key => key + 1);
+  };
 
   const steps = getOrderSteps(invoice);
 
@@ -103,7 +122,8 @@ const InvoiceForm = (props: Props) => {
       const res = await api.get(`customer/${customerId}`);
       const user: User = res.data;
       setUserId(user._id);
-      setInvoice({ 
+      setSpecialPrices((user as any).specialPrices);
+      setInvoice({
         ...invoice,
         netIncome: [],
         customerInfo: {
@@ -789,15 +809,26 @@ const InvoiceForm = (props: Props) => {
 
         <div className="col-md-6 mb-4">
           <TextField
+            key={`exiosShipmentPrice-${pickedPriceKey}`}
             id={'outlined-helperText'}
             label={'Exios Shipment Price'}
             name="exiosShipmentPrice"
             required
             type={'number'}
             inputProps={{ inputMode: 'numeric', step: .01 }}
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.exiosShipmentPrice}
+            onChange={(event: any) => {
+              props.handleChange(event);
+              setShipmentPrice(event.target.value);
+            }}
+            defaultValue={shipmentPrice}
             onWheel={(event: any) => event.target.blur()}
+            disabled={invoice?.isCanceled}
+          />
+          <SpecialPricePicker
+            prices={specialPrices}
+            mode={getShippingMode(undefined, shipmentMethod)}
+            selected={shipmentPrice}
+            onPick={pickShipmentPrice}
             disabled={invoice?.isCanceled}
           />
         </div>
@@ -827,6 +858,7 @@ const InvoiceForm = (props: Props) => {
               label={'Shipment Method'}
               name="method"
               onChange={(event) => {
+                setShipmentMethod(String(event.target.value));
                 return props.handleChange(event);
               }}
               disabled={invoice?.isCanceled}
@@ -1048,6 +1080,7 @@ const InvoiceForm = (props: Props) => {
                     label={'Unit'}
                     name="measureUnit"
                     onChange={(event, child) => {
+                      setDeliveredPackages({ ...deliveredPackages, measureUnit: event.target.value });
                       return props.handleChange(event, null, child);
                     }}
                   >
@@ -1061,16 +1094,30 @@ const InvoiceForm = (props: Props) => {
                 </FormControl>
               </div>
 
-              <div className="col-md-6 mb-4 d-flex">
+              <div className="col-md-6 mb-4 d-flex flex-column">
                 <TextField
+                  key={`exiosPrice-${deliveredPackages.id}-${pickedPriceKey}`}
                   id={deliveredPackages.id}
                   label={'Exios Price'}
                   name="exiosPrice"
                   type={'number'}
                   inputProps={{ inputMode: 'numeric' }}
-                  onChange={props.handleChange}
+                  onChange={(event: any) => {
+                    props.handleChange(event);
+                    setDeliveredPackages({ ...deliveredPackages, exiosPrice: event.target.value });
+                  }}
                   defaultValue={deliveredPackages?.exiosPrice}
                   onWheel={(event: any) => event.target.blur()}
+                />
+                <SpecialPricePicker
+                  prices={specialPrices}
+                  mode={getShippingMode(
+                    // measureUnit is set when staff change the unit in this dialog, so it wins
+                    deliveredPackages?.measureUnit || deliveredPackages?.packageWeight?.measureUnit,
+                    deliveredPackages?.shipmentMethod
+                  )}
+                  selected={deliveredPackages?.exiosPrice}
+                  onPick={pickPackagePrice}
                 />
               </div>
 
@@ -1125,6 +1172,7 @@ const InvoiceForm = (props: Props) => {
                     label={'Shipment Method'}
                     name="shipmentMethod"
                     onChange={(event, child) => {
+                      setDeliveredPackages({ ...deliveredPackages, shipmentMethod: event.target.value });
                       return props.handleChange(event, null, child);
                     }}
                     disabled={invoice?.isCanceled}

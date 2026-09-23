@@ -22,6 +22,7 @@ import EditInventory from './containers/Inventory/EditInventory';
 import WarehouseInventory from './containers/WarehouseInventory/WarehouseInventory';
 import ReturnedPayments from './containers/ReturnedPayments/ReturnedPayments';
 import { ClientsView } from './containers/ClientsView/ClientsView';
+import SpecialPriceCustomers from './containers/SpecialPriceCustomers/SpecialPriceCustomers';
 import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
 import OdoExport from './containers/OdoExport/OdoExport';
@@ -78,6 +79,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings' element={<Settings />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
+      <Route path='/special-prices' element={<SpecialPriceCustomers />} />
       <Route path='/user/:id' element={<UserDetails />} />
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />
@@ -110,6 +112,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
+      <Route path='/special-prices' element={<SpecialPriceCustomers />} />
       <Route path='/user/:id' element={<UserDetails />} />
       <Route path='/inventory' element={<Inventory />} />
       <Route path='/inventory/add' element={<AddInventory />} />

@@ -16,6 +16,7 @@ import UseWalletBalance from './UseWalletBalance';
 import ShippingMarkDialog from './ShippingMarkDialog';
 import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
+import SpecialPricesTab from './SpecialPricesTab';
 
 type Props = {}
 
@@ -29,7 +30,7 @@ const UserDetails = (props: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
-  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'settings'>('profile');
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
   const [customerId, setCustomerId] = useState();
 
@@ -138,6 +139,7 @@ const UserDetails = (props: Props) => {
         <Tab label="Profile" value="profile" />
         <Tab label="Orders" value="orders" />
         <Tab label="Created Invoices" value="invoices" />
+        <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
       </Tabs>
 
@@ -197,6 +199,13 @@ const UserDetails = (props: Props) => {
           <UserOrders
             customerId={user._id}
             balances={{ walletLyd, walletUsd }}
+          />
+        </div>
+      ) : activeTap === 'specialPrices' ? (
+        <div className="col-md-12">
+          <SpecialPricesTab
+            user={user}
+            onSaved={(specialPrices) => setUser({ ...user, specialPrices })}
           />
         </div>
       ) : activeTap === 'settings' ? (

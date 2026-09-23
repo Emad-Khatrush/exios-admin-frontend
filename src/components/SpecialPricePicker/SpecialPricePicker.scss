@@ -1,0 +1,57 @@
+.special-price-picker {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+
+  .spp-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #5b6673;
+  }
+
+  .spp-empty {
+    font-size: 0.8rem;
+    color: #5b6673;
+  }
+
+  .spp-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid #e3e7ec;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #18212b;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+
+    strong { color: #1d4ed8; font-variant-numeric: tabular-nums; }
+
+    &:hover:not(:disabled) { border-color: #1d4ed8; }
+    &:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    &.is-selected {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+      color: #ffffff;
+
+      strong { color: #ffffff; }
+    }
+  }
+}
