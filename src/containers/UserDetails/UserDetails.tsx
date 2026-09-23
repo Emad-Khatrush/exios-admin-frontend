@@ -64,6 +64,16 @@ const UserDetails = (props: Props) => {
     }
   }
 
+  const refreshWalletAndStatement = async () => {
+    try {
+      const walletResponse = await api.get(`wallet/${id}`);
+      setWallet(walletResponse.data.results);
+    } catch (error) {
+      console.log(error);
+    }
+    await fetchUserStatement();
+  }
+
   const fetchUser = async () => {
     try {
       setIsLoading(true);
@@ -178,6 +188,7 @@ const UserDetails = (props: Props) => {
           <CashflowUser
             userStatement={userStatement}
             onChangeCurrency={(value: string) => setStatementCurrency(value)}
+            onStatementChanged={refreshWalletAndStatement}
             isLoading={isStatementLoading}
           />
         </div>
@@ -213,7 +224,7 @@ const UserDetails = (props: Props) => {
         </div>
       ) : activeTap === 'invoices' && (
         <div className="col-md-12">
-          <UserInvoices customerId={user._id} />
+          <UserInvoices customerId={user._id} onInvoiceCanceled={refreshWalletAndStatement} />
         </div>
       )}
 

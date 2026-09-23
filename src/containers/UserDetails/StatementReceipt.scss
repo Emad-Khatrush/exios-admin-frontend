@@ -1,0 +1,267 @@
+// Printed receipt (A5). Light only on purpose: it is a paper document.
+.receipt {
+  --rc-ink: #16191f;
+  --rc-muted: #6b7280;
+  --rc-line: #e3e6eb;
+  --rc-surface: #f5f6f8;
+  --rc-accent: #0f7a4f;
+  --rc-accent-soft: #e9f5ef;
+
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 34px 32px 22px;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--rc-ink);
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', sans-serif;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 2px rgba(22, 25, 31, 0.06), 0 12px 32px rgba(22, 25, 31, 0.08);
+  overflow: hidden;
+
+  // Solid accent rule marks the receipt type at a glance
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 6px;
+    background: var(--rc-accent);
+  }
+
+  &--out {
+    --rc-accent: #b4432b;
+    --rc-accent-soft: #fbeeea;
+  }
+
+  p { margin: 0; }
+  dl, dd { margin: 0; }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    img {
+      width: 72px;
+      height: auto;
+      flex-shrink: 0;
+    }
+  }
+
+  &__company {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 2px !important;
+  }
+
+  &__muted {
+    font-size: 0.78rem;
+    color: var(--rc-muted);
+    line-height: 1.6;
+  }
+
+  &__doc { text-align: left; }
+
+  &__title {
+    margin: 0 0 10px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--rc-accent);
+  }
+
+  &__meta {
+    display: grid;
+    gap: 4px;
+
+    div {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      font-size: 0.8rem;
+    }
+
+    dt { color: var(--rc-muted); font-weight: 500; }
+    dd { font-weight: 600; }
+  }
+
+  &__mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.02em;
+  }
+
+  &__amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    background: var(--rc-accent-soft);
+  }
+
+  &__amount-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--rc-muted);
+    margin-bottom: 4px !important;
+  }
+
+  &__amount-value {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 2.1rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--rc-accent);
+  }
+
+  &__amount-currency {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--rc-ink);
+  }
+
+
+  &__rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px dashed var(--rc-line);
+
+    &:last-child { border-bottom: 0; }
+
+    dt {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--rc-muted);
+      padding-top: 2px;
+    }
+
+    dd {
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__code {
+    display: inline-block;
+    margin-inline-start: 10px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--rc-muted);
+    background: var(--rc-surface);
+    vertical-align: middle;
+  }
+
+  &__signatures {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  // Blank space to sign, then the line, then the label under it
+  &__signature {
+    padding-top: 52px;
+    text-align: center;
+
+    span {
+      display: block;
+      padding-top: 6px;
+      border-top: 1.5px solid var(--rc-ink);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--rc-muted);
+    }
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 22px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rc-line);
+    font-size: 0.72rem;
+    color: var(--rc-muted);
+  }
+
+  @media (max-width: 560px) {
+    padding: 28px 18px 18px;
+
+    &__head { flex-direction: column; }
+    &__doc { text-align: right; }
+    &__meta div { justify-content: flex-start; }
+    &__amount { flex-direction: column; align-items: flex-start; }
+    &__amount-value { font-size: 1.7rem; }
+    &__row { grid-template-columns: 1fr; gap: 2px; }
+  }
+
+  @media print {
+    // Fill the A5 sheet: no card chrome, keep the desktop layout
+    min-height: 100vh;
+    padding: 12mm 11mm 8mm;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 12px;
+
+    &__head { flex-direction: row; }
+    &__doc { text-align: left; }
+    &__meta div { justify-content: flex-end; }
+    &__amount { flex-direction: row; align-items: flex-end; }
+    &__row { grid-template-columns: 110px minmax(0, 1fr); gap: 14px; }
+    &__foot { margin-top: auto; }
+  }
+}
+
+// Row trigger in the cashflow list
+.receipt-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #0f7a4f;
+  background: #e9f5ef;
+  transition: background 200ms ease, transform 120ms ease;
+
+  &:hover { background: #d8eee2; }
+  &:active { transform: scale(0.97); }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+  &.is-out {
+    color: #b4432b;
+    background: #fbeeea;
+
+    &:hover { background: #f6ddd5; }
+  }
+}

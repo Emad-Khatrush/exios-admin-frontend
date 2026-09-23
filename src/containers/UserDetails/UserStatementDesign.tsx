@@ -51,18 +51,19 @@ const UserStatementDesign = (props: { userStatements: any[] }) => {
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen font-sans p-4 sm:p-8 flex flex-col items-center" dir="rtl">
-      <div className="w-full max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <button onClick={() => {
-            setPrintMode('all');
-            setOpenDialog(true);
-          }}>
-            <Download size={18} />
-            تحميل كشف الحساب
-          </button>
-        </div>
-      </div>
+    <>
+      <button
+        type="button"
+        className="cashflow__print-trigger"
+        dir="rtl"
+        onClick={() => {
+          setPrintMode('all');
+          setOpenDialog(true);
+        }}
+      >
+        <Download size={15} />
+        تحميل كشف الحساب
+      </button>
 
       <Dialog
         open={openDialog}
@@ -172,7 +173,7 @@ const UserStatementDesign = (props: { userStatements: any[] }) => {
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </>
   );
 };
 

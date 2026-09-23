@@ -154,3 +154,27 @@ export const calculateTotalWallet = (wallet: any) => {
 
   return { totalUsd, totalLyd }
 }
+
+// Statement totals are stored as a running balance at insert time, so a payment added
+// with a past date leaves every later total wrong. Re-sort by date and rebuild the balance.
+export const recalculateStatementTotals = (statements: any[] = []) => {
+  if (!statements?.length) return [];
+
+  const signedAmount = (statement: any) => (statement.calculationType === '-' ? -1 : 1) * Number(statement.amount || 0);
+  const round = (value: number) => Math.round(value * 100) / 100;
+
+  // Balance before the first ever inserted record (usually 0), taken from its stored total
+  const firstInserted = [...statements].sort((a, b) => String(a._id).localeCompare(String(b._id)))[0];
+  const openingBalance = Number(firstInserted.total || 0) - signedAmount(firstInserted);
+
+  const sorted = [...statements].sort((a, b) => {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return diff !== 0 ? diff : String(a._id).localeCompare(String(b._id));
+  });
+
+  let runningTotal = openingBalance;
+  return sorted.map((statement) => {
+    runningTotal = round(runningTotal + signedAmount(statement));
+    return { ...statement, total: runningTotal };
+  });
+}

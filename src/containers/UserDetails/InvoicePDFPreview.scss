@@ -1,0 +1,253 @@
+// Printed freight invoice (A4). Light only on purpose: it is a paper document.
+.invoice-doc {
+  --iv-ink: #16191f;
+  --iv-muted: #6b7280;
+  --iv-faint: #9aa1ad;
+  --iv-line: #e3e6eb;
+  --iv-surface: #f5f6f8;
+  --iv-accent: #0f7a4f;
+
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 794px; // A4 at 96dpi
+  min-height: 1123px;
+  padding: 48px 52px 32px;
+  box-sizing: border-box;
+  background: #fff;
+  color: var(--iv-ink);
+  font-family: 'Red Hat Text', 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 6px;
+    background: var(--iv-accent);
+  }
+
+  p { margin: 0; }
+  dl, dd { margin: 0; }
+
+  [dir='rtl'] { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+
+  &__mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.95em;
+  }
+
+  &__muted { color: var(--iv-muted); }
+  &__strong { font-weight: 600; }
+
+  &__label {
+    margin-bottom: 4px !important;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--iv-muted);
+  }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    img { width: 96px; height: auto; }
+  }
+
+  &__company {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  &__company-ar {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px !important;
+  }
+
+  &__title-block { text-align: right; }
+
+  &__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  &__title-ar {
+    margin-bottom: 12px !important;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--iv-accent);
+  }
+
+  &__meta {
+    display: grid;
+    gap: 3px;
+
+    div {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    dt { color: var(--iv-muted); }
+    dd { font-weight: 600; min-width: 84px; }
+  }
+
+  &__parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    > div {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: var(--iv-surface);
+    }
+
+    .invoice-doc__strong { font-size: 15px; }
+  }
+
+  &__plus { font-weight: 500; color: var(--iv-muted); }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th {
+      padding: 0 10px 8px;
+      border-bottom: 1.5px solid var(--iv-ink);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: left;
+      color: var(--iv-muted);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--iv-line);
+      vertical-align: top;
+    }
+
+    th:first-child, td:first-child { padding-left: 0; width: 28px; }
+    th:last-child, td:last-child { padding-right: 0; }
+
+    .is-num { text-align: right; white-space: nowrap; }
+
+    tr { break-inside: avoid; }
+  }
+
+  &__summary {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  &__notes p:not(.invoice-doc__label) {
+    max-width: 60ch;
+    color: var(--iv-ink);
+  }
+
+  &__totals {
+    display: grid;
+    gap: 6px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    dt { color: var(--iv-muted); }
+    dd { font-weight: 600; }
+
+    .is-total {
+      margin-top: 4px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--iv-ink);
+      color: #fff;
+
+      dt { color: rgba(255, 255, 255, 0.7); font-weight: 500; }
+      dd { font-size: 17px; font-weight: 700; }
+    }
+  }
+
+  &__sign {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 32px;
+    align-items: end;
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--iv-line);
+  }
+
+  &__terms {
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--iv-muted);
+  }
+
+  &__signature {
+    padding-top: 56px;
+    text-align: center;
+
+    span {
+      display: block;
+      padding-top: 6px;
+      border-top: 1.5px solid var(--iv-ink);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--iv-muted);
+    }
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--iv-faint);
+  }
+
+  // Cancelled copies carry a stamp so a printed one can't be mistaken for a live invoice
+  &__stamp {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-18deg);
+    padding: 10px 28px;
+    border: 3px solid rgba(180, 67, 43, 0.55);
+    border-radius: 10px;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: rgba(180, 67, 43, 0.55);
+    pointer-events: none;
+  }
+
+  @media print {
+    width: 100%;
+    min-height: 100vh;
+    padding: 14mm 14mm 10mm;
+  }
+}

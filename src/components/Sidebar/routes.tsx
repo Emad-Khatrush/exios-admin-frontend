@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar, FaTrashAlt } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -80,6 +80,11 @@ const adminRoutes = [
       title: 'Odo Export',
       path: '/odo-export',
       icon: <FaFileInvoiceDollar className="sidebar-icon" />,
+     },
+     {
+      title: 'Deleted Payments',
+      path: '/deleted-payments',
+      icon: <FaTrashAlt className="sidebar-icon" />,
      },
      {
       mainTitle: 'Inventory'

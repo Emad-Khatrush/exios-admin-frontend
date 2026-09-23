@@ -1,13 +1,12 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Paper from '@mui/material/Paper';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import Checkbox from '@mui/material/Checkbox';
 import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
+import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -17,8 +16,11 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Chip from '@mui/material/Chip';
+import Skeleton from '@mui/material/Skeleton';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { alpha } from '@mui/material/styles';
-import Badge from '../Badge/Badge';
 import api from '../../api';
 import { Inventory } from '../../models';
 import { Alert, Backdrop, CircularProgress, Dialog, Snackbar } from '@mui/material';
@@ -62,50 +64,269 @@ type Props = {
   fetchSelectedOrders?: () => void
 }
 
-type PanelColor = 'success' | 'error' | 'info' | 'warning' | 'primary' | 'secondary';
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
+
+type ActionTone = 'primary' | 'danger' | 'neutral';
 
 type ActionButtonProps = {
   icon: React.ReactNode
   label: string
   tooltip: string
-  color: PanelColor
+  tone?: ActionTone
+  count?: number
   onClick: () => void
   disabled?: boolean
 }
 
-const ActionButton = ({ icon, label, tooltip, color, onClick, disabled }: ActionButtonProps) => (
-  <Tooltip title={tooltip} arrow placement="top">
-    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-      <IconButton
-        color={color}
+const ActionButton = ({ icon, label, tooltip, tone = 'neutral', count, onClick, disabled }: ActionButtonProps) => (
+  <Tooltip title={tooltip} arrow placement="left">
+    <span style={{ display: 'block', width: '100%' }}>
+      <ButtonBase
         onClick={onClick}
         disabled={disabled}
-        size="small"
         aria-label={tooltip}
-        sx={{
-          border: '1px solid',
-          borderColor: disabled ? 'divider' : `${color}.main`,
-          borderRadius: 2,
-          width: 46,
-          height: 46,
+        sx={(theme) => {
+          const main = tone === 'primary' ? theme.palette.primary.main : tone === 'danger' ? theme.palette.error.main : theme.palette.text.primary;
+          return {
+            width: '100%',
+            justifyContent: 'flex-start',
+            gap: 1.25,
+            px: 1.25,
+            py: 1,
+            borderRadius: 1.5,
+            fontSize: 13,
+            fontWeight: 500,
+            color: tone === 'primary' ? theme.palette.primary.contrastText : main,
+            bgcolor: tone === 'primary' ? main : 'transparent',
+            transition: `background-color 200ms ${EASE}, transform 120ms ${EASE}, opacity 200ms ${EASE}`,
+            '&:hover': {
+              bgcolor: tone === 'primary' ? theme.palette.primary.dark : alpha(main, 0.07),
+            },
+            '&:active': { transform: 'scale(0.98)' },
+            '&.Mui-focusVisible': { outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`, outlineOffset: 2 },
+            '&.Mui-disabled': {
+              opacity: 0.38,
+              bgcolor: tone === 'primary' ? alpha(main, 0.5) : 'transparent',
+            },
+          };
         }}
       >
-        {icon}
-      </IconButton>
-      <Typography
-        variant="caption"
-        sx={{ mt: 0.25, fontSize: 10, lineHeight: 1.2, color: disabled ? 'text.disabled' : 'text.secondary' }}
-      >
-        {label}
-      </Typography>
+        <Box component="span" sx={{ display: 'flex', fontSize: 14, flexShrink: 0 }}>{icon}</Box>
+        <Box component="span" sx={{ flex: 1, textAlign: 'start', whiteSpace: 'nowrap' }}>{label}</Box>
+        {!!count && (
+          <Box component="span" sx={{ fontSize: 11, fontVariantNumeric: 'tabular-nums', opacity: 0.75 }}>{count}</Box>
+        )}
+      </ButtonBase>
     </span>
   </Tooltip>
 );
 
-const EmptyState = ({ text }: { text: string }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 340, color: 'text.disabled' }}>
-    <AiOutlineInbox size={40} />
-    <Typography variant="body2" sx={{ mt: 1 }}>{text}</Typography>
+const RailLabel = ({ children }: { children: React.ReactNode }) => (
+  <Typography sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', px: 1.25, pt: 1, pb: 0.25 }}>
+    {children}
+  </Typography>
+);
+
+const EmptyState = ({ title, hint }: { title: string, hint?: string }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 280, px: 4, textAlign: 'center' }}>
+    <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover', color: 'text.secondary', mb: 1.5 }}>
+      <AiOutlineInbox size={24} />
+    </Box>
+    <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{title}</Typography>
+    {hint && <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5, maxWidth: 280, textWrap: 'pretty' }}>{hint}</Typography>}
+  </Box>
+);
+
+const RowSkeleton = () => (
+  <Box sx={{ display: 'flex', gap: 1.5, px: 2, py: 1.75, borderBottom: '1px solid', borderColor: 'divider' }}>
+    <Skeleton variant="rectangular" width={18} height={18} sx={{ mt: 0.25, borderRadius: 0.75 }} />
+    <Box sx={{ flex: 1 }}>
+      <Skeleton width="35%" height={18} />
+      <Skeleton width="55%" height={16} />
+      <Skeleton width="80%" height={14} />
+    </Box>
+  </Box>
+);
+
+type StatusTone = 'positive' | 'neutral' | 'accent';
+
+const StatusTag = ({ label, tone }: { label: string, tone: StatusTone }) => (
+  <Box
+    component="span"
+    sx={(theme) => {
+      const color = tone === 'positive' ? theme.palette.success.main : tone === 'accent' ? theme.palette.primary.main : theme.palette.text.secondary;
+      return {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        px: 0.75,
+        py: 0.125,
+        borderRadius: 1,
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 1.6,
+        whiteSpace: 'nowrap',
+        color,
+        bgcolor: alpha(color, 0.09),
+        '&::before': { content: '""', width: 5, height: 5, borderRadius: '50%', bgcolor: color },
+      };
+    }}
+  >
+    {label}
+  </Box>
+);
+
+const IdField = ({ label, value }: { label: string, value?: string }) => {
+  if (!value) return null;
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+      <Box component="span" sx={{ fontSize: 11, color: 'text.secondary', flexShrink: 0 }}>{label}</Box>
+      <Box component="span" sx={{ fontFamily: MONO, fontSize: 12, color: 'text.primary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</Box>
+    </Box>
+  );
+};
+
+type OrderRowProps = {
+  order: any
+  checked: boolean
+  onToggle: () => void
+  labelId: string
+  detailed?: boolean
+}
+
+const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps) => {
+  const pkg = order?.paymentList?.deliveredPackages;
+  const status = order?.paymentList?.status;
+  const meta = detailed ? [
+    pkg?.weight?.total ? `${pkg.weight.total} ${pkg.weight.measureUnit || ''}`.trim() : '',
+    order?.shipment?.fromWhere ? order?.shipment?.toWhere : '',
+    pkg?.locationPlace,
+    pkg?.boxesCount ? `${pkg.boxesCount} صناديق` : '',
+  ].filter(Boolean) : [];
+
+  return (
+    <ListItemButton
+      role="listitem"
+      selected={checked}
+      onClick={onToggle}
+      sx={(theme) => ({
+        alignItems: 'flex-start',
+        gap: 1.25,
+        px: 2,
+        py: 1.5,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        boxShadow: checked ? `inset 3px 0 0 ${theme.palette.primary.main}` : 'none',
+        transition: `background-color 150ms ${EASE}, box-shadow 150ms ${EASE}`,
+        '&.Mui-selected': { bgcolor: alpha(theme.palette.primary.main, 0.05) },
+        '&.Mui-selected:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+      })}
+    >
+      <Checkbox
+        edge="start"
+        size="small"
+        checked={checked}
+        tabIndex={-1}
+        disableRipple
+        sx={{ p: 0, mt: 0.25, ml: 0 }}
+        inputProps={{ 'aria-labelledby': labelId }}
+      />
+      <Box id={labelId} sx={{ flex: 1, minWidth: 0 }}>
+        <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" sx={{ rowGap: 0.5 }}>
+          <Box
+            component="a"
+            href={`/invoice/${order?._id}/edit`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            sx={{
+              fontFamily: MONO,
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'primary.main',
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline', textUnderlineOffset: 3 },
+            }}
+          >
+            {order?.orderId}
+          </Box>
+          {detailed && (
+            <StatusTag label={status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} tone={status?.arrivedLibya ? 'positive' : 'neutral'} />
+          )}
+          {detailed && status?.received && <StatusTag label="تم التسليم" tone="accent" />}
+        </Stack>
+
+        <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 0.25, minWidth: 0 }}>
+          <Typography noWrap sx={{ fontSize: 14, fontWeight: 500 }}>
+            {order?.customerInfo?.fullName}
+          </Typography>
+          {order?.user?.customerId && (
+            <Typography sx={{ fontFamily: MONO, fontSize: 11, color: 'text.secondary', flexShrink: 0 }}>
+              {order.user.customerId}
+            </Typography>
+          )}
+        </Stack>
+
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ mt: 0.5, rowGap: 0.25 }}>
+          <IdField label="تتبع الصين" value={pkg?.trackingNumber} />
+          <IdField label="رقم المصدر" value={pkg?.receiptNo} />
+        </Stack>
+
+        {meta.length > 0 && (
+          <Typography sx={{ mt: 0.5, fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+            {meta.join('  ·  ')}
+          </Typography>
+        )}
+      </Box>
+    </ListItemButton>
+  );
+};
+
+const panelSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  height: { xs: 560, md: 720 },
+  borderRadius: 3,
+  overflow: 'hidden',
+  border: '1px solid',
+  borderColor: 'divider',
+  bgcolor: 'background.paper',
+} as const;
+
+const panelHeaderSx = {
+  px: 2,
+  py: 1.5,
+  borderBottom: '1px solid',
+  borderColor: 'divider',
+} as const;
+
+const listSx = {
+  flex: 1,
+  minHeight: 0,
+  overflow: 'auto',
+  p: 0,
+} as const;
+
+const fieldSx = {
+  '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13, bgcolor: 'background.paper' },
+} as const;
+
+type ConfirmState = {
+  title: string
+  message: string
+  confirmLabel: string
+  danger?: boolean
+  onConfirm: () => void
+} | null;
+
+const Stat = ({ label, value, muted }: { label: string, value: React.ReactNode, muted?: boolean }) => (
+  <Box sx={{ minWidth: 0 }}>
+    <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.25 }}>{label}</Typography>
+    <Typography sx={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', color: muted ? 'text.disabled' : 'text.primary' }}>
+      {value}
+    </Typography>
   </Box>
 );
 
@@ -124,6 +345,7 @@ const TransferOrdersList = (props: Props) => {
   const [ isLoading, setLoading ] = React.useState(false);
   const [ component, setComponent ] = React.useState<any>();
   const [ showDialog, setShowDialog ] = React.useState(false);
+  const [ confirm, setConfirm ] = React.useState<ConfirmState>(null);
 
   React.useEffect(() => {
     const searchedOrders = props.orders.filter((order: any) => {
@@ -248,12 +470,17 @@ const TransferOrdersList = (props: Props) => {
   const addInventoryToWarehouseWithConfirm = (office: string) => {
     if (rightChecked.length === 0) return;
     const officeLabel = office === 'tripoli' ? 'طرابلس' : 'بنغازي';
-    const confirmed = window.confirm(`هل أنت متأكد من إضافة ${rightChecked.length} عنصر إلى مخزن ${officeLabel}؟`);
-    if (confirmed) addInventoryToWarehouse(office);
+    setConfirm({
+      title: `إضافة إلى مخزن ${officeLabel}`,
+      message: `سيتم إضافة ${rightChecked.length} عنصر إلى مخزن ${officeLabel}.`,
+      confirmLabel: 'إضافة',
+      onConfirm: () => addInventoryToWarehouse(office),
+    });
   };
 
   const handleCheckedRight = async () => {
     try {
+      setLoading(true);
       const res = await api.update(`inventory/orders?id=${props.inventory?._id}`, leftChecked);
       const inventory = res.data;
       setLeft(not(left, leftChecked));
@@ -294,8 +521,13 @@ const TransferOrdersList = (props: Props) => {
 
   const handleCheckedLeftWithConfirm = () => {
     if (rightChecked.length === 0) return;
-    const confirmed = window.confirm(`هل أنت متأكد من حذف ${rightChecked.length} عنصر من قائمة الجرد؟`);
-    if (confirmed) handleCheckedLeft();
+    setConfirm({
+      title: 'إزالة من قائمة الجرد',
+      message: `سيتم حذف ${rightChecked.length} عنصر من قائمة الجرد.`,
+      confirmLabel: 'إزالة',
+      danger: true,
+      onConfirm: handleCheckedLeft,
+    });
   };
 
   const updateSelectedOrdersStatus = async () => {
@@ -325,124 +557,68 @@ const TransferOrdersList = (props: Props) => {
 
   const updateSelectedOrdersStatusWithConfirm = () => {
     if (rightChecked.length === 0) return;
-    const confirmed = window.confirm(`هل أنت متأكد من تحديث حالة ${rightChecked.length} عنصر إلى "وصلت ليبيا"؟ سيتم إعادة تحميل الصفحة.`);
-    if (confirmed) updateSelectedOrdersStatus();
+    setConfirm({
+      title: 'تحديث الحالة إلى "وصلت ليبيا"',
+      message: `سيتم تحديث حالة ${rightChecked.length} عنصر، ثم إعادة تحميل الصفحة.`,
+      confirmLabel: 'تحديث',
+      onConfirm: updateSelectedOrdersStatus,
+    });
   };
 
+  const panelHeader = (title: string, items: readonly number[], ariaLabel: string, trailing?: React.ReactNode, subtitle?: React.ReactNode) => (
+    <Stack direction="row" alignItems="center" spacing={1.25}>
+      <Checkbox
+        size="small"
+        sx={{ p: 0.5, ml: -0.5 }}
+        onClick={handleToggleAll(items)}
+        checked={numberOfChecked(items) === items.length && items.length !== 0}
+        indeterminate={numberOfChecked(items) !== items.length && numberOfChecked(items) !== 0}
+        disabled={items.length === 0}
+        inputProps={{ 'aria-label': ariaLabel }}
+      />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{title}</Typography>
+        <Typography sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+          {subtitle}
+        </Typography>
+      </Box>
+      {trailing}
+    </Stack>
+  );
+
   const customList = (title: string, items: readonly number[]) => {
+    const selectedCount = numberOfChecked(items);
+
     return (
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 4,
-          width: { xs: '100%', sm: 400 },
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
-        }}
-      >
-        <Box
-          sx={{
-            px: 2,
-            py: 1.5,
-            background: (theme) => `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.main, 0.01)} 100%)`,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Checkbox
-              onClick={handleToggleAll(items)}
-              checked={numberOfChecked(items) === items.length && items.length !== 0}
-              indeterminate={
-                numberOfChecked(items) !== items.length && numberOfChecked(items) !== 0
-              }
-              disabled={items.length === 0}
-              inputProps={{
-                'aria-label': 'تحديد كل نتائج البحث',
-              }}
-            />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {numberOfChecked(items)} / {items.length} محدد
-              </Typography>
-            </Box>
-            {props.isSearching && <CircularProgress size={18} />}
-          </Stack>
+      <Box component="section" aria-label={title} sx={panelSx}>
+        <Box sx={panelHeaderSx}>
+          {panelHeader(
+            title,
+            items,
+            'تحديد كل نتائج البحث',
+            props.isSearching ? <CircularProgress size={16} thickness={5} /> : undefined,
+            selectedCount > 0 ? `${selectedCount} محدد من ${items.length}` : `${items.length} طلبية`,
+          )}
         </Box>
 
-        <List
-          sx={{
-            width: '100%',
-            height: 420,
-            bgcolor: 'background.paper',
-            overflow: 'auto',
-            p: 0,
-          }}
-          dense
-          component="div"
-          role="list"
-        >
+        <List sx={listSx} dense component="div" role="list">
           {props.isSearching ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress size={28} />
-            </Box>
+            Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)
           ) : items.length === 0 ? (
-            <EmptyState text="لا توجد نتائج بحث" />
+            <EmptyState title="لا توجد نتائج" hint="جرّب البحث باسم زبون آخر أو رقم تتبع مختلف." />
           ) : (
-            items.map((value: any) => {
-              const labelId = `transfer-list-all-item-${value?._id}-label`;
-              const isItemChecked = checked.indexOf(value) !== -1;
-
-              return (
-                <ListItemButton
-                  key={value?._id}
-                  role="listitem"
-                  selected={isItemChecked}
-                  onClick={handleToggle(value)}
-                  sx={{ alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider', py: 1.25 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
-                    <Checkbox
-                      edge="start"
-                      checked={isItemChecked}
-                      tabIndex={-1}
-                      disableRipple
-                      inputProps={{
-                        'aria-labelledby': labelId,
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    id={labelId}
-                    primary={
-                      <Stack spacing={0.5}>
-                        <p className='m-0'>
-                          <a
-                            style={{ textDecoration: 'none' }}
-                            className='m-0'
-                            href={`/invoice/${value?._id}/edit`}
-                            target='__blank'
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {value.orderId}
-                          </a>
-                        </p>
-                        <p className='m-0'>{`${value?.customerInfo?.fullName}`}</p>
-                        <Badge text={`Tracking Number: ${value?.paymentList?.deliveredPackages?.trackingNumber} `} />
-                        <br />
-                        {value?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${value?.paymentList?.deliveredPackages?.receiptNo} `} /> }
-                      </Stack>
-                    }
-                  />
-                </ListItemButton>
-              );
-            })
+            items.map((value: any) => (
+              <OrderRow
+                key={value?._id}
+                order={value}
+                checked={checked.indexOf(value) !== -1}
+                onToggle={handleToggle(value)}
+                labelId={`transfer-list-all-item-${value?._id}-label`}
+              />
+            ))
           )}
         </List>
-      </Paper>
+      </Box>
     )
   }
 
@@ -452,61 +628,22 @@ const TransferOrdersList = (props: Props) => {
         .filter((order: any) => matchesCustomerSearch(order, rightSearch))
         .filter((order: any) => officeFilter.length === 0 || officeFilter.includes((order as any)?.shipment?.toWhere))
     );
-    const weight = calculateWeightsOfPackages(rightChecked);
     const isFiltered = !!rightSearch || officeFilter.length > 0;
+    const selectedCount = numberOfChecked(filteredItems);
+    const hasActiveChips = !!rightSearch || officeFilter.length > 0 || sortBy !== 'none';
 
     return (
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 4,
-          width: { xs: '100%', sm: 400 },
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
-        }}
-      >
-        <Box
-          sx={{
-            px: 2,
-            py: 1.5,
-            background: (theme) => `linear-gradient(180deg, ${alpha(theme.palette.success.main, 0.07)} 0%, ${alpha(theme.palette.success.main, 0.01)} 100%)`,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Checkbox
-              onClick={handleToggleAll(filteredItems)}
-              checked={numberOfChecked(filteredItems) === filteredItems.length && filteredItems.length !== 0}
-              indeterminate={
-                numberOfChecked(filteredItems) !== filteredItems.length && numberOfChecked(filteredItems) !== 0
-              }
-              disabled={filteredItems.length === 0}
-              inputProps={{
-                'aria-label': 'تحديد كل عناصر قائمة الجرد',
-              }}
-            />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {numberOfChecked(filteredItems)} / {filteredItems.length}{isFiltered ? ` (من أصل ${items.length})` : ''} محدد
-              </Typography>
-            </Box>
-            <Tooltip title="تصدير قائمة الجرد إلى Excel" arrow>
-              <span>
-                <IconButton size="small" color="success" onClick={handleDownload} aria-label="تصدير Excel">
-                  <FaFileExcel />
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Stack>
-
-          {weight.length > 2 && (
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }} color="text.secondary">
-              الوزن الإجمالي للمحدد: {weight}
-            </Typography>
+      <Box component="section" aria-label={title} sx={panelSx}>
+        <Box sx={{ ...panelHeaderSx, bgcolor: (theme) => alpha(theme.palette.text.primary, 0.015) }}>
+          {panelHeader(
+            title,
+            filteredItems,
+            'تحديد كل عناصر قائمة الجرد',
+            undefined,
+            <>
+              {selectedCount > 0 ? `${selectedCount} محدد من ${filteredItems.length}` : `${filteredItems.length} طلبية`}
+              {isFiltered ? ` · من أصل ${items.length}` : ''}
+            </>,
           )}
 
           <TextField
@@ -515,10 +652,10 @@ const TransferOrdersList = (props: Props) => {
             placeholder="بحث بالاسم، رمز العميل، أو رقم التتبع"
             value={rightSearch}
             onChange={(e) => setRightSearch(e.target.value)}
-            sx={{ mt: 1.9, bgcolor: 'background.paper', borderRadius: 1.5 }}
+            sx={{ ...fieldSx, mt: 1.5 }}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">
+                <InputAdornment position="start" sx={{ color: 'text.secondary' }}>
                   <AiOutlineSearch />
                 </InputAdornment>
               ),
@@ -533,18 +670,15 @@ const TransferOrdersList = (props: Props) => {
           />
 
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <FormControl size="small" sx={{ flex: 1, minWidth: 0, bgcolor: 'background.paper', borderRadius: 1.5 }}>
+            <FormControl size="small" sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
               <Select
                 displayEmpty
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'none' | 'name' | 'customerId')}
                 renderValue={(value) => (
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    {sortDir === 'asc' ? <FaSortAlphaDown size={12} /> : <FaSortAlphaUp size={12} />}
-                    <Typography variant="caption" noWrap>
-                      {value === 'name' ? 'ترتيب: الاسم' : value === 'customerId' ? 'ترتيب: رمز العميل' : 'بدون ترتيب'}
-                    </Typography>
-                  </Stack>
+                  <Typography sx={{ fontSize: 13 }} noWrap>
+                    {value === 'name' ? 'ترتيب: الاسم' : value === 'customerId' ? 'ترتيب: رمز العميل' : 'بدون ترتيب'}
+                  </Typography>
                 )}
               >
                 <MenuItem value="none">بدون ترتيب</MenuItem>
@@ -558,53 +692,53 @@ const TransferOrdersList = (props: Props) => {
                   size="small"
                   onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
                   disabled={sortBy === 'none'}
-                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}
+                  aria-label="عكس اتجاه الترتيب"
+                  sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}
                 >
                   {sortDir === 'asc' ? <FaSortAlphaDown size={14} /> : <FaSortAlphaUp size={14} />}
                 </IconButton>
               </span>
             </Tooltip>
+
+            {availableOffices.length > 0 && (
+              <FormControl size="small" sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
+                <Select
+                  multiple
+                  displayEmpty
+                  value={officeFilter}
+                  onChange={(e) => setOfficeFilter(
+                    typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[])
+                  )}
+                  renderValue={(selected: any) => (
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <FaBuilding size={11} />
+                      <Typography sx={{ fontSize: 13 }} noWrap>
+                        {selected.length === 0 ? 'كل المكاتب' : `${selected.length} مكتب`}
+                      </Typography>
+                    </Stack>
+                  )}
+                >
+                  {availableOffices.map((office) => (
+                    <MenuItem key={office} value={office}>
+                      <Checkbox size="small" checked={officeFilter.indexOf(office) > -1} />
+                      {office}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
           </Stack>
 
-          {availableOffices.length > 0 && (
-            <FormControl size="small" fullWidth sx={{ mt: 1, bgcolor: 'background.paper', borderRadius: 1.5 }}>
-              <Select
-                multiple
-                displayEmpty
-                value={officeFilter}
-                onChange={(e) => setOfficeFilter(
-                  typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[])
-                )}
-                renderValue={(selected: any) => (
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <FaBuilding size={12} />
-                    <Typography variant="caption" noWrap>
-                      {selected.length === 0 ? 'كل المكاتب / الوجهات' : `${selected.length} مكتب محدد`}
-                    </Typography>
-                  </Stack>
-                )}
-              >
-                {availableOffices.map((office) => (
-                  <MenuItem key={office} value={office}>
-                    <Checkbox size="small" checked={officeFilter.indexOf(office) > -1} />
-                    {office}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
-          {(rightSearch || officeFilter.length > 0 || sortBy !== 'none') && (
+          {hasActiveChips && (
             <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" sx={{ mt: 1, rowGap: 0.5 }}>
               {rightSearch && (
-                <Chip size="small" label={`بحث: ${rightSearch}`} onDelete={() => setRightSearch('')} />
+                <Chip size="small" sx={{ borderRadius: 1 }} label={`بحث: ${rightSearch}`} onDelete={() => setRightSearch('')} />
               )}
               {officeFilter.map((office) => (
                 <Chip
                   key={office}
                   size="small"
-                  color="primary"
-                  variant="outlined"
+                  sx={{ borderRadius: 1 }}
                   label={office}
                   onDelete={() => setOfficeFilter(officeFilter.filter((o) => o !== office))}
                 />
@@ -612,172 +746,162 @@ const TransferOrdersList = (props: Props) => {
               {sortBy !== 'none' && (
                 <Chip
                   size="small"
-                  variant="outlined"
+                  sx={{ borderRadius: 1 }}
                   label={sortBy === 'name' ? 'ترتيب بالاسم' : 'ترتيب برمز العميل'}
                   onDelete={() => setSortBy('none')}
                 />
               )}
+              <Button
+                size="small"
+                onClick={() => { setRightSearch(''); setOfficeFilter([]); setSortBy('none'); }}
+                sx={{ minWidth: 0, px: 0.75, fontSize: 12, color: 'text.secondary' }}
+              >
+                مسح الكل
+              </Button>
             </Stack>
           )}
         </Box>
 
-        <List
-          sx={{
-            width: '100%',
-            height: 420,
-            bgcolor: 'background.paper',
-            overflow: 'auto',
-            p: 0,
-          }}
-          dense
-          component="div"
-          role="list"
-        >
+        <List sx={listSx} dense component="div" role="list">
           {filteredItems.length === 0 ? (
-            <EmptyState text={isFiltered ? 'لا توجد نتائج مطابقة لبحثك أو تصفيتك' : 'لا توجد طلبيات في قائمة الجرد'} />
+            isFiltered
+              ? <EmptyState title="لا توجد نتائج مطابقة" hint="غيّر كلمة البحث أو أزل تصفية المكاتب." />
+              : <EmptyState title="قائمة الجرد فارغة" hint="حدّد طلبيات من نتائج البحث ثم اضغط «إضافة» لنقلها هنا." />
           ) : (
-            filteredItems.map((order: any) => {
-              const labelId = `transfer-list-chosen-item-${order?._id}-label`;
-              const isItemChecked = checked.indexOf(order) !== -1;
-
-              return (
-                <ListItemButton
-                  key={order?._id}
-                  role="listitem"
-                  selected={isItemChecked}
-                  onClick={handleToggle(order)}
-                  sx={{ alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider', py: 1.25 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 36, mt: 0.5 }}>
-                    <Checkbox
-                      edge="start"
-                      checked={isItemChecked}
-                      tabIndex={-1}
-                      disableRipple
-                      inputProps={{
-                        'aria-labelledby': labelId,
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    id={labelId}
-                    primary={
-                      <Stack spacing={0.5}>
-                        <p className='m-0 d-flex gap-2'>
-                          <a
-                            style={{ textDecoration: 'none' }}
-                            className='m-0'
-                            href={`/invoice/${order?._id}/edit`}
-                            target='__blank'
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {order?.orderId}
-                          </a>
-                          <Badge text={`${order?.paymentList?.status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} `} />
-                          {order?.paymentList?.status?.received && <Badge text={'تم تسليم'} color="success" />}
-                        </p>
-                        <p className='m-0'>{`${order?.customerInfo?.fullName}`}</p>
-                        <Badge text={`Tracking Number: ${order?.paymentList?.deliveredPackages?.trackingNumber} `} />
-                        <br />
-                        {order?.paymentList?.deliveredPackages?.receiptNo && <Badge text={`Receipt number: ${order?.paymentList?.deliveredPackages?.receiptNo} `} /> }
-                        <div className='d-flex gap-3 mt-2 align-items-center'>
-                          {!!order?.paymentList?.deliveredPackages?.weight?.total && <Badge text={`${order.paymentList.deliveredPackages?.weight.total} ${order.paymentList?.deliveredPackages?.weight?.measureUnit}`} />}
-                          {order?.shipment?.fromWhere && <div><Badge text={`${order?.shipment?.toWhere}`} /></div>}
-                          {order?.paymentList?.deliveredPackages?.locationPlace && <Badge text={`${order?.paymentList?.deliveredPackages?.locationPlace}`} />}
-                        </div>
-                        <div className='mt-2'>{order?.paymentList?.deliveredPackages?.boxesCount && <Badge text={`Boxes Count: ${order?.paymentList?.deliveredPackages?.boxesCount}`} />}</div>
-                      </Stack>
-                    }
-                  />
-                </ListItemButton>
-              );
-            })
+            filteredItems.map((order: any) => (
+              <OrderRow
+                key={order?._id}
+                order={order}
+                checked={checked.indexOf(order) !== -1}
+                onToggle={handleToggle(order)}
+                labelId={`transfer-list-chosen-item-${order?._id}-label`}
+                detailed
+              />
+            ))
           )}
         </List>
-      </Paper>
+      </Box>
     )
   }
 
   const Tag = component === 'ActivityDialog' ? ActivityDialog : EditPackageWeight;
 
-  const totalWeight = calculateWeightsOfPackages(right);
+  const totalWeight = sumWeights(right);
+  const selectedWeight = sumWeights(rightChecked);
+  const selectedCount = leftChecked.length + rightChecked.length;
 
   return (
-    <Box>
-      <Paper
-        elevation={0}
+    <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
+      <Box
+        component="header"
         sx={{
-          mb: 2.5,
-          p: { xs: 1.75, sm: 2.25 },
-          borderRadius: 4,
+          mb: 2,
+          p: { xs: 2, sm: 2.5 },
+          pb: { xs: 2.25, sm: 2.75 },
+          borderRadius: 3,
           border: '1px solid',
           borderColor: 'divider',
-          background: (theme) => `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.success.main, 0.05)} 100%)`,
+          bgcolor: 'background.paper',
         }}
       >
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5}>
-          <Stack direction="row" spacing={1.25} alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={2}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 width: 40,
                 height: 40,
-                borderRadius: 2.5,
+                borderRadius: 2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: 'background.paper',
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
                 color: 'primary.main',
-                boxShadow: '0 2px 8px rgba(20, 30, 60, 0.08)',
                 flexShrink: 0,
               }}
             >
-              <FaWarehouse size={18} />
+              <FaWarehouse size={17} />
             </Box>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={800}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography component="h2" noWrap sx={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25 }}>
                 {props.inventory?.voyage || 'قائمة الجرد'}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {[props.inventory?.shippedCountry, props.inventory?.inventoryFinishedDate ? moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY') : ''].filter(Boolean).join(' • ')}
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                {[props.inventory?.shippedCountry, props.inventory?.inventoryFinishedDate ? moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY') : ''].filter(Boolean).join(' · ')}
               </Typography>
             </Box>
           </Stack>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
-            <Chip size="small" color="primary" variant="outlined" sx={{ bgcolor: 'background.paper' }} label={`${right.length} عنصر بالجرد`} />
-            {totalWeight.length > 2 && (
-              <Chip size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} label={`الوزن الكلي: ${totalWeight}`} />
-            )}
-          </Stack>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FaFileExcel size={13} />}
+            onClick={handleDownload}
+            sx={{
+              flexShrink: 0,
+              borderRadius: 1.5,
+              textTransform: 'none',
+              fontWeight: 500,
+              color: 'text.primary',
+              borderColor: 'divider',
+              '&:hover': { borderColor: 'text.secondary', bgcolor: 'action.hover' },
+            }}
+          >
+            تصدير Excel
+          </Button>
         </Stack>
-      </Paper>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="center" alignItems="flex-start" flexWrap="wrap">
-        <Box>{customList('نتائج البحث', left)}</Box>
-
-        <Paper
-          elevation={0}
+        <Box
           sx={{
-            borderRadius: 4,
-            p: 1.25,
-            display: 'flex',
-            flexDirection: { xs: 'row', md: 'column' },
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 1,
-            minWidth: { md: 88 },
-            alignSelf: { xs: 'stretch', md: 'center' },
-            border: '1px solid',
+            mt: 2.5,
+            pt: 2,
+            borderTop: '1px solid',
             borderColor: 'divider',
-            boxShadow: '0 2px 12px rgba(20, 30, 60, 0.06)',
+            display: 'grid',
+            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, minmax(0, 180px))' },
+            gap: 2,
           }}
         >
+          <Stat label="عناصر بالجرد" value={right.length} />
+          <Stat label="الوزن الكلي" value={formatWeight(totalWeight)} muted={!totalWeight.total} />
+          <Stat label="المحدد" value={selectedCount} muted={!selectedCount} />
+          <Stat label="وزن المحدد" value={formatWeight(selectedWeight)} muted={!selectedWeight.total} />
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 176px minmax(0, 1.2fr)' },
+          gap: 2,
+          alignItems: 'start',
+        }}
+      >
+        {customList('نتائج البحث', left)}
+
+        <Box
+          component="nav"
+          aria-label="إجراءات الطلبيات المحددة"
+          sx={{
+            position: { md: 'sticky' },
+            top: { md: 16 },
+            alignSelf: { md: 'center' },
+            p: 0.75,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            display: 'grid',
+            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)', md: '1fr' },
+            gap: 0.25,
+          }}
+        >
+          <Box sx={{ gridColumn: '1 / -1' }}><RailLabel>نقل</RailLabel></Box>
           <ActionButton
             icon={<FaArrowRight />}
             label="إضافة"
             tooltip="إضافة العناصر المحددة إلى قائمة الجرد"
-            color="success"
+            tone="primary"
+            count={leftChecked.length}
             onClick={handleCheckedRight}
             disabled={leftChecked.length === 0}
           />
@@ -785,19 +909,18 @@ const TransferOrdersList = (props: Props) => {
             icon={<FaArrowLeft />}
             label="إزالة"
             tooltip="إزالة العناصر المحددة من قائمة الجرد"
-            color="error"
+            tone="danger"
+            count={rightChecked.length}
             onClick={handleCheckedLeftWithConfirm}
             disabled={rightChecked.length === 0}
           />
 
-          <Divider flexItem orientation="vertical" sx={{ display: { xs: 'block', md: 'none' } }} />
-          <Divider flexItem sx={{ display: { xs: 'none', md: 'block' }, my: 0.25 }} />
-
+          <Divider sx={{ gridColumn: '1 / -1', my: 0.75 }} />
+          <Box sx={{ gridColumn: '1 / -1' }}><RailLabel>الطلبيات المحددة</RailLabel></Box>
           <ActionButton
             icon={<FaWarehouse />}
-            label="وصلت"
+            label="وصلت ليبيا"
             tooltip="تحديد حالة العناصر المحددة: وصلت ليبيا"
-            color="info"
             onClick={updateSelectedOrdersStatusWithConfirm}
             disabled={rightChecked.length === 0}
           />
@@ -805,7 +928,6 @@ const TransferOrdersList = (props: Props) => {
             icon={<FaWhatsapp />}
             label="واتساب"
             tooltip="إرسال رسالة واتساب / إضافة نشاط للعناصر المحددة"
-            color="success"
             onClick={() => {
               setComponent('ActivityDialog');
               setShowDialog(true);
@@ -814,9 +936,8 @@ const TransferOrdersList = (props: Props) => {
           />
           <ActionButton
             icon={<FaWeight />}
-            label="الوزن"
+            label="تعديل الوزن"
             tooltip="تعديل الوزن (عنصر واحد فقط)"
-            color="warning"
             onClick={() => {
               setComponent('EditPackageWeight');
               setShowDialog(true);
@@ -824,14 +945,12 @@ const TransferOrdersList = (props: Props) => {
             disabled={rightChecked.length !== 1}
           />
 
-          <Divider flexItem orientation="vertical" sx={{ display: { xs: 'block', md: 'none' } }} />
-          <Divider flexItem sx={{ display: { xs: 'none', md: 'block' }, my: 0.25 }} />
-
+          <Divider sx={{ gridColumn: '1 / -1', my: 0.75 }} />
+          <Box sx={{ gridColumn: '1 / -1' }}><RailLabel>نقل إلى مخزن</RailLabel></Box>
           <ActionButton
             icon={<IoIosListBox />}
             label="طرابلس"
             tooltip="إضافة العناصر المحددة إلى مخزن طرابلس"
-            color="primary"
             onClick={() => addInventoryToWarehouseWithConfirm('tripoli')}
             disabled={rightChecked.length === 0}
           />
@@ -839,14 +958,13 @@ const TransferOrdersList = (props: Props) => {
             icon={<IoIosListBox />}
             label="بنغازي"
             tooltip="إضافة العناصر المحددة إلى مخزن بنغازي"
-            color="secondary"
             onClick={() => addInventoryToWarehouseWithConfirm('benghazi')}
             disabled={rightChecked.length === 0}
           />
-        </Paper>
+        </Box>
 
-        <Box>{customListForChosen('قائمة الجرد', right)}</Box>
-      </Stack>
+        {customListForChosen('قائمة الجرد', right)}
+      </Box>
 
       <Dialog open={showDialog} onClose={() => setShowDialog(false)} className='p-5' fullWidth>
         <Tag
@@ -857,6 +975,36 @@ const TransferOrdersList = (props: Props) => {
           fetchSelectedOrders={props.fetchSelectedOrders}
           setChecked={() => setChecked([])}
         />
+      </Dialog>
+
+      <Dialog
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontSize: 17, fontWeight: 600, pb: 0.5 }}>{confirm?.title}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{confirm?.message}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setConfirm(null)} sx={{ color: 'text.secondary' }}>إلغاء</Button>
+          <Button
+            variant="contained"
+            color={confirm?.danger ? 'error' : 'primary'}
+            disableElevation
+            autoFocus
+            sx={{ borderRadius: 1.5 }}
+            onClick={() => {
+              const action = confirm?.onConfirm;
+              setConfirm(null);
+              action?.();
+            }}
+          >
+            {confirm?.confirmLabel}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar
@@ -883,16 +1031,23 @@ const TransferOrdersList = (props: Props) => {
   );
 }
 
-const calculateWeightsOfPackages = (orders: any) => {
-  let weight = 0;
+const sumWeights = (orders: any) => {
+  let total = 0;
   let unit = '';
   orders.forEach((order: any) => {
     if (!unit) {
       unit = order?.paymentList?.deliveredPackages?.weight?.measureUnit || '';
     }
-    weight += order?.paymentList?.deliveredPackages?.weight?.total || 0;
+    total += order?.paymentList?.deliveredPackages?.weight?.total || 0;
   })
-  return `${weight} ${unit}`;
+  return { total: Math.round(total * 100) / 100, unit };
 }
+
+const formatWeight = ({ total, unit }: { total: number, unit: string }) => (
+  <>
+    {total.toLocaleString('en-US')}
+    {unit && <Box component="span" sx={{ fontSize: 13, fontWeight: 500, color: 'text.secondary', ml: 0.5 }}>{unit}</Box>}
+  </>
+);
 
 export default TransferOrdersList;

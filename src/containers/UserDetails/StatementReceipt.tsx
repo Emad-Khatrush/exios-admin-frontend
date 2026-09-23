@@ -1,195 +1,174 @@
 import { useRef, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material';
 import { useReactToPrint } from 'react-to-print';
-import { Download } from 'lucide-react';
+import { Printer, ReceiptText } from 'lucide-react';
 import moment from 'moment';
+// @ts-ignore
+import './StatementReceipt.scss';
 
 type Props = {
   statement: any
 }
 
-const printColors: any = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' };
+const currencyNames: Record<string, string> = {
+  USD: 'دولار أمريكي',
+  LYD: 'دينار ليبي',
+};
 
-const Field = ({ label, children, wide }: { label: string, children: any, wide?: boolean }) => (
-  <div
-    style={{
-      ...printColors,
-      gridColumn: wide ? '1 / -1' : undefined,
-      background: '#f7f8fa',
-      borderRadius: '14px',
-      padding: '14px 18px',
-    }}
-  >
-    <div style={{ color: '#8a8f98', fontSize: '12px', marginBottom: '4px', fontWeight: 500 }}>{label}</div>
-    <div style={{ color: '#1c1e21', fontSize: '16px', fontWeight: 600 }}>{children}</div>
-  </div>
-);
+const actionTypeNames: Record<string, string> = {
+  cash: 'نقدًا (كاش)',
+  bank: 'إيداع بنكي',
+  wallet: 'من رصيد المحفظة',
+  refund: 'استرداد',
+  compensation: 'تعويض',
+  cancellation: 'إلغاء عملية',
+  withdrawal: 'سحب نقدي',
+};
+
+const officeNames: Record<string, string> = {
+  tripoli: 'مكتب طرابلس',
+  benghazi: 'مكتب بنغازي',
+  misurata: 'مكتب مصراتة',
+  turkey: 'تركيا',
+  china: 'الصين',
+  almutahidaTrBank: 'حساب الشركة المتحدة تركيا',
+};
+
+const formatNumber = (value: number) =>
+  Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const StatementReceipt = ({ statement }: Props) => {
   const [open, setOpen] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const isIncome = statement?.calculationType === '+';
-  const title = isIncome ? 'وصل قبض' : 'وصل صرف';
-  const color = isIncome ? '#0a9f4f' : '#d9381e';
-  const colorDark = isIncome ? '#067a3b' : '#a92a14';
-  const lightColor = isIncome ? '#e8f7ee' : '#fdece8';
+  const title = isIncome ? 'إيصال قبض' : 'إيصال دفع';
   const user = statement?.user;
   const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
   const receiptNumber = String(statement?._id || '').slice(-6).toUpperCase();
-  const amount = Number(statement?.amount || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: statement?.currency || 'USD',
-  });
+  const currency = statement?.currency || 'USD';
+
+  const customerRow = { label: isIncome ? 'استلمنا من السيد/ة' : 'دفعنا للسيد/ة', value: fullName || '-', code: user?.customerId };
+  // Deposit receipts stay short; payment receipts show what was paid and how
+  const rows = (isIncome
+    ? [
+      customerRow,
+      { label: 'وذلك عن', value: 'شحن رصيد المحفظة' },
+    ]
+    : [
+      customerRow,
+      { label: 'وذلك عن', html: statement?.description || '-' },
+      statement?.actionType && { label: 'طريقة الدفع', value: actionTypeNames[statement.actionType] || statement.actionType },
+      statement?.office && { label: 'جهة الصرف', value: officeNames[statement.office] || statement.office },
+    ]
+  ).filter(Boolean) as { label: string, value?: string, html?: string, code?: string }[];
 
   const handlePrint = useReactToPrint({
     contentRef: receiptRef,
     documentTitle: `${title}-${fullName}-${receiptNumber}`,
+    pageStyle: '@page { size: A5 portrait; margin: 0; } html, body { margin: 0; }',
   });
 
   return (
     <>
-      <Button
-        size="small"
-        variant="outlined"
+      <button
+        type="button"
+        className={`receipt-trigger ${isIncome ? 'is-in' : 'is-out'}`}
         onClick={() => setOpen(true)}
-        startIcon={<Download size={16} />}
-        sx={{
-          color,
-          borderColor: color,
-          borderRadius: '20px',
-          textTransform: 'none',
-          fontWeight: 600,
-          px: 2,
-          '&:hover': { borderColor: color, backgroundColor: `${color}14` },
-        }}
       >
+        <ReceiptText size={14} strokeWidth={2} />
         {title}
-      </Button>
+      </button>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <DialogContent style={{ background: '#eef0f3' }}>
-          <div
-            ref={receiptRef}
-            dir="rtl"
-            style={{
-              ...printColors,
-              background: '#fff',
-              borderRadius: '24px',
-              overflow: 'hidden',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-              fontFamily: 'inherit',
-            }}
-          >
-            {/* Accent bar */}
-            <div style={{ ...printColors, height: '10px', background: `linear-gradient(90deg, ${colorDark}, ${color})` }} />
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', background: '#eceef1' } }}
+      >
+        <DialogContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+          <div ref={receiptRef} className={`receipt ${isIncome ? 'receipt--in' : 'receipt--out'}`} dir="rtl">
+            <header className="receipt__head">
+              <div className="receipt__brand">
+                <img src="/images/exios-logo.png" alt="شعار شركة إكسيوس للشحن" />
+                <div>
+                  <p className="receipt__company">شركة إكسيوس للشحن</p>
+                  <p className="receipt__muted">طرابلس، باب بن غشير</p>
+                  <p className="receipt__muted" dir="ltr">0912068211 - 0919734019</p>
+                </div>
+              </div>
 
-            <div style={{ padding: '36px 44px 28px' }}>
-              {/* Top: brand + title */}
-              <div className="d-flex justify-content-between align-items-center">
-                <div className="d-flex align-items-center" style={{ gap: '16px' }}>
-                  <img src="/images/exios-logo.png" alt="Exios Company Logo" width={96} />
+              <div className="receipt__doc">
+                <h2 className="receipt__title">{title}</h2>
+                <dl className="receipt__meta">
                   <div>
-                    <h5 style={{ margin: 0, fontWeight: 800, color: '#1c1e21' }}>شركة إكسيوس للشحن</h5>
-                    <p style={{ margin: '2px 0 0', color: '#8a8f98', fontSize: '13px' }}>طرابلس باب بن غشير</p>
-                    <p style={{ margin: 0, color: '#8a8f98', fontSize: '13px', direction: 'ltr', textAlign: 'right' }}>
-                      0912068211 - 0919734019
-                    </p>
+                    <dt>رقم الإيصال</dt>
+                    <dd className="receipt__mono">{receiptNumber}</dd>
                   </div>
+                  <div>
+                    <dt>التاريخ</dt>
+                    <dd className="receipt__mono">{moment(statement?.createdAt).format('DD/MM/YYYY')}</dd>
+                  </div>
+                </dl>
+              </div>
+            </header>
+
+            <section className="receipt__amount">
+              <div>
+                <p className="receipt__amount-label">{isIncome ? 'المبلغ المقبوض' : 'المبلغ المدفوع'}</p>
+                <p className="receipt__amount-value">
+                  <span dir="ltr">{formatNumber(statement?.amount)}</span>
+                  <span className="receipt__amount-currency">{currencyNames[currency] || currency}</span>
+                </p>
+              </div>
+            </section>
+
+            <dl className="receipt__rows">
+              {rows.map((row) => (
+                <div key={row.label} className="receipt__row">
+                  <dt>{row.label}</dt>
+                  <dd>
+                    {row.html
+                      ? <span dangerouslySetInnerHTML={{ __html: row.html }} />
+                      : row.value}
+                    {row.code && <span className="receipt__code">كود {row.code}</span>}
+                  </dd>
                 </div>
+              ))}
+            </dl>
 
-                <div style={{ textAlign: 'left' }}>
-                  <div
-                    style={{
-                      ...printColors,
-                      display: 'inline-block',
-                      background: lightColor,
-                      color,
-                      fontWeight: 800,
-                      fontSize: '26px',
-                      padding: '6px 26px',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    {title}
-                  </div>
-                  <div style={{ color: '#8a8f98', fontSize: '13px', marginTop: '10px' }}>
-                    <span style={{ fontFamily: 'monospace', color: '#1c1e21', fontWeight: 700 }}>#{receiptNumber}</span>
-                    {' · '}
-                    {moment(statement?.createdAt).format('DD/MM/YYYY')}
-                  </div>
+            <div className="receipt__signatures">
+              {['توقيع العميل', 'توقيع الموظف', 'ختم الشركة'].map((label) => (
+                <div key={label} className="receipt__signature">
+                  <span>{label}</span>
                 </div>
-              </div>
-
-              {/* Amount */}
-              <div
-                style={{
-                  ...printColors,
-                  margin: '32px 0 24px',
-                  borderRadius: '20px',
-                  padding: '28px 20px',
-                  textAlign: 'center',
-                  color: '#fff',
-                  background: `linear-gradient(135deg, ${colorDark}, ${color})`,
-                }}
-              >
-                <div style={{ opacity: 0.85, fontSize: '14px', marginBottom: '6px', letterSpacing: '1px' }}>
-                  {isIncome ? 'المبلغ المقبوض' : 'المبلغ المصروف'}
-                </div>
-                <div style={{ fontSize: '46px', fontWeight: 800, direction: 'ltr', lineHeight: 1.1 }}>{amount}</div>
-              </div>
-
-              {/* Details */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <Field label={isIncome ? 'استلمنا من السيد/ة' : 'صرفنا للسيد/ة'}>{fullName}</Field>
-                <Field label="كود العميل">
-                  <span style={{ fontFamily: 'monospace' }}>{user?.customerId}</span>
-                </Field>
-                <Field label="وذلك عن" wide>
-                  <span dangerouslySetInnerHTML={{ __html: statement?.description || '' }} />
-                </Field>
-              </div>
-
-              {/* Signatures */}
-              <div className="d-flex justify-content-between" style={{ marginTop: '64px' }}>
-                {[isIncome ? 'توقيع المُسلِّم' : 'توقيع المستلم', 'ختم الشركة'].map((label) => (
-                  <div key={label} style={{ width: '38%', textAlign: 'center' }}>
-                    <div
-                      style={{
-                        borderTop: '1.5px dashed #b5bac1',
-                        paddingTop: '10px',
-                        color: '#6b7078',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {label}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
 
-            {/* Footer */}
-            <div
-              style={{
-                ...printColors,
-                background: '#f7f8fa',
-                textAlign: 'center',
-                color: '#8a8f98',
-                fontSize: '13px',
-                padding: '16px',
-              }}
-            >
-              شكرًا لتعاملكم معنا · www.exioslibya.com
-            </div>
+            <footer className="receipt__foot">
+              <span>شكرًا لتعاملكم معنا</span>
+              <span dir="ltr">www.exioslibya.com</span>
+            </footer>
           </div>
         </DialogContent>
 
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Back</Button>
-          <Button variant="contained" color={isIncome ? 'success' : 'error'} onClick={() => handlePrint?.()}>
-            <Download size={18} style={{ marginInlineEnd: 6 }} />
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setOpen(false)} sx={{ color: '#4b5160', textTransform: 'none' }}>إغلاق</Button>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => handlePrint?.()}
+            startIcon={<Printer size={16} />}
+            sx={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              px: 2.5,
+              gap: 1,
+              background: isIncome ? '#0f7a4f' : '#b4432b',
+              '&:hover': { background: isIncome ? '#0c6641' : '#96371f' },
+            }}
+          >
             طباعة / PDF
           </Button>
         </DialogActions>

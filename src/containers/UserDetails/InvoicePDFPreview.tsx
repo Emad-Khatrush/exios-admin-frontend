@@ -1,8 +1,10 @@
 // src/components/InvoicePDFPreview.tsx
 
-import React, { forwardRef } from 'react';
-import { Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Box } from '@mui/material';
+import { forwardRef } from 'react';
+import moment from 'moment';
 import { User } from '../../models';
+// @ts-ignore
+import './InvoicePDFPreview.scss';
 
 type Invoice = {
   _id: string;
@@ -17,106 +19,120 @@ type Invoice = {
   amountUSD?: number;
   amountLYD?: number;
   customer: User
+  isCanceled?: boolean;
 };
 
 type Props = {
   invoice: Invoice;
 };
 
+const money = (value: number) =>
+  Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) => {
+  const list = invoice.list || [];
+  const fullName = `${invoice.customer?.firstName || ''} ${invoice.customer?.lastName || ''}`.trim();
+  const boxesTotal = list.reduce((sum: number, item: any) => sum + (Number(item.boxesCount) || 0), 0);
+
   return (
-    <div ref={ref} style={{ padding: '40px', width: '800px', fontFamily: 'Arial' }}>
-      <div className='flex justify-between items-center mb-4'>
-        <img
-          src={'/images/exios-logo.png'}
-          alt="Exios Company Logo"
-          className="my-2"
-          width={200}
-          height={120}
-        />
-      </div>
+    <div ref={ref} className={`invoice-doc ${invoice.isCanceled ? 'is-canceled' : ''}`}>
+      {invoice.isCanceled && <div className="invoice-doc__stamp" aria-hidden>CANCELLED · ملغاة</div>}
 
-      <Typography variant="h4">
-        Freight Invoice #0{invoice.referenceId}
-      </Typography>
+      <header className="invoice-doc__head">
+        <div className="invoice-doc__brand">
+          <img src="/images/exios-logo.png" alt="Exios Company Logo" />
+          <div>
+            <p className="invoice-doc__company">Exios Shipping</p>
+            <p className="invoice-doc__company-ar" dir="rtl">شركة إكسيوس للشحن</p>
+            <p className="invoice-doc__muted">Tripoli, Bab Bin Ghashir</p>
+            <p className="invoice-doc__muted">0912068211 - 0919734019</p>
+          </div>
+        </div>
 
-      <Typography>Date: {new Date(invoice.createdAt).toLocaleDateString()}</Typography>
-      <Typography>Client Code: {invoice.customer.customerId}</Typography>
-      <Typography>Full Name: {`${invoice.customer.firstName} ${invoice.customer.lastName}`}</Typography>
+        <div className="invoice-doc__title-block">
+          <h1 className="invoice-doc__title">Freight Invoice</h1>
+          <p className="invoice-doc__title-ar" dir="rtl">فاتورة شحن</p>
+          <dl className="invoice-doc__meta">
+            <div><dt>Invoice no.</dt><dd className="invoice-doc__mono">#0{invoice.referenceId}</dd></div>
+            <div><dt>Date</dt><dd>{moment(invoice.createdAt).format('DD/MM/YYYY')}</dd></div>
+          </dl>
+        </div>
+      </header>
 
-      {invoice.note && (
-        <Typography sx={{ mt: 2 }}>
-            <strong>Note:</strong> {invoice.note}
-          </Typography>
-        )}
+      <section className="invoice-doc__parties">
+        <div>
+          <p className="invoice-doc__label">Billed to</p>
+          <p className="invoice-doc__strong">{fullName || '-'}</p>
+          <p className="invoice-doc__muted">Client code <span className="invoice-doc__mono">{invoice.customer?.customerId || '-'}</span></p>
+        </div>
+        <div>
+          <p className="invoice-doc__label">Paid from wallet</p>
+          <p className="invoice-doc__strong">
+            {money(invoice.amountUSD || 0)} USD
+            {(invoice.amountLYD || 0) > 0 && <span className="invoice-doc__plus"> + {money(invoice.amountLYD || 0)} LYD</span>}
+          </p>
+          {(invoice.amountLYD || 0) > 0 && <p className="invoice-doc__muted">Exchange rate {invoice.rate}</p>}
+        </div>
+      </section>
 
-        <Divider sx={{ my: 3 }} />
+      {list.length > 0 ? (
+        <table className="invoice-doc__table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Order</th>
+              <th>Tracking number</th>
+              <th className="is-num">Weight / size</th>
+              <th className="is-num">Boxes</th>
+              <th className="is-num">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((item: any, index: number) => (
+              <tr key={item.packageId || index}>
+                <td className="invoice-doc__muted">{index + 1}</td>
+                <td className="invoice-doc__mono">{item.orderId || '-'}</td>
+                <td className="invoice-doc__mono">{item.trackingNumber || 'N/A'}</td>
+                <td className="is-num">{item.weight?.total ?? '-'} {item.weight?.measureUnit || ''}</td>
+                <td className="is-num">{item.boxesCount || '-'}</td>
+                <td className="is-num invoice-doc__strong">{money(item.cost)} {invoice.currency}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="invoice-doc__muted">No packages listed.</p>
+      )}
 
-        <Typography variant="h6" gutterBottom>Packages</Typography>
+      <section className="invoice-doc__summary">
+        <div className="invoice-doc__notes">
+          {invoice.note &&
+            <>
+              <p className="invoice-doc__label">Note</p>
+              <p>{invoice.note}</p>
+            </>
+          }
+        </div>
+        <dl className="invoice-doc__totals">
+          <div><dt>Packages</dt><dd>{list.length}</dd></div>
+          {boxesTotal > 0 && <div><dt>Boxes</dt><dd>{boxesTotal}</dd></div>}
+          <div className="is-total"><dt>Total</dt><dd>{money(invoice.total)} {invoice.currency}</dd></div>
+        </dl>
+      </section>
 
-        {invoice.list?.length > 0 ? (
-          <>
-            <Table size="small" sx={{ mb: 3 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Order Id</TableCell>
-                  <TableCell>Tracking Number</TableCell>
-                  <TableCell>Boxes Count</TableCell>
-                  <TableCell align="right">Cost</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {invoice.list.map((item: any, index: number) => (
-                  <TableRow key={index}>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>{item.orderId || '—'}</TableCell>
-                    <TableCell>{item.trackingNumber || 'N/A'}</TableCell>
-                    <TableCell>
-                      {item.boxesCount || '-'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {item.cost?.toFixed(2) || '0.00'} {invoice.currency}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      <section className="invoice-doc__sign" dir="rtl">
+        <p className="invoice-doc__terms">
+          بتوقيعكم على هذه الفاتورة، فإنكم تقرّون بالاطلاع والموافقة على شروط وسياسات الشركة، وتؤكدون استلام البضائع بحالة سليمة وخالية من أي تلف، ولا يحق المطالبة بأي تعويض لاحق.
+        </p>
+        <div className="invoice-doc__signature">
+          <span>اسم المستلم والتوقيع</span>
+        </div>
+      </section>
 
-            <Typography className='mt-2'>
-              Total: {invoice.total.toFixed(2)} {invoice.currency}
-            </Typography>
-
-            <Typography className='mt-2'>
-              Customer Paid: {invoice.amountUSD} $, {invoice.amountLYD} LYD
-            </Typography>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-              <Typography sx={{ direction: 'rtl' }}>
-                اسم المستلم والتوقيع
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Typography sx={{ direction: 'rtl' }}>
-                ...................
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-              <Typography sx={{ direction: 'rtl', fontSize: '16px' }}>
-                ملاحظة:
-                بتوقيعكم على هذه الفاتورة، فإنكم تقرّون بالاطلاع والموافقة على شروط وسياسات الشركة، وتؤكدون استلام البضائع بحالة سليمة وخالية من أي تلف، ولا يحق المطالبة بأي تعويض لاحق.
-              </Typography>
-            </Box>
-            
-            <br />
-          </>
-        ) : (
-          <Typography variant="body2">No packages listed.</Typography>
-        )}
-
-      <Divider sx={{ my: 2 }} />
-      <Typography fontSize={12}>Generated on {new Date().toLocaleString()}</Typography>
+      <footer className="invoice-doc__foot">
+        <span>Generated {moment().format('DD/MM/YYYY HH:mm')}</span>
+        <span>www.exioslibya.com</span>
+      </footer>
     </div>
   );
 });

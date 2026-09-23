@@ -1,0 +1,275 @@
+// Customer invoices tab. Shares tokens with the cashflow statement.
+.invoices {
+  --iv-ink: #16191f;
+  --iv-muted: #6b7280;
+  --iv-faint: #9aa1ad;
+  --iv-line: #eceef2;
+  --iv-surface: #f6f7f9;
+  --iv-accent: #0f7a4f;
+  --iv-out: #b4432b;
+  --iv-out-soft: #fbeeea;
+
+  padding: 8px 4px 24px;
+  color: var(--iv-ink);
+  font-variant-numeric: tabular-nums;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 18px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  &__subtitle {
+    margin: 4px 0 0;
+    font-size: 0.8125rem;
+    color: var(--iv-muted);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+    align-items: start;
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.invoice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--iv-line), 0 1px 2px rgba(22, 25, 31, 0.04);
+  transition: box-shadow 200ms ease;
+  animation: cashflow-row-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  &:hover {
+    box-shadow: 0 0 0 1px #e1e4ea, 0 6px 18px rgba(22, 25, 31, 0.06);
+  }
+
+  &--skeleton {
+    gap: 12px;
+    animation: none;
+  }
+
+  &.is-canceled {
+    background: #fcfcfd;
+
+    .invoice-card__number span,
+    .invoice-card__total-value {
+      text-decoration: line-through;
+      text-decoration-color: rgba(180, 67, 43, 0.6);
+    }
+
+    .invoice-card__total-value { color: var(--iv-muted); }
+  }
+
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  &__number {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--iv-muted);
+
+    span {
+      font-weight: 700;
+      color: var(--iv-ink);
+    }
+  }
+
+  &__meta {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: var(--iv-faint);
+  }
+
+  &__figures {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 10px;
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--iv-surface);
+    }
+  }
+
+  &__total {
+    background: var(--iv-ink) !important;
+
+    .invoice-card__label { color: rgba(255, 255, 255, 0.65); }
+  }
+
+  &__total-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+
+  &.is-canceled &__total { background: var(--iv-surface) !important; }
+  &.is-canceled &__total .invoice-card__label { color: var(--iv-muted); }
+
+  &__label {
+    margin: 0 0 2px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--iv-muted);
+  }
+
+  &__value {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--iv-faint);
+  }
+
+  &__packages {
+    ul {
+      margin: 6px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'tracking cost'
+        'meta cost';
+      column-gap: 12px;
+      padding: 8px 0;
+      border-top: 1px solid var(--iv-line);
+    }
+  }
+
+  &__tracking {
+    grid-area: tracking;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  &__pkg-meta {
+    grid-area: meta;
+    font-size: 0.75rem;
+    color: var(--iv-muted);
+  }
+
+  &__pkg-cost {
+    grid-area: cost;
+    align-self: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    color: #3d4451;
+    background: var(--iv-surface);
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+  }
+}
+
+.invoice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--iv-ink);
+  transition: background 200ms ease, transform 120ms ease;
+
+  &:hover { background: #2a2f38; }
+  &:active { transform: scale(0.98); }
+  &:focus-visible { outline: 2px solid var(--iv-accent); outline-offset: 2px; }
+
+  &--danger {
+    color: var(--iv-out);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px #f0d3cb;
+
+    &:hover { background: var(--iv-out-soft); }
+    &:focus-visible { outline-color: var(--iv-out); }
+  }
+}
+
+.invoice-canceled-tag {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #b4432b;
+  background: #fbeeea;
+}
+
+.invoice-canceled-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #8a3a26;
+  background: #fbeeea;
+}
+
+// Cancel dialog (MUI portal)
+.invoice-cancel-steps {
+  margin: 6px 0 12px;
+  padding-inline-start: 18px;
+
+  li { margin-bottom: 4px; }
+}
+
+.invoice-cancel-tracking {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invoice-card { animation: none; }
+}
