@@ -13,7 +13,6 @@ import './CashflowUser.scss';
 // @ts-ignore
 import './UserInvoices.scss';
 import { User } from '../../models';
-import { canManageStatements } from '../../constants/permissions';
 import { formatMoney } from './statementUtils';
 
 type Invoice = {
@@ -49,7 +48,10 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [cancelResult, setCancelResult] = useState<any>(null);
-  const canCancel = useSelector((state: any) => canManageStatements(state.session.account));
+  const canCancel = useSelector((state: any) => {
+    const roles = state.session.account?.roles;
+    return !!(roles?.isAdmin || roles?.isAccountant);
+  });
   const componentRef = useRef<HTMLDivElement>(null);
 
   const openCancel = (invoice: Invoice) => {

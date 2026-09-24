@@ -85,9 +85,13 @@ const processDescription = (description: string = '', defaultNote: string = '', 
   // 1. حالة وجود عبارة "تم دفع قيمة الشحن" (شحن بضائع)
   if (cleanDesc.includes('تم دفع قيمة الشحن')) {
     productName = 'شحن بضاعة';
-    const match = cleanDesc.match(/تم دفع قيمة الشحن\s+([A-Za-z0-9]+)/);
-    if (match && match[1]) {
-      trackingRef = match[1];
+    // Tracking numbers can contain dashes/slashes/spaces, so capture everything after the
+    // phrase (that's the whole tracking number, since the description is built from it with
+    // nothing appended) instead of stopping at the first non-alphanumeric character - otherwise
+    // this falls out of sync with the same match done server-side to resolve the odoo code.
+    const match = cleanDesc.match(/تم دفع قيمة الشحن\s+(.+)/);
+    trackingRef = match?.[1]?.trim() || '';
+    if (trackingRef) {
       orderLineName = `شحن بضاعة - رقم التتبع: ${trackingRef}`;
     }
   }
