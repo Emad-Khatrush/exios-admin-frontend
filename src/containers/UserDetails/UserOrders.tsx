@@ -1,4 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+// The stylesheet is bundled by the frontend build, but TypeScript has no
+// ambient declaration for side-effect SCSS imports in this project.
+// @ts-ignore -- intentional side-effect stylesheet import
 import './UserOrders.scss';
 import api, { base } from '../../api';
 import { Invoice, Package } from '../../models';
@@ -94,19 +97,25 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const [previewImages, setPreviewImages] = useState<any>();
 
   const [cancelToken, setCancelToken] = useState();
+  const latestRequestId = useRef(0);
 
   const walletUsd = toNumber(balances?.walletUsd);
   const walletLyd = toNumber(balances?.walletLyd);
 
   const fetchOrders = async (tabType: string) => {
+    const requestId = ++latestRequestId.current;
+
     try {
       setIsOrdersLoading(true);
       const res = await api.get(`user/${customerId}/packages`, { cancelToken, tabType });
+      // Ignore responses from a tab switch that's since been superseded by a newer one.
+      if (requestId !== latestRequestId.current) return;
       setOrders(res.data.results || []);
     } catch (err) {
+      if (requestId !== latestRequestId.current) return;
       console.error(err);
     } finally {
-      setIsOrdersLoading(false);
+      if (requestId === latestRequestId.current) setIsOrdersLoading(false);
     }
   };
 
