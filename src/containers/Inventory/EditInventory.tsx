@@ -64,6 +64,23 @@ const EditInventory = () => {
     setFilesInput(allFiles);
   }
 
+  const deleteImage = async (file: any) => {
+    const fileIndex = previewFiles.indexOf(file);
+    const deletedFile = filesInput[fileIndex];
+
+    try {
+      setIsLoading(true);
+      await api.delete('inventory/deleteFiles', { image: deletedFile, id });
+      setFilesInput((prev: any) => prev.filter((_: any, index: number) => index !== fileIndex));
+      setPreviewFiles((prev: any) => prev.filter((_: any, index: number) => index !== fileIndex));
+      setAlert({ tint: 'success', message: 'File deleted' });
+    } catch (error: any) {
+      setAlert({ tint: 'error', message: error?.response?.data?.message || 'Could not delete the file' });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const getInventory = async () => {
     try {
       setIsLoading(true);
@@ -381,6 +398,7 @@ const EditInventory = () => {
             previewFiles={previewFiles}
             fileUploaderHandler={fileUploaderHandler}
             files={filesInput}
+            deleteImage={(roles.isAdmin || roles.isAccountant) ? deleteImage : undefined}
           />
         </div>
 

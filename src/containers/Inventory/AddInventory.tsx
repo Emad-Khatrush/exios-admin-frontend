@@ -244,7 +244,6 @@ const AddInventory = () => {
             // disabled={invoice?.isCanceled}
           />
           <FormControl 
-            required
             style={{ width: '100%' }}
           >
             <InputLabel id="demo-select-small">Currency</InputLabel>

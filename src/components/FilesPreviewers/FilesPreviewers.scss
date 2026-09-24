@@ -1,25 +1,176 @@
+// One accent (blue) for links/focus, red only for the destructive action.
+// Radius: 16px for the confirm card, 8px for controls, matching the rest of the app.
+$fp-ink: #18212b;
+$fp-muted: #5b6673;
+$fp-line: #e3e7ec;
+$fp-surface: #ffffff;
+$fp-canvas: #f6f7f9;
+$fp-accent: #1d4ed8;
+$fp-danger: #b42318;
+$fp-danger-soft: #fdecea;
+$fp-danger-hover: #96190f;
+$fp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
 .uploaded-photos {
   margin-top: 15px;
   position: relative;
+
   img {
     width: 80px;
     height: 80px;
     border-radius: 10%;
+    object-fit: cover;
   }
-  .close-icon {
-    width: 16px;
-    height: 16px;
-    font-size: 15px;
-    top: 20px;
-    left: 55px;
-    position: relative;
-    background-color: rgb(177, 57, 57);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 10px;
-    cursor: pointer;
+}
+
+.fp-thumb {
+  position: relative;
+}
+
+.fp-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: 2px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid $fp-line;
+  border-radius: 50%;
+  background: $fp-surface;
+  color: $fp-muted;
+  box-shadow: 0 2px 6px rgba(24, 33, 43, 0.15);
+  cursor: pointer;
+  transition: background-color 0.2s $fp-ease, color 0.2s $fp-ease, transform 0.2s $fp-ease, border-color 0.2s $fp-ease;
+
+  &:hover {
+    background: $fp-danger-soft;
+    color: $fp-danger;
+    border-color: $fp-danger-soft;
   }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $fp-danger;
+    outline-offset: 2px;
+  }
+}
+
+// Delete-confirmation dialog
+.fp-confirm {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, calc(100vw - 32px));
+  padding: 28px 24px 20px;
+  background: $fp-surface;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(24, 33, 43, 0.22), 0 2px 8px rgba(24, 33, 43, 0.08);
+  text-align: center;
+  outline: none;
+  animation: fp-rise 0.22s $fp-ease;
+}
+
+.fp-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: $fp-danger-soft;
+  color: $fp-danger;
+}
+
+.fp-confirm-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: $fp-ink;
+}
+
+.fp-confirm-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: $fp-muted;
+}
+
+.fp-confirm-preview {
+  margin: 16px 0 4px;
+  border: 1px solid $fp-line;
+  border-radius: 12px;
+  overflow: hidden;
+  background: $fp-canvas;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+  }
+}
+
+.fp-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.fp-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s $fp-ease, color 0.2s $fp-ease, transform 0.2s $fp-ease;
+
+  &:active { transform: scale(0.97); }
+}
+
+.fp-btn-ghost {
+  background: $fp-canvas;
+  color: $fp-ink;
+
+  &:hover { background: #eceff3; }
+  &:focus-visible { outline: 2px solid $fp-accent; outline-offset: 2px; }
+}
+
+.fp-btn-danger {
+  background: $fp-danger;
+  color: #fff;
+
+  &:hover { background: $fp-danger-hover; }
+  &:focus-visible { outline: 2px solid $fp-danger; outline-offset: 2px; }
+}
+
+.fp-backdrop.MuiBackdrop-root {
+  background-color: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes fp-rise {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-confirm { animation: none; }
 }

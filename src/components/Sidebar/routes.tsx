@@ -151,11 +151,6 @@ const adminRoutes = [
       path: '/clients',
       icon: <FaUsers  className="sidebar-icon" />,
      },
-     {
-      title: 'Special Prices',
-      path: '/special-prices',
-      icon: <FaPercentage className="sidebar-icon" />,
-     },
      {   
         title: 'Invoice',
         path: '/invoice/add',      
@@ -175,6 +170,11 @@ const adminRoutes = [
       title: 'My Tasks',
       path: '/mytasks',
       icon: <FaTasks className="sidebar-icon" />,
+     },
+   {
+      title: 'Special Prices',
+      path: '/special-prices',
+      icon: <FaPercentage className="sidebar-icon" />,
      },
      {
       mainTitle: 'Inventory'
