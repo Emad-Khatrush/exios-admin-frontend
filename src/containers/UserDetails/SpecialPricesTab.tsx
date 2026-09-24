@@ -39,7 +39,7 @@ const toRows = (prices?: SpecialPrices): CategoryRow[] => {
 const isInvalidPrice = (value: string) => value !== '' && !(Number(value) > 0);
 
 const SpecialPricesTab = ({ user, onSaved }: Props) => {
-  const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const isAdminOrAccountant = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin || !!state.session?.account?.roles?.isAccountant);
   const saved: SpecialPrices | undefined = user?.specialPrices;
 
   const [enabled, setEnabled] = useState<boolean>(!!saved?.enabled);
@@ -48,7 +48,7 @@ const SpecialPricesTab = ({ user, onSaved }: Props) => {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string }>();
 
-  const readOnly = !isAdmin || isSaving;
+  const readOnly = !isAdminOrAccountant || isSaving;
 
   const nameCounts = rows.reduce<Record<string, number>>((counts, row) => {
     const name = row.name.trim().toLowerCase();
@@ -104,8 +104,6 @@ const SpecialPricesTab = ({ user, onSaved }: Props) => {
           {enabled ? 'Active' : 'Off'}
         </label>
       </header>
-
-      {!isAdmin && <p className="spt-readonly">Only admins can change special prices.</p>}
 
       <div className={`spt-grid${enabled ? '' : ' is-off'}`}>
         <div className="spt-grid-head">
@@ -164,7 +162,7 @@ const SpecialPricesTab = ({ user, onSaved }: Props) => {
           );
         })}
 
-        {isAdmin && (
+        {isAdminOrAccountant && (
           <button
             type="button"
             className="spt-add"
@@ -195,7 +193,7 @@ const SpecialPricesTab = ({ user, onSaved }: Props) => {
         <span className="spt-meta">
           {saved?.updatedAt ? `Last changed ${moment(saved.updatedAt).format('DD/MM/YYYY HH:mm')}` : 'Never set'}
         </span>
-        {isAdmin && (
+        {isAdminOrAccountant && (
           <button type="button" className="spt-save" onClick={save} disabled={cannotSave}>
             {isSaving ? 'Saving...' : 'Save prices'}
           </button>
