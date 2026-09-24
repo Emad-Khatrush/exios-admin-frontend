@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 // Sub-components
 import ListView from './ListView';
 import WalletsView from './WalletsView';
+import PassportReviewList from './PassportReviewList';
 // @ts-ignore
 import './ClientsView.scss';
 import { Account } from '../../models';
@@ -18,10 +19,12 @@ import moment from 'moment';
 export const ClientsView = () => {
   const account: Account = useSelector((state: any) => state.session?.account);
   const allowViewHiddenFields = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.accountant));
+  const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
   
-  const [view, setView] = useState<'list' | 'wallets'>('list');
+  const [view, setView] = useState<'list' | 'wallets' | 'passport'>('list');
   const [clients, setClients] = useState([]);
   const [wallets, setWallets] = useState([]);
+  const [pendingPassports, setPendingPassports] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [tab] = useState('active');
   const [scrollReached, setScrollReached] = useState(false);
@@ -95,6 +98,18 @@ export const ClientsView = () => {
     }
   };
 
+  const fetchPendingPassports = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get(`passportVerifications`);
+      setPendingPassports(response.data.results);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const searchUser = async (event: any) => {
     try {
       setIsLoading(true);
@@ -121,9 +136,11 @@ export const ClientsView = () => {
     }
   };
 
-  const handleViewChange = (newView: 'list' | 'wallets') => {
+  const handleViewChange = (newView: 'list' | 'wallets' | 'passport') => {
     setView(newView);
-    newView === 'wallets' ? fetchActiveWallets() : fetchClients();
+    if (newView === 'wallets') fetchActiveWallets();
+    else if (newView === 'passport') fetchPendingPassports();
+    else fetchClients();
   };
 
   const tabs = [
@@ -138,6 +155,7 @@ export const ClientsView = () => {
         <div className="switcher-pill">
           <button className={view === 'list' ? 'active' : ''} onClick={() => handleViewChange('list')}>Clients</button>
           {account.roles.isAdmin && <button className={view === 'wallets' ? 'active' : ''} onClick={() => handleViewChange('wallets')}>Wallets</button>}
+          {canReviewPassports && <button className={view === 'passport' ? 'active' : ''} onClick={() => handleViewChange('passport')}>Passport Review</button>}
         </div>
       </div>
 
@@ -167,7 +185,12 @@ export const ClientsView = () => {
 
             <ListView clients={clients} />
           </>
-            : 
+            : view === 'passport' ?
+            <PassportReviewList
+              customers={pendingPassports}
+              onReviewed={(customerId) => setPendingPassports((prev) => prev.filter((c: any) => c._id !== customerId))}
+            />
+            :
             <WalletsView wallets={wallets} />
         )}
       </Card>

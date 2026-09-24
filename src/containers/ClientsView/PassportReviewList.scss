@@ -1,0 +1,113 @@
+$prc-line: #e3e7ec;
+$prc-ink: #18212b;
+$prc-muted: #5b6673;
+$prc-danger: #b42318;
+$prc-success: #067647;
+
+.passport-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.passport-review-card {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid $prc-line;
+  border-radius: 12px;
+  color: $prc-ink;
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+  }
+
+  .prc-image {
+    display: block;
+
+    img {
+      width: 100%;
+      max-width: 140px;
+      height: 100px;
+      border-radius: 8px;
+      border: 1px solid $prc-line;
+      object-fit: cover;
+    }
+  }
+
+  .prc-noimage {
+    width: 140px;
+    height: 100px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    border: 1px dashed $prc-line;
+    color: $prc-muted;
+    font-size: 0.8rem;
+  }
+
+  .prc-details {
+    .prc-name-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      max-width: 320px;
+
+      > * { flex: 1; }
+    }
+    h4 { margin: 0 0 4px; font-size: 1rem; font-weight: 700; }
+    p { margin: 2px 0; font-size: 0.85rem; color: $prc-muted; }
+  }
+
+  .prc-meta { font-size: 0.75rem; }
+
+  .prc-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .prc-reject-form {
+    max-width: 340px;
+
+    .prc-actions { margin-top: 10px; }
+  }
+
+  .prc-approve,
+  .prc-reject,
+  .prc-cancel {
+    border: 0;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+
+  .prc-approve {
+    background: $prc-success;
+    color: #ffffff;
+    &:hover:not(:disabled) { background: #05603a; }
+  }
+
+  .prc-reject {
+    background: #fdecea;
+    color: $prc-danger;
+    &:hover:not(:disabled) { background: #fbdad7; }
+  }
+
+  .prc-cancel {
+    background: transparent;
+    color: $prc-muted;
+    &:hover:not(:disabled) { background: #f2f4f6; }
+  }
+}

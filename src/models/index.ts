@@ -95,6 +95,7 @@ export type User = {
   imgUrl: string
   customerId: string
   orders: any[]
+  passportVerification?: PassportVerification
   roles: {
     isAdmin: boolean
     isEmployee: boolean
@@ -105,6 +106,16 @@ export type User = {
   username: string
   __v: number
   _id: string
+}
+
+export type PassportVerification = {
+  status: 'pending' | 'verified' | 'rejected'
+  imageUrl?: string
+  rejectionReason?: string
+  wasRejected?: boolean
+  submittedAt?: string
+  reviewedAt?: string
+  reviewedBy?: string
 }
 
 export type Package = {

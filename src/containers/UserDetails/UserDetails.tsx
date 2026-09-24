@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
 import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
@@ -17,11 +18,13 @@ import ShippingMarkDialog from './ShippingMarkDialog';
 import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
 import SpecialPricesTab from './SpecialPricesTab';
+import PassportVerificationTab from './PassportVerificationTab';
 
 type Props = {}
 
 const UserDetails = (props: Props) => {
   const { id } = useParams();
+  const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();
   const [debts, setDebts] = useState<any>();
@@ -229,7 +232,15 @@ const UserDetails = (props: Props) => {
           >
             Change Code
           </CustomButton>
-            
+
+          {canReviewPassports && (
+            <div className="mt-4">
+              <PassportVerificationTab
+                user={user}
+                onSaved={({ passportVerification, firstName, lastName }) => setUser({ ...user, passportVerification, firstName, lastName })}
+              />
+            </div>
+          )}
         </div>
       ) : activeTap === 'invoices' && (
         <div className="col-md-12">

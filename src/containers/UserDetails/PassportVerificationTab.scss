@@ -1,0 +1,113 @@
+$pvt-accent: #1d4ed8;
+$pvt-ink: #18212b;
+$pvt-muted: #5b6673;
+$pvt-line: #e3e7ec;
+$pvt-danger: #b42318;
+$pvt-success: #067647;
+
+.passport-verification-tab {
+  max-width: 760px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid $pvt-line;
+  border-radius: 12px;
+  color: $pvt-ink;
+
+  .pvt-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+  }
+
+  .pvt-image {
+    display: inline-block;
+    margin-bottom: 12px;
+
+    img {
+      max-width: 320px;
+      max-height: 220px;
+      border-radius: 8px;
+      border: 1px solid $pvt-line;
+      object-fit: cover;
+    }
+  }
+
+  .pvt-meta {
+    font-size: 0.85rem;
+    color: $pvt-muted;
+    margin: 4px 0;
+  }
+
+  .pvt-reason {
+    font-size: 0.9rem;
+    color: $pvt-danger;
+    margin: 8px 0;
+  }
+
+  .pvt-readonly {
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: $pvt-muted;
+  }
+
+  .pvt-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .pvt-approve,
+  .pvt-reject,
+  .pvt-cancel {
+    border: 0;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+
+    &:active:not(:disabled) { transform: scale(0.98); }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+
+  .pvt-approve {
+    background: $pvt-success;
+    color: #ffffff;
+    &:hover:not(:disabled) { background: #05603a; }
+  }
+
+  .pvt-reject {
+    background: #fdecea;
+    color: $pvt-danger;
+    &:hover:not(:disabled) { background: #fbdad7; }
+  }
+
+  .pvt-cancel {
+    background: transparent;
+    color: $pvt-muted;
+    &:hover:not(:disabled) { background: #f2f4f6; }
+  }
+
+  .pvt-reject-form {
+    margin-top: 14px;
+    max-width: 420px;
+  }
+
+  .pvt-name-fields {
+    margin-top: 14px;
+    max-width: 420px;
+
+    .pvt-name-row {
+      display: flex;
+      gap: 10px;
+
+      > * { flex: 1; }
+    }
+  }
+}
