@@ -1,0 +1,108 @@
+// Same tokens as the rest of the redesigned pages (UserOrders.scss, FilesPreviewers.scss):
+// one accent (blue), green/red reserved for real up/down state, 12px card radius.
+$dash-accent: #1d4ed8;
+$dash-accent-soft: #eff4ff;
+$dash-ink: #18212b;
+$dash-muted: #5b6673;
+$dash-line: #e3e7ec;
+$dash-surface: #ffffff;
+$dash-ok: #1f7a3a;
+$dash-ok-soft: #e8f5ec;
+$dash-danger: #b42318;
+$dash-danger-soft: #fdecea;
+$dash-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.dash-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  background: $dash-surface;
+  border: 1px solid $dash-line;
+  border-radius: 12px;
+  transition: border-color 0.2s $dash-ease, box-shadow 0.2s $dash-ease, transform 0.2s $dash-ease;
+  animation: dash-rise 0.3s $dash-ease backwards;
+
+  @for $i from 1 through 6 {
+    &:nth-child(#{$i}) { animation-delay: #{($i - 1) * 40}ms; }
+  }
+
+  &:hover {
+    border-color: #cfd6dd;
+    box-shadow: 0 8px 20px rgba(24, 33, 43, 0.06);
+  }
+}
+
+.dash-tile-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: $dash-accent-soft;
+  color: $dash-accent;
+}
+
+.dash-tile-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dash-tile-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: $dash-muted;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-tile-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: $dash-ink;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.dash-tile-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  small {
+    margin-left: 3px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: $dash-muted;
+  }
+
+  &.is-up { color: $dash-ok; }
+  &.is-down { color: $dash-danger; }
+  &.is-flat {
+    color: $dash-muted;
+    font-weight: 500;
+  }
+}
+
+@keyframes dash-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-tile { animation: none; }
+}

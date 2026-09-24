@@ -215,6 +215,38 @@ export type HomeData = {
   debts: Invoice[]
   credits: Invoice[]
   clientUsersCount: number
+  shipmentStats: {
+    totalKG: number
+    totalCBM: number
+    packagesCount: number
+    previousTotalKG: number
+    previousTotalCBM: number
+    previousPackagesCount: number
+  }
+  shipmentTrend: {
+    label: string
+    totalKG: number
+    totalCBM: number
+    packagesCount: number
+  }[]
+  officeBreakdown: {
+    office: string
+    activeOrders: number
+    totalKG: number
+    totalCBM: number
+    packagesCount: number
+  }[]
+  recentActivity: {
+    type: 'order' | 'payment'
+    id: string
+    title: string
+    subtitle: string
+    amount: number
+    currency: string
+    isPositive: boolean
+    office: string | null
+    createdAt: string
+  }[]
 }
 
 export type Expense = {

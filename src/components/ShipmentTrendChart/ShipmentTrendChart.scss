@@ -1,0 +1,47 @@
+.shipment-trend {
+  height: 100%;
+}
+
+.shipment-trend-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+
+  h3 {
+    margin: 0 0 2px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #18212b;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #5b6673;
+  }
+}
+
+.shipment-trend-total {
+  text-align: right;
+  flex-shrink: 0;
+
+  span {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    line-height: 1.2;
+  }
+
+  small {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #5b6673;
+  }
+}
+
+.shipment-trend-canvas {
+  height: 220px;
+}

@@ -27,6 +27,7 @@ import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
 import OdoExport from './containers/OdoExport/OdoExport';
 import DeletedStatements from './containers/DeletedStatements/DeletedStatements';
+import Marketing from './containers/Marketing/Marketing';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -123,6 +124,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/reports' element={<MonthReport />} />
       <Route path='/odo-export' element={<OdoExport />} />
       <Route path='/deleted-payments' element={<DeletedStatements />} />
+      <Route path='/marketing' element={<Marketing />} />
     </>
   }
 }

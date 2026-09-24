@@ -1,15 +1,21 @@
 import React from "react";
-import { FaBoxOpen, FaMoneyBillWave } from "react-icons/fa";
+import Card from "../../components/Card/Card";
 import EarningWidget from "../../components/EarningWidget/EarningWidget";
-import InfoWidget from "../../components/InfoWidget/InfoWidget";
+import DashboardStats from "../../components/DashboardStats/DashboardStats";
+import ShipmentTrendChart from "../../components/ShipmentTrendChart/ShipmentTrendChart";
+import OfficeBreakdown from "../../components/OfficeBreakdown/OfficeBreakdown";
+import RecentActivity from "../../components/RecentActivity/RecentActivity";
 import OfficesExpense from "../../components/OfficesExpense/OfficesExpense";
 import { HomeData, Session } from "../../models";
 import { CircularProgress } from "@mui/material";
 import { connect } from "react-redux";
 
 import api from "../../api";
-import { AiOutlineUserAdd } from "react-icons/ai";
 import WalletsWidget from "../../components/WalletsWidget";
+
+import "./Home.scss";
+
+const EARNING_WIDGET_ACCOUNT_IDS = ['62af31fcaf74074f4a4a0f61', '62c1e22a2ffce24ae343cc23'];
 
 type State = {
   homeData: HomeData | null
@@ -36,53 +42,59 @@ class Home extends React.Component<Props, State> {
   render() {
 
     if (!this.state.homeData) {
-      return <CircularProgress />
-    }    
-      
-    return (
-      <div className="m-3">
-        <div className="row">
-            <div className="col-md-4">
-              <InfoWidget title="Active Orders" value={`${this.state.homeData.activeOrdersCount}`} icon={<FaBoxOpen />} />
-            </div>
-            <div className="col-md-4">
-              <InfoWidget title="Total Invoices" value={`$${this.state.homeData.totalInvoices}`} icon={<FaMoneyBillWave />} />
-            </div>
-            <div className="col-md-4">
-              <InfoWidget title="Client Users" value={`${this.state.homeData.clientUsersCount}`} icon={<AiOutlineUserAdd />} />
-            </div>
+      return (
+        <div className="dash-loading">
+          <CircularProgress />
         </div>
-          
-        <div className="row">
-          <div className="col-md-6">
-            {['62af31fcaf74074f4a4a0f61', '62c1e22a2ffce24ae343cc23'].includes(this.props.session?.account._id) &&
-              <EarningWidget 
-                earingData={this.state.homeData}
-              />
-            }
+      );
+    }
+
+    const { homeData } = this.state;
+    const canSeeEarning = EARNING_WIDGET_ACCOUNT_IDS.includes(this.props.session?.account._id);
+    const firstName = this.props.session?.account?.firstName;
+
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-header">
+          <h1>Dashboard</h1>
+          <p>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'} Here's how things are moving this month.</p>
+        </div>
+
+        <DashboardStats data={homeData} />
+
+        <div className="dashboard-grid">
+          <div className="dashboard-grid-item is-span-2">
+            <Card>
+              <ShipmentTrendChart trend={homeData.shipmentTrend} />
+            </Card>
           </div>
 
-          <div className="col-md-6">
-            <WalletsWidget 
-              wallets={this.state.wallets}
-            />
+          <div className="dashboard-grid-item">
+            <Card>
+              <OfficeBreakdown offices={homeData.officeBreakdown} />
+            </Card>
           </div>
-          
-          <div className="col-md-6">
-            <OfficesExpense 
-              offices={this.state.homeData.offices}
-              debts={this.state.homeData.debts}
-              credits={this.state.homeData.credits}
-              account={this.props.session?.account}
-            />
+
+          {canSeeEarning &&
+            <div className="dashboard-grid-item">
+              <EarningWidget
+                earingData={homeData}
+              />
+            </div>
+          }
+
+          <div className="dashboard-grid-item">
+            <Card>
+              <RecentActivity items={homeData.recentActivity} />
+            </Card>
           </div>
         </div>
       </div>
-    ) 
+    )
   }
 }
 
-const mapStateToProps = (state: any) => {  
+const mapStateToProps = (state: any) => {
   return {
     session: state.session,
   };
