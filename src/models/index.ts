@@ -321,7 +321,7 @@ export type Expense = {
 export type LocalTabs = {
   label: string,
   value: string,
-  icon: React.ReactElement
+  icon?: React.ReactElement
 }[]
 
 export type OrderActivity = {

@@ -11,6 +11,10 @@ const Card = (props: any) => {
     <div>
       {props.tabs &&
         <TableTabs
+          // Remounts (resetting to the first tab) when the set of tabs itself changes -
+          // e.g. a consumer swapping between two different tab groups on the same Card -
+          // instead of keeping stale selection state from the previous tab set.
+          key={props.tabs.map((tab: { value: string }) => tab.value).join('|')}
           tabs={props.tabs}
           tabsOnChange={(value: string) => props.tabsOnChange(value)}
         />

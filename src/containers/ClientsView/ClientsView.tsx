@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import ListView from './ListView';
 import WalletsView from './WalletsView';
 import PassportReviewList from './PassportReviewList';
+import ApprovedPassportList from './ApprovedPassportList';
 // @ts-ignore
 import './ClientsView.scss';
 import { Account } from '../../models';
@@ -22,9 +23,12 @@ export const ClientsView = () => {
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
   
   const [view, setView] = useState<'list' | 'wallets' | 'passport'>('list');
+  // Admin only (see the tab buttons below) - accountants just get the reviewing list, no tabs.
+  const [passportTab, setPassportTab] = useState<'reviewing' | 'approved'>('reviewing');
   const [clients, setClients] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [pendingPassports, setPendingPassports] = useState([]);
+  const [approvedPassports, setApprovedPassports] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [tab] = useState('active');
   const [scrollReached, setScrollReached] = useState(false);
@@ -110,6 +114,24 @@ export const ClientsView = () => {
     }
   };
 
+  const fetchApprovedPassports = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get(`passportVerifications/approved`);
+      setApprovedPassports(response.data.results);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePassportTabChange = (newTab: 'reviewing' | 'approved') => {
+    setPassportTab(newTab);
+    if (newTab === 'approved') fetchApprovedPassports();
+    else fetchPendingPassports();
+  };
+
   const searchUser = async (event: any) => {
     try {
       setIsLoading(true);
@@ -139,7 +161,10 @@ export const ClientsView = () => {
   const handleViewChange = (newView: 'list' | 'wallets' | 'passport') => {
     setView(newView);
     if (newView === 'wallets') fetchActiveWallets();
-    else if (newView === 'passport') fetchPendingPassports();
+    else if (newView === 'passport') {
+      setPassportTab('reviewing');
+      fetchPendingPassports();
+    }
     else fetchClients();
   };
 
@@ -148,6 +173,14 @@ export const ClientsView = () => {
     { label: 'Verify', value: 'verifyPayments', icon: <Badge text={String(meta.counts.verifyStatementCounts)} color="warning" /> },
     { label: 'Opened', value: 'openedWallet', icon: <Badge text={String(meta.counts.openedWalletCounts)} color="success" /> },
   ];
+
+  // Admin only - accountants (who can also open Passport Review) get just the reviewing
+  // list below, no tabs at all.
+  const passportTabs = [
+    { label: 'Reviewing', value: 'reviewing' },
+    { label: 'Approved', value: 'approved' },
+  ];
+  const showPassportTabs = view === 'passport' && account.roles.isAdmin;
 
   return (
     <div className="clients-view-wrapper m-4">
@@ -160,7 +193,8 @@ export const ClientsView = () => {
       </div>
 
       <Card
-        tabs={view === 'list' ? tabs : undefined}
+        tabs={view === 'list' ? tabs : showPassportTabs ? passportTabs : undefined}
+        tabsOnChange={(value: string) => { if (view === 'passport') handlePassportTabChange(value as 'reviewing' | 'approved'); }}
         showSearchInput={view === 'list'}
         searchInputOnChange={searchUser}
         onScroll={view === 'list' && tab === 'active' ? onScroll : undefined}
@@ -186,10 +220,14 @@ export const ClientsView = () => {
             <ListView clients={clients} />
           </>
             : view === 'passport' ?
-            <PassportReviewList
-              customers={pendingPassports}
-              onReviewed={(customerId) => setPendingPassports((prev) => prev.filter((c: any) => c._id !== customerId))}
-            />
+            (passportTab === 'approved' && account.roles.isAdmin ?
+              <ApprovedPassportList customers={approvedPassports} />
+              :
+              <PassportReviewList
+                customers={pendingPassports}
+                onReviewed={(customerId) => setPendingPassports((prev) => prev.filter((c: any) => c._id !== customerId))}
+              />
+            )
             :
             <WalletsView wallets={wallets} />
         )}

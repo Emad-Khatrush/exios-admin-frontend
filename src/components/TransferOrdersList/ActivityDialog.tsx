@@ -76,8 +76,8 @@ const ActivityDialog = (props: Props) => {
    })
    .catch((err) => {
      console.log(err);
-     setShowResponseMessage(err.response.data.message === "Evaluation failed: TypeError: Cannot read properties of undefined (reading 'getContact')\n    at __puppeteer_evaluation_script__:2:34"
-     ? 'You need to scan QR from your whatsup !' : err.response.data.message);
+     setShowResponseMessage(err.response?.data?.message === 'whatsup-auth-not-found'
+     ? 'You need to scan QR from your whatsup !' : (err.response?.data?.message || err.message));
      setIsSucceed(false);
    })
    setLoading(false);

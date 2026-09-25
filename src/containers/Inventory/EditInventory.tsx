@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api";
-import { Alert, AlertColor, CircularProgress, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack, TextField } from "@mui/material";
+import { Alert, AlertColor, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack, TextField } from "@mui/material";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import DatePicker from "@mui/lab/DatePicker";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
@@ -17,6 +17,7 @@ import { convertGoogleStorageUrl } from "../../utils/methods";
 
 const EditInventory = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { roles, customerId } = useSelector((state: any) => state.session.account);
 
   const [inventory, setInventory] = useState<Inventory | any>();
@@ -29,6 +30,8 @@ const EditInventory = () => {
   });
   const [ filesInput, setFilesInput ] = useState<any>([]);
   const [ previewFiles, setPreviewFiles ] = useState<any>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const filesRef = React.createRef();
 
   useEffect(() => {
@@ -116,6 +119,22 @@ const EditInventory = () => {
     }
   }
   
+  const deleteInventory = async () => {
+    try {
+      setIsDeleting(true);
+      await api.delete(`inventory/${id}`, {});
+      navigate('/inventory');
+    } catch (error: any) {
+      setShowDeleteConfirm(false);
+      setAlert({
+        tint: 'error',
+        message: error?.response?.data?.message || 'Could not delete this inventory'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   if (isLoading && !inventory) {
     return (
       <CircularProgress />
@@ -130,8 +149,22 @@ const EditInventory = () => {
             {error}
           </Alert>
         }
-        <div className="col-md-12 mb-3 mt-3">
-          <h4> Inventory ({inventory?.voyage}) </h4>
+        <div className="col-md-12 mb-3 mt-3 d-flex justify-content-between align-items-center">
+          <h4 className="m-0"> Inventory ({inventory?.voyage}) </h4>
+          {roles.isAdmin && (
+            <CustomButton
+              background='rgb(255, 88, 88)'
+              size="small"
+              onClick={(event: any) => {
+                // This button sits inside the page's <form> - without stopping the
+                // native submit, clicking it would also fire onSubmit (Update Inventory).
+                event.preventDefault();
+                setShowDeleteConfirm(true);
+              }}
+            >
+              Delete Inventory
+            </CustomButton>
+          )}
         </div>
 
         <div className="col-md-3 mb-4">
@@ -430,12 +463,12 @@ const EditInventory = () => {
         getInventory={getInventory}
       />
 
-      <Snackbar 
-        open={!!alert.message} 
+      <Snackbar
+        open={!!alert.message}
         autoHideDuration={2500}
         onClose={() => setAlert({ tint: 'success', message: ''})}
       >
-        <Alert 
+        <Alert
           severity={alert.tint as AlertColor}
           onClose={() => setAlert({ tint: 'success', message: ''})}
           style={{ fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '10px' }}
@@ -443,6 +476,33 @@ const EditInventory = () => {
           {alert.message}
         </Alert>
       </Snackbar>
+
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
+        <DialogTitle>Delete this inventory?</DialogTitle>
+        <DialogContent>
+          This permanently deletes the inventory record for voyage <strong>{inventory?.voyage}</strong>.
+          Orders already linked to it are not deleted, they just stop showing up under this voyage.
+          This can't be undone.
+        </DialogContent>
+        <DialogActions>
+          <CustomButton
+            background='rgb(150, 150, 150)'
+            size="small"
+            disabled={isDeleting}
+            onClick={() => setShowDeleteConfirm(false)}
+          >
+            Cancel
+          </CustomButton>
+          <CustomButton
+            background='rgb(255, 88, 88)'
+            size="small"
+            disabled={isDeleting}
+            onClick={deleteInventory}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete Inventory'}
+          </CustomButton>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }
