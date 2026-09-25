@@ -1,4 +1,4 @@
-import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate } from 'react-icons/md';
+import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
 import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaWhatsapp, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
@@ -60,6 +60,11 @@ const adminRoutes = [
       title: 'Marketing',
       path: '/marketing',
       icon: <FaBullhorn className="sidebar-icon" />,
+     },
+     {
+      title: 'Analytics',
+      path: '/analytics',
+      icon: <MdOutlineInsights className="sidebar-icon" />,
      },
      {
       mainTitle: 'Management'

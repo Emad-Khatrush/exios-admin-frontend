@@ -1,0 +1,79 @@
+$set-accent: #1d4ed8;
+$set-accent-soft: #eff4ff;
+$set-ink: #18212b;
+$set-muted: #5b6673;
+$set-line: #e3e7ec;
+$set-surface: #ffffff;
+$set-canvas: #f6f7f9;
+$set-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+.settings-hub {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-hub-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  background: $set-surface;
+  border: 1px solid $set-line;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s $set-ease, box-shadow 0.2s $set-ease, transform 0.1s $set-ease;
+
+  &:hover {
+    border-color: $set-accent;
+    box-shadow: 0 4px 16px rgba(24, 33, 43, 0.06);
+  }
+
+  &:active { transform: scale(0.99); }
+  &:focus-visible { outline: 2px solid $set-accent; outline-offset: 2px; }
+}
+
+.settings-hub-card__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: $set-accent-soft;
+  color: $set-accent;
+}
+
+.settings-hub-card__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-hub-card__label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: $set-ink;
+}
+
+.settings-hub-card__description {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: $set-muted;
+}
+
+.settings-hub-card__chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-top: 8px;
+  color: $set-muted;
+}
+
+@media (max-width: 1023px) {
+  .settings-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 639px) {
+  .settings-hub { grid-template-columns: 1fr; }
+}

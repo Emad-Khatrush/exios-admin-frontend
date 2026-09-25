@@ -84,6 +84,60 @@ export type ExchangeRate = {
   _id: string
 }
 
+export type PopupAd = {
+  _id: string
+  description: string
+  imageUrl?: string | null
+  icon?: string
+  startDate: string
+  endDate: string
+  status: 'upcoming' | 'active' | 'expired'
+  viewCount: number
+  createdAt: string
+}
+
+export type PopupAdViewer = {
+  user: {
+    _id: string
+    firstName: string
+    lastName: string
+    phone?: number
+    customerId?: string
+  } | null
+  viewedAt: string
+}
+
+export type SiteVisit = {
+  _id: string
+  path: string
+  referrer?: string
+  device: 'mobile' | 'tablet' | 'desktop'
+  browser: string
+  ip?: string
+  user: {
+    _id: string
+    firstName: string
+    lastName: string
+    phone?: number
+    customerId?: string
+  } | null
+  createdAt: string
+}
+
+export type AnalyticsSummary = {
+  totalVisits: number
+  totalVisitors: number
+  todayVisits: number
+  todayVisitors: number
+  last7DaysVisits: number
+  last30DaysVisits: number
+  topPages: { path: string, count: number }[]
+  deviceBreakdown: { device: string, count: number }[]
+  dailySeries: { date: string, count: number, uniqueVisitors: number }[]
+  loggedInVisits: number
+  guestVisits: number
+}
+
 export type User = {
   createdAt: Date
   firstName: string

@@ -1,0 +1,73 @@
+$ann-accent: #1d4ed8;
+$ann-ink: #18212b;
+$ann-muted: #5b6673;
+$ann-line: #e3e7ec;
+$ann-canvas: #f6f7f9;
+
+.announcements {
+  .ann-count {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: $ann-canvas;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: $ann-muted;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ann-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .ann-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 36px;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .ann-row__index {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-top: 6px;
+    border-radius: 8px;
+    background: $ann-canvas;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: $ann-muted;
+  }
+
+  .ann-row__input,
+  .ann-new .MuiOutlinedInput-root {
+    border-radius: 8px;
+    font-size: 0.9rem;
+
+    .MuiOutlinedInput-notchedOutline { border-color: $ann-line; }
+    &:hover .MuiOutlinedInput-notchedOutline { border-color: #cfd6dd; }
+    &.Mui-focused .MuiOutlinedInput-notchedOutline { border-color: $ann-accent; }
+  }
+
+  .ann-new {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid $ann-line;
+  }
+
+  .ann-list + .ann-new,
+  .settings-empty + .ann-new { margin-top: 20px; }
+
+  .settings-empty + .ann-new { border-top: 0; padding-top: 0; }
+
+  .ann-skeleton { height: 40px; }
+}
+
+@media (max-width: 767px) {
+  .announcements .ann-new { grid-template-columns: 1fr; }
+}

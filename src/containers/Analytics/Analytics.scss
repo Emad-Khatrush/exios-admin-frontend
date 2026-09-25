@@ -1,0 +1,305 @@
+$an-accent: #1d4ed8;
+$an-accent-soft: #eff4ff;
+$an-ink: #18212b;
+$an-muted: #5b6673;
+$an-line: #e3e7ec;
+$an-surface: #ffffff;
+$an-canvas: #f6f7f9;
+$an-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+.analytics-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+  color: $an-ink;
+}
+
+.analytics-page__header {
+  margin-bottom: 20px;
+}
+
+.analytics-page__header h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.analytics-page__header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: $an-muted;
+  max-width: 60ch;
+}
+
+.analytics-loading {
+  display: grid;
+  place-items: center;
+  padding: 48px 0;
+}
+
+// Summary cards.
+.analytics-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.analytics-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: $an-surface;
+  border: 1px solid $an-line;
+  border-radius: 12px;
+}
+
+.analytics-stat__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: $an-accent-soft;
+  color: $an-accent;
+}
+
+.analytics-stat__value {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.analytics-stat__label {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: $an-muted;
+}
+
+// Panels grid: daily views + recent visits span both columns, device/top pages sit side by side.
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.analytics-panel {
+  padding: 18px 20px 20px;
+  background: $an-surface;
+  border: 1px solid $an-line;
+  border-radius: 12px;
+}
+
+.analytics-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.analytics-panel__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.analytics-panel__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.analytics-panel__head p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: $an-muted;
+}
+
+// Daily views bar chart: one flat accent color (single series, no legend needed),
+// thin bars with a rounded top, a hover tooltip carries the exact numbers since
+// not every bar is direct-labeled.
+.analytics-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 160px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid $an-line;
+}
+
+.analytics-bar-col {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  min-width: 4px;
+}
+
+.analytics-bar-col__track {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.analytics-bar-col__fill {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: $an-accent;
+  transition: background-color 0.15s $an-ease;
+}
+
+.analytics-bar-col__tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s $an-ease;
+  z-index: 1;
+}
+
+.analytics-bar-col:hover .analytics-bar-col__tooltip {
+  opacity: 1;
+}
+
+.analytics-bar-col:hover .analytics-bar-col__fill {
+  background: #1741b0;
+}
+
+// Ranked bar lists (device breakdown, top pages): one flat accent, direct-labeled
+// (name + exact count), so color alone never carries identity.
+.analytics-ranked {
+  display: grid;
+  gap: 12px;
+}
+
+.analytics-ranked__row {
+  display: grid;
+  grid-template-columns: auto 84px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.analytics-ranked__icon {
+  display: grid;
+  place-items: center;
+  color: $an-muted;
+}
+
+.analytics-ranked__label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: $an-ink;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.analytics-ranked__label--path {
+  grid-column: 1 / 3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.analytics-ranked__track {
+  height: 8px;
+  border-radius: 999px;
+  background: $an-canvas;
+  overflow: hidden;
+}
+
+.analytics-ranked__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: $an-accent;
+}
+
+.analytics-ranked__value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: $an-ink;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 32px;
+}
+
+// Recent visits table.
+.analytics-table {
+  display: grid;
+  font-size: 0.83rem;
+}
+
+.analytics-table__row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1.2fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid $an-line;
+}
+
+.analytics-table__row:last-child {
+  border-bottom: 0;
+}
+
+.analytics-table__row--head {
+  color: $an-muted;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.analytics-table__path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: $an-ink;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.analytics-table__device {
+  color: $an-muted;
+}
+
+.analytics-table__date {
+  color: $an-muted;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analytics-bar-col__fill,
+  .analytics-bar-col__tooltip {
+    transition: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .analytics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-grid { grid-template-columns: 1fr; }
+  .analytics-panel--wide { grid-column: auto; }
+}
+
+@media (max-width: 639px) {
+  .analytics-stats { grid-template-columns: 1fr; }
+  .analytics-table__row { grid-template-columns: 1fr 1fr; row-gap: 4px; }
+  .analytics-table__row--head { display: none; }
+  .analytics-table__device,
+  .analytics-table__date { font-size: 0.76rem; }
+}

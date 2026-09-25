@@ -10,7 +10,11 @@ import { Session } from './models';
 
 import './App.scss';
 import EditTask from './containers/EditTask/EditTask';
-import Settings from './containers/Settings/Settings'; 
+import Settings from './containers/Settings/Settings';
+import ServicesPrice from './containers/Settings/ServicesPrice';
+import Announcements from './components/Announcements/Announcements';
+import AdminPosts from './containers/AdminPosts/AdminPosts';
+import PopupAds from './containers/Settings/PopupAds';
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
@@ -28,6 +32,7 @@ import MonthReport from './containers/MonthReport/MonthReport';
 import OdoExport from './containers/OdoExport/OdoExport';
 import DeletedStatements from './containers/DeletedStatements/DeletedStatements';
 import Marketing from './containers/Marketing/Marketing';
+import Analytics from './containers/Analytics/Analytics';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -78,6 +83,10 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
       <Route path='/settings' element={<Settings />} />
+      <Route path='/settings/pricing' element={<ServicesPrice />} />
+      <Route path='/settings/announcements' element={<Announcements />} />
+      <Route path='/settings/posts' element={<AdminPosts />} />
+      <Route path='/settings/popup-ads' element={<PopupAds />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
       <Route path='/special-prices' element={<SpecialPriceCustomers />} />
@@ -110,6 +119,10 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
       <Route path='/settings' element={<Settings />} />
+      <Route path='/settings/pricing' element={<ServicesPrice />} />
+      <Route path='/settings/announcements' element={<Announcements />} />
+      <Route path='/settings/posts' element={<AdminPosts />} />
+      <Route path='/settings/popup-ads' element={<PopupAds />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
@@ -125,6 +138,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/odo-export' element={<OdoExport />} />
       <Route path='/deleted-payments' element={<DeletedStatements />} />
       <Route path='/marketing' element={<Marketing />} />
+      <Route path='/analytics' element={<Analytics />} />
     </>
   }
 }

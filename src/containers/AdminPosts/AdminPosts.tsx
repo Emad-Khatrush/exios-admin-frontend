@@ -1,25 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
-  Container,
-  Typography,
-  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  IconButton,
+  MenuItem,
+  OutlinedInput,
+  Select,
   Snackbar,
   Alert,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  CircularProgress,
 } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { ArrowLeft, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import api from "../../api"; // axios instance
+import "../Settings/SettingsCommon.scss";
 import "./AdminPosts.scss";
 
 type Post = {
@@ -30,6 +24,8 @@ type Post = {
   isActive: boolean;
   publishedAt?: string;
 };
+
+const postTypes: Post["type"][] = ["info", "success", "warning", "error"];
 
 const AdminPosts: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -68,7 +64,7 @@ const AdminPosts: React.FC = () => {
 
   const handleClose = () => setOpen(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: { target: { name: string; value: string } }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -99,98 +95,136 @@ const AdminPosts: React.FC = () => {
   };
 
   return (
-    <Container className="admin-posts">
-      <Typography variant="h4" gutterBottom>
-        Manage Posts
-      </Typography>
+    <div className="settings-page admin-posts">
+      <Link to="/settings" className="settings-page__back"><ArrowLeft size={15} /> Back to Settings</Link>
+      <div className="settings-page__header">
+        <div className="settings-page__title">
+          <span className="settings-page__icon"><Newspaper size={20} strokeWidth={2} /></span>
+          <div>
+            <h1>Posts</h1>
+            <p>News and updates published to customers.</p>
+          </div>
+        </div>
+        <button type="button" className="settings-btn settings-btn--primary" onClick={() => handleOpen()}>
+          <Plus size={16} />
+          New post
+        </button>
+      </div>
 
-      <Button variant="contained" color="primary" onClick={() => handleOpen()}>
-        Add New Post
-      </Button>
-
-      {loading ? (
-        <div className="loading"><CircularProgress /></div>
-      ) : (
-        <Table className="posts-table">
-          <TableHead>
-            <TableRow>
-              <TableCell>Title</TableCell>
-              <TableCell>Message</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Active</TableCell>
-              <TableCell>Published At</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <section className="settings-panel">
+      <div className="settings-panel__body">
+        {loading ? (
+          <div className="ap-list" aria-busy="true">
+            {[0, 1, 2].map((i) => <div key={i} className="settings-skeleton ap-skeleton" />)}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="settings-empty">
+            <strong>No posts yet</strong>
+            <p>Use New post to publish your first update.</p>
+          </div>
+        ) : (
+          <ul className="ap-list">
             {posts.map((post) => (
-              <TableRow key={post._id}>
-                <TableCell>{post.title}</TableCell>
-                <TableCell>{post.message}</TableCell>
-                <TableCell>{post.type}</TableCell>
-                <TableCell>{post.isActive ? "Yes" : "No"}</TableCell>
-                <TableCell>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : "-"}</TableCell>
-                <TableCell align="right">
-                  <IconButton color="primary" onClick={() => handleOpen(post)}>
-                    <Edit />
-                  </IconButton>
-                  <IconButton color="error" onClick={() => handleDelete(post._id)}>
-                    <Delete />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
+              <li key={post._id} className="ap-post">
+                <div className="ap-post__main">
+                  <div className="ap-post__title-row">
+                    <h3 className="ap-post__title">{post.title}</h3>
+                    <span className={`ap-chip ap-chip--${post.type}`}>{post.type}</span>
+                    {!post.isActive && <span className="ap-chip ap-chip--inactive">Inactive</span>}
+                  </div>
+                  <p className="ap-post__message">{post.message}</p>
+                  <p className="ap-post__date">
+                    {post.publishedAt ? `Published ${new Date(post.publishedAt).toLocaleDateString()}` : "No publish date"}
+                  </p>
+                </div>
+                <div className="ap-post__actions">
+                  <button
+                    type="button"
+                    className="settings-btn settings-btn--icon"
+                    aria-label={`Edit ${post.title}`}
+                    onClick={() => handleOpen(post)}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-btn settings-btn--icon settings-btn--danger"
+                    aria-label={`Delete ${post.title}`}
+                    onClick={() => handleDelete(post._id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </li>
             ))}
-          </TableBody>
-        </Table>
-      )}
+          </ul>
+        )}
+      </div>
+      </section>
 
       {/* Dialog for Add/Edit */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingPost ? "Edit Post" : "Add Post"}</DialogTitle>
-        <DialogContent className="dialog-form">
-          <TextField
-            margin="dense"
-            label="Title"
-            name="title"
-            fullWidth
-            value={formData.title || ""}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            label="Message"
-            name="message"
-            fullWidth
-            multiline
-            rows={3}
-            value={formData.message || ""}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            label="Type"
-            name="type"
-            fullWidth
-            placeholder="info, success, warning, error"
-            value={formData.type || ""}
-            onChange={handleChange}
-          />
-          <TextField
-            margin="dense"
-            label="Published At"
-            name="publishedAt"
-            type="date"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            value={formData.publishedAt ? formData.publishedAt.substring(0, 10) : ""}
-            onChange={handleChange}
-          />
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ className: "ap-dialog" }}>
+        <DialogTitle className="ap-dialog__title">{editingPost ? "Edit post" : "New post"}</DialogTitle>
+        <DialogContent className="ap-dialog__form">
+          <div className="settings-field">
+            <label htmlFor="post-title">Title</label>
+            <OutlinedInput
+              id="post-title"
+              name="title"
+              size="small"
+              value={formData.title || ""}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="settings-field">
+            <label htmlFor="post-message">Message</label>
+            <OutlinedInput
+              id="post-message"
+              name="message"
+              multiline
+              minRows={3}
+              value={formData.message || ""}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="ap-dialog__row">
+            <div className="settings-field">
+              <label id="post-type-label">Type</label>
+              <Select
+                labelId="post-type-label"
+                name="type"
+                size="small"
+                displayEmpty
+                value={formData.type || ""}
+                onChange={(e) => handleChange({ target: { name: "type", value: e.target.value as string } })}
+                input={<OutlinedInput />}
+              >
+                <MenuItem value="" disabled>Choose a type</MenuItem>
+                {postTypes.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    <span className={`ap-chip ap-chip--${type}`}>{type}</span>
+                  </MenuItem>
+                ))}
+              </Select>
+            </div>
+            <div className="settings-field">
+              <label htmlFor="post-published">Published at</label>
+              <OutlinedInput
+                id="post-published"
+                name="publishedAt"
+                type="date"
+                size="small"
+                value={formData.publishedAt ? formData.publishedAt.substring(0, 10) : ""}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>
-            {editingPost ? "Update" : "Create"}
-          </Button>
+        <DialogActions className="ap-dialog__actions">
+          <button type="button" className="settings-btn settings-btn--ghost" onClick={handleClose}>Cancel</button>
+          <button type="button" className="settings-btn settings-btn--primary" onClick={handleSubmit}>
+            {editingPost ? "Save changes" : "Publish"}
+          </button>
         </DialogActions>
       </Dialog>
 
@@ -200,7 +234,7 @@ const AdminPosts: React.FC = () => {
           {alert.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </div>
   );
 };
 

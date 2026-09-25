@@ -1,14 +1,104 @@
+$sp-accent: #1d4ed8;
+$sp-accent-soft: #eff4ff;
+$sp-ink: #18212b;
+$sp-muted: #5b6673;
+$sp-line: #e3e7ec;
+$sp-canvas: #f6f7f9;
+$sp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
 .services-price {
-  .title {
-    color: rgb(150, 150, 150);
-    font-size: 1.1rem;
-    font-weight: 300;
+  .sp-rate {
+    display: grid;
+    grid-template-columns: 1fr minmax(240px, 320px);
+    align-items: center;
+    gap: 20px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    background: $sp-accent-soft;
+    border-radius: 12px;
   }
-  .MuiFormControl-root {
-    width: 100% !important;
+
+  .sp-rate__label {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: $sp-ink;
   }
-  .made-by-selector .MuiSelect-select {
+
+  .sp-rate__hint {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: $sp-muted;
+  }
+
+  .sp-rate__field input {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .sp-routes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .sp-route {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid $sp-line;
+    border-radius: 12px;
+    transition: border-color 0.2s $sp-ease;
+
+    &:focus-within { border-color: $sp-accent; }
+
+    input[type='number'] { font-variant-numeric: tabular-nums; }
+  }
+
+  .sp-route__head {
     display: flex;
-    align-self: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sp-route__icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: $sp-canvas;
+    color: $sp-ink;
+  }
+
+  .sp-route__name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: $sp-ink;
+  }
+
+  .sp-route__type {
+    margin-left: auto;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: $sp-canvas;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $sp-muted;
+  }
+
+  .sp-skeleton-rate { height: 76px; margin-bottom: 20px; border-radius: 12px; }
+  .sp-skeleton-route { height: 232px; border-radius: 12px; }
+}
+
+@media (max-width: 1023px) {
+  .services-price .sp-routes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .services-price {
+    .sp-rate { grid-template-columns: 1fr; gap: 12px; }
+    .sp-routes { grid-template-columns: 1fr; }
   }
 }
