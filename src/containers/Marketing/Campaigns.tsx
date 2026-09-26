@@ -17,6 +17,8 @@ type CampaignSummary = {
   totalUsers: number;
   sentCount: number;
   failedCount: number;
+  firstMessageAt?: string;
+  lastMessageAt?: string;
   createdAt: string;
 };
 
@@ -60,6 +62,17 @@ const PAGE_SIZE = 20;
 const fullName = (user: CampaignUser) => [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Unknown';
 const processed = (c: CampaignSummary) => c.sentCount + c.failedCount;
 const percent = (c: CampaignSummary) => (c.totalUsers > 0 ? Math.round((processed(c) / c.totalUsers) * 100) : 0);
+
+const scheduleText = (c: CampaignSummary) => {
+  if (c.status !== 'sending') return null;
+  if (!c.firstMessageAt) return 'Scheduling messages…';
+  const first = moment(c.firstMessageAt);
+  const last = moment(c.lastMessageAt);
+  if (first.isAfter(moment())) {
+    return `Starts ${first.calendar().toLowerCase()} (waiting for earlier messages in the queue)`;
+  }
+  return `Finishes around ${last.format('HH:mm')}${last.isSame(moment(), 'day') ? '' : ` on ${last.format('DD MMM')}`}`;
+};
 
 const StatusPill = ({ status }: { status: CampaignStatus | RecipientStatus }) => (
   <span className={`cmp-pill is-${status}`}>
@@ -254,7 +267,7 @@ const Campaigns = ({ openCampaignId, onOpenCampaign, onNewCampaign }: Props) => 
                   <ProgressBar value={percent(detail)} />
                   <span>
                     {percent(detail)}% done
-                    {detail.status === 'sending' && ` · about ${Math.max(0, detail.totalUsers - processed(detail))} min left`}
+                    {scheduleText(detail) && <> &middot; {scheduleText(detail)}</>}
                   </span>
                 </div>
               </div>
@@ -362,6 +375,7 @@ const Campaigns = ({ openCampaignId, onOpenCampaign, onNewCampaign }: Props) => 
                 <span className="cmp-card__message" dir="rtl">{campaign.content}</span>
                 <span className="cmp-card__meta">
                   {TARGET_LABELS[campaign.target]} &middot; {moment(campaign.createdAt).format('DD MMM YYYY')}
+                  {scheduleText(campaign) && <> &middot; {scheduleText(campaign)}</>}
                 </span>
               </span>
 
