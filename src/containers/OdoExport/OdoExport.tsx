@@ -279,7 +279,7 @@ const fetchPurchaseItemsAPI = async (filters: DateFilter): Promise<any[]> => {
 //    compensation         → مصروف تعويضات، لا يمس الإيراد
 const fetchCanceledPaymentsAPI = async (filters: DateFilter): Promise<any[]> => {
   const response = await api.get(
-    `statements/latest?startDate=${filters.startDate}&endDate=${filters.endDate}&calculationType=${'plus'}&limit=0`
+    `statements/latest?startDate=${filters.startDate}&endDate=${filters.endDate}&calculationType=${'plus'}&limit=0&includeOdoCode=true`
   );
 
   const rawData = response?.data.statements || [];
@@ -318,6 +318,10 @@ const fetchCanceledPaymentsAPI = async (filters: DateFilter): Promise<any[]> => 
         'currency_id': item.currency || 'USD',
         'invoice_line_ids/quantity': 1,
         'ref': item._id || '',
+        // Resolved server-side (includeOdoCode=true) the same way as shipping invoices:
+        // the tracking number embedded in the refund's description is matched to the
+        // flight it shipped on, giving that flight's analytic account.
+        'invoice_line_ids/analytic_distribution': item.odoReferenceCode ? `{ "${item.odoReferenceCode}": 100 }` : '',
         'team_id/.id': getOfficeTeamId(item.office),
       });
     });
