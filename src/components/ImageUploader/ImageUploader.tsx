@@ -97,7 +97,7 @@ class ImageUploader extends Component<Props, State> {
         </div>
 
         <p className='allow-format mb-2'>
-          Allowed *.jpeg, *.jpg, *.png, *.pdf max size of 3.1 MB
+          Allowed *.jpeg, *.jpg, *.png, *.webp, *.gif, *.pdf max size of 3.1 MB
         </p>
 
         <FilesPreviewers

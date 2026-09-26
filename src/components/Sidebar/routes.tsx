@@ -49,24 +49,6 @@ const adminRoutes = [
       icon: <FaUsers className="sidebar-icon" />,
      },
      {
-      title: 'Special Prices',
-      path: '/special-prices',
-      icon: <FaPercentage className="sidebar-icon" />,
-     },
-     {
-      mainTitle: 'Marketing'
-     },
-     {
-      title: 'Marketing',
-      path: '/marketing',
-      icon: <FaBullhorn className="sidebar-icon" />,
-     },
-     {
-      title: 'Analytics',
-      path: '/analytics',
-      icon: <MdOutlineInsights className="sidebar-icon" />,
-     },
-     {
       mainTitle: 'Management'
      },
      {
@@ -78,11 +60,6 @@ const adminRoutes = [
       title: 'My Tasks',
       path: '/mytasks',
       icon: <FaTasks className="sidebar-icon" />,
-     },
-     {
-      title: 'Ratings',
-      path: '/ratings',
-      icon: <MdOutlineStarRate className="sidebar-icon" />,
      },
      {   
         title: 'Daily Report',
@@ -100,11 +77,6 @@ const adminRoutes = [
       icon: <FaFileInvoiceDollar className="sidebar-icon" />,
      },
      {
-      title: 'Deleted Payments',
-      path: '/deleted-payments',
-      icon: <FaTrashAlt className="sidebar-icon" />,
-     },
-     {
       mainTitle: 'Inventory'
      },
      {
@@ -118,9 +90,27 @@ const adminRoutes = [
       icon: <FaWarehouse className="sidebar-icon" />,
      },
      {
-      title: 'Returned Payments',
-      path: '/returnedPayments',
-      icon: <FaMoneyCheckAlt className="sidebar-icon" />,
+      mainTitle: 'Marketing'
+     },
+     {
+      title: 'Marketing',
+      path: '/marketing',
+      icon: <FaBullhorn className="sidebar-icon" />,
+     },
+     {
+      title: 'Analytics',
+      path: '/analytics',
+      icon: <MdOutlineInsights className="sidebar-icon" />,
+     },
+   {
+      title: 'Special Prices',
+      path: '/special-prices',
+      icon: <FaPercentage className="sidebar-icon" />,
+     },
+   {
+      title: 'Ratings',
+      path: '/ratings',
+      icon: <MdOutlineStarRate className="sidebar-icon" />,
      },
      {
       mainTitle: 'Settings'
@@ -129,6 +119,11 @@ const adminRoutes = [
       title: 'General',
       path: '/settings',
       icon: <FiSettings className="sidebar-icon" />,
+     },
+   {
+      title: 'Deleted Payments',
+      path: '/deleted-payments',
+      icon: <FaTrashAlt className="sidebar-icon" />,
      },
  ];
 
@@ -196,11 +191,6 @@ const adminRoutes = [
       title: 'Warehouse',
       path: '/mangage',
       icon: <FaWarehouse className="sidebar-icon" />,
-     },
-     {
-      title: 'Returned Payments',
-      path: '/returnedPayments',
-      icon: <FaMoneyCheckAlt className="sidebar-icon" />,
      },
      {
       mainTitle: 'Settings'

@@ -31,6 +31,10 @@ const FilesPreviewers = (props: Props) => {
       <div className="row uploaded-photos mt-3">
         {previewFiles.map((file: any, index: number) => {
           const type = file.type || file.fileType;
+          // Anything the browser reports as an image (jpeg, png, webp, gif,
+          // heic, ...) previews as an <img>; only non-image types (pdf, docs)
+          // fall back to the file-type icon.
+          const isImage = !type || type.startsWith('image/');
 
           return (<div key={index} className="col-lg-4 col-md-6 col-sm-6 col-12 mb-2 mx-1 fp-thumb">
             {!!props.deleteImage &&
@@ -46,7 +50,7 @@ const FilesPreviewers = (props: Props) => {
                 <X size={13} strokeWidth={2.5} />
               </button>
             }
-            {( !!type && (type !== 'image/jpeg' && type !== 'image/png')) ?
+            {!isImage ?
               <FilePreviewer
                 uploadedFile={{
                   path: convertGoogleStorageUrl(file.path),
