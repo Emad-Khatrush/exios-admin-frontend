@@ -51,7 +51,6 @@ const EditInvoice = React.lazy(() => import('./containers/EditInvoice/EditInvoic
 const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingPage'));
 const MyTasks = React.lazy(() => import('./containers/MyTasks/MyTasks'));
 const CreateTask = React.lazy(() => import('./containers/CreateTask/CreateTask'));
-const MessagesControl = React.lazy(() => import('./containers/MessagesControl/MessagesControl'));
 const IssuedInvoices = React.lazy(() => import('./containers/IssuedInvoices/IssuedInvoices'));
 
 type MyProps = {
@@ -132,7 +131,6 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/inventory/add' element={<AddInventory />} />
       <Route path='/inventory/:id/edit' element={<EditInventory />} />
       <Route path='/mangage' element={<WarehouseInventory />} />
-      <Route path='/messages' element={<MessagesControl />} />
       <Route path='/returnedPayments' element={<ReturnedPayments />} />
       <Route path='/reports' element={<MonthReport />} />
       <Route path='/odo-export' element={<OdoExport />} />
