@@ -1,28 +1,51 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../../api";
-import { Alert, AlertColor, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack, TextField } from "@mui/material";
+import { Alert, AlertColor, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, MenuItem, Select, Snackbar, TextField } from "@mui/material";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import DatePicker from "@mui/lab/DatePicker";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
 import ImageUploader from "../../components/ImageUploader/ImageUploader";
+import FilesPreviewers from "../../components/FilesPreviewers/FilesPreviewers";
 import React from "react";
+import moment from "moment";
 import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
-import { Textarea } from "@mui/joy";
-import CustomButton from "../../components/CustomButton/CustomButton";
 import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
 import { convertGoogleStorageUrl } from "../../utils/methods";
+import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import {
+  ChoiceGroup,
+  COUNTRY_OPTIONS,
+  ARRIVAL_DATE_HINT,
+  ARRIVAL_DATE_LABEL,
+  FieldLabel,
+  OFFICE_OPTIONS,
+  optionLabel,
+  READY_DATE_HINT,
+  READY_DATE_LABEL,
+  SHIPPING_TYPE_OPTIONS,
+  STATUS_OPTIONS,
+} from "./InventoryFields";
+
+import './InventoryForm.scss';
+
+const formatDate = (value?: string | Date) => (value ? moment(value).format('DD/MM/YYYY') : '');
 
 const EditInventory = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { roles, customerId } = useSelector((state: any) => state.session.account);
+  const isAdmin = !!roles.isAdmin;
 
   const [inventory, setInventory] = useState<Inventory | any>();
-  const [form, setForm] = useState<Inventory | any>();
+  // The page opens as a summary; "Edit" switches to the form
+  const [isEditing, setIsEditing] = useState(false);
+  // Only the fields changed since the last save; sent as-is to the API
+  const [form, setForm] = useState<Inventory | any>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const [alert, setAlert] = useState({
     tint: 'success',
@@ -44,7 +67,7 @@ const EditInventory = () => {
 
     let allFiles: any = [];
     const newFiles: any =[];
-    
+
     for (const file of files) {
       newFiles.unshift(file)
     }
@@ -58,12 +81,12 @@ const EditInventory = () => {
     }
     data.append('id', String(id));
     await api.fetchFormData('inventory/uploadFiles', 'POST', data)
-    
+
     allFiles = [
       ...filesInput,
       ...newFiles
     ]
-    
+
     setFilesInput(allFiles);
   }
 
@@ -92,7 +115,7 @@ const EditInventory = () => {
       setPreviewFiles(res.data.attachments.map((img: any) => convertGoogleStorageUrl(img.path) ));
       setFilesInput(res.data.attachments);
     } catch (error: any) {
-      setError(error.response.data.message);
+      setError(error?.response?.data?.message || 'Could not load this inventory');
     } finally {
       setIsLoading(false);
     }
@@ -102,23 +125,49 @@ const EditInventory = () => {
     setForm((prevForm: any) => ({ ...prevForm, [event.target.name]: event.target.value }));
   }
 
+  // Current value of a field: the unsaved edit if there is one, otherwise what is saved
+  const valueOf = (name: string) => (name in form ? form[name] : inventory?.[name]);
+
+  const isDirty = Object.keys(form).length > 0;
+
+  const startEditing = () => {
+    setForm({});
+    setIsEditing(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  const cancelEditing = () => {
+    setForm({});
+    setIsEditing(false);
+  }
+
   const onSubmit = async (event: any) => {
     event.preventDefault();
+    if (!isDirty) {
+      setIsEditing(false);
+      return;
+    }
     try {
+      setIsSaving(true);
       await api.update(`inventory?id=${inventory._id}`, { ...form });
+      setInventory((prev: any) => ({ ...prev, ...form }));
+      setForm({});
+      setIsEditing(false);
       setAlert({
         tint: 'success',
-        message: 'Data updated'
+        message: 'Changes saved'
       })
     } catch (error: any) {
       console.log(error);
       setAlert({
         tint: 'error',
-        message: error.response.data.message
+        message: error?.response?.data?.message || 'Could not save the changes'
       })
+    } finally {
+      setIsSaving(false);
     }
   }
-  
+
   const deleteInventory = async () => {
     try {
       setIsDeleting(true);
@@ -135,372 +184,381 @@ const EditInventory = () => {
     }
   }
 
-  if (isLoading && !inventory) {
+  if (!inventory) {
     return (
-      <CircularProgress />
+      <div className="inv-page">
+        {isLoading || !error ?
+          <div className="inv-skeleton" aria-busy="true" aria-label="Loading inventory">
+            <i className="is-short" />
+            <i />
+            <i />
+          </div>
+          :
+          <div className="inv-error" role="alert">{error}</div>
+        }
+      </div>
     )
   }
-    
+
+  const orders = inventory?.orders || [];
+  const deliveredCount = orders.filter((order: any) => order?.paymentList?.status?.received).length;
+  const isFinished = inventory?.status === 'finished';
+
   return (
-    <div className="container mt-4">
-      <form className="row" onSubmit={onSubmit}>
-        {error &&
-          <Alert className="mb-2" color="error">
-            {error}
-          </Alert>
-        }
-        <div className="col-md-12 mb-3 mt-3 d-flex justify-content-between align-items-center">
-          <h4 className="m-0"> Inventory ({inventory?.voyage}) </h4>
-          {roles.isAdmin && (
-            <CustomButton
-              background='rgb(255, 88, 88)'
-              size="small"
-              onClick={(event: any) => {
-                // This button sits inside the page's <form> - without stopping the
-                // native submit, clicking it would also fire onSubmit (Update Inventory).
-                event.preventDefault();
-                setShowDeleteConfirm(true);
-              }}
-            >
-              Delete Inventory
-            </CustomButton>
-          )}
-        </div>
+    <div className="inv-page">
+      <Link className="inv-back" to="/inventory">
+        <ChevronLeft size={16} strokeWidth={2} />
+        Inventory
+      </Link>
 
-        <div className="col-md-3 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="voyage"
-            required={true}
-            label={'Voyage Number'}
-            onChange={onChangeHandler}
-            defaultValue={inventory?.voyage}
-            disabled={!roles.isAdmin}
-          />
-        </div>
-
-        <div className="col-md-3 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Shipped Country</InputLabel>
-            <Select
-              labelId={'Shipped Country'}
-              id={'shippedCountry'}
-              defaultValue={inventory?.shippedCountry}
-              label={'Shipped Country'}
-              name="shippedCountry"
-              onChange={onChangeHandler}
-              disabled={!roles.isAdmin}
-              >
-              <MenuItem value={'CN'}>
-                <em> China </em>
-              </MenuItem>
-              <MenuItem value={'UAE'}>
-                <em> UAE </em>
-              </MenuItem>
-              <MenuItem value={'TR'}>
-                <em> Turkey </em>
-              </MenuItem>
-              <MenuItem value={'USA'}>
-                <em> USA </em>
-              </MenuItem>
-              <MenuItem value={'UK'}>
-                <em> UK </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-
-        <div className="d-flex col-md-3 mb-4">
-          <TextField
-            className='connect-field-right'
-            id={'outlined-helperText'}
-            name="voyageAmount"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            label={'Voyage Expenses'}
-            onChange={onChangeHandler}
-            onWheel={(event: any) => event.target.blur()}
-            defaultValue={inventory?.voyageAmount}
-            disabled={!roles.isAdmin}
-            />
-          <FormControl 
-            style={{ width: '100%' }}
-          >
-            <InputLabel id="demo-select-small">Currency</InputLabel>
-            <Select
-              className='connect-field-left'
-              labelId={'currency'}
-              id={'voyageCurrency'}
-              defaultValue={inventory?.voyageCurrency}
-              label={'Currency'}
-              name="voyageCurrency"
-              onChange={onChangeHandler}
-              disabled={!roles.isAdmin}
-            >
-              <MenuItem value={'USD'}>
-                <em> USD </em>
-              </MenuItem>
-              <MenuItem value={'LYD'}>
-                <em> LYD </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-3 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Shipping Type</InputLabel>
-            <Select
-              labelId={'Shipping Type'}
-              id={'shippingType'}
-              label={'shippingType'}
-              name="shippingType"
-              onChange={onChangeHandler}
-              defaultValue={inventory?.shippingType}
-              disabled={!roles.isAdmin}
-              >
-              <MenuItem value={'air'}>
-                <em> جوي </em>
-              </MenuItem>
-              <MenuItem value={'sea'}>
-                <em> بحري </em>
-              </MenuItem>
-              <MenuItem value={'domestic'}>
-                <em> شحن داخلي </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-4 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Inventory Place</InputLabel>
-            <Select
-              labelId={'Inventory Place'}
-              id={'inventoryPlace'}
-              defaultValue={inventory?.inventoryPlace}
-              label={'Inventory Place'}
-              name="inventoryPlace"
-              onChange={onChangeHandler}
-              disabled={!roles.isAdmin}
-              >
-              <MenuItem value={'tripoli'}>
-                <em> Tripoli Office </em>
-              </MenuItem>
-              <MenuItem value={'benghazi'}>
-                <em> Benghazi Office </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="d-flex col-md-3 mb-4">
-          <TextField
-            className='connect-field-right'
-            id={'outlined-helperText'}
-            name="costPrice"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            label={'Cost Price'}
-            onChange={onChangeHandler}
-            onWheel={(event: any) => event.target.blur()}
-            defaultValue={inventory?.costPrice}
-          />
-          <FormControl 
-            required
-            style={{ width: '100%' }}
-          >
-            <InputLabel id="demo-select-small">Currency</InputLabel>
-            <Select
-              className='connect-field-left'
-              labelId={'currency'}
-              id={'voyageCurrency'}
-              defaultValue={inventory?.voyageCurrency}
-              label={'Currency'}
-              name="voyageCurrency"
-              onChange={onChangeHandler}
-            >
-              <MenuItem value={'USD'}>
-                <em> USD </em>
-              </MenuItem>
-              <MenuItem value={'LYD'}>
-                <em> LYD </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-4 mb-4 d-flex">
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Stack spacing={3}>
-              <DatePicker
-                label="Departure Date"
-                inputFormat="dd/MM/yyyy"
-                value={form?.departureDate || inventory?.departureDate}
-                renderInput={(params: any) => <TextField {...params} />} 
-                onChange={(value) => onChangeHandler({ target: { name: 'departureDate', value } })}
-              />
-            </Stack>
-          </LocalizationProvider>
-        </div>
-
-        <div className="col-md-3 mb-4 d-flex">
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Stack spacing={3}>
-              <DatePicker
-                label="Inventory Finished Date"
-                inputFormat="dd/MM/yyyy"
-                value={form?.inventoryFinishedDate || inventory?.inventoryFinishedDate}
-                renderInput={(params: any) => <TextField {...params} />} 
-                onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
-              />
-            </Stack>
-          </LocalizationProvider>
-        </div>
-
-        <div className="col-md-2 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Inventory Status</InputLabel>
-            <Select
-              labelId={'Status'}
-              id={'status'}
-              label={'Status'}
-              name="status"
-              defaultValue={inventory?.status}
-              onChange={onChangeHandler}
-            >
-              <MenuItem value={'processing'}>
-                <em> لم تكتمل بعد </em>
-              </MenuItem>
-              <MenuItem value={'finished'}>
-                <em> اكتملت </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-2 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Calculation Done?</InputLabel>
-            <Select
-              labelId={'isCaclulationDone'}
-              id={'isCaclulationDone'}
-              label={'isCaclulationDone'}
-              name="isCaclulationDone"
-              defaultValue={inventory?.isCaclulationDone}
-              onChange={onChangeHandler}
-            >
-              <MenuItem value={'false'}>
-                <em> لم تكتمل بعد </em>
-              </MenuItem>
-              <MenuItem value={'true'}>
-                <em> تم احتساب كل شي </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-2 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="odoReferenceCode"
-            label={'Odo Reference Code'}
-            onChange={onChangeHandler}
-            defaultValue={inventory?.odoReferenceCode}
-          />
-        </div>
-
-        <div className="col-12 mb-4">
-          <Textarea
-            name='note'
-            placeholder='Description'
-            color="neutral"
-            minRows={3}
-            variant="outlined"
-            onChange={onChangeHandler}
-            defaultValue={inventory?.note}
-          />
-        </div>
-
-        <div className='col-md-4 mt-3'>
-          <h6>Upload Files</h6>
-          <ImageUploader
-            id={'attachments'}
-            inputFileRef={filesRef}
-            previewFiles={previewFiles}
-            fileUploaderHandler={fileUploaderHandler}
-            files={filesInput}
-            deleteImage={(roles.isAdmin || roles.isAccountant) ? deleteImage : undefined}
-          />
-        </div>
-
-        <div className="col-12 text-end">
-          <CustomButton 
-            background='rgb(0, 171, 85)' 
-            size="small"
-            disabled={isLoading}
-          >
-            Update Inventory
-          </CustomButton>
-        </div>
-      </form>
-
-      <hr />
-
-      {(roles.isAdmin || ['S092', 'A647'].includes(customerId)) && (
+      <header className="inv-head">
         <div>
-          <InventoryExpenses
-            inventoryId={inventory?._id}
-            inventory={inventory}
-          />
-          <hr />
+          <h1>
+            {inventory?.voyage}
+            <span className={`inv-badge ${isFinished ? 'is-ok' : 'is-warn'}`}>{optionLabel(STATUS_OPTIONS, inventory?.status || 'processing')}</span>
+          </h1>
+          <p className="inv-head-meta">
+            {[
+              optionLabel(COUNTRY_OPTIONS, inventory?.shippedCountry),
+              optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType),
+              optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace),
+            ].filter(Boolean).join(', ')}
+          </p>
         </div>
+        {!isEditing && (
+          <div className="inv-head-actions">
+            {isAdmin && (
+              <button type="button" className="inv-btn is-danger" onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 size={15} strokeWidth={2} />
+                Delete
+              </button>
+            )}
+            <button type="button" className="inv-btn is-primary" onClick={startEditing}>
+              <Pencil size={15} strokeWidth={2} />
+              Edit
+            </button>
+          </div>
+        )}
+      </header>
+
+      {!isEditing ? (
+        <>
+          <section className="inv-tiles" aria-label="Summary">
+            <div className="inv-tile">
+              <span>Packages</span>
+              <strong>{orders.length}</strong>
+            </div>
+            <div className="inv-tile">
+              <span>Delivered to customers</span>
+              <strong>{deliveredCount}<small>of {orders.length}</small></strong>
+            </div>
+            <div className="inv-tile">
+              <span>Voyage expenses</span>
+              <strong>{Number(inventory?.voyageAmount || 0).toLocaleString('en-US')}<small>{inventory?.voyageCurrency}</small></strong>
+            </div>
+            <div className="inv-tile">
+              <span>Ready date</span>
+              <strong>{formatDate(inventory?.inventoryFinishedDate) || <small>Not set</small>}</strong>
+            </div>
+          </section>
+
+          <section className="inv-card">
+            <div className="inv-card-head">
+              <h2>Voyage details</h2>
+            </div>
+
+            <dl className="inv-details">
+              <div>
+                <dt>Voyage number</dt>
+                <dd>{inventory?.voyage}</dd>
+              </div>
+              <div>
+                <dt>Shipped from</dt>
+                <dd>{optionLabel(COUNTRY_OPTIONS, inventory?.shippedCountry) || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div>
+                <dt>Shipping type</dt>
+                <dd>{optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType) || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div>
+                <dt>Inventory office</dt>
+                <dd>{optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace) || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div>
+                <dt>{ARRIVAL_DATE_LABEL}</dt>
+                <dd>{formatDate(inventory?.arrivalDate) || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div>
+                <dt>{READY_DATE_LABEL}</dt>
+                <dd>{formatDate(inventory?.inventoryFinishedDate) || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{optionLabel(STATUS_OPTIONS, inventory?.status || 'processing')}</dd>
+              </div>
+              <div>
+                <dt>Odo reference code</dt>
+                <dd>{inventory?.odoReferenceCode || <span className="is-empty">Not set</span>}</dd>
+              </div>
+              <div className="is-wide">
+                <dt>Description</dt>
+                <dd dir="auto" className="is-text">{inventory?.note || <span className="is-empty">No description</span>}</dd>
+              </div>
+              <div className="is-wide">
+                <dt>Attachments</dt>
+                <dd>
+                  {previewFiles.length > 0 ?
+                    <FilesPreviewers previewFiles={filesInput} files={previewFiles} />
+                    :
+                    <span className="is-empty">No files</span>
+                  }
+                </dd>
+              </div>
+            </dl>
+          </section>
+        </>
+      ) : (
+        <form className="inv-form" onSubmit={onSubmit}>
+          <section className="inv-card">
+            <div className="inv-card-head">
+              <div>
+                <h2>Voyage</h2>
+                {!isAdmin && <p>Only admins can change the voyage details.</p>}
+              </div>
+            </div>
+
+            <div className="inv-grid">
+              <div className="inv-field">
+                <FieldLabel required>Voyage number</FieldLabel>
+                <TextField
+                  size="small"
+                  fullWidth
+                  name="voyage"
+                  required
+                  value={valueOf('voyage') ?? ''}
+                  onChange={onChangeHandler}
+                  disabled={!isAdmin}
+                  inputProps={{ 'aria-label': 'Voyage number' }}
+                />
+              </div>
+
+              <div className="inv-field">
+                <FieldLabel note="Optional">Odo reference code</FieldLabel>
+                <TextField
+                  size="small"
+                  fullWidth
+                  name="odoReferenceCode"
+                  value={valueOf('odoReferenceCode') ?? ''}
+                  onChange={onChangeHandler}
+                  inputProps={{ 'aria-label': 'Odo reference code' }}
+                />
+              </div>
+
+              <div className="inv-field">
+                <FieldLabel>Voyage expenses</FieldLabel>
+                <div className="inv-money">
+                  <TextField
+                    size="small"
+                    fullWidth
+                    name="voyageAmount"
+                    type="number"
+                    inputProps={{ inputMode: 'decimal', step: .01, 'aria-label': 'Voyage expenses' }}
+                    value={valueOf('voyageAmount') ?? ''}
+                    onChange={onChangeHandler}
+                    onWheel={(event: any) => event.target.blur()}
+                    disabled={!isAdmin}
+                  />
+                  <FormControl size="small">
+                    <Select
+                      name="voyageCurrency"
+                      value={valueOf('voyageCurrency') || ''}
+                      displayEmpty
+                      onChange={onChangeHandler}
+                      disabled={!isAdmin}
+                      inputProps={{ 'aria-label': 'Currency' }}
+                    >
+                      <MenuItem value="" disabled>Currency</MenuItem>
+                      <MenuItem value={'USD'}>USD</MenuItem>
+                      <MenuItem value={'LYD'}>LYD</MenuItem>
+                    </Select>
+                  </FormControl>
+                </div>
+              </div>
+
+              <div className="is-wide">
+                <ChoiceGroup
+                  name="shippedCountry"
+                  label="Shipped from"
+                  options={COUNTRY_OPTIONS}
+                  value={valueOf('shippedCountry')}
+                  onChange={onChangeHandler}
+                  disabled={!isAdmin}
+                  required
+                />
+              </div>
+
+              <ChoiceGroup
+                name="shippingType"
+                label="Shipping type"
+                options={SHIPPING_TYPE_OPTIONS}
+                value={valueOf('shippingType')}
+                onChange={onChangeHandler}
+                disabled={!isAdmin}
+                required
+              />
+
+              <ChoiceGroup
+                name="inventoryPlace"
+                label="Inventory office"
+                options={OFFICE_OPTIONS}
+                value={valueOf('inventoryPlace')}
+                onChange={onChangeHandler}
+                disabled={!isAdmin}
+                required
+              />
+            </div>
+          </section>
+
+          <section className="inv-card">
+            <div className="inv-card-head">
+              <h2>Dates and status</h2>
+            </div>
+
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <div className="inv-grid">
+                <div className="inv-field">
+                  <FieldLabel>{ARRIVAL_DATE_LABEL}</FieldLabel>
+                  <DatePicker
+                    inputFormat="dd/MM/yyyy"
+                    value={valueOf('arrivalDate') || null}
+                    renderInput={(params: any) => <TextField {...params} size="small" fullWidth />}
+                    onChange={(value) => onChangeHandler({ target: { name: 'arrivalDate', value } })}
+                  />
+                  <span className="inv-hint">{ARRIVAL_DATE_HINT}</span>
+                </div>
+
+                <div className="inv-field">
+                  <FieldLabel>{READY_DATE_LABEL}</FieldLabel>
+                  <DatePicker
+                    inputFormat="dd/MM/yyyy"
+                    value={valueOf('inventoryFinishedDate') || null}
+                    renderInput={(params: any) => <TextField {...params} size="small" fullWidth />}
+                    onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
+                  />
+                  <span className="inv-hint">{READY_DATE_HINT}</span>
+                </div>
+
+                <ChoiceGroup
+                  name="status"
+                  label="Inventory status"
+                  options={STATUS_OPTIONS}
+                  value={valueOf('status')}
+                  onChange={onChangeHandler}
+                />
+              </div>
+            </LocalizationProvider>
+          </section>
+
+          <section className="inv-card">
+            <div className="inv-card-head">
+              <div>
+                <h2>Notes and files</h2>
+                <p>Files upload as soon as you pick them.</p>
+              </div>
+            </div>
+
+            <div className="inv-grid">
+              <div className="inv-field is-wide">
+                <FieldLabel note="Optional">Description</FieldLabel>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  name="note"
+                  value={valueOf('note') ?? ''}
+                  onChange={onChangeHandler}
+                  inputProps={{ dir: 'auto', 'aria-label': 'Description' }}
+                />
+              </div>
+
+              <div className="inv-field is-wide">
+                <FieldLabel>Attachments</FieldLabel>
+                <ImageUploader
+                  id={'attachments'}
+                  inputFileRef={filesRef}
+                  previewFiles={previewFiles}
+                  fileUploaderHandler={fileUploaderHandler}
+                  files={filesInput}
+                  deleteImage={(roles.isAdmin || roles.isAccountant) ? deleteImage : undefined}
+                />
+              </div>
+            </div>
+          </section>
+
+          <div className="inv-actionbar" role="region" aria-label="Editing">
+            <span>{isDirty ? 'You have unsaved changes' : 'Editing inventory'}</span>
+            <div>
+              <button type="button" className="inv-btn is-ghost" onClick={cancelEditing} disabled={isSaving}>Cancel</button>
+              <button type="submit" className="inv-btn is-primary" disabled={isSaving || !isDirty}>
+                {isSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </form>
       )}
-      
-      <InventoryOrders
-        inventory={inventory}
-        getInventory={getInventory}
-      />
+
+      {!isEditing && (roles.isAdmin || ['S092', 'A647'].includes(customerId)) && (
+        <InventoryExpenses
+          inventoryId={inventory?._id}
+          inventory={inventory}
+        />
+      )}
+
+      {!isEditing && (
+        <>
+          <h2 className="inv-section-title">Packages</h2>
+          <InventoryOrders
+            inventory={inventory}
+            getInventory={getInventory}
+          />
+        </>
+      )}
 
       <Snackbar
         open={!!alert.message}
         autoHideDuration={2500}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         onClose={() => setAlert({ tint: 'success', message: ''})}
       >
         <Alert
           severity={alert.tint as AlertColor}
+          variant="filled"
           onClose={() => setAlert({ tint: 'success', message: ''})}
-          style={{ fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '10px' }}
         >
           {alert.message}
         </Alert>
       </Snackbar>
 
-      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
-        <DialogTitle>Delete this inventory?</DialogTitle>
-        <DialogContent>
+      <Dialog
+        open={showDeleteConfirm}
+        onClose={() => !isDeleting && setShowDeleteConfirm(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete this inventory?</DialogTitle>
+        <DialogContent sx={{ fontSize: '0.9rem', color: '#5b6673' }}>
           This permanently deletes the inventory record for voyage <strong>{inventory?.voyage}</strong>.
           Orders already linked to it are not deleted, they just stop showing up under this voyage.
           This can't be undone.
         </DialogContent>
-        <DialogActions>
-          <CustomButton
-            background='rgb(150, 150, 150)'
-            size="small"
-            disabled={isDeleting}
-            onClick={() => setShowDeleteConfirm(false)}
-          >
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <button type="button" className="inv-btn is-ghost" disabled={isDeleting} onClick={() => setShowDeleteConfirm(false)}>
             Cancel
-          </CustomButton>
-          <CustomButton
-            background='rgb(255, 88, 88)'
-            size="small"
-            disabled={isDeleting}
-            onClick={deleteInventory}
-          >
-            {isDeleting ? 'Deleting...' : 'Delete Inventory'}
-          </CustomButton>
+          </button>
+          <button type="button" className="inv-btn is-danger-solid" disabled={isDeleting} onClick={deleteInventory}>
+            {isDeleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete inventory'}
+          </button>
         </DialogActions>
       </Dialog>
     </div>

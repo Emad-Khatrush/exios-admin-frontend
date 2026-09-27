@@ -23,14 +23,25 @@ $fp-ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
+// Thumbnails wrap in a row; each one is only as wide as its file, so the
+// remove button sits on the file's corner instead of the far edge of a grid column.
+.fp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .fp-thumb {
   position: relative;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .fp-remove-btn {
   position: absolute;
-  top: -6px;
-  right: 2px;
+  top: -8px;
+  right: -8px;
   z-index: 1;
   display: flex;
   align-items: center;

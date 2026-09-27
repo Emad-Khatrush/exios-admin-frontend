@@ -1,10 +1,13 @@
+// |ordersDetails| lists every selected order of the customer, so each customer gets one message
 export const arrivedPackageDetails = `
 شركة اكسيوس للشراء والشحن
 اهلا بك عميلنا |fullName|
-وصلت طلبية رقمها |orderId| ورقم تتبعها الخارجي |trackingNumber| الى مخزننا في ليبيا وجاهزه للتسليم
-وزن/حجم: |weight|
-سعر الشحن المحسوب: |exiosPrice| دولار
-قيمة الشحن للتسليم: |totalPrice| دولار
+وصلت شحناتك التالية الى مخزننا في ليبيا وجاهزة للتسليم:
+
+|ordersDetails|
+
+اجمالي الوزن/الحجم: |weight|
+اجمالي قيمة الشحن للتسليم: |totalPrice| دولار
 
 يرجى زيارة مقر الشركة للاستلام
 
@@ -29,10 +32,12 @@ export const reminderToReceiveGoodsText = `
 شركة اكسيوس للشراء والشحن
 اهلا بك عميلنا |fullName|
 *:يوجد لديك شحنات وصلت من مده ولم تقم باستلامها بعد، يرجى التعجيل لعملية الاستلام، تفاصيل شحنتك في الوصف ادناه*
-وصلت طلبية رقمها |orderId| ورقم تتبعها الخارجي |trackingNumber| الى مخزننا في ليبيا وجاهزه للتسليم
-وزن/حجم: |weight|
-سعر الشحن المحسوب: |exiosPrice| دولار
-قيمة الشحن للتسليم: |totalPrice| دولار
+الشحنات التالية موجودة في مخزننا في ليبيا وجاهزة للتسليم:
+
+|ordersDetails|
+
+اجمالي الوزن/الحجم: |weight|
+اجمالي قيمة الشحن للتسليم: |totalPrice| دولار
 
 يرجى زيارة مقر الشركة للاستلام
 

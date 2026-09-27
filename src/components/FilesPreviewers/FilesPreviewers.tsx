@@ -28,7 +28,7 @@ const FilesPreviewers = (props: Props) => {
 
   return (
     <div>
-      <div className="row uploaded-photos mt-3">
+      <div className="uploaded-photos fp-grid mt-3">
         {previewFiles.map((file: any, index: number) => {
           const type = file.type || file.fileType;
           // Anything the browser reports as an image (jpeg, png, webp, gif,
@@ -36,7 +36,7 @@ const FilesPreviewers = (props: Props) => {
           // fall back to the file-type icon.
           const isImage = !type || type.startsWith('image/');
 
-          return (<div key={index} className="col-lg-4 col-md-6 col-sm-6 col-12 mb-2 mx-1 fp-thumb">
+          return (<div key={index} className="fp-thumb">
             {!!props.deleteImage &&
               <button
                 type="button"

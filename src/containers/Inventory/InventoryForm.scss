@@ -1,0 +1,537 @@
+// Same tokens as the rest of the redesigned pages (Debts.scss, DashboardStats.scss):
+// one accent (blue), green/red only for real money / state, 12px card radius.
+$inv-accent: #1d4ed8;
+$inv-accent-soft: #eff4ff;
+$inv-ink: #18212b;
+$inv-muted: #5b6673;
+$inv-faint: #8a949f;
+$inv-line: #e3e7ec;
+$inv-line-strong: #cfd6dd;
+$inv-surface: #ffffff;
+$inv-sunken: #f5f7f9;
+$inv-ok: #1f7a3a;
+$inv-ok-soft: #e8f5ec;
+$inv-danger: #b42318;
+$inv-danger-soft: #fdecea;
+$inv-warn: #8a5a00;
+$inv-warn-soft: #fff4dc;
+$inv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+$inv-radius: 12px;
+$inv-radius-sm: 8px;
+
+.inv-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 96px;
+  font-family: 'Red Hat Text', sans-serif;
+  color: $inv-ink;
+
+  p, h1, h2, h3 { margin: 0; }
+
+  :focus-visible {
+    outline: 2px solid $inv-accent;
+    outline-offset: 2px;
+  }
+
+  // Match MUI inputs to the page radius
+  .MuiOutlinedInput-root { border-radius: $inv-radius-sm; background: $inv-surface; }
+}
+
+// ---------- Buttons ----------
+.inv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  border-radius: $inv-radius-sm;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s $inv-ease, border-color 0.15s $inv-ease, transform 0.1s $inv-ease;
+
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  &.is-primary {
+    background: $inv-accent;
+    color: #fff;
+    &:hover:not(:disabled) { background: #1a44c0; color: #fff; }
+  }
+
+  &.is-ghost {
+    background: $inv-surface;
+    border-color: $inv-line;
+    color: $inv-ink;
+    &:hover:not(:disabled) { border-color: $inv-line-strong; background: $inv-sunken; color: $inv-ink; }
+  }
+
+  &.is-danger {
+    background: $inv-surface;
+    border-color: #f1c4bf;
+    color: $inv-danger;
+    &:hover:not(:disabled) { background: $inv-danger-soft; }
+  }
+
+  &.is-danger-solid {
+    background: $inv-danger;
+    color: #fff;
+    &:hover:not(:disabled) { background: #9a1e14; }
+  }
+
+  &.is-small { height: 32px; padding: 0 12px; font-size: 0.8rem; }
+}
+
+.inv-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: $inv-muted;
+  background: none;
+  border: 0;
+  border-radius: $inv-radius-sm;
+  cursor: pointer;
+  transition: color 0.15s $inv-ease, background-color 0.15s $inv-ease;
+
+  &:hover { color: $inv-accent; background: $inv-accent-soft; }
+  &.is-danger:hover { color: $inv-danger; background: $inv-danger-soft; }
+}
+
+// ---------- Header ----------
+.inv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: $inv-muted;
+  text-decoration: none;
+  &:hover { color: $inv-accent; }
+}
+
+.inv-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+.inv-head-meta {
+  margin-top: 4px;
+  font-size: 0.88rem;
+  color: $inv-muted;
+}
+
+.inv-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inv-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  border-radius: 6px;
+  color: $inv-muted;
+  background: $inv-sunken;
+
+  &.is-ok { color: $inv-ok; background: $inv-ok-soft; }
+  &.is-warn { color: $inv-warn; background: $inv-warn-soft; }
+  &.is-accent { color: $inv-accent; background: $inv-accent-soft; }
+}
+
+// ---------- Summary tiles ----------
+.inv-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.inv-tile {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  background: $inv-surface;
+  border: 1px solid $inv-line;
+  border-radius: $inv-radius;
+
+  span { font-size: 0.78rem; font-weight: 500; color: $inv-muted; }
+  strong {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+
+    small { margin-left: 4px; font-size: 0.78rem; font-weight: 600; color: $inv-muted; }
+  }
+}
+
+// ---------- Form sections ----------
+.inv-form {
+  display: grid;
+  gap: 24px;
+}
+
+.inv-card {
+  padding: 20px;
+  background: $inv-surface;
+  border: 1px solid $inv-line;
+  border-radius: $inv-radius;
+}
+
+.inv-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+
+  h2 {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin-top: 2px;
+    font-size: 0.82rem;
+    color: $inv-muted;
+  }
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  align-items: start;
+
+  .is-wide { grid-column: 1 / -1; }
+}
+
+.inv-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inv-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: $inv-ink;
+
+  em { font-style: normal; color: $inv-danger; margin-left: 2px; }
+  small { margin-left: 6px; font-weight: 500; color: $inv-faint; }
+}
+
+.inv-hint {
+  font-size: 0.75rem;
+  color: $inv-muted;
+}
+
+// Amount + currency joined into one control
+.inv-money {
+  display: flex;
+
+  .MuiFormControl-root:first-child .MuiOutlinedInput-root {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .MuiFormControl-root:last-child {
+    flex: 0 0 96px;
+    margin-left: -1px;
+
+    .MuiOutlinedInput-root {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+  }
+}
+
+// Segmented radio group (country, shipping type, office...)
+.inv-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $inv-muted;
+    background: $inv-surface;
+    border: 1px solid $inv-line;
+    border-radius: $inv-radius-sm;
+    cursor: pointer;
+    transition: border-color 0.15s $inv-ease, color 0.15s $inv-ease, background-color 0.15s $inv-ease;
+
+    &:hover { border-color: $inv-line-strong; color: $inv-ink; }
+  }
+
+  input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  label:has(input:checked) {
+    color: $inv-accent;
+    border-color: $inv-accent;
+    background: $inv-accent-soft;
+  }
+
+  label:has(input:focus-visible) {
+    outline: 2px solid $inv-accent;
+    outline-offset: 2px;
+  }
+
+  label:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  label.is-checked {
+    color: $inv-accent;
+    border-color: $inv-accent;
+    background: $inv-accent-soft;
+  }
+}
+
+// ---------- Read-only details (inventory summary) ----------
+.inv-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 18px 24px;
+  margin: 0;
+
+  > div { display: grid; gap: 3px; min-width: 0; }
+  .is-wide { grid-column: 1 / -1; }
+
+  dt {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: $inv-muted;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $inv-ink;
+    overflow-wrap: anywhere;
+  }
+
+  .is-text {
+    font-weight: 400;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+
+  .is-empty {
+    font-weight: 400;
+    color: $inv-faint;
+  }
+
+  .uploaded-photos { margin-top: 4px !important; }
+}
+
+.inv-error {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: $inv-danger;
+  background: $inv-danger-soft;
+  border-radius: $inv-radius-sm;
+}
+
+// ---------- Sticky action bar ----------
+.inv-actionbar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: $inv-surface;
+  border: 1px solid $inv-line;
+  border-radius: $inv-radius;
+  box-shadow: 0 10px 30px rgba(24, 33, 43, 0.1);
+  animation: inv-rise 0.25s $inv-ease;
+
+  > span { font-size: 0.85rem; font-weight: 600; color: $inv-muted; }
+  div { display: flex; gap: 8px; margin-left: auto; }
+}
+
+.inv-section-title {
+  margin: 40px 0 20px;
+  padding-top: 28px;
+  border-top: 1px solid $inv-line;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+// ---------- Flight expenses ----------
+.inv-exp-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(200px, 1.4fr) minmax(110px, 0.7fr) minmax(170px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  margin-bottom: 16px;
+  background: $inv-sunken;
+  border-radius: 10px;
+
+  &.is-editing { background: $inv-accent-soft; }
+
+  .inv-exp-actions { display: flex; gap: 6px; }
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr 1fr;
+    .is-description, .inv-exp-actions { grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 575px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inv-table-wrap {
+  overflow-x: auto;
+  border: 1px solid $inv-line;
+  border-radius: 10px;
+}
+
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+
+  th {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $inv-muted;
+    text-align: left;
+    white-space: nowrap;
+    background: $inv-sunken;
+    border-bottom: 1px solid $inv-line;
+  }
+
+  td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid $inv-line;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: #fafbfc; }
+  tr.is-editing td { background: $inv-accent-soft; }
+
+  .is-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .is-muted { color: $inv-faint; }
+  .is-actions { width: 1%; white-space: nowrap; text-align: right; }
+
+  tfoot td {
+    font-weight: 700;
+    background: $inv-sunken;
+    border-top: 1px solid $inv-line;
+    border-bottom: 0;
+  }
+}
+
+.inv-exp-desc {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+
+.inv-warn-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.83rem;
+  color: $inv-warn;
+  background: $inv-warn-soft;
+  border-radius: $inv-radius-sm;
+}
+
+.inv-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  text-align: center;
+  border: 1px dashed $inv-line-strong;
+  border-radius: 10px;
+
+  svg { color: $inv-faint; }
+  strong { font-size: 0.95rem; }
+  p { font-size: 0.84rem; color: $inv-muted; }
+}
+
+.inv-skeleton {
+  display: grid;
+  gap: 16px;
+
+  i {
+    display: block;
+    height: 120px;
+    background: linear-gradient(90deg, #eef1f4 0%, #f7f9fa 50%, #eef1f4 100%);
+    background-size: 200% 100%;
+    border-radius: $inv-radius;
+    animation: inv-shimmer 1.4s linear infinite;
+  }
+
+  .is-short { height: 48px; max-width: 360px; }
+}
+
+@keyframes inv-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes inv-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-actionbar { animation: none; }
+  .inv-skeleton i { animation: none; }
+  .inv-btn, .inv-choice label { transition: none; }
+}

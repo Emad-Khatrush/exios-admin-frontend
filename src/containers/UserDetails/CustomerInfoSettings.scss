@@ -1,0 +1,160 @@
+// Same tokens as the rest of the redesigned pages (InventoryForm.scss, Debts.scss)
+$ci-accent: #1d4ed8;
+$ci-accent-soft: #eff4ff;
+$ci-ink: #18212b;
+$ci-muted: #5b6673;
+$ci-faint: #8a949f;
+$ci-line: #e3e7ec;
+$ci-line-strong: #cfd6dd;
+$ci-surface: #ffffff;
+$ci-sunken: #f5f7f9;
+$ci-ok: #1f7a3a;
+$ci-ok-soft: #e8f5ec;
+$ci-danger: #b42318;
+$ci-danger-soft: #fdecea;
+$ci-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+.ci-stack {
+  display: grid;
+  gap: 20px;
+  max-width: 880px;
+  font-family: 'Red Hat Text', 'Segoe UI', Tahoma, sans-serif;
+  color: $ci-ink;
+
+  p, h2 { margin: 0; }
+
+  :focus-visible {
+    outline: 2px solid $ci-accent;
+    outline-offset: 2px;
+  }
+
+  .MuiOutlinedInput-root { border-radius: 8px; background: $ci-surface; }
+}
+
+.ci-card {
+  padding: 20px;
+  background: $ci-surface;
+  border: 1px solid $ci-line;
+  border-radius: 12px;
+}
+
+.ci-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+
+  h2 { font-size: 1rem; font-weight: 700; }
+  p { margin-top: 3px; font-size: 0.82rem; color: $ci-muted; }
+}
+
+.ci-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 16px 20px;
+}
+
+.ci-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ci-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  em { font-style: normal; color: $ci-danger; margin-left: 2px; }
+  small { margin-left: 6px; font-weight: 500; color: $ci-faint; }
+}
+
+.ci-hint {
+  font-size: 0.75rem;
+  color: $ci-muted;
+}
+
+// Read-only values
+.ci-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 16px 24px;
+  margin: 0;
+
+  > div { display: grid; gap: 3px; min-width: 0; }
+  dt { font-size: 0.76rem; font-weight: 500; color: $ci-muted; }
+  dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+  .is-empty { font-weight: 400; color: $ci-faint; }
+}
+
+.ci-note {
+  padding: 10px 12px;
+  margin-top: 16px;
+  font-size: 0.83rem;
+  border-radius: 8px;
+
+  &.is-ok { color: $ci-ok; background: $ci-ok-soft; }
+  &.is-error { color: $ci-danger; background: $ci-danger-soft; }
+}
+
+.ci-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid $ci-line;
+}
+
+.ci-code-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .ci-field { width: 180px; }
+}
+
+.ci-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s $ci-ease, border-color 0.15s $ci-ease, transform 0.1s $ci-ease;
+
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  &.is-primary {
+    color: #fff;
+    background: $ci-accent;
+    &:hover:not(:disabled) { background: #1a44c0; }
+  }
+
+  &.is-ghost {
+    color: $ci-ink;
+    background: $ci-surface;
+    border-color: $ci-line;
+    &:hover:not(:disabled) { background: $ci-sunken; border-color: $ci-line-strong; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ci-btn { transition: none; }
+}

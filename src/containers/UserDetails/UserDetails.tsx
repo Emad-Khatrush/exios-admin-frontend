@@ -5,9 +5,7 @@ import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
 import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
 import InfoWidget from '../../components/InfoWidget/InfoWidget';
-import TextInput from '../../components/TextInput/TextInput';
 import { FaMoneyBillWave } from 'react-icons/fa';
-import { AiOutlineSearch } from 'react-icons/ai';
 import { Debt } from '../../models';
 import { checkIfDataArray } from '../../utils/methods';
 import CashflowUser from './CashflowUser';
@@ -19,6 +17,16 @@ import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
 import SpecialPricesTab from './SpecialPricesTab';
 import PassportVerificationTab from './PassportVerificationTab';
+import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
+
+// The fields the Customer info card edits; the rest of the loaded user stays as it is
+const pickCustomerInfo = (updated: any) => ({
+  firstName: updated?.firstName,
+  lastName: updated?.lastName,
+  username: updated?.username,
+  phone: updated?.phone,
+  city: updated?.city,
+});
 
 type Props = {}
 
@@ -35,7 +43,6 @@ const UserDetails = (props: Props) => {
   const [dialog, setDialog] = useState<any>();
   const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
-  const [customerId, setCustomerId] = useState();
 
   useEffect(() => {
     loadData();
@@ -87,7 +94,6 @@ const UserDetails = (props: Props) => {
       setUser(response.data);
       setWallet(walletResponse.data.results);
       setUserStatement(statementResponse.data.results);
-      setCustomerId(response.data.customerId);
       setIsLoading(false);
     } catch (error) {
       console.log(error);
@@ -104,19 +110,6 @@ const UserDetails = (props: Props) => {
       console.log(error);
     }
     setIsLoading(false);
-  }
-
-  const changeCustomerId = async () => {
-    try {
-      setIsLoading(true);
-      await api.update(`customerId/${id}/update`, { customerId });
-      alert('Customer ID updated successfully');
-      setIsLoading(false);
-    } catch (error: any) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Error updating customer ID');
-      setIsLoading(false);
-    }
   }
 
   if (isLoading || !user) {
@@ -213,25 +206,17 @@ const UserDetails = (props: Props) => {
         </div>
       ) : activeTap === 'settings' ? (
         <div className="col-md-12">
-          <h3 className='mb-3'>Change Customer Code</h3>
-          <TextInput
-            name="customerId"
-            placeholder="Customer ID"
-            icon={<AiOutlineSearch />}
-            value={customerId}
-            onChange={(event: any) => setCustomerId(event.target.value)}
-            maxLength={4}
-          />
-
-          <CustomButton
-            className='mt-3'
-            background='rgb(0, 171, 85)'
-            size="small"
-            disabled={isLoading}
-            onClick={() => changeCustomerId() }
-          >
-            Change Code
-          </CustomButton>
+          <div className="ci-stack">
+            <CustomerInfoCard
+              user={user}
+              onSaved={(updated) => setUser({ ...user, ...pickCustomerInfo(updated) })}
+            />
+            <CustomerCodeCard
+              key={user.customerId}
+              user={user}
+              onSaved={(updated) => setUser({ ...user, customerId: updated?.customerId ?? user.customerId })}
+            />
+          </div>
 
           {canReviewPassports && (
             <div className="mt-4">

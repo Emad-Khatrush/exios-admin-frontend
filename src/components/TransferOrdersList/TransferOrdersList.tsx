@@ -33,6 +33,10 @@ import ActivityDialog from './ActivityDialog';
 import EditPackageWeight from './EditPackageWeight';
 import { calculateMinTotalPrice } from '../../utils/methods';
 
+// Each row is one package. An order can have several packages, so the order _id alone is not
+// unique: duplicate React keys left old rows on screen after the search results changed.
+const packageKey = (order: any) => `${order?._id}-${order?.paymentList?._id}`;
+
 function not(a: readonly number[], b: readonly number[]) {
   return a.filter((value) => b.indexOf(value) === -1);
 }
@@ -62,6 +66,9 @@ type Props = {
   inventory: Inventory
   isSearching: boolean
   fetchSelectedOrders?: () => void
+  // Search for packages to add, shown inside the "نتائج البحث" panel
+  searchValue?: string
+  onSearchChange?: (value: string) => void
 }
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
@@ -392,8 +399,15 @@ const TransferOrdersList = (props: Props) => {
   };
 
   const handleDownload = () => {
-    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
+    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
+    let totalBoxes = 0;
     right.forEach((orderPackage: any, i) => {
+      // boxesCount is stored as text; count it in the total only when it is a real number
+      const boxesCount = orderPackage.paymentList.deliveredPackages?.boxesCount;
+      const boxesNumber = Number(boxesCount);
+      if (boxesCount !== undefined && boxesCount !== null && boxesCount !== '' && !Number.isNaN(boxesNumber)) {
+        totalBoxes += boxesNumber;
+      }
       data.push([
         i + 1,
         orderPackage.customerInfo.fullName,
@@ -403,6 +417,7 @@ const TransferOrdersList = (props: Props) => {
         orderPackage.paymentList.deliveredPackages.receiptNo,
         orderPackage.paymentList.deliveredPackages.weight.total,
         orderPackage.paymentList.deliveredPackages.weight.measureUnit,
+        boxesCount === undefined || boxesCount === null || boxesCount === '' ? '' : (Number.isNaN(boxesNumber) ? boxesCount : boxesNumber),
         orderPackage.paymentList.deliveredPackages.exiosPrice,
         props.inventory.costPrice,
         calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry, orderPackage.paymentList.deliveredPackages.weight.measureUnit),
@@ -411,6 +426,9 @@ const TransferOrdersList = (props: Props) => {
         orderPackage.shipment.toWhere
       ])
     })
+    const totalWeight = sumWeights(right);
+    data.push([]);
+    data.push(['', 'الاجمالي', '', '', '', '', totalWeight.total, totalWeight.unit, totalBoxes]);
     const worksheet = XLSX.utils.aoa_to_sheet(data);
     // Merge cells A1 and B1
     worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
@@ -598,21 +616,50 @@ const TransferOrdersList = (props: Props) => {
             props.isSearching ? <CircularProgress size={16} thickness={5} /> : undefined,
             selectedCount > 0 ? `${selectedCount} محدد من ${items.length}` : `${items.length} طلبية`,
           )}
+
+          {props.onSearchChange && (
+            <TextField
+              size="small"
+              fullWidth
+              autoComplete="off"
+              placeholder="ابحث عن طلبية لإضافتها: الاسم، رمز العميل، أو رقم التتبع"
+              value={props.searchValue || ''}
+              onChange={(e) => props.onSearchChange?.(e.target.value)}
+              sx={{ ...fieldSx, mt: 1.5 }}
+              inputProps={{ 'aria-label': 'بحث عن طلبيات لإضافتها إلى قائمة الجرد' }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start" sx={{ color: 'text.secondary' }}>
+                    <AiOutlineSearch />
+                  </InputAdornment>
+                ),
+                endAdornment: props.searchValue ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => props.onSearchChange?.('')} aria-label="مسح البحث">
+                      <IoIosCloseCircle />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              }}
+            />
+          )}
         </Box>
 
         <List sx={listSx} dense component="div" role="list">
           {props.isSearching ? (
             Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)
           ) : items.length === 0 ? (
-            <EmptyState title="لا توجد نتائج" hint="جرّب البحث باسم زبون آخر أو رقم تتبع مختلف." />
+            props.onSearchChange && !props.searchValue
+              ? <EmptyState title="ابحث عن طلبيات" hint="اكتب اسم الزبون أو رمز العميل أو رقم التتبع في خانة البحث أعلاه، ثم حدّد الطلبيات واضغط «إضافة»." />
+              : <EmptyState title="لا توجد نتائج" hint="جرّب البحث باسم زبون آخر أو رقم تتبع مختلف." />
           ) : (
             items.map((value: any) => (
               <OrderRow
-                key={value?._id}
+                key={packageKey(value)}
                 order={value}
                 checked={checked.indexOf(value) !== -1}
                 onToggle={handleToggle(value)}
-                labelId={`transfer-list-all-item-${value?._id}-label`}
+                labelId={`transfer-list-all-item-${packageKey(value)}-label`}
               />
             ))
           )}
@@ -769,11 +816,11 @@ const TransferOrdersList = (props: Props) => {
           ) : (
             filteredItems.map((order: any) => (
               <OrderRow
-                key={order?._id}
+                key={packageKey(order)}
                 order={order}
                 checked={checked.indexOf(order) !== -1}
                 onToggle={handleToggle(order)}
-                labelId={`transfer-list-chosen-item-${order?._id}-label`}
+                labelId={`transfer-list-chosen-item-${packageKey(order)}-label`}
                 detailed
               />
             ))
@@ -794,7 +841,7 @@ const TransferOrdersList = (props: Props) => {
       <Box
         component="header"
         sx={{
-          mb: 2,
+          mb: 3.5,
           p: { xs: 2, sm: 2.5 },
           pb: { xs: 2.25, sm: 2.75 },
           borderRadius: 3,
@@ -871,7 +918,7 @@ const TransferOrdersList = (props: Props) => {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 176px minmax(0, 1.2fr)' },
-          gap: 2,
+          gap: 3,
           alignItems: 'start',
         }}
       >
@@ -965,9 +1012,17 @@ const TransferOrdersList = (props: Props) => {
         {customListForChosen('قائمة الجرد', right)}
       </Box>
 
-      <Dialog open={showDialog} onClose={() => setShowDialog(false)} className='p-5' fullWidth>
+      <Dialog
+        open={showDialog}
+        onClose={() => setShowDialog(false)}
+        className={component === 'ActivityDialog' ? undefined : 'p-5'}
+        maxWidth={component === 'ActivityDialog' ? 'sm' : undefined}
+        PaperProps={component === 'ActivityDialog' ? { sx: { borderRadius: '12px' } } : undefined}
+        fullWidth
+      >
         <Tag
-          checked={checked}
+          // Only packages selected in قائمة الجرد; `checked` also holds ones ticked in نتائج البحث
+          checked={rightChecked}
           setShowDialog={setShowDialog}
           package={rightChecked[0]}
           inventory={props.inventory}

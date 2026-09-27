@@ -1,15 +1,17 @@
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
 import DatePicker from "@mui/lab/DatePicker";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
-import { Alert, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from "@mui/material";
+import { CircularProgress, TextField } from "@mui/material";
 import ImageUploader from "../../components/ImageUploader/ImageUploader";
 import React, { useState } from "react";
 import { arrayRemoveByValue } from "../../utils/methods";
-import CustomButton from "../../components/CustomButton/CustomButton";
 import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
-import { useNavigate } from "react-router-dom";
-import { Textarea } from "@mui/joy";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_HINT, READY_DATE_LABEL, SHIPPING_TYPE_OPTIONS } from "./InventoryFields";
+
+import './InventoryForm.scss';
 
 const AddInventory = () => {
 
@@ -29,14 +31,14 @@ const AddInventory = () => {
 
   const fileUploaderHandler = async (event: any) => {
     const files = event.target.files;
-    
+
     const newFiles: any =[];
-    
+
     for (const file of files) {
       file.category = event.target.id;
       newFiles.unshift(file)
     }
-        
+
     setFiles((previewState: any) => {
       previewFile([ ...previewState, ...newFiles ], event.target.id);
       return [ ...previewState, ...newFiles ];
@@ -62,11 +64,11 @@ const AddInventory = () => {
     });
   }
 
-  const deleteImage = (file: never) => {    
+  const deleteImage = (file: never) => {
     const fileIndex = previewFiles.indexOf(file);
 
-    const filesInput = arrayRemoveByValue(files, files[fileIndex]);        
-    const newPreviewFiles = arrayRemoveByValue(previewFiles, file);    
+    const filesInput = arrayRemoveByValue(files, files[fileIndex]);
+    const newPreviewFiles = arrayRemoveByValue(previewFiles, file);
     setFiles(filesInput);
     setPreviewFiles(newPreviewFiles);
   }
@@ -84,9 +86,12 @@ const AddInventory = () => {
 
     const formData  = new FormData();
     for (const data in form) {
-      formData.append(data, form[data]);
+      // A cleared date is null; sending it would arrive as the text "null"
+      if (form[data] !== undefined && form[data] !== null && form[data] !== '') {
+        formData.append(data, form[data] instanceof Date ? form[data].toISOString() : form[data]);
+      }
     }
-    
+
     if (files) {
       files.forEach((file: any) => {
         formData.append('files', file);
@@ -94,8 +99,9 @@ const AddInventory = () => {
     }
 
     formData.append('inventoryType', 'inventoryGoods');
-    
+
     setIsLoading(true);
+    setError(undefined);
 
     api.fetchFormData(`inventory`, 'POST', formData)
       .then((res: any) => {
@@ -103,8 +109,6 @@ const AddInventory = () => {
           setError(getErrorMessage(res.message));
           setIsLoading(false);
         } else {
-          // Add action
-          setError(undefined);          
           history(`/inventory/${res._id}/edit`);
         }
       })
@@ -112,203 +116,160 @@ const AddInventory = () => {
         setError(getErrorMessage(error.message));
         setIsLoading(false);
       })
-      setIsLoading(false);
-
   }
 
   return (
-    <div className="container">
-      <form className="row" onSubmit={onSubmit}>
+    <div className="inv-page">
+      <Link className="inv-back" to="/inventory">
+        <ChevronLeft size={16} strokeWidth={2} />
+        Inventory
+      </Link>
+
+      <header className="inv-head">
+        <div>
+          <h1>New inventory</h1>
+          <p className="inv-head-meta">Create the voyage first. You can add packages and expenses after saving.</p>
+        </div>
+      </header>
+
+      <form className="inv-form" onSubmit={onSubmit}>
         {error &&
-          <Alert className="mb-2" color="error">
-            {error}
-          </Alert>
+          <div className="inv-error" role="alert">{error}</div>
         }
-        <div className="col-md-12 mb-3 mt-3">
-          <h4> Add Inventory </h4>
-        </div>
 
-        <div className="col-md-3 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="voyage"
-            required={true}
-            label={'Voyage Number'}
-            onChange={onChangeHandler}
-            // defaultValue={invoice?.user?.customerId}
-            // disabled={invoice?.isCanceled}
-          />
-        </div>
+        <section className="inv-card">
+          <div className="inv-card-head">
+            <h2>Voyage</h2>
+          </div>
 
-        <div className="col-md-3 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Shipped Country</InputLabel>
-            <Select
-              labelId={'Shipped Country'}
-              id={'shippedCountry'}
-              // defaultValue={invoice?.placedAt}
-              label={'Shipped Country'}
-              name="shippedCountry"
-              onChange={onChangeHandler}
-              // disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'CN'}>
-                <em> China </em>
-              </MenuItem>
-              <MenuItem value={'UAE'}>
-                <em> UAE </em>
-              </MenuItem>
-              <MenuItem value={'TR'}>
-                <em> Turkey </em>
-              </MenuItem>
-              <MenuItem value={'USA'}>
-                <em> USA </em>
-              </MenuItem>
-              <MenuItem value={'UK'}>
-                <em> UK </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-3 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Shipping Type</InputLabel>
-            <Select
-              labelId={'Shipping Type'}
-              id={'shippingType'}
-              label={'shippingType'}
-              name="shippingType"
-              onChange={onChangeHandler}
-            >
-              <MenuItem value={'air'}>
-                <em> جوي </em>
-              </MenuItem>
-              <MenuItem value={'sea'}>
-                <em> بحري </em>
-              </MenuItem>
-              <MenuItem value={'domestic'}>
-                <em> شحن داخلي </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-3 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Inventory Place</InputLabel>
-            <Select
-              labelId={'Inventory Place'}
-              id={'inventoryPlace'}
-              // defaultValue={invoice?.placedAt}
-              label={'Inventory Place'}
-              name="inventoryPlace"
-              onChange={onChangeHandler}
-              // disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'tripoli'}>
-                <em> Tripoli Office </em>
-              </MenuItem>
-              <MenuItem value={'benghazi'}>
-                <em> Benghazi Office </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="col-md-3 mb-4 d-flex">
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Stack spacing={3}>
-              <DatePicker
-                label="Inventory Finished Date"
-                inputFormat="dd/MM/yyyy"
-                value={form?.inventoryFinishedDate || new Date()}
-                renderInput={(params: any) => <TextField {...params} />} 
-                onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
+          <div className="inv-grid">
+            <div className="inv-field">
+              <FieldLabel required>Voyage number</FieldLabel>
+              <TextField
+                size="small"
+                fullWidth
+                name="voyage"
+                required
+                autoFocus
+                onChange={onChangeHandler}
+                inputProps={{ 'aria-label': 'Voyage number' }}
               />
-            </Stack>
-          </LocalizationProvider>
-        </div>
+            </div>
 
-        <div className="d-flex col-md-3 mb-4">
-          <TextField
-            className='connect-field-right'
-            id={'outlined-helperText'}
-            name="costPrice"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            label={'Cost Price'}
-            onChange={onChangeHandler}
-            // defaultValue={invoice?.debt?.total}
-            onWheel={(event: any) => event.target.blur()}
-            // disabled={invoice?.isCanceled}
-          />
-          <FormControl 
-            style={{ width: '100%' }}
-          >
-            <InputLabel id="demo-select-small">Currency</InputLabel>
-            <Select
-              className='connect-field-left'
-              labelId={'currency'}
-              id={'voyageCurrency'}
-              // defaultValue={invoice?.debt?.currency}
-              label={'Currency'}
-              name="voyageCurrency"
+            <div className="inv-field">
+              <FieldLabel note="Optional">Odo reference code</FieldLabel>
+              <TextField
+                size="small"
+                fullWidth
+                name="odoReferenceCode"
+                onChange={onChangeHandler}
+                inputProps={{ 'aria-label': 'Odo reference code' }}
+              />
+            </div>
+
+            <div className="is-wide">
+              <ChoiceGroup
+                name="shippedCountry"
+                label="Shipped from"
+                options={COUNTRY_OPTIONS}
+                value={form.shippedCountry}
+                onChange={onChangeHandler}
+                required
+              />
+            </div>
+
+            <ChoiceGroup
+              name="shippingType"
+              label="Shipping type"
+              options={SHIPPING_TYPE_OPTIONS}
+              value={form.shippingType}
               onChange={onChangeHandler}
-              // disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'USD'}>
-                <em> USD </em>
-              </MenuItem>
-              <MenuItem value={'LYD'}>
-                <em> LYD </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
+              required
+            />
 
-        <div className="col-md-3 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="odoReferenceCode"
-            label={'Odo Reference Code'}
-            onChange={onChangeHandler}
-            // defaultValue={invoice?.user?.customerId}
-            // disabled={invoice?.isCanceled}
-          />
-        </div>
+            <ChoiceGroup
+              name="inventoryPlace"
+              label="Inventory office"
+              options={OFFICE_OPTIONS}
+              value={form.inventoryPlace}
+              onChange={onChangeHandler}
+              required
+            />
+          </div>
+        </section>
 
-        <div className="col-12 mb-4">
-          <Textarea
-            name='note'
-            placeholder='Description'
-            color="neutral"
-            minRows={3}
-            variant="outlined"
-            onChange={onChangeHandler}
-          />
-        </div>
+        <section className="inv-card">
+          <div className="inv-card-head">
+            <h2>Dates</h2>
+          </div>
 
-        <div className='col-md-4 mt-3'>
-          <h6>Upload Files</h6>
-          <ImageUploader
-            id={'attachments'}
-            inputFileRef={filesRef}
-            fileUploaderHandler={fileUploaderHandler}
-            previewFiles={previewFiles}
-            files={files}
-            deleteImage={deleteImage}
-          />
-        </div>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <div className="inv-grid">
+            <div className="inv-field">
+              <FieldLabel note="Optional">{ARRIVAL_DATE_LABEL}</FieldLabel>
+              <DatePicker
+                inputFormat="dd/MM/yyyy"
+                value={form?.arrivalDate || null}
+                renderInput={(params: any) => <TextField {...params} size="small" fullWidth />}
+                onChange={(value) => onChangeHandler({ target: { name: 'arrivalDate', value } })}
+              />
+              <span className="inv-hint">{ARRIVAL_DATE_HINT}</span>
+            </div>
 
-        <div className="col-12 text-end">
-          <CustomButton 
-            background='rgb(0, 171, 85)' 
-            size="small"
-            disabled={isLoading}
-          >
-            Create Inventory
-          </CustomButton>
+            <div className="inv-field">
+              <FieldLabel>{READY_DATE_LABEL}</FieldLabel>
+                <DatePicker
+                  inputFormat="dd/MM/yyyy"
+                  value={form?.inventoryFinishedDate || new Date()}
+                  renderInput={(params: any) => <TextField {...params} size="small" fullWidth />}
+                  onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
+                />
+              <span className="inv-hint">{READY_DATE_HINT}</span>
+            </div>
+          </div>
+          </LocalizationProvider>
+        </section>
+
+        <section className="inv-card">
+          <div className="inv-card-head">
+            <h2>Notes and files</h2>
+          </div>
+
+          <div className="inv-grid">
+            <div className="inv-field is-wide">
+              <FieldLabel note="Optional">Description</FieldLabel>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                name="note"
+                onChange={onChangeHandler}
+                inputProps={{ dir: 'auto', 'aria-label': 'Description' }}
+              />
+            </div>
+
+            <div className="inv-field is-wide">
+              <FieldLabel note="Optional">Attachments</FieldLabel>
+              <ImageUploader
+                id={'attachments'}
+                inputFileRef={filesRef}
+                fileUploaderHandler={fileUploaderHandler}
+                previewFiles={previewFiles}
+                files={files}
+                deleteImage={deleteImage}
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="inv-actionbar">
+          <span>Fields marked * are required</span>
+          <div>
+            <Link className="inv-btn is-ghost" to="/inventory">Cancel</Link>
+            <button type="submit" className="inv-btn is-primary" disabled={isLoading}>
+              {isLoading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Create inventory'}
+            </button>
+          </div>
         </div>
       </form>
     </div>
