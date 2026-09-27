@@ -155,6 +155,7 @@ export type User = {
     isEmployee: boolean
     isClient: boolean
     accountant: boolean
+    isAccountant?: boolean
   }
   updatedAt: Date
   username: string
@@ -333,7 +334,7 @@ export type OrderActivity = {
 export type ApiErrorMessages = 'user-not-found' | 'user-subscription-canceled' | 'invalid-credentials' | 'authorize-invalid'
   | 'token-not-found' | 'invalid-token' | 'order-id-taken' | 'order-not-found' | 'expense-id-taken' | 'user-role-invalid'
   | 'expense-not-found' | 'image-not-found' | 'fields-empty' | 'server-error' | 'balance-currency-not-accepted' | 'balance-already-paid' 
-  | 'inventory-not-found' | 'balance-rate-zero';
+  | 'inventory-not-found' | 'balance-rate-zero' | 'balance-not-found' | 'balance-not-closable' | 'balance-has-payments' | 'balance-order-customer-mismatch';
 
 export type Session = {
   account: Account
@@ -356,6 +357,7 @@ export type Account = {
     isEmployee: boolean,
     isClient: boolean,
     accountant: boolean
+    isAccountant?: boolean
   },
   city: string
 }
@@ -399,6 +401,16 @@ export type Debt = {
     description: string
   }],
   debtPriority: string
+  // Present when an admin/accountant closed the debt by hand; the remainder went to a 'lost' debt
+  manualClosure?: {
+    note: string
+    writtenOffAmount: number
+    closedAt: Date
+    closedBy?: { _id: string, firstName: string, lastName: string } | string
+    lostBalance?: string
+  }
+  // On a 'lost' debt created by a manual closure: the debt it was written off from
+  sourceBalance?: string
   createdAt: Date,
   updatedAt: Date
 }

@@ -1,4 +1,5 @@
-import Badge from "../Badge/Badge"
+import { Debt } from "../../models"
+import { checkIfDataArray } from "../../utils/methods"
 
 type DebtsCounter = {
   openedDebtsCount: number
@@ -8,44 +9,51 @@ type DebtsCounter = {
   lostDebtsCount: number
 }
 
+export type DebtTab = {
+  label: string
+  value: Debt['status']
+  count: number
+}
+
 export const getTabsOfDebts = (countList: DebtsCounter, isAdminOrAccountant: boolean) => {
-  const debtTabs: any = []
   const { openedDebtsCount, closedDebtsCount, overdueDebtsCount, lostDebtsCount, waitingApprovalDebtsCount } = countList;
 
-  debtTabs.push(
-    {
-      label: 'Opened Debts',
-      value: 'open',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(openedDebtsCount)} color="primary" />
-    },
-    {
-      label: 'Waiting Approval',
-      value: 'waitingApproval',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(waitingApprovalDebtsCount)} color="sky" />
-    },
-    {
-      label: 'Closed Debts',
-      value: 'closed',
-      icon: <Badge style={{ marginLeft: '8px'}} text={String(closedDebtsCount)} color="success" />
-    },
-  )
+  const debtTabs: DebtTab[] = [
+    { label: 'Open', value: 'open', count: openedDebtsCount },
+    { label: 'Waiting approval', value: 'waitingApproval', count: waitingApprovalDebtsCount },
+    { label: 'Closed', value: 'closed', count: closedDebtsCount },
+  ]
 
   if (isAdminOrAccountant) {
     debtTabs.push(
-      {
-        label: 'Overdue Debts',
-        value: 'overdue',
-        icon: <Badge style={{ marginLeft: '8px'}} text={String(overdueDebtsCount)} color="warning" />
-  
-      },
-      {
-        label: 'Lost Debts',
-        value: 'lost',
-        icon: <Badge style={{ marginLeft: '8px'}} text={String(lostDebtsCount)} color="danger" />
-      }
+      { label: 'Overdue', value: 'overdue', count: overdueDebtsCount },
+      { label: 'Lost', value: 'lost', count: lostDebtsCount },
     )
   }
 
   return debtTabs;
 }
 
+export const DEBT_STATUS_LABELS: Record<Debt['status'], string> = {
+  open: 'Open',
+  waitingApproval: 'Waiting approval',
+  closed: 'Closed',
+  overdue: 'Overdue',
+  lost: 'Lost',
+}
+
+export const DEBT_TYPE_LABELS: Record<string, string> = {
+  invoice: 'فاتورة شراء',
+  receivedGoods: 'شحن',
+  general: 'دين عام',
+}
+
+const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+
+export const formatAmount = (value: number | string | undefined) => numberFormatter.format(Number(value) || 0);
+
+// A list entry is either one debt or an array of debts that belong to the same customer
+export const toDebtList = (debt: Debt | Debt[]): Debt[] => (checkIfDataArray(debt) ? (debt as Debt[]) : [debt as Debt]);
+
+export const getInitials = (firstName?: string, lastName?: string) =>
+  `${(firstName || '').trim().charAt(0)}${(lastName || '').trim().charAt(0)}` || '?';

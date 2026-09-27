@@ -1,8 +1,9 @@
-import { Textarea } from "@mui/joy";
-import { Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import { Alert, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import { useState } from "react";
 import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
+
+import './Debts.scss';
 
 type Props = {
   setDialog: (state: any) => void
@@ -12,10 +13,7 @@ type Props = {
 }
 
 const CreateDebtDialog = (props: Props) => {
-  const [currency, setCurrency] = useState();
-  const [office] = useState();
-  const [debtType, setDebtType] = useState(props.debtType);
-  const [form, setForm] = useState<any>();
+  const [form, setForm] = useState<any>({ debtType: props.debtType });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -23,169 +21,154 @@ const CreateDebtDialog = (props: Props) => {
     setForm({ ...form, [event.target.name]: event.target.value });
   }
 
+  const hasOrder = !!(props.orderId || form.orderId?.trim());
+
+  const closeDialog = () => props.setDialog({ customComponentTag: undefined, isOpen: false });
+
   const onSubmit = async (event: any) => {
     event.preventDefault();
 
     try {
       setIsLoading(true);
+      setError(undefined);
       await api.post('balances', { ...form, balanceType: 'debt', orderId: props.orderId || form.orderId, customerId: props.customerId || form.customerId });
       window.location.reload();
     } catch (error: any) {
-      setError(error.response.data.message)
+      setError(error?.response?.data?.message || 'Something went wrong')
       setIsLoading(false);
     }
   }
-  
+
   return (
-    <>
-      <DialogTitle>Create New Debt</DialogTitle>
-        <DialogContent>
-          {error &&
-            <p style={{ color: '#fa2d2d' }}>{getErrorMessage(error as any)}</p>
-          }
-          <form className="row" onSubmit={onSubmit}>
-            <h6>Info</h6>
-            <div className='col-md-6'>
-              <TextField
-                className='mb-3'
-                id={'outlined-helperText'}
-                name="orderId"
-                label={'Order Id'}
+    <form onSubmit={onSubmit}>
+      <DialogTitle>
+        <span className="debt-dialog-title">
+          <strong>New debt</strong>
+          <span>Record money a customer owes the company.</span>
+        </span>
+      </DialogTitle>
+
+      <DialogContent>
+        {error &&
+          <Alert severity="error" className="mb-3">{getErrorMessage(error as any)}</Alert>
+        }
+
+        <p className="debt-dialog-section">Customer</p>
+        <div className="row g-3 mb-2">
+          <div className='col-sm-6'>
+            <TextField
+              fullWidth
+              name="orderId"
+              label={'Order ID'}
+              helperText={!props.orderId ? 'The debt follows this order\'s customer' : undefined}
+              onChange={onChangeHandler}
+              value={props.orderId}
+              disabled={!!props.orderId}
+              autoFocus={!props.orderId}
+            />
+          </div>
+
+          <div className='col-sm-6'>
+            <TextField
+              fullWidth
+              name="customerId"
+              label={'Customer code'}
+              // With an order the customer comes from the order, so the code is only a cross-check
+              required={!hasOrder}
+              helperText={!props.customerId ? (hasOrder ? 'Optional with an order' : 'Required without an order') : undefined}
+              onChange={onChangeHandler}
+              value={props.customerId}
+              disabled={!!props.customerId}
+            />
+          </div>
+        </div>
+
+        <p className="debt-dialog-section">Debt</p>
+        <div className="row g-3">
+          <div className="col-sm-6 d-flex">
+            <TextField
+              fullWidth
+              className='connect-field-right'
+              name="amount"
+              type={'number'}
+              inputProps={{ inputMode: 'decimal', step: .01, min: 0 }}
+              onWheel={(event: any) => event.target.blur()}
+              required={true}
+              label={'Amount'}
+              onChange={onChangeHandler}
+            />
+            <FormControl style={{ minWidth: '100px' }} required>
+              <InputLabel id="create-debt-currency">Currency</InputLabel>
+              <Select
+                className='connect-field-left'
+                labelId="create-debt-currency"
+                value={form.currency || ''}
+                label={'Currency'}
+                name="currency"
                 onChange={onChangeHandler}
-                value={props.orderId}
-                disabled={!!props.orderId}
-              />
-            </div>
+              >
+                <MenuItem value={'USD'}>USD</MenuItem>
+                <MenuItem value={'LYD'}>LYD</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
 
-            <div className='col-md-6'>
-              <TextField
-                className='mb-3'
-                id={'outlined-helperText'}
-                name="customerId"
-                label={'Customer Id'}
-                required
+          <div className="col-sm-6">
+            <FormControl fullWidth required>
+              <InputLabel id="create-debt-office">Office</InputLabel>
+              <Select
+                labelId="create-debt-office"
+                value={form.createdOffice || ''}
+                label={'Office'}
+                name="createdOffice"
                 onChange={onChangeHandler}
-                value={props.customerId}
-                disabled={!!props.customerId}
-              />
-            </div>
+              >
+                <MenuItem value={'tripoli'}>Tripoli office</MenuItem>
+                <MenuItem value={'benghazi'}>Benghazi office</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
 
-            <div className="d-flex col-md-6 mb-4">
-              <TextField
-                className='connect-field-right'
-                id={'outlined-helperText'}
-                name="amount"
-                type={'number'}
-                inputProps={{ inputMode: 'numeric', step: .01 }}
-                required={true}
-                label={'Amount'}
+          <div className="col-12">
+            <FormControl fullWidth required>
+              <InputLabel id="create-debt-type">اختار نوع الدين</InputLabel>
+              <Select
+                labelId="create-debt-type"
+                value={form.debtType || ''}
+                label={'اختار نوع الدين'}
+                name="debtType"
                 onChange={onChangeHandler}
-              />
-              <FormControl style={{ width: '100%' }} required>
-                <InputLabel id="demo-select-small">Currency</InputLabel>
-                <Select
-                  className='connect-field-left'
-                  labelId={'currency'}
-                  id={'currency'}
-                  value={currency}
-                  label={'Currency'}
-                  name="currency"
-                  onChange={(event: any) => {
-                    setCurrency(event.target.value);
-                    return onChangeHandler(event);
-                  }}
-                >
-                  <MenuItem value={'USD'}>
-                    <em> USD </em>
-                  </MenuItem>
-                  <MenuItem value={'LYD'}>
-                    <em> LYD </em>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </div>
+                dir="rtl"
+              >
+                <MenuItem dir="rtl" value={'invoice'}>دين لاجل تسديد فاتورة شراء</MenuItem>
+                <MenuItem dir="rtl" value={'receivedGoods'}>دين لاجل تسديد شحن</MenuItem>
+                <MenuItem dir="rtl" value={'general'}>دين عام لا يتعلق بطلبية</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
 
-            <div className="d-flex col-md-6 mb-4">
-              <FormControl style={{ width: '100%' }} required>
-                <InputLabel id="demo-select-small">Select Office</InputLabel>
-                <Select
-                  labelId={'Select Office'}
-                  id={'Select Office'}
-                  defaultValue={office}
-                  label={'Select Office'}
-                  name="createdOffice"
-                  onChange={(event: any) => {
-                    setCurrency(event.target.value);
-                    return onChangeHandler(event);
-                  }}
-                >
-                  <MenuItem value={'tripoli'}>
-                    <em> Tripoli Office </em>
-                  </MenuItem>
-                  <MenuItem value={'benghazi'}>
-                    <em> Benghazi Office </em>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </div>
+          <div className="col-12">
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              name='notes'
+              label='Notes'
+              required
+              inputProps={{ dir: 'auto' }}
+              onChange={onChangeHandler}
+            />
+          </div>
+        </div>
+      </DialogContent>
 
-            <div className="d-flex col-md-12 mb-4">
-              <FormControl style={{ width: '100%' }} required>
-                <InputLabel id="demo-select-small">اختار نوع الدين</InputLabel>
-                <Select
-                  labelId={'debtType'}
-                  id={'debtType'}
-                  defaultValue={debtType}
-                  label={'Debt Type'}
-                  name="debtType"
-                  onChange={(event: any) => {
-                    setDebtType(event.target.value);
-                    return onChangeHandler(event);
-                  }}
-                >
-                  <MenuItem value={'invoice'}>
-                    <em> دين لاجل تسديد فاتورة شراء </em>
-                  </MenuItem>
-                  <MenuItem value={'receivedGoods'}>
-                    <em> دين لاجل تسديد شحن </em>
-                  </MenuItem>
-                  <MenuItem value={'general'}>
-                    <em> دين عام لا يتعلق بطلبية </em>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </div>
-
-            <Box
-              sx={{
-                py: 2,
-                display: 'grid',
-                gap: 1,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              <Textarea
-                name='notes'
-                placeholder='Notes'
-                color="neutral"
-                minRows={3}
-                variant="outlined"
-                required
-                onChange={onChangeHandler}
-              />
-            </Box>
-
-            <DialogActions>
-              <Button disabled={isLoading} color="error" onClick={() => props.setDialog({ customComponentTag: undefined, isOpen: false })} >Close</Button>
-              <Button disabled={isLoading} type="submit" >Create Debt</Button>
-              {isLoading &&
-                <CircularProgress />
-              }
-            </DialogActions>
-          </form>
-        </DialogContent>
-    </>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <button type="button" className="debts-btn is-ghost" disabled={isLoading} onClick={closeDialog}>Cancel</button>
+        <button type="submit" className="debts-btn is-primary" disabled={isLoading}>
+          {isLoading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Create debt'}
+        </button>
+      </DialogActions>
+    </form>
   )
 }
 

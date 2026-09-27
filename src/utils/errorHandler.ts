@@ -1,5 +1,5 @@
 import { ApiErrorMessages } from "../models";
-import { BALANCE_ALREADY_PAID, BALANCE_CURRENCY_NOT_ACCEPTED, BALANCE_RATE_ZERO, EXPENSE_ID_TAKEN, EXPENSE_NOT_FOUND, FIELDS_EMPTY, IMAGE_NOT_FOUND, INVALID_CREDENTIALS, INVALID_TOKEN, INVENTORY_NOT_FOUND, ORDER_ID_TAKEN, ORDER_NOT_FOUND, SERVER_ERROR, Token_EXPIRED, TOKEN_NOT_FOUND, USER_NOT_FOUND, USER_ROLE_INVALID, USER_SUBSCRIPTION_CANCLED } from "../constants/errors";
+import { BALANCE_ALREADY_PAID, BALANCE_HAS_PAYMENTS, BALANCE_ORDER_CUSTOMER_MISMATCH, BALANCE_NOT_CLOSABLE, BALANCE_NOT_FOUND, BALANCE_CURRENCY_NOT_ACCEPTED, BALANCE_RATE_ZERO, EXPENSE_ID_TAKEN, EXPENSE_NOT_FOUND, FIELDS_EMPTY, IMAGE_NOT_FOUND, INVALID_CREDENTIALS, INVALID_TOKEN, INVENTORY_NOT_FOUND, ORDER_ID_TAKEN, ORDER_NOT_FOUND, SERVER_ERROR, Token_EXPIRED, TOKEN_NOT_FOUND, USER_NOT_FOUND, USER_ROLE_INVALID, USER_SUBSCRIPTION_CANCLED } from "../constants/errors";
 
 export const getErrorMessage = (errorId: ApiErrorMessages): string => {
   switch (errorId) {
@@ -53,6 +53,18 @@ export const getErrorMessage = (errorId: ApiErrorMessages): string => {
 
     case BALANCE_RATE_ZERO:
       return 'Rate should not be 0, please enter the correct rate !!';
+
+    case BALANCE_NOT_FOUND:
+      return 'This debt no longer exists, please refresh the page.';
+
+    case BALANCE_NOT_CLOSABLE:
+      return 'This debt is not open anymore or was just changed by someone else, please refresh the page.';
+
+    case BALANCE_HAS_PAYMENTS:
+      return 'This debt already has payments, so it can not be deleted. Close it manually instead.';
+
+    case BALANCE_ORDER_CUSTOMER_MISMATCH:
+      return 'This order belongs to a different customer. Leave the customer code empty to use the order\'s customer.';
 
     case INVENTORY_NOT_FOUND:
       return 'Inventory not found';

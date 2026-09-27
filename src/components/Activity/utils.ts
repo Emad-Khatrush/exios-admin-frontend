@@ -1,3 +1,11 @@
+// Debt notes are free text typed by staff, and this text is rendered as HTML
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 export const generateActivityText = ({ activity }: any) => {
   let text = '';
   switch (activity.details.status) {
@@ -25,6 +33,11 @@ export const generateActivityText = ({ activity }: any) => {
     case 'deleted':
       if (activity.details.actionName === 'image') {
         text = `has deleted this ${activity.details.actionName} <a target="_blank" href="${activity.changedFields[0].changedFrom}"> <img src="${activity.changedFields[0].changedFrom}" style="border-radius: 15px;" width="65px" height="65px" alt="link not found" /> </a> on ${activity.details.type}s`
+      } else if (activity.details.type === 'debt') {
+        text = 'has deleted a debt ';
+        (activity.changedFields || []).forEach((field: any) => {
+          text += `<span class="status-text"> ${escapeHtml(field.label)}: ${escapeHtml(field.value)} </span> `
+        });
       }
       break;
   
