@@ -178,3 +178,15 @@ export const recalculateStatementTotals = (statements: any[] = []) => {
     return { ...statement, total: runningTotal };
   });
 }
+
+// Excel sheet names: max 31 characters and none of \ / ? * [ ] :  (xlsx throws otherwise)
+export const toExcelSheetName = (name: string, fallback = 'Sheet1') => {
+  const cleaned = String(name || '').replace(/[\\/?*[\]:]/g, '-').replace(/^'+|'+$/g, '').trim();
+  return (cleaned || fallback).slice(0, 31).trim() || fallback;
+}
+
+// File names: no characters Windows or the browser reject in a download name
+export const toFileName = (name: string, fallback = 'export') => {
+  const cleaned = String(name || '').replace(/[\\/?*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+  return cleaned || fallback;
+}

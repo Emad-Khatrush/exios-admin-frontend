@@ -17,7 +17,7 @@ import AdapterDateFns from "@mui/lab/AdapterDateFns";
 import DatePicker from "@mui/lab/DatePicker";
 import api from "../../api";
 import moment from "moment";
-import { calculateMinTotalPrice } from "../../utils/methods";
+import { calculateMinTotalPrice, toExcelSheetName, toFileName } from "../../utils/methods";
 import * as XLSX from 'xlsx';
 import { CircleAlert, Download, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { FieldLabel } from "./InventoryFields";
@@ -176,10 +176,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
           inventory.shippedCountry,
           "",
           "",
-          inventory.voyage,
-          "",
-          "",
-          `${inventory.voyageAmount} ${inventory.voyageCurrency} تكلفة الرحلة:`
+          inventory.voyage
         ],
         [],
         [
@@ -327,8 +324,8 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       ];
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, inventory.voyage);
-      XLSX.writeFile(workbook, `${inventory.voyage}_Report.xlsx`);
+      XLSX.utils.book_append_sheet(workbook, worksheet, toExcelSheetName(inventory.voyage, 'Report'));
+      XLSX.writeFile(workbook, `${toFileName(inventory.voyage, 'inventory')}_Report.xlsx`);
     } catch (error) {
       console.error(error);
       setToast({ message: 'Could not build the report. Try again.', isError: true });

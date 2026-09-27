@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../../api";
-import { Alert, AlertColor, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, MenuItem, Select, Snackbar, TextField } from "@mui/material";
+import { Alert, AlertColor, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, TextField } from "@mui/material";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import DatePicker from "@mui/lab/DatePicker";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
@@ -253,10 +253,6 @@ const EditInventory = () => {
               <strong>{deliveredCount}<small>of {orders.length}</small></strong>
             </div>
             <div className="inv-tile">
-              <span>Voyage expenses</span>
-              <strong>{Number(inventory?.voyageAmount || 0).toLocaleString('en-US')}<small>{inventory?.voyageCurrency}</small></strong>
-            </div>
-            <div className="inv-tile">
               <span>Ready date</span>
               <strong>{formatDate(inventory?.inventoryFinishedDate) || <small>Not set</small>}</strong>
             </div>
@@ -354,36 +350,6 @@ const EditInventory = () => {
                 />
               </div>
 
-              <div className="inv-field">
-                <FieldLabel>Voyage expenses</FieldLabel>
-                <div className="inv-money">
-                  <TextField
-                    size="small"
-                    fullWidth
-                    name="voyageAmount"
-                    type="number"
-                    inputProps={{ inputMode: 'decimal', step: .01, 'aria-label': 'Voyage expenses' }}
-                    value={valueOf('voyageAmount') ?? ''}
-                    onChange={onChangeHandler}
-                    onWheel={(event: any) => event.target.blur()}
-                    disabled={!isAdmin}
-                  />
-                  <FormControl size="small">
-                    <Select
-                      name="voyageCurrency"
-                      value={valueOf('voyageCurrency') || ''}
-                      displayEmpty
-                      onChange={onChangeHandler}
-                      disabled={!isAdmin}
-                      inputProps={{ 'aria-label': 'Currency' }}
-                    >
-                      <MenuItem value="" disabled>Currency</MenuItem>
-                      <MenuItem value={'USD'}>USD</MenuItem>
-                      <MenuItem value={'LYD'}>LYD</MenuItem>
-                    </Select>
-                  </FormControl>
-                </div>
-              </div>
 
               <div className="is-wide">
                 <ChoiceGroup

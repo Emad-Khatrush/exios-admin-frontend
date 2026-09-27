@@ -5,7 +5,7 @@ import moment from 'moment-timezone';
 import {
   AlertTriangle, Building2, CalendarClock, CheckCircle2, ClipboardCheck, Image as ImageIcon,
   MapPin, MessageCircle, Package, PackagePlus, Phone, Search, ShieldAlert, SquareArrowOutUpRight,
-  Trash2, Warehouse
+  Trash2, Truck, Warehouse
 } from 'lucide-react';
 import api from '../../api';
 import TextInput from '../../components/TextInput/TextInput';
@@ -16,6 +16,7 @@ import DeletePackageDialog from './DeletePackageDialog';
 import AddPackagesDialog from './AddPackagesDialog';
 import WeeklyCheckDialog from './WeeklyCheckDialog';
 import DeletionLogDialog from './DeletionLogDialog';
+import InternalShippingDialog from './InternalShippingDialog';
 
 import './WarehouseInventory.scss';
 
@@ -88,6 +89,8 @@ const WarehouseInventory = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showWeeklyCheck, setShowWeeklyCheck] = useState(false);
   const [showDeletionLog, setShowDeletionLog] = useState(false);
+  // The packages being shipped, kept while the dialog is open so its result screen stays after the selection clears
+  const [shippingOrders, setShippingOrders] = useState<any[] | null>(null);
 
   const loadOffice = useCallback(async (target: Office) => {
     try {
@@ -193,6 +196,14 @@ const WarehouseInventory = () => {
     setDeletingOrder(null);
   };
 
+  // Packages sent by internal shipping left this warehouse: drop them here without a reload
+  const handleShipped = (paymentListIds: string[]) => {
+    const moved = new Set(paymentListIds.map(String));
+    setOrders((prev) => prev.filter((order) => !moved.has(String(packageKey(order)))));
+    setCounts((prev) => ({ ...prev, [office]: Math.max(0, (prev[office] || 0) - moved.size) }));
+    setSelected(new Set());
+  };
+
   const officeLabel = OFFICES.find((o) => o.value === office)?.label || office;
 
   return (
@@ -285,6 +296,10 @@ const WarehouseInventory = () => {
             <span>تم تحديد {selected.size}</span>
             <div>
               <button type="button" onClick={() => setSelected(new Set())}>إلغاء التحديد</button>
+              <button type="button" onClick={() => setShippingOrders(selectedOrders)}>
+                <Truck size={14} strokeWidth={2} />
+                إنشاء رحلة شحن داخلي
+              </button>
               <button type="button" className="is-primary" onClick={() => setShowDialog(true)}>
                 <MessageCircle size={14} strokeWidth={2} />
                 إرسال رسالة / إضافة نشاط
@@ -428,7 +443,7 @@ const WarehouseInventory = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={showDialog} onClose={() => setShowDialog(false)} className="p-5" fullWidth>
+      <Dialog open={showDialog} onClose={() => setShowDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <ActivityDialog
           checked={selectedOrders}
           setShowDialog={setShowDialog}
@@ -462,6 +477,17 @@ const WarehouseInventory = () => {
           orders={orders}
           onClose={() => setShowWeeklyCheck(false)}
           onSubmitted={() => {}}
+        />
+      }
+
+      {shippingOrders && shippingOrders.length > 0 &&
+        <InternalShippingDialog
+          office={office}
+          officeLabel={officeLabel}
+          offices={OFFICES}
+          orders={shippingOrders}
+          onClose={() => setShippingOrders(null)}
+          onShipped={handleShipped}
         />
       }
 

@@ -71,12 +71,6 @@ export const defaultColumns: any = (setPreviewImages: any) => ([
     align: 'center'
   },
   {
-    field: 'voyageAmount',
-    headerName: 'Paid',
-    width: 90,
-    align: 'center'
-  },
-  {
     field: 'ordersCount',
     headerName: 'Orders',
     width: 120,
@@ -121,7 +115,6 @@ export const generateDataToListType = (list: any[]) => {
     note: data?.note,
     shippingType: data?.shippingType,
     shippedCountry: data.shippedCountry,
-    voyageAmount: data.voyageAmount + ' ' + data.voyageCurrency,
     ordersCount: data?.orders?.length,
     createdAt: moment(data.createdAt).format('DD-MM-YYYY hh:mm A'),
     received: `${countReceivedGoods(data?.orders)} / ${data?.orders?.length}`,

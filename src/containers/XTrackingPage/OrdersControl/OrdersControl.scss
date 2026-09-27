@@ -1,0 +1,525 @@
+// Same tokens as the rest of the redesigned pages (Debts.scss, WarehouseInventory.scss)
+$oc-accent: #1d4ed8;
+$oc-accent-soft: #eff4ff;
+$oc-ink: #18212b;
+$oc-muted: #5b6673;
+$oc-faint: #8a949f;
+$oc-line: #e3e7ec;
+$oc-line-strong: #cfd6dd;
+$oc-surface: #ffffff;
+$oc-sunken: #f5f7f9;
+$oc-ok: #1f7a3a;
+$oc-ok-soft: #e8f5ec;
+$oc-danger: #b42318;
+$oc-danger-soft: #fdecea;
+$oc-warn: #8a5a00;
+$oc-warn-soft: #fff4dc;
+$oc-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+// ---------- Hub tabs (X-Tracking / مراقبة الطلبيات) ----------
+.xt-hub-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 0 12px;
+  border-bottom: 1px solid $oc-line;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 14px;
+    margin-bottom: -1px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $oc-muted;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s $oc-ease, border-color 0.15s $oc-ease;
+
+    &:hover { color: $oc-ink; }
+    &[aria-selected='true'] { color: $oc-accent; border-bottom-color: $oc-accent; }
+    &:focus-visible { outline: 2px solid $oc-accent; outline-offset: 2px; }
+  }
+}
+
+// ---------- Page ----------
+.oc {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 16px 64px;
+  font-family: 'Red Hat Text', 'Segoe UI', Tahoma, sans-serif;
+  color: $oc-ink;
+
+  p, h1, h2, h3 { margin: 0; }
+
+  :focus-visible {
+    outline: 2px solid $oc-accent;
+    outline-offset: 2px;
+  }
+}
+
+.oc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+
+  h1 { font-size: 1.4rem; font-weight: 700; }
+  p { margin-top: 4px; font-size: 0.86rem; color: $oc-muted; }
+}
+
+.oc-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  > span { font-size: 0.78rem; color: $oc-faint; }
+}
+
+.oc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  color: $oc-ink;
+  background: $oc-surface;
+  border: 1px solid $oc-line;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s $oc-ease, border-color 0.15s $oc-ease, transform 0.1s $oc-ease;
+
+  &:hover:not(:disabled) { background: $oc-sunken; border-color: $oc-line-strong; color: $oc-ink; }
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  &.is-primary {
+    color: #fff;
+    background: $oc-accent;
+    border-color: $oc-accent;
+    &:hover:not(:disabled) { background: #1a44c0; color: #fff; }
+  }
+
+  &.is-small { height: 30px; padding: 0 10px; font-size: 0.78rem; }
+}
+
+// ---------- Summary tiles ----------
+.oc-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.oc-tile {
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  font: inherit;
+  text-align: right;
+  color: inherit;
+  background: $oc-surface;
+  border: 1px solid $oc-line;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s $oc-ease, box-shadow 0.15s $oc-ease;
+
+  &:hover { border-color: $oc-line-strong; box-shadow: 0 8px 20px rgba(24, 33, 43, 0.06); }
+  &.is-active { border-color: $oc-accent; box-shadow: inset 0 0 0 1px $oc-accent; }
+
+  span { font-size: 0.78rem; font-weight: 600; color: $oc-muted; }
+  strong { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  small { font-size: 0.76rem; color: $oc-muted; font-variant-numeric: tabular-nums; }
+
+  &.is-danger strong { color: $oc-danger; }
+  &.is-warn strong { color: $oc-warn; }
+  &.is-ok strong { color: $oc-ok; }
+}
+
+// ---------- Filters ----------
+.oc-panel {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: $oc-surface;
+  border: 1px solid $oc-line;
+  border-radius: 12px;
+}
+
+.oc-stages {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  margin: -4px -4px 12px;
+  padding: 4px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    height: 34px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: $oc-muted;
+    background: $oc-sunken;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+
+    &:hover { color: $oc-ink; }
+    &[aria-pressed='true'] { color: $oc-accent; background: $oc-accent-soft; border-color: $oc-accent; }
+
+    em {
+      min-width: 22px;
+      padding: 0 6px;
+      font-style: normal;
+      font-size: 0.74rem;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      color: inherit;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 999px;
+    }
+  }
+}
+
+.oc-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(130px, 1fr));
+  gap: 10px;
+  align-items: end;
+
+  @media (max-width: 1199px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 639px) { grid-template-columns: 1fr; }
+}
+
+.oc-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+
+  > span { font-size: 0.75rem; font-weight: 600; color: $oc-muted; }
+
+  select, input[type='search'] {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: $oc-ink;
+    background: $oc-surface;
+    border: 1px solid $oc-line;
+    border-radius: 8px;
+
+    &:focus { outline: none; border-color: $oc-accent; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12); }
+  }
+}
+
+.oc-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid $oc-line;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.83rem;
+    font-weight: 500;
+    cursor: pointer;
+
+    input { width: 15px; height: 15px; accent-color: $oc-accent; }
+  }
+
+  .oc-toggles-end { display: flex; gap: 8px; margin-inline-start: auto; }
+}
+
+.oc-segment {
+  display: inline-flex;
+  padding: 3px;
+  background: $oc-sunken;
+  border: 1px solid $oc-line;
+  border-radius: 9px;
+
+  button {
+    height: 28px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: $oc-muted;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &[aria-pressed='true'] { color: $oc-ink; background: $oc-surface; box-shadow: 0 1px 2px rgba(24, 33, 43, 0.08); }
+  }
+}
+
+.oc-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  color: $oc-muted;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 9px;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: $oc-accent;
+    background: $oc-accent-soft;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+}
+
+// ---------- Results ----------
+.oc-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+  font-size: 0.84rem;
+  color: $oc-muted;
+
+  strong { color: $oc-ink; font-variant-numeric: tabular-nums; }
+}
+
+.oc-table-wrap {
+  overflow-x: auto;
+  background: $oc-surface;
+  border: 1px solid $oc-line;
+  border-radius: 12px;
+}
+
+.oc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 10px 12px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    color: $oc-muted;
+    background: $oc-sunken;
+    border-bottom: 1px solid $oc-line;
+  }
+
+  td {
+    padding: 10px 12px;
+    vertical-align: top;
+    border-bottom: 1px solid $oc-line;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: #fafbfc; }
+
+  .is-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+}
+
+.oc-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+
+  strong { font-weight: 600; }
+  small { font-size: 0.75rem; color: $oc-muted; }
+  a { color: $oc-accent; text-decoration: none; font-weight: 600; &:hover { text-decoration: underline; } }
+}
+
+.oc-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; direction: ltr; unicode-bidi: isolate; }
+
+.oc-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border-radius: 6px;
+  color: $oc-muted;
+  background: $oc-sunken;
+
+  &.is-waiting { color: $oc-muted; background: $oc-sunken; }
+  &.is-abroad { color: $oc-accent; background: $oc-accent-soft; }
+  &.is-ready { color: $oc-warn; background: $oc-warn-soft; }
+  &.is-delivered { color: $oc-ok; background: $oc-ok-soft; }
+  &.is-noPackages { color: $oc-danger; background: $oc-danger-soft; }
+}
+
+.oc-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 280px;
+}
+
+.oc-issue {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+  cursor: help;
+
+  &.is-danger { color: $oc-danger; background: $oc-danger-soft; }
+  &.is-warn { color: $oc-warn; background: $oc-warn-soft; }
+  &.is-info { color: $oc-muted; background: $oc-sunken; }
+}
+
+.oc-ok-mark { font-size: 0.75rem; color: $oc-faint; }
+
+.oc-row-actions {
+  display: flex;
+  gap: 4px;
+
+  a {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    color: $oc-muted;
+    border-radius: 7px;
+    &:hover { color: $oc-accent; background: $oc-accent-soft; }
+  }
+}
+
+.oc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 0.84rem;
+  color: $oc-muted;
+}
+
+// ---------- States ----------
+.oc-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+
+  &.is-error { color: $oc-danger; background: $oc-danger-soft; }
+}
+
+.oc-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 48px 16px;
+  text-align: center;
+  background: $oc-surface;
+  border: 1px dashed $oc-line-strong;
+  border-radius: 12px;
+
+  svg { color: $oc-faint; }
+  strong { font-size: 0.98rem; }
+  p { max-width: 44ch; font-size: 0.85rem; color: $oc-muted; }
+}
+
+.oc-skeleton {
+  display: grid;
+  gap: 10px;
+
+  i {
+    display: block;
+    height: 54px;
+    background: linear-gradient(90deg, #eef1f4 0%, #f7f9fa 50%, #eef1f4 100%);
+    background-size: 200% 100%;
+    border-radius: 10px;
+    animation: oc-shimmer 1.4s linear infinite;
+  }
+}
+
+// ---------- Checks guide ----------
+.oc-guide {
+  margin-bottom: 14px;
+  background: $oc-surface;
+  border: 1px solid $oc-line;
+  border-radius: 12px;
+  overflow: hidden;
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    &::-webkit-details-marker { display: none; }
+    svg { color: $oc-muted; }
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 12px 20px;
+    margin: 0;
+    padding: 4px 16px 16px;
+  }
+
+  dt { margin-bottom: 3px; }
+  dd { margin: 0; font-size: 0.8rem; line-height: 1.55; color: $oc-muted; }
+}
+
+@keyframes oc-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-skeleton i { animation: none; }
+  .oc-btn, .oc-tile, .xt-hub-tabs button { transition: none; }
+}

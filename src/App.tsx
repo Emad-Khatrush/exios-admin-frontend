@@ -48,7 +48,8 @@ const CreateIncome = React.lazy(() => import('./containers/CreateIncome/CreateIn
 const EditExpense = React.lazy(() => import('./containers/EditExpense/EditExpense'));
 const EditIncome = React.lazy(() => import('./containers/EditIncome/EditIncome'));
 const EditInvoice = React.lazy(() => import('./containers/EditInvoice/EditInvoice'));
-const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingPage'));
+// X-Tracking page plus the order control tab (XTrackingPage itself is unchanged)
+const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingHub'));
 const MyTasks = React.lazy(() => import('./containers/MyTasks/MyTasks'));
 const CreateTask = React.lazy(() => import('./containers/CreateTask/CreateTask'));
 const IssuedInvoices = React.lazy(() => import('./containers/IssuedInvoices/IssuedInvoices'));

@@ -470,7 +470,7 @@ export type Inventory = {
     description: string
   }[],
   voyage: string,
-  shippedCountry: 'CN' | 'UAE' | 'TR' | 'USA' | 'UK',
+  shippedCountry: 'CN' | 'UAE' | 'TR' | 'USA' | 'UK' | 'LY',
   inventoryPlace: 'tripoli' | 'benghazi',
   inventoryFinishedDate: Date,
   voyageAmount: number,

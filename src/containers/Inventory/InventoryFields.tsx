@@ -8,6 +8,8 @@ export const COUNTRY_OPTIONS: ChoiceOption[] = [
   { value: 'TR', label: 'Turkey' },
   { value: 'USA', label: 'USA' },
   { value: 'UK', label: 'UK' },
+  // Goods already in Libya: office warehouses and internal shipping (شحن داخلي)
+  { value: 'LY', label: 'Libya' },
 ];
 
 export const SHIPPING_TYPE_OPTIONS: ChoiceOption[] = [

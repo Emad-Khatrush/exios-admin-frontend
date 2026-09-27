@@ -31,7 +31,7 @@ import { IoIosCloseCircle, IoIosListBox } from 'react-icons/io';
 import { AiOutlineInbox, AiOutlineSearch } from 'react-icons/ai';
 import ActivityDialog from './ActivityDialog';
 import EditPackageWeight from './EditPackageWeight';
-import { calculateMinTotalPrice } from '../../utils/methods';
+import { calculateMinTotalPrice, toExcelSheetName, toFileName } from '../../utils/methods';
 
 // Each row is one package. An order can have several packages, so the order _id alone is not
 // unique: duplicate React keys left old rows on screen after the search results changed.
@@ -399,7 +399,7 @@ const TransferOrdersList = (props: Props) => {
   };
 
   const handleDownload = () => {
-    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage, '', '', `${props.inventory.voyageAmount} ${props.inventory.voyageCurrency} تكلفة الرحلة:`], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
+    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
     let totalBoxes = 0;
     right.forEach((orderPackage: any, i) => {
       // boxesCount is stored as text; count it in the total only when it is a real number
@@ -434,8 +434,8 @@ const TransferOrdersList = (props: Props) => {
     worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, props.inventory.voyage);
-    XLSX.writeFile(workbook, `${props.inventory.voyage}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, toExcelSheetName(props.inventory.voyage, 'قائمة الجرد'));
+    XLSX.writeFile(workbook, `${toFileName(props.inventory.voyage, 'inventory')}.xlsx`);
   };
 
   const handleToggle = (value: number) => () => {
