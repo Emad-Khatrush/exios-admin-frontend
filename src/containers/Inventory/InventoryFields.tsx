@@ -32,7 +32,8 @@ export const STATUS_OPTIONS: ChoiceOption[] = [
 export const ARRIVAL_DATE_LABEL = 'Arrival date (تاريخ الوصول)';
 export const ARRIVAL_DATE_HINT = 'The day the shipment arrived in Libya.';
 export const READY_DATE_LABEL = 'Ready date (تاريخ الجرد والجاهزية)';
-export const READY_DATE_HINT = 'The day the inventory was finished and the goods were ready for customers.';
+export const READY_DATE_HINT = 'The day the inventory was finished and the goods were ready for customers. Filled in automatically when the status is set to اكتملت.';
+export const READY_DATE_AUTO_HINT = 'Left empty for now. It is filled in automatically with the date you set the status to اكتملت.';
 
 export const optionLabel = (options: ChoiceOption[], value?: string) =>
   options.find(option => option.value === String(value))?.label || value || '';

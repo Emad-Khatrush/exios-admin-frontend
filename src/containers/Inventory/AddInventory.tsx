@@ -9,7 +9,7 @@ import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_HINT, READY_DATE_LABEL, SHIPPING_TYPE_OPTIONS } from "./InventoryFields";
+import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_AUTO_HINT, READY_DATE_LABEL, SHIPPING_TYPE_OPTIONS } from "./InventoryFields";
 
 import './InventoryForm.scss';
 
@@ -17,9 +17,8 @@ const AddInventory = () => {
 
   const history = useNavigate();
 
-  const [form, setForm] = useState<any>({
-    inventoryFinishedDate: new Date()
-  });
+  // No ready date on create: it is set when the inventory is marked finished (اكتملت)
+  const [form, setForm] = useState<any>({});
 
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -218,13 +217,7 @@ const AddInventory = () => {
 
             <div className="inv-field">
               <FieldLabel>{READY_DATE_LABEL}</FieldLabel>
-                <DatePicker
-                  inputFormat="dd/MM/yyyy"
-                  value={form?.inventoryFinishedDate || new Date()}
-                  renderInput={(params: any) => <TextField {...params} size="small" fullWidth />}
-                  onChange={(value) => onChangeHandler({ target: { name: 'inventoryFinishedDate', value } })}
-                />
-              <span className="inv-hint">{READY_DATE_HINT}</span>
+              <span className="inv-hint">{READY_DATE_AUTO_HINT}</span>
             </div>
           </div>
           </LocalizationProvider>

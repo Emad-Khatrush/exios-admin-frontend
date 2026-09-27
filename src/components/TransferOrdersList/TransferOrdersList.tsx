@@ -399,7 +399,7 @@ const TransferOrdersList = (props: Props) => {
   };
 
   const handleDownload = () => {
-    const data: any = [[moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY'), '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
+    const data: any = [[props.inventory.inventoryFinishedDate ? moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY') : '', '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
     let totalBoxes = 0;
     right.forEach((orderPackage: any, i) => {
       // boxesCount is stored as text; count it in the total only when it is a real number

@@ -170,7 +170,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
 
       const data: any[] = [
         [
-          moment(inventory.inventoryFinishedDate).format("DD/MM/YYYY"),
+          inventory.inventoryFinishedDate ? moment(inventory.inventoryFinishedDate).format("DD/MM/YYYY") : "",
           "",
           "",
           inventory.shippedCountry,

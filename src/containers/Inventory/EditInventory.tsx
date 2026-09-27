@@ -122,7 +122,30 @@ const EditInventory = () => {
   }
 
   const onChangeHandler = (event: any) => {
-    setForm((prevForm: any) => ({ ...prevForm, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setForm((prevForm: any) => {
+      const next = { ...prevForm, [name]: value };
+
+      if (name === 'inventoryFinishedDate') {
+        // Picked by hand: never overwrite it automatically
+        delete next.readyDateIsAuto;
+      }
+
+      if (name === 'status') {
+        const becameFinished = value === 'finished' && inventory?.status !== 'finished';
+        const pickedByHand = 'inventoryFinishedDate' in prevForm && !prevForm.readyDateIsAuto;
+        if (becameFinished && !pickedByHand) {
+          // The ready date is the day the inventory is marked اكتملت
+          next.inventoryFinishedDate = new Date();
+          next.readyDateIsAuto = true;
+        } else if (value !== 'finished' && prevForm.readyDateIsAuto) {
+          // Switched back before saving: drop the automatic date again
+          delete next.inventoryFinishedDate;
+          delete next.readyDateIsAuto;
+        }
+      }
+      return next;
+    });
   }
 
   // Current value of a field: the unsaved edit if there is one, otherwise what is saved
@@ -149,8 +172,10 @@ const EditInventory = () => {
     }
     try {
       setIsSaving(true);
-      await api.update(`inventory?id=${inventory._id}`, { ...form });
-      setInventory((prev: any) => ({ ...prev, ...form }));
+      // readyDateIsAuto only tracks the automatic ready date on this screen
+      const { readyDateIsAuto, ...changes } = form;
+      await api.update(`inventory?id=${inventory._id}`, changes);
+      setInventory((prev: any) => ({ ...prev, ...changes }));
       setForm({});
       setIsEditing(false);
       setAlert({
