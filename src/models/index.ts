@@ -96,6 +96,26 @@ export type PopupAd = {
   createdAt: string
 }
 
+export type CompanyNoteFile = {
+  _id: string
+  path: string
+  name: string
+  fileType?: string
+  size?: number
+  uploadedAt: string
+}
+
+export type CompanyNote = {
+  _id: string
+  title: string
+  content: string
+  isPinned: boolean
+  files: CompanyNoteFile[]
+  createdBy?: { _id: string, firstName: string, lastName: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type PopupAdViewer = {
   user: {
     _id: string
@@ -200,24 +220,49 @@ export type Package = {
   images: []
 }
 
+export type ActivityStatus = 'added' | 'updated' | 'deleted'
+export type ActivityKind = 'order' | 'expense' | 'income' | 'inventory' | 'debt' | 'activity'
+
 export type ActivityType = {
-  createdAt: Date
+  createdAt: string
   details: {
     path: string
-    status: string
-    type: string 
+    status: ActivityStatus
+    type: ActivityKind
+    actionName?: 'image'
     actionId: string
   },
   changedFields: {
-    label: String,
-    value: String,
-    changedFrom: String,
-    changedTo: String
+    label?: string
+    value?: string
+    changedFrom?: string
+    changedTo?: string
   }[]
-  updatedAt: Date
-  user: User
-  __v: number
+  // Readable name of the record, e.g. "#EX1234 · Ahmed Ali" (null when it can't be found)
+  subject: string | null
+  recordExists: boolean
+  updatedAt: string
+  user: { _id: string, firstName: string, lastName: string, imgUrl?: string } | null
   _id: string
+}
+
+export type ActivityUser = {
+  _id: string
+  firstName: string
+  lastName: string
+  imgUrl?: string
+  count: number
+}
+
+export type ActivitiesResponse = {
+  activities: ActivityType[]
+  limit: number
+  skip: number
+  total: number
+  counts: {
+    byType: Partial<Record<ActivityKind, number>>
+    byStatus: Partial<Record<ActivityStatus, number>>
+  }
 }
 
 export type Office = {
@@ -252,7 +297,18 @@ export type Income = {
 }
 
 export type HomeData = {
+  range: {
+    from: string
+    to: string
+    previousFrom: string
+    previousTo: string
+    granularity: 'day' | 'week' | 'month'
+  }
   activeOrdersCount: number
+  previousTotalInvoices: number
+  previousTotalEarning: number
+  newClientsCount: number
+  previousNewClientsCount: number
   betterThenPreviousMonth: boolean
   monthlyEarning: {
     total: number
@@ -280,6 +336,7 @@ export type HomeData = {
   }
   shipmentTrend: {
     label: string
+    title: string
     totalKG: number
     totalCBM: number
     packagesCount: number

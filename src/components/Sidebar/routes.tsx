@@ -24,11 +24,6 @@ const adminRoutes = [
         icon: <FaFileInvoice className="sidebar-icon" />,
      },
      {   
-        title: 'Shippings',
-        path: '/shippings',      
-        icon: <FiPackage className="sidebar-icon" />,
-     },
-     {   
         title: 'Expenses',
         path: '/expenses',      
         icon: <RiBillFill className="sidebar-icon" />,
@@ -191,14 +186,6 @@ const adminRoutes = [
       title: 'Warehouse',
       path: '/mangage',
       icon: <FaWarehouse className="sidebar-icon" />,
-     },
-     {
-      mainTitle: 'Settings'
-     },
-     {
-      title: 'General',
-      path: '/settings',
-      icon: <FiSettings className="sidebar-icon" />,
      }
  ];
 

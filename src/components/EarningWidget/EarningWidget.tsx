@@ -12,22 +12,14 @@ import './EarningWidget.scss';
 
 type Props = {
   earingData: HomeData
-};
-
-type State = {
-  displayType: string
+  periodLabel?: string
 };
 
 Chart.register([ArcElement, Tooltip]);
 
-class EarningWidget extends Component<Props, State> {
-
-  state = {
-    displayType: 'Monthly'
-  }
+class EarningWidget extends Component<Props> {
 
   render() {
-    const { displayType } = this.state;
     const { earingData: { monthlyEarning, betterThenPreviousMonth, percentage, totalMonthlyEarning } } = this.props;
 
     let labels: string[] = [];
@@ -73,8 +65,8 @@ class EarningWidget extends Component<Props, State> {
       <Card>
         <div className='row align-items-center'>
           <div className='col-md-12 col-lg-7'>
-            <p className='title'> {displayType} Earning</p>
-            <p className='this-date mb-0'> This month </p>
+            <p className='title'> Earning</p>
+            <p className='this-date mb-0'> {this.props.periodLabel || 'This month'} </p>
             <p className='cash mb-1'> ${totalMonthlyEarning.toFixed(2)} </p>
             <div className='d-flex align-items-center'>
               <ArrowPercent percent={percentage} positive={betterThenPreviousMonth} />

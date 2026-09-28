@@ -1,4 +1,5 @@
-import { ChevronRight, DollarSign, Megaphone, MonitorSmartphone, Newspaper } from "lucide-react";
+import { ChevronRight, DollarSign, FolderLock, Megaphone, MonitorSmartphone, Newspaper } from "lucide-react";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import './SettingsCommon.scss';
 import './Settings.scss';
@@ -10,7 +11,14 @@ const sections = [
   { to: '/settings/popup-ads', icon: MonitorSmartphone, label: 'Popup ads', description: 'Full-screen announcements customers must acknowledge.' },
 ];
 
+const adminSections = [
+  { to: '/settings/company-notes', icon: FolderLock, label: 'Company notes', description: 'Important notes and company files, visible to admins only.' },
+];
+
 const Settings = () => {
+  const roles = useSelector((state: any) => state.session.account?.roles);
+  const visibleSections = roles?.isAdmin ? [...sections, ...adminSections] : sections;
+
   return (
     <div className="settings-page">
       <div className="settings-page__header">
@@ -23,7 +31,7 @@ const Settings = () => {
       </div>
 
       <div className="settings-hub">
-        {sections.map(({ to, icon: Icon, label, description }) => (
+        {visibleSections.map(({ to, icon: Icon, label, description }) => (
           <Link key={to} to={to} className="settings-hub-card">
             <span className="settings-hub-card__icon"><Icon size={20} strokeWidth={2} /></span>
             <span className="settings-hub-card__text">

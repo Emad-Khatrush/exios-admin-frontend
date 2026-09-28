@@ -30,7 +30,7 @@ $dash-ease: cubic-bezier(0.16, 1, 0.3, 1);
   transition: border-color 0.2s $dash-ease, box-shadow 0.2s $dash-ease, transform 0.2s $dash-ease;
   animation: dash-rise 0.3s $dash-ease backwards;
 
-  @for $i from 1 through 6 {
+  @for $i from 1 through 7 {
     &:nth-child(#{$i}) { animation-delay: #{($i - 1) * 40}ms; }
   }
 

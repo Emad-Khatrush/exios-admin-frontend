@@ -18,18 +18,19 @@ type ActivityItem = {
 
 type Props = {
   items: ActivityItem[];
+  title?: string;
 };
 
 const formatMoney = (value: number, currency: string) =>
   `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 
-const RecentActivity = ({ items }: Props) => {
+const RecentActivity = ({ items, title = 'Recent activity' }: Props) => {
   return (
     <div className="recent-activity">
-      <h3>Recent activity</h3>
+      <h3>{title}</h3>
 
       {items.length === 0 ? (
-        <p className="recent-activity-empty">Nothing to show yet.</p>
+        <p className="recent-activity-empty">Nothing in this period.</p>
       ) : (
         <ul className="recent-activity-list">
           {items.map(item => (

@@ -15,6 +15,7 @@ import ServicesPrice from './containers/Settings/ServicesPrice';
 import Announcements from './components/Announcements/Announcements';
 import AdminPosts from './containers/AdminPosts/AdminPosts';
 import PopupAds from './containers/Settings/PopupAds';
+import CompanyNotes from './containers/Settings/CompanyNotes';
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
@@ -123,6 +124,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings/announcements' element={<Announcements />} />
       <Route path='/settings/posts' element={<AdminPosts />} />
       <Route path='/settings/popup-ads' element={<PopupAds />} />
+      <Route path='/settings/company-notes' element={<CompanyNotes />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />

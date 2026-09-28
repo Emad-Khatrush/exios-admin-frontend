@@ -25,6 +25,20 @@
   }
 }
 
+.dashboard-error {
+  margin-bottom: 16px;
+}
+
+// Keep the last figures on screen while a new period loads, just dimmed.
+.dashboard-content {
+  transition: opacity 0.2s ease;
+
+  &.is-refreshing {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

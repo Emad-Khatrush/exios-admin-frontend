@@ -204,6 +204,35 @@ const fetchWalletAPI = async (filters: DateFilter): Promise<any[]> => {
     });
 };
 
+// 0. العملاء (جهات الاتصال) — كل العملاء، أو من سجّل خلال فترة محددة
+const CLIENTS_PAGE_SIZE = 1000;
+
+const fetchClientsAPI = async (filters: DateFilter): Promise<any[]> => {
+  const clients: any[] = [];
+  // يُجلب على دفعات حتى لا يُرهق الخادم مع كثرة العملاء
+  for (let skip = 0; ; skip += CLIENTS_PAGE_SIZE) {
+    const params: Record<string, string | number> = { limit: CLIENTS_PAGE_SIZE, skip };
+    if (filters.startDate) params.from = filters.startDate;
+    if (filters.endDate) params.to = filters.endDate;
+    const response = await api.get('clients', params);
+    const page = response?.data?.results || [];
+    clients.push(...page);
+    if (page.length < CLIENTS_PAGE_SIZE) break;
+  }
+
+  return clients.map((client: any) => ({
+    'ID': client?.customerId,
+    'Name*': `${client?.firstName || ''} ${client?.lastName || ''}`.trim(),
+    'Related Company': '',
+    'Email': client?.username,
+    'Phone': client?.phone ? `${client.phone}` : '',
+    'City': client?.city,
+    'Country': 'ليبيا',
+    'Reference': client?.customerId,
+    'Notes': '',
+  }));
+};
+
 // 2. فواتير الشراء والشحن (التعامل مع الخصومات والمبيعات)
 const fetchPaymentsAPI = async (filters: DateFilter): Promise<any[]> => {
   const response = await api.get(
@@ -362,6 +391,18 @@ const fetchWalletWithdrawalsAPI = async (filters: DateFilter): Promise<any[]> =>
 // =====================================================================
 
 const IMPORT_GUIDES: Record<string, ImportGuide> = {
+  clients: {
+    path: 'جهات الاتصال ← استيراد',
+    steps: [
+      'افتح قائمة جهات الاتصال وارفع الملف، وتأكد من تفعيل «استخدم الصف الأول كترويسة».',
+      'تأكد أن عمود ID مربوط بحقل «المعرف الخارجي» (External ID).',
+      'اضغط «اختبار» ثم «استيراد».',
+    ],
+    warnings: [
+      'استورد العملاء قبل أي فواتير — الفواتير تربط العميل عن طريق رقمه (ID)، وإذا لم يكن موجوداً سيفشل الاستيراد.',
+      'إعادة استيراد نفس العميل تحدّث بياناته ولا تكرره، طالما عمود ID مربوط بالمعرف الخارجي.',
+    ],
+  },
   wallet: {
     path: 'المحاسبة ← العملاء ← فواتير العملاء ← استيراد',
     steps: [
@@ -463,6 +504,8 @@ interface ExportCardProps {
   onExport: () => void;
   loading: boolean;
   buttonLabel: string;
+  wide?: boolean;
+  hint?: string;
 }
 
 const ExportCard = ({
@@ -477,16 +520,19 @@ const ExportCard = ({
   onExport,
   loading,
   buttonLabel,
+  wide,
+  hint,
 }: ExportCardProps): JSX.Element => (
-  <div className="col-12 col-md-6">
+  <div className={wide ? 'col-12' : 'col-12 col-md-6'}>
     <div className="card h-100 shadow-sm border-0 bg-light">
       <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h5 className="card-title mb-0 fw-bold text-secondary">{title}</h5>
         <span className={badgeClass}>{badgeLabel}</span>
       </div>
       <div className="card-body d-flex flex-column justify-content-between">
-        <div className="mb-3">
-          <div className="mb-3">
+        {hint && <p className="small text-muted mb-3">{hint}</p>}
+        <div className={wide ? 'mb-3 row g-3' : 'mb-3'}>
+          <div className={wide ? 'col-12 col-md-6' : 'mb-3'}>
             <label className="form-label small fw-semibold text-muted">من تاريخ</label>
             <input
               type="date"
@@ -495,7 +541,7 @@ const ExportCard = ({
               onChange={(e) => onFiltersChange({ ...filters, startDate: e.target.value })}
             />
           </div>
-          <div className="mb-3">
+          <div className={wide ? 'col-12 col-md-6' : 'mb-3'}>
             <label className="form-label small fw-semibold text-muted">إلى تاريخ</label>
             <input
               type="date"
@@ -504,7 +550,9 @@ const ExportCard = ({
               onChange={(e) => onFiltersChange({ ...filters, endDate: e.target.value })}
             />
           </div>
-          <ImportGuideBox guide={guide} accent={accent} />
+          <div className={wide ? 'col-12' : undefined}>
+            <ImportGuideBox guide={guide} accent={accent} />
+          </div>
         </div>
         <button onClick={onExport} disabled={loading} className={`${buttonClass} w-100 mt-2`}>
           {loading ? 'جاري التحضير...' : buttonLabel}
@@ -516,6 +564,8 @@ const ExportCard = ({
 
 // --- Component ---
 const OdoExport = (): JSX.Element => {
+  const [clientFilters, setClientFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
+  const [loadingClients, setLoadingClients] = useState(false);
   const [shipmentFilters, setShipmentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
   const [paymentFilters, setPaymentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
   const [purchaseFilters, setPurchaseFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
@@ -527,6 +577,22 @@ const OdoExport = (): JSX.Element => {
   const [loadingPurchase, setLoadingPurchase] = useState(false);
   const [loadingCanceledPayments, setLoadingCanceledPayments] = useState(false);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+
+  const handleExportClients = async () => {
+    setLoadingClients(true);
+    try {
+      const data = await fetchClientsAPI(clientFilters);
+      const range = clientFilters.startDate || clientFilters.endDate
+        ? `${clientFilters.startDate || 'start'}_to_${clientFilters.endDate || 'today'}`
+        : `all_${new Date().toISOString().slice(0, 10)}`;
+      exportToExcel(data, `Odoo_Clients_${range}`);
+    } catch (error) {
+      console.error('Failed to export clients:', error);
+      alert('تعذّر تصدير العملاء، حاول مرة أخرى.');
+    } finally {
+      setLoadingClients(false);
+    }
+  };
 
   const handleExportShipments = async () => {
     setLoadingShipment(true);
@@ -598,6 +664,23 @@ const OdoExport = (): JSX.Element => {
       </div>
 
       <div className="row g-4">
+        {/* --- 0. قسم العملاء (جهات الاتصال) — يُستورد أولاً قبل أي فواتير --- */}
+        <ExportCard
+          wide
+          title="العملاء"
+          badgeLabel="جهات الاتصال"
+          badgeClass="badge bg-primary"
+          buttonClass="btn btn-primary"
+          buttonLabel="تصدير العملاء (Excel)"
+          hint="اترك التاريخين فارغين لتصدير كل العملاء، أو اختر فترة لتصدير من سجّل خلالها فقط."
+          guide={IMPORT_GUIDES.clients}
+          accent="primary"
+          filters={clientFilters}
+          onFiltersChange={setClientFilters}
+          onExport={handleExportClients}
+          loading={loadingClients}
+        />
+
         {/* --- 1. قسم إيداعات المحفظة --- */}
         <ExportCard
           title="أرصدة تم إضافتها"

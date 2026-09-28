@@ -12,6 +12,7 @@ type OfficeStat = {
 
 type Props = {
   offices: OfficeStat[];
+  periodLabel?: string;
 };
 
 const OFFICE_LABELS: Record<string, string> = {
@@ -21,12 +22,13 @@ const OFFICE_LABELS: Record<string, string> = {
 
 const formatNumber = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
-const OfficeBreakdown = ({ offices }: Props) => {
+const OfficeBreakdown = ({ offices, periodLabel = 'this month' }: Props) => {
   const maxKG = Math.max(1, ...offices.map(o => o.totalKG));
 
   return (
     <div className="office-breakdown">
-      <h3>By office, this month</h3>
+      <h3>By office</h3>
+      <p className="office-breakdown-period">Shipped {periodLabel} · active orders right now</p>
 
       <div className="office-breakdown-list">
         {offices.map(office => (

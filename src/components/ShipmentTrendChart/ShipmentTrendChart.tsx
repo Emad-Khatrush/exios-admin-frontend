@@ -7,6 +7,7 @@ Chart.register([BarElement, CategoryScale, LinearScale, Tooltip]);
 
 type TrendPoint = {
   label: string;
+  title?: string;
   totalKG: number;
   totalCBM: number;
   packagesCount: number;
@@ -14,13 +15,14 @@ type TrendPoint = {
 
 type Props = {
   trend: TrendPoint[];
+  subtitle?: string;
 };
 
 const ACCENT = '#1d4ed8';
 const GRIDLINE = '#e3e7ec';
 const AXIS_INK = '#5b6673';
 
-const ShipmentTrendChart = ({ trend }: Props) => {
+const ShipmentTrendChart = ({ trend, subtitle = 'KG shipped, last 6 months' }: Props) => {
   const totalKG = trend.reduce((sum, point) => sum + point.totalKG, 0);
 
   const data: any = {
@@ -48,6 +50,7 @@ const ShipmentTrendChart = ({ trend }: Props) => {
         displayColors: false,
         titleFont: { weight: '700' },
         callbacks: {
+          title: (items: any[]) => trend[items[0]?.dataIndex]?.title || items[0]?.label,
           label: (context: any) => {
             const point = trend[context.dataIndex];
             const lines = [`${point.totalKG.toLocaleString('en-US')} KG`];
@@ -82,7 +85,7 @@ const ShipmentTrendChart = ({ trend }: Props) => {
       <div className="shipment-trend-head">
         <div>
           <h3>Shipments trend</h3>
-          <p>KG shipped, last 6 months</p>
+          <p>{subtitle}</p>
         </div>
         <div className="shipment-trend-total">
           <span>{totalKG.toLocaleString('en-US')}</span>
