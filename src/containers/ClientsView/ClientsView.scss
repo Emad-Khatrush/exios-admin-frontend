@@ -571,8 +571,26 @@ $cl-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wl-summary {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+
   .wl-summary--in .cl-stat__icon { background: $cl-ok-soft; color: $cl-ok; }
-  .wl-summary--out .cl-stat__icon { background: $cl-danger-soft; color: $cl-danger; }
+  .wl-summary--credit .cl-stat__icon { background: $cl-accent-soft; color: $cl-accent; }
+  .wl-summary--out .cl-stat__icon,
+  .wl-summary--cashout .cl-stat__icon { background: $cl-danger-soft; color: $cl-danger; }
+}
+
+// Refunds, compensation, cancellations: wallet goes up but no cash came in
+.wl-statement__icon.is-credit { background: $cl-accent-soft; color: $cl-accent; }
+.wl-statement__amount.is-credit { color: $cl-accent; }
+
+.wl-statement__credit {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: $cl-accent-soft;
+  color: $cl-accent;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: help;
 }
 
 .wl-summary__value { font-size: 1.1rem; }

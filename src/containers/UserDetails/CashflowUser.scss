@@ -9,6 +9,9 @@
   --cf-out: #b4432b;
   --cf-out-soft: #fbeeea;
   --cf-accent: #0f7a4f;
+  // Wallet credits (refunds, compensation, cancellations): balance goes up, no cash comes in
+  --cf-credit: #1d4ed8;
+  --cf-credit-soft: #eff4ff;
 
   color: var(--cf-ink);
   font-variant-numeric: tabular-nums;
@@ -92,9 +95,14 @@
 
   &__summary {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr;
+    grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 24px;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      .cashflow__stat--primary { grid-column: 1 / -1; }
+    }
 
     @media (max-width: 720px) {
       grid-template-columns: 1fr 1fr;
@@ -133,6 +141,14 @@
 
     &.is-positive { color: var(--cf-in); }
     &.is-negative { color: var(--cf-out); }
+    // Credits aren't cash, so they don't share the green of real money in
+    &.is-credit { color: var(--cf-credit); }
+  }
+
+  &__stat-note {
+    margin-top: -2px;
+    font-size: 0.7rem;
+    color: var(--cf-muted);
   }
 
   &__list-head {
@@ -203,6 +219,7 @@
   }
 
   &.is-out::before { background: var(--cf-out); }
+  &.is-credit::before { background: var(--cf-credit); }
 
   &__date {
     display: flex;
@@ -260,6 +277,7 @@
   }
 
   &.is-out &__amount { color: var(--cf-out); }
+  &.is-credit &__amount { color: var(--cf-credit); }
 
   &__balance {
     font-weight: 500;
@@ -384,6 +402,13 @@
     }
     &:focus-visible { outline-color: var(--cf-out); }
   }
+}
+
+.cashflow-chip--credit {
+  color: var(--cf-credit);
+  background: var(--cf-credit-soft);
+  box-shadow: none;
+  cursor: help;
 }
 
 .cashflow-chip--edited {

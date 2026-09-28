@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, History, Loader2, Paperclip, Scale } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Banknote, History, Loader2, Paperclip, Undo2 } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,6 +6,7 @@ import api from '../../api';
 import DashboardPeriodPicker from '../../components/DashboardPeriodPicker/DashboardPeriodPicker';
 import { DashboardPeriod, defaultPeriod, getPeriodRange } from '../Home/period';
 import { convertGoogleStorageUrl } from '../../utils/methods';
+import { statementFlow } from '../UserDetails/statementUtils';
 
 interface UserStatement {
   _id: string;
@@ -14,6 +15,8 @@ interface UserStatement {
   currency: 'USD' | 'LYD';
   total: number;
   calculationType: '+' | '-';
+  actionType?: string;
+  paymentType?: string;
   createdAt: string;
   attachments?: { path: string }[];
   user?: {
@@ -27,10 +30,15 @@ interface UserStatement {
 
 type Direction = 'all' | 'plus' | 'minus';
 
+type FlowTotals = { USD: number, LYD: number, count: number };
+
+// Real cash (cashIn / cashOut) is kept apart from wallet credits and wallet spending
 type Summary = {
   count: number
-  deposits: { USD: number, LYD: number, count: number }
-  payments: { USD: number, LYD: number, count: number }
+  cashIn: FlowTotals
+  credit: FlowTotals
+  spent: FlowTotals
+  cashOut: FlowTotals
 };
 
 const PAGE_SIZE = 20;
@@ -118,37 +126,45 @@ const StatementList = () => {
     if (node) observer.current.observe(node);
   }, [loading, hasMore]);
 
-  const netUSD = (summary?.deposits.USD || 0) - (summary?.payments.USD || 0);
-  const netLYD = (summary?.deposits.LYD || 0) - (summary?.payments.LYD || 0);
   const isFirstLoad = loading && page === 1;
+
+  const countNote = (totals: FlowTotals | undefined, one: string, many: string) => {
+    const n = totals?.count || 0;
+    return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+  };
 
   const tiles = [
     {
       key: 'in',
-      label: 'Deposits',
-      value: formatPair(summary?.deposits.USD || 0, summary?.deposits.LYD || 0, '+'),
-      note: `${(summary?.deposits.count || 0).toLocaleString('en-US')} deposits`,
+      label: 'Cash received',
+      value: formatPair(summary?.cashIn.USD || 0, summary?.cashIn.LYD || 0, '+'),
+      note: `${countNote(summary?.cashIn, 'cash or bank deposit', 'cash or bank deposits')}`,
       icon: ArrowDownLeft,
       hidden: direction === 'minus',
     },
     {
+      key: 'credit',
+      label: 'Wallet credits',
+      value: formatPair(summary?.credit.USD || 0, summary?.credit.LYD || 0, '+'),
+      note: `${countNote(summary?.credit, 'refund', 'refunds')}, compensation, cancellations · no cash`,
+      icon: Undo2,
+      hidden: direction === 'minus',
+    },
+    {
       key: 'out',
-      label: 'Payments',
-      value: formatPair(summary?.payments.USD || 0, summary?.payments.LYD || 0, '−'),
-      note: `${(summary?.payments.count || 0).toLocaleString('en-US')} payments`,
+      label: 'Spent from wallet',
+      value: formatPair(summary?.spent.USD || 0, summary?.spent.LYD || 0, '−'),
+      note: countNote(summary?.spent, 'order or debt payment', 'order and debt payments'),
       icon: ArrowUpRight,
       hidden: direction === 'plus',
     },
     {
-      key: 'net',
-      label: 'Net change',
-      value: [
-        netUSD ? `${netUSD > 0 ? '+' : '−'}$${formatMoney(Math.abs(netUSD))}` : '',
-        netLYD ? `${netLYD > 0 ? '+' : '−'}${formatMoney(Math.abs(netLYD))} LYD` : '',
-      ].filter(Boolean).join(' · ') || '—',
-      note: `${(summary?.count || 0).toLocaleString('en-US')} transactions`,
-      icon: Scale,
-      hidden: direction !== 'all',
+      key: 'cashout',
+      label: 'Cash withdrawn',
+      value: formatPair(summary?.cashOut.USD || 0, summary?.cashOut.LYD || 0, '−'),
+      note: countNote(summary?.cashOut, 'withdrawal', 'withdrawals'),
+      icon: Banknote,
+      hidden: direction === 'plus',
     },
   ].filter((tile) => !tile.hidden);
 
@@ -202,12 +218,13 @@ const StatementList = () => {
         <ul className={`wl-statements ${isFirstLoad && items.length === 0 ? 'wl-statements--empty' : ''}`}>
           {items.map((item, index) => {
             const isPlus = item.calculationType === '+';
+            const isCredit = statementFlow(item) === 'credit';
             const attachment = item.attachments?.[0]?.path;
             const created = moment(item.createdAt);
 
             return (
               <li key={item._id} ref={items.length === index + 1 ? lastElementRef : null} className="wl-statement">
-                <span className={`wl-statement__icon ${isPlus ? 'is-in' : 'is-out'}`} aria-label={isPlus ? 'Deposit' : 'Payment'}>
+                <span className={`wl-statement__icon ${isCredit ? 'is-credit' : isPlus ? 'is-in' : 'is-out'}`} aria-label={isCredit ? 'Wallet credit' : isPlus ? 'Deposit' : 'Payment'}>
                   {isPlus ? <ArrowDownLeft size={16} strokeWidth={2.4} /> : <ArrowUpRight size={16} strokeWidth={2.4} />}
                 </span>
 
@@ -217,6 +234,7 @@ const StatementList = () => {
                       ? <Link to={`/user/${item.user._id}`} className="wl-statement__name">{item.user.firstName} {item.user.lastName}</Link>
                       : <span className="wl-statement__name">Unknown client</span>}
                     {item.user?.customerId && <span className="wl-client__id">{item.user.customerId}</span>}
+                    {isCredit && <span className="wl-statement__credit" title="Added to the wallet, but no cash was received">No cash</span>}
                     {attachment && (
                       <a
                         className="wl-statement__file"
@@ -236,7 +254,7 @@ const StatementList = () => {
                 </div>
 
                 <div className="wl-statement__amounts">
-                  <span className={`wl-statement__amount ${isPlus ? 'is-in' : 'is-out'}`}>
+                  <span className={`wl-statement__amount ${isCredit ? 'is-credit' : isPlus ? 'is-in' : 'is-out'}`}>
                     {isPlus ? '+' : '−'}{formatMoney(item.amount)} {item.currency}
                   </span>
                   <span className="wl-statement__balance">Balance {formatMoney(item.total)} {item.currency}</span>

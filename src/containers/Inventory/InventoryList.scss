@@ -1,0 +1,775 @@
+// Shipments list + flight board. Tokens match InventoryForm.scss.
+$ivl-accent: #1d4ed8;
+$ivl-accent-soft: #eff4ff;
+$ivl-ink: #18212b;
+$ivl-muted: #5b6673;
+$ivl-faint: #8a949f;
+$ivl-line: #e3e7ec;
+$ivl-line-strong: #cfd6dd;
+$ivl-surface: #ffffff;
+$ivl-sunken: #f5f7f9;
+$ivl-ok: #1f7a3a;
+$ivl-ok-soft: #e8f5ec;
+$ivl-danger: #b42318;
+$ivl-danger-soft: #fdecea;
+$ivl-warn: #8a5a00;
+$ivl-warn-soft: #fff4dc;
+$ivl-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+$ivl-types: (
+  air: (#1d4ed8, #eff4ff),
+  sea: (#0e7490, #e6f6f9),
+  domestic: (#6d28d9, #f3effe),
+);
+
+.ivl-page {
+  animation: ivl-rise 0.35s $ivl-ease both;
+}
+
+// View switcher in the header
+.ivl-switcher {
+  display: inline-flex;
+  padding: 3px;
+  background: $ivl-sunken;
+  border: 1px solid $ivl-line;
+  border-radius: 10px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.4rem 0.9rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: $ivl-muted;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s $ivl-ease, color 0.2s $ivl-ease;
+
+    &:hover { color: $ivl-ink; }
+    &.is-active {
+      background: $ivl-surface;
+      color: $ivl-accent;
+      box-shadow: 0 1px 2px rgba(24, 33, 43, 0.08);
+    }
+  }
+}
+
+// Toolbar
+.ivl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.ivl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ivl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.42rem 0.75rem;
+  border: 1px solid $ivl-line;
+  border-radius: 999px;
+  background: $ivl-surface;
+  color: $ivl-ink;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s $ivl-ease, background-color 0.2s $ivl-ease;
+
+  svg { color: $ivl-muted; }
+  &:hover { border-color: $ivl-line-strong; background: $ivl-sunken; }
+
+  &.is-active {
+    border-color: $ivl-accent;
+    background: $ivl-accent-soft;
+    color: $ivl-accent;
+    svg { color: $ivl-accent; }
+  }
+}
+
+.ivl-chip__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: $ivl-sunken;
+  color: $ivl-muted;
+  font-size: 0.74rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+
+  .is-active & { background: $ivl-surface; color: $ivl-accent; }
+}
+
+.ivl-segment {
+  display: inline-flex;
+  padding: 3px;
+  background: $ivl-sunken;
+  border: 1px solid $ivl-line;
+  border-radius: 10px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.36rem 0.75rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: $ivl-muted;
+    font: inherit;
+    font-size: 0.83rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+
+    span { font-size: 0.74rem; font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.85; }
+    &:hover { color: $ivl-ink; }
+
+    &.is-active {
+      background: $ivl-surface;
+      color: $ivl-accent;
+      box-shadow: 0 1px 2px rgba(24, 33, 43, 0.08);
+    }
+    &.is-attention.is-active { color: $ivl-warn; }
+  }
+}
+
+.ivl-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid $ivl-line;
+  border-radius: 8px;
+  background: $ivl-surface;
+  color: $ivl-ink;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { border-color: $ivl-line-strong; }
+  &:focus { outline: none; border-color: $ivl-accent; }
+}
+
+.ivl-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 380px;
+  margin-left: auto;
+
+  input {
+    width: 100%;
+    height: 38px;
+    padding: 0 32px 0 34px;
+    border: 1px solid $ivl-line;
+    border-radius: 8px;
+    background: $ivl-surface;
+    color: $ivl-ink;
+    font: inherit;
+    font-size: 0.88rem;
+    transition: border-color 0.2s $ivl-ease, box-shadow 0.2s $ivl-ease;
+
+    &::-webkit-search-cancel-button { display: none; }
+    &:hover { border-color: $ivl-line-strong; }
+    &:focus { outline: none; border-color: $ivl-accent; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12); }
+  }
+
+  &--compact { flex-basis: 180px; max-width: 240px; }
+}
+
+.ivl-search__icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: $ivl-muted;
+  pointer-events: none;
+}
+
+.ivl-search__clear {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: $ivl-muted;
+  cursor: pointer;
+
+  &:hover { background: $ivl-sunken; color: $ivl-ink; }
+}
+
+.ivl-search-note {
+  margin: -6px 0 12px !important;
+  font-size: 0.82rem;
+  color: $ivl-muted;
+}
+
+.ivl-error { margin-bottom: 16px; }
+.ivl-refreshing { opacity: 0.55; pointer-events: none; transition: opacity 0.2s ease; }
+.ivl-muted { color: $ivl-muted; }
+
+// Shipment rows
+.ivl-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: $ivl-surface;
+  border: 1px solid $ivl-line;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ivl-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.6fr) minmax(170px, 1fr) minmax(150px, 0.8fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  transition: background-color 0.2s $ivl-ease;
+
+  & + & { border-top: 1px solid $ivl-line; }
+  &:not(.ivl-row--skeleton):hover { background: #fafbfc; }
+
+  &--skeleton { grid-template-columns: 40px 1fr; }
+}
+
+.ivl-type {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+
+  @each $type, $colors in $ivl-types {
+    &--#{$type} { color: nth($colors, 1); background: nth($colors, 2); }
+  }
+}
+
+.ivl-main { min-width: 0; }
+
+.ivl-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+
+  .inv-badge { font-size: 0.7rem; }
+}
+
+.ivl-voyage {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: $ivl-ink;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover { color: $ivl-accent; }
+}
+
+.ivl-badge--danger { color: $ivl-danger !important; background: $ivl-danger-soft !important; }
+
+.ivl-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  margin-top: 3px !important;
+  font-size: 0.82rem;
+  color: $ivl-muted;
+
+  svg { color: $ivl-faint; }
+}
+
+.ivl-dot { color: $ivl-faint; }
+
+.ivl-note {
+  margin-top: 4px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: $ivl-faint;
+}
+
+.ivl-packages {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ivl-progress {
+  display: grid;
+  gap: 4px;
+}
+
+.ivl-progress__track {
+  height: 6px;
+  border-radius: 999px;
+  background: $ivl-sunken;
+  overflow: hidden;
+}
+
+.ivl-progress__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: $ivl-accent;
+  transition: width 0.4s $ivl-ease;
+
+  &.is-done { background: $ivl-ok; }
+}
+
+.ivl-progress__text {
+  font-size: 0.78rem;
+  color: $ivl-muted;
+  font-variant-numeric: tabular-nums;
+
+  strong { color: $ivl-ink; }
+}
+
+.ivl-weight {
+  font-size: 0.78rem;
+  color: $ivl-muted;
+  font-variant-numeric: tabular-nums;
+}
+
+.ivl-dates {
+  display: grid;
+  gap: 3px;
+  font-size: 0.8rem;
+
+  span { display: inline-flex; align-items: center; gap: 5px; }
+  em { color: $ivl-warn; font-style: normal; }
+}
+
+.ivl-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ivl-thumbs {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid $ivl-line;
+  border-radius: 8px;
+  overflow: hidden;
+  background: $ivl-sunken;
+  cursor: zoom-in;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+
+  span {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    padding: 0 4px;
+    border-radius: 6px;
+    background: rgba(24, 33, 43, 0.75);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+  }
+
+  &:hover { border-color: $ivl-accent; }
+}
+
+// File icons (non-photo attachments)
+.ivl-file-icon {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: $ivl-sunken;
+  color: $ivl-muted;
+
+  &--pdf { background: $ivl-danger-soft; color: $ivl-danger; }
+  &--sheet { background: $ivl-ok-soft; color: $ivl-ok; }
+  &--doc { background: $ivl-accent-soft; color: $ivl-accent; }
+
+  &--large {
+    width: 88px;
+    height: 88px;
+    border-radius: 18px;
+  }
+}
+
+// Attachment viewer
+.ivl-viewer {
+  overflow: hidden;
+  border-radius: 12px !important;
+}
+
+.ivl-viewer__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 12px 12px 18px;
+  border-bottom: 1px solid $ivl-line;
+}
+
+.ivl-viewer__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.95rem;
+    color: $ivl-ink;
+  }
+
+  span { font-size: 0.78rem; color: $ivl-muted; }
+}
+
+.ivl-viewer__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 55vh;
+  padding: 16px;
+  background: $ivl-sunken;
+
+  img {
+    max-width: 100%;
+    max-height: 68vh;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  iframe {
+    width: 100%;
+    height: 68vh;
+    border: 1px solid $ivl-line;
+    border-radius: 8px;
+    background: $ivl-surface;
+  }
+}
+
+.ivl-viewer__file {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 360px;
+  text-align: center;
+
+  strong { font-size: 1rem; color: $ivl-ink; overflow-wrap: anywhere; }
+  p { font-size: 0.87rem; color: $ivl-muted; }
+}
+
+.ivl-viewer__nav {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid $ivl-line;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: $ivl-ink;
+  box-shadow: 0 2px 8px rgba(24, 33, 43, 0.12);
+  transform: translateY(-50%);
+  cursor: pointer;
+
+  &:hover { color: $ivl-accent; border-color: $ivl-accent; }
+  &.is-prev { left: 12px; }
+  &.is-next { right: 12px; }
+}
+
+.ivl-viewer__strip {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  border-top: 1px solid $ivl-line;
+}
+
+.ivl-viewer__thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  background: $ivl-sunken;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s $ivl-ease, border-color 0.15s $ivl-ease;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  &:hover { opacity: 1; }
+  &.is-active { border-color: $ivl-accent; opacity: 1; }
+}
+
+.ivl-sk-icon { width: 40px; height: 40px; border-radius: 10px; }
+.ivl-sk-lines { display: grid; gap: 8px; }
+.ivl-sk-line { width: 45%; height: 14px; border-radius: 6px; }
+.ivl-sk-short { width: 25%; height: 12px; border-radius: 6px; }
+
+.ivl-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 48px 16px;
+  text-align: center;
+  background: $ivl-surface;
+  border: 1px dashed $ivl-line;
+  border-radius: 12px;
+  color: $ivl-muted;
+
+  strong { color: $ivl-ink; font-size: 1rem; }
+  p { font-size: 0.87rem; }
+}
+
+.ivl-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
+.ivl-spin { animation: ivl-spin 0.8s linear infinite; }
+
+// Flight board summary tiles
+.ivl-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.ivl-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: $ivl-surface;
+  border: 1px solid $ivl-line;
+  border-radius: 12px;
+
+  &.is-warn .ivl-tile__icon { background: $ivl-warn-soft; color: $ivl-warn; }
+}
+
+.ivl-tile__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: $ivl-accent-soft;
+  color: $ivl-accent;
+}
+
+.ivl-tile__body { display: grid; gap: 2px; min-width: 0; }
+.ivl-tile__label { font-size: 0.78rem; font-weight: 500; color: $ivl-muted; }
+.ivl-tile__value { font-size: 1.25rem; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.ivl-tile__note { font-size: 0.75rem; color: $ivl-muted; }
+
+// Flight cards
+.flm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.flm-skeleton { height: 240px; border-radius: 12px; }
+
+.flm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: $ivl-surface;
+  border: 1px solid $ivl-line;
+  border-radius: 12px;
+  border-left: 3px solid $ivl-line;
+  transition: border-color 0.2s $ivl-ease, box-shadow 0.2s $ivl-ease;
+
+  &:hover { box-shadow: 0 8px 20px rgba(24, 33, 43, 0.06); }
+  &.is-danger { border-left-color: $ivl-danger; }
+}
+
+.flm-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  .inv-badge { margin-left: auto; flex-shrink: 0; }
+}
+
+.flm-card__title { min-width: 0; }
+
+.flm-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  background: $ivl-sunken;
+  border-radius: 10px;
+
+  dt {
+    margin-bottom: 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: $ivl-muted;
+  }
+
+  dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 5px;
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    small { font-size: 0.72rem; font-weight: 600; color: $ivl-warn; }
+    svg { color: $ivl-muted; }
+  }
+}
+
+.flm-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flm-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: help;
+
+  &--ok { color: $ivl-ok; background: $ivl-ok-soft; }
+  &--warn { color: $ivl-warn; background: $ivl-warn-soft; }
+  &--danger { color: $ivl-danger; background: $ivl-danger-soft; }
+}
+
+.flm-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid $ivl-line;
+}
+
+.flm-card__meta { font-size: 0.78rem; }
+
+.flm-card__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.flm-dialog { border-radius: 12px !important; }
+.flm-dialog__title { font-size: 1.05rem !important; font-weight: 700 !important; }
+
+.flm-dialog__body {
+  display: grid;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: $ivl-muted;
+
+  p { margin: 0; }
+}
+
+.flm-dialog__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: $ivl-warn-soft;
+  color: $ivl-warn;
+  font-size: 0.84rem;
+  font-weight: 600;
+
+  svg { flex-shrink: 0; margin-top: 2px; }
+}
+
+.flm-dialog__actions { padding: 12px 24px 20px !important; gap: 8px; }
+
+@keyframes ivl-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ivl-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1023px) {
+  .ivl-row {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(150px, 0.8fr);
+    .ivl-dates { grid-column: 2; }
+    .ivl-actions { grid-column: 3; }
+  }
+  .ivl-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flm-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 639px) {
+  .ivl-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px 12px;
+    padding: 14px;
+
+    .ivl-packages,
+    .ivl-dates,
+    .ivl-actions { grid-column: 2; }
+    .ivl-actions { justify-content: flex-start; }
+  }
+  .ivl-search { max-width: none; margin-left: 0; }
+  .ivl-tiles { grid-template-columns: 1fr; }
+  .flm-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ivl-switcher { width: 100%; }
+  .ivl-switcher button { flex: 1; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ivl-page,
+  .ivl-spin { animation: none; }
+  .ivl-progress__bar,
+  .ivl-row,
+  .ivl-chip,
+  .flm-card { transition: none; }
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Breadcrumbs, Link, Typography } from '@mui/material';
-import { Megaphone, Send, UserRoundX } from 'lucide-react';
+import { ArrowLeft, Megaphone, Send, UserRoundX } from 'lucide-react';
 import Card from '../../components/Card/Card';
 import InactiveCustomers from './InactiveCustomers';
 import SendCampaign from './SendCampaign';
@@ -8,20 +8,22 @@ import Campaigns from './Campaigns';
 
 import './Marketing.scss';
 
-type Tab = 'inactiveCustomers' | 'sendCampaign' | 'campaigns';
+type Tab = 'inactiveCustomers' | 'campaigns';
 
 const TABS: { value: Tab; label: string; icon: typeof Send }[] = [
   { value: 'inactiveCustomers', label: 'Customers gone quiet', icon: UserRoundX },
-  { value: 'sendCampaign', label: 'New campaign', icon: Send },
   { value: 'campaigns', label: 'Campaigns', icon: Megaphone },
 ];
 
 const Marketing = () => {
   const [tab, setTab] = useState<Tab>('inactiveCustomers');
   const [openCampaignId, setOpenCampaignId] = useState<string | null>(null);
+  // New campaigns are written from inside the Campaigns tab
+  const [isComposing, setIsComposing] = useState(false);
 
   const goToTab = (next: Tab) => {
     setOpenCampaignId(null);
+    setIsComposing(false);
     setTab(next);
   };
 
@@ -50,19 +52,29 @@ const Marketing = () => {
 
       <Card>
         {tab === 'inactiveCustomers' && <InactiveCustomers />}
-        {tab === 'sendCampaign' &&
-          <SendCampaign
-            onSent={(campaignId) => {
-              setOpenCampaignId(campaignId);
-              setTab('campaigns');
-            }}
-          />
+        {tab === 'campaigns' && isComposing &&
+          <>
+            <button type="button" className="cmp-back mb-3" onClick={() => setIsComposing(false)}>
+              <ArrowLeft size={15} strokeWidth={2} />
+              All campaigns
+            </button>
+            <SendCampaign
+              onSent={(campaignId) => {
+                // Show the new campaign's live progress right away
+                setIsComposing(false);
+                setOpenCampaignId(campaignId);
+              }}
+            />
+          </>
         }
-        {tab === 'campaigns' &&
+        {tab === 'campaigns' && !isComposing &&
           <Campaigns
             openCampaignId={openCampaignId}
             onOpenCampaign={setOpenCampaignId}
-            onNewCampaign={() => goToTab('sendCampaign')}
+            onNewCampaign={() => {
+              setOpenCampaignId(null);
+              setIsComposing(true);
+            }}
           />
         }
       </Card>

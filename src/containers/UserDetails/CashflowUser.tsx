@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { Wallet } from 'lucide-react';
 import Card from '../../components/Card/Card';
 import PaymentDetails from './PaymentDetails';
-import { formatMoney } from './statementUtils';
+import { formatMoney, summarizeStatements } from './statementUtils';
 import UserStatementDesign from './UserStatementDesign';
 import { recalculateStatementTotals } from '../../utils/methods';
 import { canManageStatements } from '../../constants/permissions';
@@ -32,14 +32,8 @@ const CashflowUser = (props: Props) => {
   const chronological = useMemo(() => recalculateStatementTotals(userStatement || []), [userStatement]);
   const newestFirst = useMemo(() => [...chronological].reverse(), [chronological]);
 
-  const summary = useMemo(() => {
-    return chronological.reduce((acc: any, statement: any) => {
-      const amount = Number(statement.amount || 0);
-      if (statement.calculationType === '-') acc.out += amount;
-      else acc.in += amount;
-      return acc;
-    }, { in: 0, out: 0 });
-  }, [chronological]);
+  // Real cash is kept apart from wallet credits (refunds etc.) and wallet spending
+  const summary = useMemo(() => summarizeStatements(chronological), [chronological]);
 
   const balance = chronological.length ? chronological[chronological.length - 1].total : 0;
 
@@ -84,13 +78,22 @@ const CashflowUser = (props: Props) => {
               {formatMoney(balance, statementCurrency)}
             </span>
           </div>
-          <div className="cashflow__stat">
-            <span className="cashflow__stat-label">Money in</span>
-            <span className="cashflow__stat-value is-positive">+{formatMoney(summary.in, statementCurrency)}</span>
+          <div className="cashflow__stat" title="Cash and bank deposits the customer actually paid">
+            <span className="cashflow__stat-label">Cash received</span>
+            <span className="cashflow__stat-value is-positive">+{formatMoney(summary.cashIn, statementCurrency)}</span>
           </div>
-          <div className="cashflow__stat">
-            <span className="cashflow__stat-label">Money out</span>
-            <span className="cashflow__stat-value is-negative">−{formatMoney(summary.out, statementCurrency)}</span>
+          <div className="cashflow__stat" title="Refunds, compensation and cancellations returned to the wallet. No cash came in.">
+            <span className="cashflow__stat-label">Wallet credits</span>
+            <span className="cashflow__stat-value is-credit">+{formatMoney(summary.credit, statementCurrency)}</span>
+            <span className="cashflow__stat-note">Refunds, compensation, cancellations</span>
+          </div>
+          <div className="cashflow__stat" title="Orders and debts paid from the wallet balance">
+            <span className="cashflow__stat-label">Spent from wallet</span>
+            <span className="cashflow__stat-value is-negative">−{formatMoney(summary.spent, statementCurrency)}</span>
+          </div>
+          <div className="cashflow__stat" title="Cash handed back to the customer at an office">
+            <span className="cashflow__stat-label">Cash withdrawn</span>
+            <span className="cashflow__stat-value is-negative">−{formatMoney(summary.cashOut, statementCurrency)}</span>
           </div>
         </section>
 

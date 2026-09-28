@@ -8,7 +8,7 @@ import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStep
 import { convertGoogleStorageUrl } from "../../utils/methods"
 import StatementReceipt from "./StatementReceipt"
 import EditStatementDialog from "./EditStatementDialog"
-import { formatMoney, getOfficeLabel } from "./statementUtils"
+import { formatMoney, getOfficeLabel, statementFlow } from "./statementUtils"
 
 type Props = {
   statement: any
@@ -27,6 +27,8 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const [previewImages, setPreviewImages] = useState<any>(undefined);
 
   const isOutflow = statement?.calculationType === '-';
+  // A refund/compensation/cancellation adds to the wallet but no cash came in
+  const isCredit = statementFlow(statement || {}) === 'credit';
   // Outgoing payments are linked to orders and debts, so only incoming ones can be edited or deleted
   const canManage = canManageUser && !isOutflow;
   const date = moment(statement?.createdAt);
@@ -49,7 +51,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
 
   return (
     <>
-      <article className={`cashflow-row ${isOutflow ? 'is-out' : 'is-in'}`} style={style}>
+      <article className={`cashflow-row ${isOutflow ? 'is-out' : isCredit ? 'is-in is-credit' : 'is-in'}`} style={style}>
         <div className="cashflow-row__date" title={date.format('DD/MM/YYYY')}>
           <span className="cashflow-row__day">{date.format('DD MMM')}</span>
           <span className="cashflow-row__year">{date.format('YYYY')}</span>
@@ -63,6 +65,11 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
               {office ? getOfficeLabel(office) : 'No office'}
             </span>
             {statement?.actionType && <span className="cashflow-chip">{statement.actionType}</span>}
+            {isCredit &&
+              <Tooltip title="Added to the wallet balance, but no cash was received" arrow enterTouchDelay={0}>
+                <span className="cashflow-chip cashflow-chip--credit">No cash</span>
+              </Tooltip>
+            }
             {statement?.paymentType && statement?.paymentType !== statement?.actionType &&
               <span className="cashflow-chip cashflow-chip--muted">{statement.paymentType}</span>
             }
