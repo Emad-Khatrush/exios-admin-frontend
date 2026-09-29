@@ -6,6 +6,28 @@ html, body, #root{
     background-color: rgb(251, 251, 255);;
 }
 
+// Text customers write or read in Arabic, English or both, with emoji and dates.
+// Use with dir="auto": each line takes its direction from its first letter, so an Arabic
+// line stays right-to-left with its emoji and dates in place, and an English line stays
+// left-to-right. Line breaks are kept.
+$bidi-font: 'Red Hat Text', 'IBM Plex Sans Arabic', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+
+.bidi-text {
+    unicode-bidi: plaintext;
+    text-align: start;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: $bidi-font;
+}
+
+// Same for inputs (put on the MUI OutlinedInput)
+.bidi-field input,
+.bidi-field textarea {
+    unicode-bidi: plaintext;
+    text-align: start;
+    font-family: $bidi-font;
+}
+
 .otherpages {
     flex: 6;
     font-family: 'Red Hat Text', sans-serif;

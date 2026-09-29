@@ -200,7 +200,7 @@ const PopupAds = () => {
                           {ad.viewCount} {ad.viewCount === 1 ? 'view' : 'views'}
                         </button>
                       </div>
-                      <p className="pa-ad__description">{ad.description}</p>
+                      <p className="pa-ad__description bidi-text" dir="auto">{ad.description}</p>
                       <p className="pa-ad__dates">
                         {new Date(ad.startDate).toLocaleDateString()} to {new Date(ad.endDate).toLocaleDateString()}
                       </p>
@@ -238,6 +238,8 @@ const PopupAds = () => {
             <label htmlFor="pa-description">Description</label>
             <OutlinedInput
               id="pa-description"
+              className="bidi-field"
+              inputProps={{ dir: 'auto' }}
               multiline
               minRows={3}
               placeholder="What should customers see?"
@@ -317,7 +319,7 @@ const PopupAds = () => {
                   <SelectedIcon size={30} strokeWidth={1.75} />
                 )}
               </div>
-              <p>{form.description.trim() || 'Your announcement text will appear here.'}</p>
+              <p className="bidi-text" dir="auto">{form.description.trim() || 'Your announcement text will appear here.'}</p>
             </div>
           </div>
 
@@ -335,7 +337,7 @@ const PopupAds = () => {
       <Dialog open={!!viewersAd} onClose={closeViewers} maxWidth="xs" fullWidth PaperProps={{ className: 'pa-dialog' }}>
         <DialogTitle className="pa-dialog__title">Who viewed this ad</DialogTitle>
         <DialogContent className="pa-viewers">
-          {viewersAd && <p className="pa-viewers__description">{viewersAd.description}</p>}
+          {viewersAd && <p className="pa-viewers__description bidi-text" dir="auto">{viewersAd.description}</p>}
 
           {viewersLoading ? (
             <div className="pa-viewers__list" aria-busy="true">

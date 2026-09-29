@@ -128,11 +128,11 @@ const AdminPosts: React.FC = () => {
               <li key={post._id} className="ap-post">
                 <div className="ap-post__main">
                   <div className="ap-post__title-row">
-                    <h3 className="ap-post__title">{post.title}</h3>
+                    <h3 className="ap-post__title bidi-text" dir="auto">{post.title}</h3>
                     <span className={`ap-chip ap-chip--${post.type}`}>{post.type}</span>
                     {!post.isActive && <span className="ap-chip ap-chip--inactive">Inactive</span>}
                   </div>
-                  <p className="ap-post__message">{post.message}</p>
+                  <p className="ap-post__message bidi-text" dir="auto">{post.message}</p>
                   <p className="ap-post__date">
                     {post.publishedAt ? `Published ${new Date(post.publishedAt).toLocaleDateString()}` : "No publish date"}
                   </p>
@@ -171,6 +171,8 @@ const AdminPosts: React.FC = () => {
             <OutlinedInput
               id="post-title"
               name="title"
+              className="bidi-field"
+              inputProps={{ dir: 'auto' }}
               size="small"
               value={formData.title || ""}
               onChange={handleChange}
@@ -181,6 +183,8 @@ const AdminPosts: React.FC = () => {
             <OutlinedInput
               id="post-message"
               name="message"
+              className="bidi-field"
+              inputProps={{ dir: 'auto' }}
               multiline
               minRows={3}
               value={formData.message || ""}

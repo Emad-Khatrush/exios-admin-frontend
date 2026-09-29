@@ -83,11 +83,13 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/mytasks' element={<MyTasks />} />
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
-      <Route path='/settings' element={<Settings />} />
-      <Route path='/settings/pricing' element={<ServicesPrice />} />
-      <Route path='/settings/announcements' element={<Announcements />} />
-      <Route path='/settings/posts' element={<AdminPosts />} />
-      <Route path='/settings/popup-ads' element={<PopupAds />} />
+      {roles?.isAccountant && <>
+        <Route path='/settings' element={<Settings />} />
+        <Route path='/settings/pricing' element={<ServicesPrice />} />
+        <Route path='/settings/announcements' element={<Announcements />} />
+        <Route path='/settings/posts' element={<AdminPosts />} />
+        <Route path='/settings/popup-ads' element={<PopupAds />} />
+      </>}
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
       <Route path='/special-prices' element={<SpecialPriceCustomers />} />

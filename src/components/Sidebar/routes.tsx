@@ -200,6 +200,14 @@ const getRoutes = (roles: any) => {
             title: 'Odo Export',
             path: '/odo-export',
             icon: <FaFileInvoiceDollar className="sidebar-icon" />,
+         },
+         {
+            mainTitle: 'Settings'
+         },
+         {
+            title: 'General',
+            path: '/settings',
+            icon: <FiSettings className="sidebar-icon" />,
          }
         ];
       }

@@ -17,7 +17,7 @@ const adminSections = [
 
 const Settings = () => {
   const roles = useSelector((state: any) => state.session.account?.roles);
-  const visibleSections = roles?.isAdmin ? [...sections, ...adminSections] : sections;
+  const visibleSections = roles?.isAdmin ? [...sections, ...adminSections] : roles?.isAccountant ? sections : [];
 
   return (
     <div className="settings-page">

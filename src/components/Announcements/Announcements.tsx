@@ -130,10 +130,10 @@ const Announcements = () => {
                   <div key={announcement._id} className="ann-row">
                     <span className="ann-row__index">{i + 1}</span>
                     <OutlinedInput
-                      className="ann-row__input"
+                      className="ann-row__input bidi-field"
                       size="small"
                       multiline
-                      inputProps={{ 'aria-label': `Announcement ${i + 1}` }}
+                      inputProps={{ 'aria-label': `Announcement ${i + 1}`, dir: 'auto' }}
                       onChange={({ target }) => {
                         const foundAnnouncement = announcements.find(data => data._id === announcement._id);
                         if (foundAnnouncement) {
@@ -169,6 +169,8 @@ const Announcements = () => {
                   <OutlinedInput
                     id="new-announcement"
                     name="announcement"
+                    className="bidi-field"
+                    inputProps={{ dir: 'auto' }}
                     size="small"
                     placeholder="What should customers know?"
                     onChange={({ target }) => setNewAnnouncement({ description: target.value })}
