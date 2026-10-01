@@ -36,6 +36,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
     links: [
       { to: '/accounting/bills', label: 'فواتير الموردين', icon: FileText, perms: ['purchases', 'payments'] },
       { to: '/accounting/expenses', label: 'مصروفات سريعة', icon: Receipt, perms: ['purchases'] },
+      { to: '/accounting/office-expenses', label: 'مصروفات المكاتب', icon: Receipt, perms: ['purchases', 'reports'] },
       { to: '/accounting/trips', label: 'تكاليف الرحلات', icon: Ship, perms: ['purchases'] },
       { to: '/accounting/payments', label: 'دفعات الموردين', icon: HandCoins, perms: ['payments'] },
       { to: '/accounting/vendors', label: 'الموردون', icon: Truck, perms: ['purchases', 'payments'] },

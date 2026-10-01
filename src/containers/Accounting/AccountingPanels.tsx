@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Autocomplete, Button, MenuItem, TextField } from '@mui/material';
-import { EVENT_LABELS, acc, errorText, newKey, todayLibya } from './accountingApi';
+import { EVENT_LABELS, acc, errorText, newKey, sys, todayLibya } from './accountingApi';
 import { userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
 import { useAccountingAccess } from './useAccountingAccess';
@@ -91,7 +91,10 @@ const CLAIM_KIND: Record<string, string> = { SHP: 'شحن', PUR: 'فاتورة �
 const blankBill = () => ({ vendor: null as any, description: '', amount: '', payFrom: '', currency: 'USD', rate: '', day: todayLibya() });
 
 // What was bought from a supplier for this order, entered right here: one line, optionally paid
-// on the spot from a cash box. It is an ordinary supplier bill charged to the order.
+// on the spot from a cash box, bank or Alipay. It is an ordinary supplier bill charged to the
+// order, recorded through the system's own route, so any staff member can enter it (spec 19.1).
+// Paid from a non-dollar account with no rate typed, it costs what that money cost (the account's
+// average rate): yuan sent from Alipay for an Alipay transfer, say.
 const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, orderNumber: string, onSaved: () => void }) => {
   const [vendors, setVendors] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -102,11 +105,13 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
   const [isSaving, setIsSaving] = useState(false);
   const key = useRef(newKey());
 
-  const loadVendors = () => acc.get('vendors', { active: 'true' }).then((res: any) => setVendors(res.data.results)).catch(() => {});
+  const loadOptions = () => sys.get('acc/options').then((res: any) => {
+    setVendors(res.data.vendors || []);
+    setAccounts(res.data.accounts || []);
+    setCurrencies(res.data.currencies || []);
+  }).catch(() => {});
   useEffect(() => {
-    loadVendors();
-    acc.get('accounts').then((res: any) => setAccounts(res.data.results.filter((a: any) => a.isCash && a.isActive && !a.isGroup))).catch(() => {});
-    acc.get('currencies').then((res: any) => setCurrencies(res.data.results.filter((c: any) => c.isActive))).catch(() => {});
+    loadOptions();
   }, []);
 
   const payAccount = accounts.find((a) => a._id === form.payFrom);
@@ -120,17 +125,17 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
       setIsSaving(true);
       setMessage(null);
       // A name that is not in the list becomes a new supplier
-      const vendorId = form.vendor?._id || (await acc.post('vendors', { name: vendorText.trim(), type: 'supplier', defaultCurrency: currency })).data._id;
-      const res = await acc.post('bills', {
-        vendorId, day: form.day, currency, rate: Number(form.rate) || undefined, idempotencyKey: key.current,
-        paidImmediatelyFrom: form.payFrom || undefined,
-        lines: [{ description: form.description.trim() || `مشتريات الطلب ${orderNumber}`, amount: Number(form.amount), target: 'order', orderId }],
+      const res = await sys.post(`acc/orders/${orderId}/costs`, {
+        vendorId: form.vendor?._id, vendorName: form.vendor ? undefined : vendorText.trim(),
+        day: form.day, currency, rate: Number(form.rate) || undefined, idempotencyKey: key.current,
+        payFromAccountId: form.payFrom || undefined,
+        description: form.description.trim() || `مشتريات الطلب ${orderNumber}`, amount: Number(form.amount),
       });
       key.current = newKey();
       setMessage({ type: 'success', text: `سُجّلت الفاتورة ${res.data?.number || ''} على الطلب${form.payFrom ? ' ودُفعت' : ' (آجلة، تُدفع من دفعات الموردين)'}.` });
       setForm({ ...blankBill(), vendor: form.vendor || null, payFrom: form.payFrom, currency: form.currency });
       setVendorText(form.vendor?.name || '');
-      if (!form.vendor) loadVendors();
+      if (!form.vendor) loadOptions();
       onSaved();
     } catch (err) {
       setMessage({ type: 'error', text: errorText(err) });
@@ -154,14 +159,14 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
         <TextField type="number" label={`المبلغ (${currency})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputProps={{ min: 0, step: 'any' }} />
         <TextField select label="دُفعت من" value={form.payFrom} onChange={(e) => setForm({ ...form, payFrom: e.target.value })}>
           <MenuItem value="">لم تُدفع بعد (آجلة)</MenuItem>
-          {accounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.code} · {a.name}</MenuItem>)}
+          {accounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
         </TextField>
         {!payAccount && (
           <TextField select label="عملة الفاتورة" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
             {(currencies.length ? currencies : [{ code: 'USD', name: 'دولار' }]).map((c) => <MenuItem key={c.code} value={c.code}>{c.code} · {c.name}</MenuItem>)}
           </TextField>
         )}
-        {currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر ذلك اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} inputProps={{ min: 0, step: 'any' }} />}
+        {currency !== 'USD' && <TextField type="number" label={payAccount ? 'السعر (فارغ = متوسط سعر الحساب الدافع)' : 'السعر (فارغ = سعر ذلك اليوم)'} value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} inputProps={{ min: 0, step: 'any' }} />}
         <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
       </div>
       <div className="d-flex justify-content-end align-items-center gap-3 mt-3 flex-wrap">
@@ -174,10 +179,8 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
 
 export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, orderNumber?: string }) => {
   const { access, canSee, data, error, reload } = useSummary(orderId ? `summary/order/${orderId}` : null);
-  const canBuy = access.can('purchases');
   if (!orderId || access.loading) return null;
-  if (!canSee && !canBuy) return <NoAccess />;
-  // Recording purchases without seeing the figures
+  // Every staff member records purchases for an order; the figures need "reports"
   if (!canSee) {
     return (
       <Frame title="المحاسبة" error="" loading={false}>
@@ -189,7 +192,7 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
   const empty = data && !data.claims.length && !data.entries.length;
   return (
     <Frame title="المحاسبة" error={error} loading={!data}>
-      {data && canBuy && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
+      {data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
       {empty && <NoEntries />}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
@@ -226,27 +229,21 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
 export const TripAccounting = ({ tripId }: { tripId?: string }) => {
   const { access, canSee, data, error } = useSummary(tripId ? `summary/trip/${tripId}` : null);
   if (!tripId || access.loading || data?.isWarehouse) return null;
-  // Without the figures, a trip still gets its cost recorded from here
-  if (!canSee) {
-    return access.can('purchases') ? (
-      <Frame title="المحاسبة" error="" loading={false} actions={<Open to={`/accounting/bills/new?tripId=${tripId}`}>إضافة مصروف على الرحلة</Open>}>
-        <p className="acc-sub">سجّل تكاليف هذه الرحلة من «إضافة مصروف على الرحلة».</p>
-      </Frame>
-    ) : null;
-  }
+  // The trip's costs are entered in the trip page's own expenses section; the figures need "reports"
+  if (!canSee) return null;
   const totals = data?.totals;
   return (
     <Frame
       title="المحاسبة" error={error} loading={!data}
-      actions={access.can('purchases') ? <Open to={`/accounting/bills/new?tripId=${tripId}`}>إضافة مصروف على الرحلة</Open> : undefined}
+      actions={access.can('purchases') ? <Open to={`/accounting/bills/new?tripId=${tripId}`}>فاتورة بعدة سطور أو مرفقات</Open> : undefined}
     >
       {data && (
         <>
           {!data.entries.length && <NoEntries />}
           <StatGrid>
-            <Stat label="إيراد معترف به" value={<Money value={totals.revenue} />} hint={data.international ? <>{totals.recognizedPackages} من {totals.packages} طرداً · مؤجل <Money value={totals.deferred} /></> : 'رحلة داخلية: تكلفة فقط'} />
+            <Stat label="إيراد معترف به" value={<Money value={totals.revenue} />} hint={data.international ? <>{totals.recognizedPackages} من {totals.packages} طرداً · مؤجل <Money value={totals.deferred} /></> : 'رحلة داخلية: تكلفة نقل فقط'} />
             <Stat label="تكلفة محمَّلة" value={<Money value={totals.cost} />} hint={<>قيد التنفيذ <Money value={totals.costInProgress} /></>} />
-            <Stat label="إجمالي تكاليف الرحلة" value={<Money value={totals.totalCost} />} hint={`تُوزَّع على الطرود حسب ${data.allocationBase === 'weight' ? 'الوزن' : 'أجرة الشحن'}`} />
+            <Stat label="إجمالي تكاليف الرحلة" value={<Money value={totals.totalCost} />} hint={data.international ? 'تُوزَّع على الطرود حسب الوزن' : 'مصروف مباشر، لا يُوزَّع على الطرود'} />
             {data.international
               ? <Stat label="ربح الرحلة" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={totals.margin !== null ? `${totals.margin}%` : SHIPPING_TYPES[data.trip.shippingType]} />
               : <Stat label="ربح الرحلة" value="—" hint="إيراد طرودها في رحلتها الجوية أو البحرية، وتكلفة هذه الرحلة تُخصم من ربحها هناك" />}

@@ -241,6 +241,19 @@ const Migration = () => {
             />
           </Panel>
 
+          <Panel title="يوم التشغيل الحقيقي (مرة واحدة)" subtitle="يتوقف الإدخال في المنظومة نحو ساعتين، بهذا الترتيب. لا يُعاد فتح الإدخال قبل تفعيل الترحيل الحي.">
+            <ol className="acc-steps" style={{ paddingInlineStart: 20, lineHeight: 1.9, margin: 0 }}>
+              <li>إيقاف الإدخال في المنظومة (إبلاغ كل الموظفين).</li>
+              <li>نسخة احتياطية كاملة: <Ltr>npm run db:backup</Ltr> (على جهاز فيه MongoDB Database Tools)، ثم تجربة استعادتها محلياً: <Ltr>npm run db:restore-local -- backups/الملف.archive.gz</Ltr> ومقارنة الأعداد.</li>
+              <li>تشغيل الإعداد على القاعدة الحقيقية: <Ltr>npm run accounting:setup</Ltr>.</li>
+              <li>تشغيل تجريبي أخير من هذه الصفحة (الخطوة 4).</li>
+              <li>مقارنة الإجماليات (النتائج لكل سنة، المعلّق، فروقات المحافظ) بالتشغيل الذي اعتمدته على النسخة.</li>
+              <li>نسخة احتياطية ثانية قبل الاعتماد.</li>
+              <li>اعتماد الترحيل: يُضبط وقت الانتقال بدقة، ويبدأ الترحيل الحي تلقائياً.</li>
+              <li>إعادة فتح الإدخال، ثم مراجعة «المطابقة والاستثناءات» (فحص «عملية بعد لحظة الانتقال لم تُسجَّل» يجب أن يكون صفراً).</li>
+            </ol>
+          </Panel>
+
           <Panel title="4. التشغيل التجريبي" subtitle="يكتب القيود تحت رقم تشغيل ويحجز الفترة التاريخية حتى تعتمده أو تلغيه. يمكن إلغاؤه وإعادته بلا حد.">
             <FormControlLabel
               control={<Checkbox checked={closeSuspense} onChange={(e) => setCloseSuspense(e.target.checked)} />}
@@ -423,6 +436,46 @@ const Migration = () => {
                   { key: 'voyage', header: 'الرحلة', render: (row: any) => <Open to={`/inventory/${row.tripId}/edit`}><Ltr>{row.voyage}</Ltr></Open> },
                   { key: 'type', header: 'النوع', render: (row: any) => (row.shippingType === 'air' ? 'جوي' : row.shippingType === 'sea' ? 'بحري' : 'داخلي') },
                   { key: 'date', header: 'التاريخ', render: (row: any) => <Ltr>{dayText(row.date)}</Ltr> },
+                ]}
+              />
+            </Panel>
+          )}
+
+          {report.debtsWithoutSource?.count > 0 && (
+            <Panel title={`ديون عامة قديمة بلا مصدر (${report.debtsWithoutSource.count})`} subtitle="لا يُعرف من أي خزينة خرج مالها، فسُجّلت مقابل حساب المعلّق (لا كإيراد)، وتُقفل معه في الرصيد الافتتاحي إن اخترت ذلك.">
+              <p className="acc-muted m-0">الإجمالي <Money value={report.debtsWithoutSource.usd} /></p>
+            </Panel>
+          )}
+
+          {report.refunds && (report.refunds.linkedToOrders.count > 0 || report.refunds.toRefundsExpense.count > 0) && (
+            <Panel title="ريفاند الموردين المضاف للمحافظ" subtitle="ما ارتبط بطلب خفّض مبيعات ذلك الطلب؛ وما لم يرتبط بقي في «مبالغ مستردة للعملاء».">
+              <StatGrid>
+                <Stat label="مرتبط بطلب" value={report.refunds.linkedToOrders.count} hint={<Money value={report.refunds.linkedToOrders.usd} />} />
+                <Stat label="غير مرتبط (520200)" value={report.refunds.toRefundsExpense.count} hint={<Money value={report.refunds.toRefundsExpense.usd} />} tone={report.refunds.toRefundsExpense.count ? 'warn' : undefined} />
+              </StatGrid>
+            </Panel>
+          )}
+
+          {report.creditBalances?.count > 0 && (
+            <Panel
+              flush
+              title={`أرصدة «دائن» قديمة غير صفرية (${report.creditBalances.count})`}
+              subtitle={<>
+                نوع قديم كان بديلاً عن المحفظة، ولا يُرحَّل. الإجمالي: {Object.entries(report.creditBalances.totals || {}).map(([currency, amount]: any) => `${amount} ${currency}`).join(' · ')}.
+                اقتراح: إن كان المبلغ ما زال للعميل فعلاً يُنقل إلى محفظته (إيداع بتاريخ قديم مقابل حساب المعلّق)، وإلا يُغلق السجل في المنظومة. القرار لك.
+              </>}
+            >
+              <DataTable
+                dense
+                maxHeight={320}
+                rows={report.creditBalances.list || []}
+                rowKey={(row: any) => row.balanceId}
+                columns={[
+                  { key: 'customer', header: 'العميل', render: (row: any) => (row.customer ? <Open to={`/user/${row.customer._id}`}>{row.customer.customerId} {row.customer.firstName} {row.customer.lastName}</Open> : '-') },
+                  { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Ltr>{row.amount} {row.currency}</Ltr> },
+                  { key: 'status', header: 'الحالة', render: (row: any) => row.status },
+                  { key: 'notes', header: 'ملاحظة', render: (row: any) => row.notes },
+                  { key: 'date', header: 'التاريخ', render: (row: any) => <Ltr>{dayText(row.createdAt)}</Ltr> },
                 ]}
               />
             </Panel>

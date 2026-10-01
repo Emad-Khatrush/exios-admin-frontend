@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Alert,
+  Autocomplete,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -12,34 +13,58 @@ import {
   Snackbar,
   TextField
 } from "@mui/material";
-import LocalizationProvider from "@mui/lab/LocalizationProvider";
-import AdapterDateFns from "@mui/lab/AdapterDateFns";
-import DatePicker from "@mui/lab/DatePicker";
 import api from "../../api";
 import moment from "moment";
 import { calculateMinTotalPrice, toExcelSheetName, toFileName } from "../../utils/methods";
 import * as XLSX from 'xlsx';
-import { CircleAlert, Download, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { Download, Plus, Receipt, Trash2 } from "lucide-react";
 import { FieldLabel } from "./InventoryFields";
+import { errorText, newKey, sys, todayLibya } from "../Accounting/accountingApi";
 
 import './InventoryForm.scss';
 
-interface Expense {
-  _id?: string;
+// A trip's costs (spec 4.3, 19.1). Each cost entered here is a supplier bill on the trip, posted to
+// accounting at once: paid on the spot from a cash box or bank (in that account's currency), or
+// owed to the supplier. Expenses typed on the trip before accounting are listed read-only; the
+// historical migration moved them into the books.
+
+interface LegacyExpense {
+  _id: string;
   description: string;
   amount: number;
-  currency: "USD" | "LYD";
+  currency: string;
   rate?: number;
   date: string;
 }
 
-// The form keeps numbers as text so fields can be empty while typing
-interface ExpenseForm {
+interface Bill {
+  _id: string;
+  number: string;
+  day: string;
+  vendor: string;
   description: string;
-  amount: string;
-  currency: "USD" | "LYD";
-  rate: string;
+  amount: number;
+  currency: string;
+  usd: number;
+  status: 'posted' | 'canceled';
+  paid: boolean;
+  paidFrom: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface Row {
+  key: string;
   date: string;
+  description: string;
+  supplier: string;
+  amount: number;
+  currency: string;
+  usd?: number;
+  paidFrom?: string;
+  legacy: boolean;
+  canceled?: boolean;
+  bill?: Bill;
 }
 
 interface Props {
@@ -47,12 +72,15 @@ interface Props {
   inventory: any;
 }
 
-const emptyForm = (): ExpenseForm => ({
-  description: "",
-  amount: "",
-  currency: "USD",
-  rate: "",
-  date: new Date().toISOString()
+const emptyForm = () => ({
+  vendor: null as any,
+  vendorText: '',
+  description: '',
+  amount: '',
+  payFrom: '',
+  currency: 'USD',
+  rate: '',
+  day: todayLibya(),
 });
 
 // How many package payment lookups run at once while building the report
@@ -60,28 +88,54 @@ const REPORT_CONCURRENCY = 6;
 
 const formatNumber = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-const toUsd = (exp: Expense) => {
+const legacyUsd = (exp: LegacyExpense) => {
   if (exp.currency === "USD") return exp.amount;
   return exp.rate && exp.rate > 0 ? exp.amount / exp.rate : undefined;
 };
 
 const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [legacy, setLegacy] = useState<LegacyExpense[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<ExpenseForm>(emptyForm());
+  const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState<string>();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showCanceled, setShowCanceled] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Bill | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [reportProgress, setReportProgress] = useState<{ done: number, total: number } | null>(null);
   const [toast, setToast] = useState<{ message: string, isError?: boolean } | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const key = useRef(newKey());
+  const isDomestic = inventory?.shippingType === 'domestic';
+
+  const fetchCosts = async () => {
+    setLoading(true);
+    try {
+      const res = await sys.get(`acc/trips/${inventoryId}/costs`);
+      setLegacy(res.data.legacy || []);
+      setBills(res.data.bills || []);
+    } catch (error) {
+      setToast({ message: errorText(error, 'Could not load the trip costs. Refresh the page.'), isError: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOptions = () => sys.get('acc/options').then((res: any) => {
+    setVendors(res.data.vendors || []);
+    setAccounts(res.data.accounts || []);
+    setCurrencies(res.data.currencies || []);
+  }).catch(() => {});
 
   useEffect(() => {
-    fetchExpenses();
+    if (!inventoryId) return;
+    fetchCosts();
+    fetchOptions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [inventoryId]);
 
   // Payments of one package that belong to it (a payment can cover several packages)
   const getPackageReceived = async (orderPackage: any) => {
@@ -149,6 +203,29 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
     return { orderUSD, orderLYD, rateSum, rateCount };
   };
 
+  // Old expenses and accounting bills in one list, newest first; cancelled bills only on request
+  const rows: Row[] = useMemo(() => {
+    const fromBills: Row[] = bills.map((bill) => ({
+      key: bill._id, date: bill.day, description: bill.description, supplier: bill.vendor, amount: bill.amount, currency: bill.currency,
+      usd: (bill.usd || 0) / 100, paidFrom: bill.paid ? bill.paidFrom || 'Paid' : 'Owed to supplier', legacy: false, canceled: bill.status === 'canceled', bill,
+    }));
+    const fromLegacy: Row[] = legacy.map((exp) => ({
+      key: exp._id, date: exp.date, description: exp.description, supplier: '', amount: exp.amount, currency: exp.currency, usd: legacyUsd(exp), legacy: true,
+    }));
+    return [...fromBills, ...fromLegacy]
+      .filter((row) => showCanceled || !row.canceled)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [bills, legacy, showCanceled]);
+
+  const { totalUsd, missingRateCount, count } = useMemo(() => {
+    const active = rows.filter((row) => !row.canceled);
+    return {
+      totalUsd: active.reduce((sum, row) => sum + (row.usd || 0), 0),
+      missingRateCount: active.filter((row) => row.usd === undefined).length,
+      count: active.length,
+    };
+  }, [rows]);
+
   const handleDownload = async () => {
     const orders = inventory.orders || [];
     setReportProgress({ done: 0, total: orders.length });
@@ -188,9 +265,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
           "وزن/حجم",
           "نوع القياس",
           "$ السعر المحسوب",
-          "$ سعر التكلفة",
           "$ تكلفة اكسيوس",
-          "$ اجمالي التكلفة",
           "Received Amount LYD",
           "Received Amount USD"
         ]
@@ -217,110 +292,58 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
           orderPackage.paymentList.deliveredPackages.weight.total,
           orderPackage.paymentList.deliveredPackages.weight.measureUnit,
           orderPackage.paymentList.deliveredPackages.exiosPrice,
-          inventory.costPrice,
           calculateMinTotalPrice(
             orderPackage.paymentList.deliveredPackages.exiosPrice,
             orderPackage.paymentList.deliveredPackages.weight.total,
             inventory.shippedCountry,
             orderPackage.paymentList.deliveredPackages.weight.measureUnit
           ),
-          (orderPackage.paymentList?.deliveredPackages?.weight?.total *
-            inventory?.costPrice) || 0,
           orderLYD,
           orderUSD
         ]);
       });
 
-      // Expenses section
+      // Costs section: every cost of the trip in dollars (bills at their posted value)
       data.push([], ["📊 Expenses Details"]);
-      data.push([
-        "Date",
-        "Description",
-        "Amount",
-        "Currency",
-        "Rate (if LYD)",
-        "USD Equivalent"
-      ]);
-
-      let reportTotalUSD = 0;
-      let reportTotalLYD = 0;
-      let reportTotalUSDConverted = 0;
-
-      // Use the list on screen so expenses added or removed since the page opened are included
-      expenses.forEach((exp: any) => {
-        let usdEquivalent = 0;
-        if (exp.currency === "USD") {
-          reportTotalUSD += exp.amount;
-          usdEquivalent = exp.amount;
-        } else if (exp.currency === "LYD") {
-          reportTotalLYD += exp.amount;
-          if (exp.rate && exp.rate > 0) {
-            usdEquivalent = exp.amount / exp.rate;
-            reportTotalUSDConverted += exp.amount / exp.rate;
-          }
-        }
-        if (exp.currency === "USD") {
-          reportTotalUSDConverted += exp.amount;
-        }
-
+      data.push(["Date", "Supplier", "Description", "Amount", "Currency", "USD Equivalent", "Paid from"]);
+      rows.filter((row) => !row.canceled).forEach((row) => {
         data.push([
-          moment(exp.date).format("DD/MM/YYYY"),
-          exp.description,
-          exp.amount,
-          exp.currency,
-          exp.currency === "LYD" ? exp.rate || "" : "",
-          usdEquivalent
+          moment(row.date).format("DD/MM/YYYY"),
+          row.legacy ? 'Before accounting' : row.supplier,
+          row.description,
+          row.amount,
+          row.currency,
+          row.usd === undefined ? '' : Number(row.usd.toFixed(2)),
+          row.legacy ? '' : row.paidFrom
         ]);
       });
 
-      // Totals
       data.push([]);
-      data.push(["Total USD Expenses", reportTotalUSD]);
-      data.push(["Total LYD Expenses", reportTotalLYD]);
-      data.push(["Total USD Equivalent Expenses", reportTotalUSDConverted]);
+      data.push(["Total USD Equivalent Expenses", Number(totalUsd.toFixed(2))]);
 
       // Received totals
       data.push([]);
       data.push(["Total Received USD", totalReceivedUSD]);
       data.push(["Total Received LYD", totalReceivedLYD]);
 
-      // Convert LYD received to USD using average rate from expenses
       const avgRate = (avgRateOfPayments / paymentCount) || 0;
-
       const totalReceivedUSDConverted =
         totalReceivedUSD + (avgRate > 0 ? totalReceivedLYD / avgRate : 0);
 
       data.push(["Total Received USD Equivalent", totalReceivedUSDConverted.toFixed(2)]);
       data.push(["AVG LYD Rate", avgRate.toFixed(2)]);
 
-      // Profit or loss
-      const profitLoss = totalReceivedUSDConverted - reportTotalUSDConverted;
+      const profitLoss = totalReceivedUSDConverted - totalUsd;
       data.push([]);
       data.push([
         profitLoss >= 0 ? "Profit (USD)" : "Loss (USD)",
         profitLoss.toFixed(2)
       ]);
 
-      // Create worksheet
       const worksheet = XLSX.utils.aoa_to_sheet(data);
-
       worksheet["!cols"] = [
-        { wch: 8 },
-        { wch: 25 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 18 },
-        { wch: 18 }
+        { wch: 8 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -334,140 +357,76 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
     }
   };
 
-  const fetchExpenses = async (needFetch = false) => {
-    setLoading(true);
-    try {
-      if (needFetch) {
-        const res = await api.get(`inventory/${inventoryId}`);
-        setExpenses(res.data?.expenses || []);
-      } else {
-        setExpenses(inventory.expenses || []);
-      }
-    } catch (error) {
-      console.error(error);
-      setToast({ message: 'Could not load expenses. Refresh the page.', isError: true });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const payAccount = accounts.find((a) => a._id === form.payFrom);
+  // Paid on the spot: the cost is in the currency of the account that paid it
+  const currency = payAccount ? payAccount.currency : form.currency;
+  const typedNewVendor = !form.vendor && form.vendorText.trim().length > 1;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const amount = parseFloat(form.amount);
-    const rate = form.rate ? parseFloat(form.rate) : undefined;
-
-    if (!form.description.trim()) {
-      setFormError("Add a description.");
+    if (!form.vendor && !typedNewVendor) {
+      setFormError("Choose the supplier, or type the name of a new one.");
       return;
     }
     if (!amount || amount <= 0) {
       setFormError("Amount must be more than 0.");
       return;
     }
-    if (!form.date) {
-      setFormError("Pick a date.");
-      return;
-    }
-
-    const payload: Expense = {
-      description: form.description.trim(),
-      amount,
-      currency: form.currency,
-      rate: form.currency === "LYD" ? rate : undefined,
-      date: form.date
-    };
-
     setFormError(undefined);
     setSaving(true);
     try {
-      if (editingId) {
-        await api.update(`inventory/${inventoryId}/expenses`, { ...payload, editingId });
-      } else {
-        await api.post(`inventory/${inventoryId}/expenses`, payload);
-      }
-      setToast({ message: editingId ? 'Expense updated' : 'Expense added' });
-      resetForm();
-      await fetchExpenses(true);
+      await sys.post(`acc/trips/${inventoryId}/costs`, {
+        vendorId: form.vendor?._id,
+        vendorName: form.vendor ? undefined : form.vendorText.trim(),
+        description: form.description.trim(),
+        amount,
+        currency,
+        payFromAccountId: form.payFrom || undefined,
+        rate: !payAccount && currency !== 'USD' && Number(form.rate) > 0 ? Number(form.rate) : undefined,
+        day: form.day,
+        idempotencyKey: key.current,
+      });
+      key.current = newKey();
+      setToast({ message: form.payFrom ? 'Cost added and paid' : 'Cost added, owed to the supplier' });
+      setForm({ ...emptyForm(), payFrom: form.payFrom, currency: form.currency });
+      if (!form.vendor) fetchOptions();
+      await fetchCosts();
     } catch (err) {
-      console.error(err);
-      setFormError("Could not save the expense. Try again.");
+      setFormError(errorText(err, "Could not save the cost. Try again."));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget?._id) return;
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
     try {
-      setIsDeleting(true);
-      await api.delete(`inventory/${inventoryId}/expenses`, { expenseId: deleteTarget._id });
-      if (editingId === deleteTarget._id) resetForm();
-      setDeleteTarget(null);
-      setToast({ message: 'Expense deleted' });
-      await fetchExpenses(true);
+      setIsCanceling(true);
+      await sys.post(`acc/bills/${cancelTarget._id}/cancel`, { reason: 'Removed from the trip page' });
+      setCancelTarget(null);
+      setToast({ message: 'Cost cancelled' });
+      await fetchCosts();
     } catch (error) {
-      console.error(error);
-      setToast({ message: 'Could not delete the expense. Try again.', isError: true });
+      setToast({ message: errorText(error, 'Could not cancel the cost.'), isError: true });
+      setCancelTarget(null);
     } finally {
-      setIsDeleting(false);
+      setIsCanceling(false);
     }
   };
 
-  const resetForm = () => {
-    setForm(emptyForm());
-    setFormError(undefined);
-    setEditingId(null);
-  };
-
-  const startEdit = (expense: Expense) => {
-    setForm({
-      description: expense.description || "",
-      amount: String(expense.amount ?? ""),
-      currency: expense.currency,
-      rate: expense.rate ? String(expense.rate) : "",
-      date: expense.date
-    });
-    setFormError(undefined);
-    setEditingId(expense._id || null);
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  // Totals calculation
-  const { totalUSD, totalLYD, totalUSDConverted, missingRateCount } = useMemo(() => {
-    let usd = 0;
-    let lyd = 0;
-    let usdFromLYD = 0;
-    let missingRate = 0;
-
-    expenses.forEach((exp) => {
-      if (exp.currency === "USD") {
-        usd += exp.amount;
-      } else if (exp.currency === "LYD") {
-        lyd += exp.amount;
-        if (exp.rate && exp.rate > 0) {
-          usdFromLYD += exp.amount / exp.rate;
-        } else {
-          missingRate++;
-        }
-      }
-    });
-
-    return {
-      totalUSD: usd,
-      totalLYD: lyd,
-      totalUSDConverted: usd + usdFromLYD,
-      missingRateCount: missingRate
-    };
-  }, [expenses]);
-
-  const isLyd = form.currency === "LYD";
+  const today = todayLibya();
 
   return (
     <section className="inv-card" style={{ marginTop: 32 }} aria-labelledby="flight-expenses-title">
       <div className="inv-card-head">
         <div>
-          <h2 id="flight-expenses-title">Flight expenses</h2>
-          <p>Costs of this voyage. The report adds what customers paid for its packages.</p>
+          <h2 id="flight-expenses-title">{isDomestic ? 'Transport cost' : 'Flight expenses'}</h2>
+          <p>
+            {isDomestic
+              ? 'What was paid to move these packages to the other office. It is an expense of this month, not shared over the packages.'
+              : 'Costs of this voyage, shared over its packages by weight. The report adds what customers paid for its packages.'}
+          </p>
         </div>
         <button
           type="button"
@@ -491,45 +450,58 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
 
       <div className="inv-tiles">
         <div className="inv-tile">
-          <span>Total USD</span>
-          <strong>{formatNumber(totalUSD)}<small>USD</small></strong>
+          <span>All costs in USD</span>
+          <strong>{formatNumber(totalUsd)}<small>USD</small></strong>
         </div>
         <div className="inv-tile">
-          <span>Total LYD</span>
-          <strong>{formatNumber(totalLYD)}<small>LYD</small></strong>
-        </div>
-        <div className="inv-tile">
-          <span>All expenses in USD</span>
-          <strong>{formatNumber(totalUSDConverted)}<small>USD</small></strong>
-        </div>
-        <div className="inv-tile">
-          <span>Expenses</span>
-          <strong>{expenses.length}</strong>
+          <span>Costs</span>
+          <strong>{count}</strong>
         </div>
       </div>
 
       {missingRateCount > 0 &&
         <div className="inv-warn-note">
-          <CircleAlert size={16} strokeWidth={2} />
-          {missingRateCount === 1 ? '1 LYD expense has' : `${missingRateCount} LYD expenses have`} no rate, so {missingRateCount === 1 ? 'it is' : 'they are'} left out of the USD total.
+          {missingRateCount === 1 ? '1 old LYD expense has' : `${missingRateCount} old LYD expenses have`} no rate, so {missingRateCount === 1 ? 'it is' : 'they are'} left out of the USD total.
         </div>
       }
 
-      <form
-        ref={formRef}
-        className={`inv-exp-form ${editingId ? 'is-editing' : ''}`}
-        onSubmit={handleSubmit}
-        noValidate
-      >
+      <form className="inv-exp-form" onSubmit={handleSubmit} noValidate>
+        <div className="inv-field">
+          <FieldLabel required>Supplier</FieldLabel>
+          <Autocomplete
+            size="small"
+            freeSolo
+            options={vendors}
+            value={form.vendor}
+            inputValue={form.vendorText}
+            getOptionLabel={(option: any) => (typeof option === 'string' ? option : option?.name || '')}
+            isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
+            onInputChange={(_, text) => setForm((f) => ({ ...f, vendorText: text }))}
+            onChange={(_, vendor: any) => setForm((f) => ({ ...f, vendor: vendor && typeof vendor !== 'string' ? vendor : null }))}
+            renderInput={(params) => <TextField {...params} placeholder="Carrier, customs agent..." helperText={typedNewVendor ? 'Will be added as a new supplier' : undefined} />}
+          />
+        </div>
+
         <div className="inv-field is-description">
-          <FieldLabel required>{editingId ? 'Edit description' : 'Description'}</FieldLabel>
+          <FieldLabel>Description</FieldLabel>
           <TextField
             size="small"
             fullWidth
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Freight, clearance, fuel..."
             inputProps={{ dir: 'auto', 'aria-label': 'Description' }}
           />
+        </div>
+
+        <div className="inv-field">
+          <FieldLabel required>Paid from</FieldLabel>
+          <FormControl size="small" fullWidth>
+            <Select value={form.payFrom} displayEmpty onChange={(e) => setForm({ ...form, payFrom: String(e.target.value) })} inputProps={{ 'aria-label': 'Paid from' }}>
+              <MenuItem value="">Not paid yet (owed to the supplier)</MenuItem>
+              {accounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
+            </Select>
+          </FormControl>
         </div>
 
         <div className="inv-field">
@@ -546,58 +518,47 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
             />
             <FormControl size="small">
               <Select
-                value={form.currency}
-                onChange={(e) => setForm({ ...form, currency: e.target.value as "USD" | "LYD" })}
+                value={currency}
+                disabled={!!payAccount}
+                onChange={(e) => setForm({ ...form, currency: String(e.target.value) })}
                 inputProps={{ 'aria-label': 'Currency' }}
               >
-                <MenuItem value="USD">USD</MenuItem>
-                <MenuItem value="LYD">LYD</MenuItem>
+                {(currencies.length ? currencies : [{ code: 'USD' }, { code: 'LYD' }]).map((c: any) => <MenuItem key={c.code} value={c.code}>{c.code}</MenuItem>)}
               </Select>
             </FormControl>
           </div>
         </div>
 
-        <div className="inv-field">
-          <FieldLabel note={isLyd ? undefined : 'LYD only'}>Rate</FieldLabel>
-          <TextField
-            size="small"
-            fullWidth
-            type="number"
-            value={isLyd ? form.rate : ''}
-            disabled={!isLyd}
-            onChange={(e) => setForm({ ...form, rate: e.target.value })}
-            onWheel={(event: any) => event.target.blur()}
-            inputProps={{ inputMode: 'decimal', step: .01, min: 0, 'aria-label': 'Rate' }}
-          />
-        </div>
+        {!payAccount && currency !== 'USD' && (
+          <div className="inv-field">
+            <FieldLabel note="blank = that day's rate">Rate</FieldLabel>
+            <TextField
+              size="small"
+              fullWidth
+              type="number"
+              value={form.rate}
+              onChange={(e) => setForm({ ...form, rate: e.target.value })}
+              onWheel={(event: any) => event.target.blur()}
+              inputProps={{ inputMode: 'decimal', step: .0001, min: 0, 'aria-label': 'Rate' }}
+            />
+          </div>
+        )}
 
         <div className="inv-field">
           <FieldLabel required>Date</FieldLabel>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              inputFormat="dd/MM/yyyy"
-              value={form.date || null}
-              onChange={(value: any) =>
-                setForm({ ...form, date: value && !isNaN(new Date(value).getTime()) ? new Date(value).toISOString() : "" })
-              }
-              renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-            />
-          </LocalizationProvider>
+          <TextField
+            size="small"
+            fullWidth
+            type="date"
+            value={form.day}
+            onChange={(e) => setForm({ ...form, day: e.target.value })}
+            inputProps={{ max: today, 'aria-label': 'Date' }}
+          />
         </div>
 
         <div className="inv-exp-actions">
-          {editingId && (
-            <button type="button" className="inv-btn is-ghost" onClick={resetForm} disabled={saving}>
-              Cancel
-            </button>
-          )}
           <button type="submit" className="inv-btn is-primary" disabled={saving}>
-            {saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : (
-              <>
-                {!editingId && <Plus size={16} strokeWidth={2} />}
-                {editingId ? 'Save' : 'Add'}
-              </>
-            )}
+            {saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : (<><Plus size={16} strokeWidth={2} /> Add</>)}
           </button>
         </div>
 
@@ -606,13 +567,20 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
         }
       </form>
 
-      {loading && expenses.length === 0 ? (
+      <div className="d-flex justify-content-end mt-2">
+        <label style={{ fontSize: '0.85rem', color: '#5b6673', cursor: 'pointer' }}>
+          <input type="checkbox" checked={showCanceled} onChange={(e) => setShowCanceled(e.target.checked)} style={{ marginInlineEnd: 6 }} />
+          Show cancelled
+        </label>
+      </div>
+
+      {loading && rows.length === 0 ? (
         <div className="inv-skeleton" aria-busy="true"><i className="is-short" /></div>
-      ) : expenses.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="inv-empty">
           <Receipt size={28} strokeWidth={1.5} />
-          <strong>No expenses yet</strong>
-          <p>Add fuel, customs, clearance and other voyage costs above.</p>
+          <strong>No costs yet</strong>
+          <p>Add freight, customs, clearance and other voyage costs above.</p>
         </div>
       ) : (
         <div className="inv-table-wrap">
@@ -620,42 +588,39 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Supplier</th>
                 <th>Description</th>
                 <th className="is-num">Amount</th>
-                <th className="is-num">Rate</th>
                 <th className="is-num">In USD</th>
+                <th>Paid from</th>
                 <th className="is-actions"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              {expenses.map((exp) => {
-                const usd = toUsd(exp);
-                return (
-                  <tr key={exp._id} className={editingId === exp._id ? 'is-editing' : undefined}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{moment(exp.date).format("DD/MM/YYYY")}</td>
-                    <td className="inv-exp-desc" dir="auto">{exp.description}</td>
-                    <td className="is-num">{formatNumber(exp.amount)} {exp.currency}</td>
-                    <td className="is-num">
-                      {exp.currency === "LYD" ? (exp.rate || <span className="is-muted">Missing</span>) : <span className="is-muted">-</span>}
-                    </td>
-                    <td className="is-num">{usd === undefined ? <span className="is-muted">-</span> : formatNumber(usd)}</td>
-                    <td className="is-actions">
-                      <button type="button" className="inv-icon-btn" onClick={() => startEdit(exp)} aria-label="Edit expense" title="Edit">
-                        <Pencil size={15} strokeWidth={2} />
-                      </button>
-                      <button type="button" className="inv-icon-btn is-danger" onClick={() => setDeleteTarget(exp)} aria-label="Delete expense" title="Delete">
+              {rows.map((row) => (
+                <tr key={row.key} style={row.canceled ? { textDecoration: 'line-through', opacity: 0.55 } : undefined}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{moment(row.date).format("DD/MM/YYYY")}</td>
+                  <td dir="auto">{row.legacy ? <span className="is-muted">Before accounting</span> : row.supplier}</td>
+                  <td className="inv-exp-desc" dir="auto">{row.description}</td>
+                  <td className="is-num">{formatNumber(row.amount)} {row.currency}</td>
+                  <td className="is-num">{row.usd === undefined ? <span className="is-muted">-</span> : formatNumber(row.usd)}</td>
+                  <td>{row.legacy ? <span className="is-muted">-</span> : row.paidFrom}</td>
+                  <td className="is-actions">
+                    {/* The person who entered a cost can take it back the same day; later the accountant does */}
+                    {!row.legacy && !row.canceled && row.bill && moment(row.bill.createdAt).format('YYYY-MM-DD') === today && (
+                      <button type="button" className="inv-icon-btn is-danger" onClick={() => setCancelTarget(row.bill!)} aria-label="Cancel cost" title="Cancel">
                         <Trash2 size={15} strokeWidth={2} />
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
             <tfoot>
               <tr>
                 <td colSpan={4}>Total</td>
-                <td className="is-num">{formatNumber(totalUSDConverted)}</td>
-                <td />
+                <td className="is-num">{formatNumber(totalUsd)}</td>
+                <td colSpan={2} />
               </tr>
             </tfoot>
           </table>
@@ -663,28 +628,28 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       )}
 
       <Dialog
-        open={!!deleteTarget}
-        onClose={() => !isDeleting && setDeleteTarget(null)}
+        open={!!cancelTarget}
+        onClose={() => !isCanceling && setCancelTarget(null)}
         maxWidth="xs"
         fullWidth
         PaperProps={{ sx: { borderRadius: '12px' } }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Delete this expense?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Cancel this cost?</DialogTitle>
         <DialogContent sx={{ fontSize: '0.9rem', color: '#5b6673' }}>
-          <span dir="auto">{deleteTarget?.description}</span>, {deleteTarget && formatNumber(deleteTarget.amount)} {deleteTarget?.currency}.
-          This can't be undone.
+          <span dir="auto">{cancelTarget?.vendor} · {cancelTarget?.description}</span>, {cancelTarget && formatNumber(cancelTarget.amount)} {cancelTarget?.currency}.
+          Its accounting entry is reversed{cancelTarget?.paid ? ' and the money goes back to the account that paid it' : ''}.
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <button type="button" className="inv-btn is-ghost" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</button>
-          <button type="button" className="inv-btn is-danger-solid" onClick={handleDelete} disabled={isDeleting}>
-            {isDeleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete expense'}
+          <button type="button" className="inv-btn is-ghost" onClick={() => setCancelTarget(null)} disabled={isCanceling}>Keep it</button>
+          <button type="button" className="inv-btn is-danger-solid" onClick={handleCancel} disabled={isCanceling}>
+            {isCanceling ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Cancel cost'}
           </button>
         </DialogActions>
       </Dialog>
 
       <Snackbar
         open={!!toast}
-        autoHideDuration={2500}
+        autoHideDuration={3000}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         onClose={() => setToast(null)}
       >

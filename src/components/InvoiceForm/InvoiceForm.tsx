@@ -209,6 +209,19 @@ const InvoiceForm = (props: Props) => {
     <div className="order-form">
       <Section title="Order type" hint="Choose this first. The packages section below follows it.">
         <OrderKindPicker value={kind} onChange={changeKind} disabled={isCanceled} />
+        {kind !== 'shipment' && (
+          <div style={{ marginTop: 12 }}>
+            {/* An Alipay transfer is billed like a purchase: the customer pays in dollars, the yuan is
+                sent to their supplier from Alipay (add it under the order's purchases) */}
+            <ToggleChip
+              label="Alipay transfer (yuan sent to the customer's supplier)"
+              name="isRemittance"
+              defaultChecked={!!(props.invoice as any)?.isRemittance}
+              onChange={(event: any, checked: boolean) => handleChange(event, checked)}
+              disabled={isCanceled}
+            />
+          </div>
+        )}
       </Section>
 
       <Section title="Customer" hint="Type the customer id and press Check to fill the rest from their account.">

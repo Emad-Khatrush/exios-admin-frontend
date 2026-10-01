@@ -2,9 +2,10 @@ import { Textarea } from '@mui/joy';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
-import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
-import React, { useState } from 'react'
+import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, ListSubheader, MenuItem, Select, Stack, TextField } from '@mui/material';
+import React, { useEffect, useState } from 'react'
 import api from '../../api';
+import { sys } from '../Accounting/accountingApi';
 import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
@@ -40,6 +41,16 @@ const AddBalanceToWallet = (props: Props) => {
   });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Partners' current accounts (e.g. Wasl) in the deposit's currency: money they hold for us
+  // stands for the customer's payment (spec 19.4)
+  const [currentAccounts, setCurrentAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    if (!currency) return setCurrentAccounts([]);
+    sys.get('acc/money-accounts', { currency })
+      .then((res: any) => setCurrentAccounts((res.data.results || []).filter((a: any) => a.kind === 'current')))
+      .catch(() => setCurrentAccounts([]));
+  }, [currency]);
 
   const [previewFiles, setPreviewFiles] = useState<any>([]);
   const [files, setFiles] = useState<any>([]);
@@ -214,13 +225,28 @@ const AddBalanceToWallet = (props: Props) => {
                 label="Office"
                 name="office"
                 onChange={(event: any) => {
-                  setOffice(event.target.value);
-                  return onChangeHandler(event);
+                  const value = String(event.target.value);
+                  setOffice(value);
+                  // A partner's current account: the deposit goes to that account (its office is
+                  // only the place it is recorded)
+                  if (value.startsWith('account:')) {
+                    const account = currentAccounts.find((a) => `account:${a._id}` === value);
+                    return setForm({ ...form, office: account?.office || 'tripoli', accountId: account?._id });
+                  }
+                  const rest = { ...form };
+                  delete rest.accountId;
+                  return setForm({ ...rest, office: value });
                 }}
               >
                 {offices.map((item) => (
                   <MenuItem key={item.value} value={item.value}>
                     {item.label}
+                  </MenuItem>
+                ))}
+                {currentAccounts.length > 0 && <ListSubheader>حسابات جارية</ListSubheader>}
+                {currentAccounts.map((account) => (
+                  <MenuItem key={account._id} value={`account:${account._id}`}>
+                    {account.name}
                   </MenuItem>
                 ))}
               </Select>

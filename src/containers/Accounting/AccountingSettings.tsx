@@ -90,13 +90,13 @@ const AccountingSettings = () => {
             <TextField select label="بداية السنة المالية" fullWidth className="mt-3" value={general.fiscalYearStartMonth || 1} onChange={(e) => setGeneral({ ...general, fiscalYearStartMonth: Number(e.target.value) })}>
               {MONTHS.map((month, index) => <MenuItem key={month} value={index + 1}>{month}</MenuItem>)}
             </TextField>
-            <TextField select label="توزيع تكلفة الرحلة على الطرود حسب" fullWidth className="mt-3" value={general.tripCostAllocationBase || 'charge'} onChange={(e) => setGeneral({ ...general, tripCostAllocationBase: e.target.value })}>
-              <MenuItem value="charge">أجرة الشحن (الوزن × سعر إكسيوس)</MenuItem>
-              <MenuItem value="weight">الوزن</MenuItem>
-            </TextField>
+            <TextField type="number" label="طرد مسلّم وغير مسدد يظهر في الاستثناءات بعد (يوماً)" fullWidth className="mt-3" value={general.writeOffAfterDays ?? 180}
+              onChange={(e) => setGeneral({ ...general, writeOffAfterDays: Number(e.target.value) })} inputProps={{ min: 30, step: 1 }}
+              helperText="تكلفة الرحلات الجوية والبحرية تُوزَّع على الطرود حسب الوزن دائماً؛ تكلفة الرحلة الداخلية مصروف مباشر." />
+            {general.cutoffAt && <p className="acc-muted small mt-3">لحظة الانتقال من التاريخي إلى الحي: <bdi dir="ltr">{new Date(general.cutoffAt).toLocaleString('en-GB', { timeZone: 'Africa/Tripoli' })}</bdi></p>}
             <div className="d-flex gap-2 mt-3">
               <Button variant="contained" onClick={() => run(() => acc.patch('settings', {
-                lockDate: general.lockDate || null, fiscalYearStartMonth: general.fiscalYearStartMonth, tripCostAllocationBase: general.tripCostAllocationBase,
+                lockDate: general.lockDate || null, fiscalYearStartMonth: general.fiscalYearStartMonth, writeOffAfterDays: general.writeOffAfterDays ?? 180,
               }), 'تم حفظ الإعدادات.')}>حفظ</Button>
               <Button variant="outlined" onClick={() => run(() => acc.post('setup/run'), 'تم فحص الإعداد وإضافة الناقص.')}>إعادة تشغيل الإعداد</Button>
             </div>

@@ -1,4 +1,4 @@
-import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
+import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
 import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale } from 'react-icons/fa';
 import { FiPackage, FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
@@ -33,11 +33,6 @@ const adminRoutes = [
         title: 'Expenses',
         path: '/expenses',      
         icon: <RiBillFill className="sidebar-icon" />,
-     },
-     {   
-        title: 'Incomes',
-        path: '/incomes',      
-        icon: <MdOutlineInput className="sidebar-icon" />,
      },
      {
       title: 'Debts',
@@ -162,14 +157,9 @@ const adminRoutes = [
         icon: <FaFileInvoice className="sidebar-icon" />,
      },
      {   
-        title: 'Expense',
-        path: '/expense/add',      
+        title: 'Expenses',
+        path: '/expenses',      
         icon: <RiBillFill className="sidebar-icon" />,
-     },
-     {   
-        title: 'Incomes',
-        path: '/income/add',      
-        icon: <MdOutlineInput className="sidebar-icon" />,
      },
      {   
       title: 'My Tasks',

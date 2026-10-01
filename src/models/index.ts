@@ -32,6 +32,8 @@ export type Invoice = {
   quantity: string,
   isShipment: boolean,
   isPayment: boolean,
+  // An Alipay transfer for the customer (remittance revenue in accounting)
+  isRemittance?: boolean,
   unsureOrder: boolean,
   hasRemainingPayment: boolean
   hasProblem: boolean

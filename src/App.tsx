@@ -51,6 +51,7 @@ import { VendorsList, VendorStatement } from './containers/Accounting/Vendors';
 import { CustomerInvoicePage, CustomerInvoicesList, CustomerPage, CustomersList } from './containers/Accounting/Customers';
 import { PaymentsList, PaymentForm } from './containers/Accounting/Payments';
 import QuickExpenses from './containers/Accounting/QuickExpenses';
+import OfficeExpensesReview from './containers/Accounting/OfficeExpensesReview';
 import TripCosts from './containers/Accounting/TripCosts';
 import Treasury from './containers/Accounting/Treasury';
 import AccountingAssets from './containers/Accounting/Assets';
@@ -73,14 +74,9 @@ const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/
 const AddInvoice = React.lazy(() => import('./containers/AddInvoice/AddInvoice'));
 const UnsureOrder = React.lazy(() => import('./containers/UnsureOrder/UnsureOrder'));
 const Invoices = React.lazy(() => import('./containers/Invoices/Invoices'));
-const Expenses = React.lazy(() => import('./containers/Expenses/Expenses'));
-const Incomes = React.lazy(() => import('./containers/Incomes/Incomes'));
+const OfficeExpenses = React.lazy(() => import('./containers/OfficeExpenses/OfficeExpenses'));
 const Shippings = React.lazy(() => import('./containers/Shippings/Shippings'));
 const Activities = React.lazy(() => import('./containers/Activities/Activities'));
-const CreateExpense = React.lazy(() => import('./containers/CreateExpense/CreateExpense'));
-const CreateIncome = React.lazy(() => import('./containers/CreateIncome/CreateIncome'));
-const EditExpense = React.lazy(() => import('./containers/EditExpense/EditExpense'));
-const EditIncome = React.lazy(() => import('./containers/EditIncome/EditIncome'));
 const EditInvoice = React.lazy(() => import('./containers/EditInvoice/EditInvoice'));
 // X-Tracking page plus the order control tab (XTrackingPage itself is unchanged)
 const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingHub'));
@@ -110,9 +106,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/unsureOrder/add' element={<UnsureOrder />} />
       <Route path='/invoice/add' element={<AddInvoice />} />
       <Route path='/invoice/:id/edit' element={<EditInvoice />} />
-      <Route path='/income/:id/edit' element={<EditIncome />} />
-      <Route path='/expense/add' element={<CreateExpense />} />
-      <Route path='/income/add' element={<CreateIncome />} />
+      <Route path='/expenses' element={<OfficeExpenses />} />
       <Route path='/mytasks' element={<MyTasks />} />
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
@@ -138,12 +132,7 @@ const getRoutesByRole = (roles: any) => {
     return <>
       <Route path='/' element={<Home />} />
       <Route path='/activities' element={<Activities />} />
-      <Route path='/expenses' element={<Expenses />} />
-      <Route path='/expenses/add' element={<CreateExpense />} />
-      <Route path='/expenses/:id/edit' element={<EditExpense />} />
-      <Route path='/incomes' element={<Incomes />} />
-      <Route path='/income/add' element={<CreateIncome />} />
-      <Route path='/income/:id/edit' element={<EditIncome />} />
+      <Route path='/expenses' element={<OfficeExpenses />} />
       <Route path='/invoices' element={<Invoices />} />
       <Route path='/dailyReport' element={<IssuedInvoices />} />
       <Route path='/invoice/add' element={<AddInvoice />} />
@@ -200,6 +189,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='payments' element={<PaymentsList />} />
         <Route path='payments/new' element={<PaymentForm />} />
         <Route path='expenses' element={<QuickExpenses />} />
+        <Route path='office-expenses' element={<OfficeExpensesReview />} />
         <Route path='trips' element={<TripCosts />} />
         <Route path='treasury' element={<Treasury />} />
         <Route path='bank' element={<BankReconciliation />} />

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Avatar, Button, Checkbox, FormControlLabel } from '@mui/material';
+import { Avatar, Button, Checkbox, FormControlLabel, MenuItem, TextField } from '@mui/material';
 import { acc, errorText } from './accountingApi';
 import { forgetAccountingAccess, useAccountingAccess } from './useAccountingAccess';
-import { Badge, Notice, PageHeader, Panel, Sub } from './ui';
+import { Badge, DataTable, Notice, PageHeader, Panel, Sub } from './ui';
+import { useAccountingData } from './useAccountingData';
 
 type Permission = { key: string, label: string, hint: string };
 type Preset = { key: string, label: string, permissions: string[] };
@@ -129,7 +130,55 @@ const AccessControl = () => {
           </Panel>
         );
       })}
+
+      <StaffOffices onMessage={setMessage} />
     </>
+  );
+};
+
+const ROLE_LABELS: Record<string, string> = { admin: 'مدير', accountant: 'محاسب', employee: 'موظف' };
+
+// The office each staff member works in: their expenses (system Expenses screen) are recorded on
+// it and paid from its cash box. The owner and accountants can record for any office.
+const StaffOffices = ({ onMessage }: { onMessage: (message: any) => void }) => {
+  const { offices } = useAccountingData();
+  const [staff, setStaff] = useState<any[] | null>(null);
+  const [saving, setSaving] = useState('');
+
+  useEffect(() => {
+    acc.get('access/staff').then((res: any) => setStaff(res.data.results)).catch((err: any) => onMessage({ type: 'error', text: errorText(err) }));
+  }, [onMessage]);
+
+  const change = async (person: any, office: string) => {
+    try {
+      setSaving(person._id);
+      await acc.put(`access/staff/${person._id}`, { office: office || null });
+      setStaff((list) => (list || []).map((p) => (p._id === person._id ? { ...p, office: office || null } : p)));
+      onMessage({ type: 'success', text: `مكتب ${person.name}: ${office ? offices.find((o: any) => o.code === office)?.name || office : 'غير محدد'}` });
+    } catch (err) {
+      onMessage({ type: 'error', text: errorText(err) });
+    }
+    setSaving('');
+  };
+
+  return (
+    <Panel flush title="مكاتب الموظفين" subtitle="مصروفات الموظف في شاشة «المصروفات» تُسجَّل على مكتبه وتُدفع من خزينته. الموظف بلا مكتب لا يستطيع تسجيل مصروف.">
+      <DataTable
+        dense rows={staff || []} rowKey={(row: any) => row._id} loading={!staff} empty={{ title: 'لا موظفين' }}
+        columns={[
+          { key: 'name', header: 'الموظف', render: (row: any) => <>{row.name}<Sub>{row.username}</Sub></> },
+          { key: 'role', header: 'الدور', render: (row: any) => <Badge tone={row.role === 'employee' ? 'muted' : 'info'}>{ROLE_LABELS[row.role] || row.role}</Badge> },
+          {
+            key: 'office', header: 'المكتب', render: (row: any) => (
+              <TextField select size="small" value={row.office || ''} onChange={(e) => change(row, e.target.value)} disabled={saving === row._id} style={{ minWidth: 160 }}>
+                <MenuItem value="">غير محدد</MenuItem>
+                {offices.map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
+              </TextField>
+            ),
+          },
+        ]}
+      />
+    </Panel>
   );
 };
 

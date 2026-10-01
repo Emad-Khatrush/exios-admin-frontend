@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { acc, errorText } from './accountingApi';
 import { StatusBadge } from './ui';
+import { useAccountingAccess } from './useAccountingAccess';
 
 export const StatusChip = ({ status }: { status: string }) => <StatusBadge status={status} />;
 
@@ -19,6 +20,9 @@ export const CancelDialog = ({
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // Cancelling is its own permission (the owner and the accountant), apart from entering documents
+  const access = useAccountingAccess();
+  const allowed = access.loading || access.can('cancel');
 
   useEffect(() => { if (open) { setReason(''); setError(''); setConfirm(false); } }, [open]);
 
@@ -41,12 +45,13 @@ export const CancelDialog = ({
       <DialogContent>
         <p className="acc-muted mb-3">سيُنشأ قيد عكسي يلغي أثر المستند في الدفاتر، ويبقى المستند ظاهراً بحالة «ملغى». لا يمكن التراجع عن الإلغاء؛ لإعادته أنشئ مستنداً جديداً.</p>
         {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+        {!allowed && <Alert severity="warning" className="mb-3">إلغاء المستندات المُرحَّلة يحتاج صلاحية «إلغاء المستندات المُرحَّلة». اطلبه من المحاسب أو المالك.</Alert>}
         <TextField label="سبب الإلغاء" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline minRows={2} required />
         {askConfirm && <FormControlLabel className="mt-2" control={<Checkbox checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />} label={askConfirm} />}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>تراجع</Button>
-        <Button color="error" variant="contained" disabled={!reason.trim() || isSaving} onClick={submit}>تأكيد الإلغاء</Button>
+        <Button color="error" variant="contained" disabled={!allowed || !reason.trim() || isSaving} onClick={submit}>تأكيد الإلغاء</Button>
       </DialogActions>
     </Dialog>
   );

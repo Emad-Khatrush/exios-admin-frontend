@@ -93,3 +93,22 @@ export const EVENT_LABELS: Record<string, string> = {
 export const OFFICE_LABELS: Record<string, string> = {
   tripoli: 'طرابلس', benghazi: 'بنغازي', misurata: 'مصراتة', turkey: 'تركيا', china: 'الصين',
 };
+
+// The system's own screens record accounting documents through /api (not /api/accounting):
+// staff use them with their ordinary access (trip costs, order purchases, office expenses)
+const sysUrl = (path: string) => `/${path.replace(/^\//, '')}`;
+export const sys = {
+  get: (path: string, params?: any) => base.send('get', sysUrl(path), params),
+  post: (path: string, body: any = {}) => base.send('post', sysUrl(path), body),
+  put: (path: string, body: any = {}) => base.send('put', sysUrl(path), body),
+  delete: (path: string, body: any = {}) => base.send('delete', sysUrl(path), body),
+  // multipart (receipts): resolves with the saved document, rejects with the server's message
+  form: async (path: string, method: 'POST' | 'PUT', body: FormData) => {
+    const result = await base.fetchFormData(path.replace(/^\//, ''), method, body);
+    if (!result || result.success === false || result instanceof Error) {
+      // eslint-disable-next-line no-throw-literal
+      throw { response: { data: { message: result?.message || 'تعذّر الحفظ. حاول مرة أخرى.' } } };
+    }
+    return result;
+  },
+};
