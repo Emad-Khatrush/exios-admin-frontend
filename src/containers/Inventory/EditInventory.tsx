@@ -13,6 +13,7 @@ import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
 import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
+import { TripAccounting } from "../Accounting/AccountingPanels";
 import { convertGoogleStorageUrl } from "../../utils/methods";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import {
@@ -504,6 +505,8 @@ const EditInventory = () => {
           inventory={inventory}
         />
       )}
+
+      {!isEditing && <TripAccounting tripId={inventory?._id} />}
 
       {!isEditing && (
         <>

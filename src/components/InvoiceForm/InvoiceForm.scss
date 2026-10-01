@@ -1,29 +1,478 @@
-.invoice-page {
-  .title {
-    color: rgb(150, 150, 150);
-    font-size: 1.1rem;
-    font-weight: 300;
-  }
-  .MuiFormControl-root {
-    width: 100% !important;
-  }
-  .made-by-selector .MuiSelect-select {
+// The order form (create and edit). One neutral palette, one accent (the admin's green), one
+// radius scale: 12px sections, 8px controls, full pills for chips. Sizes are set explicitly on
+// every text element because the admin's global stylesheet forces a font size on all elements.
+
+$ink: #1c2530;
+$muted: #5d6875;
+$line: #e4e8ee;
+$soft: #f6f8fa;
+$accent: #007b3d;
+$accent-soft: #e8f5ee;
+$warn: #9a5b00;
+$warn-soft: #fff4e0;
+$danger: #c62828;
+$danger-soft: #fdecea;
+
+.order-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: $ink;
+
+  .MuiFormControl-root { width: 100%; }
+}
+
+.of-section {
+  background: #fff;
+  border: 1px solid $line;
+  border-radius: 12px;
+  padding: 18px 20px 20px;
+
+  &__head {
     display: flex;
-    align-self: center;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
-  .order-image {
+  &__title { margin: 0; font-size: 15px; font-weight: 700; color: $ink; }
+  &__hint { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: $muted; max-width: 68ch; }
+}
+
+// Fields in equal columns; they collapse to one column on a phone
+.of-grid {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+
+  &--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  &--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  &__wide { grid-column: 1 / -1; }
+}
+
+// A field with a button attached on its side
+.of-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  > .MuiButton-root { flex: none; min-width: 96px; height: 40px; }
+  > .MuiIconButton-root { flex: none; margin-top: 2px; }
+}
+
+// A strict list, with the field for "other" under it when that is chosen
+.of-combo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+// Small helpers under a field
+.of-under {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-top: 6px;
+
+  .of-link { margin-top: 0; }
+}
+
+.of-textlink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $muted;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: $ink; }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+}
+
+.of-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $accent;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+.of-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid $line;
+
+  .MuiTypography-root { font-size: 13.5px; }
+}
+
+.of-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+// A yes/no property as a pill: outlined when off, filled with its tone when on
+.of-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid #cfd6de;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+  &__box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #9aa5b1;
+    border-radius: 50%;
+    color: transparent;
+
+    svg { font-size: 12px; }
+  }
+
+  &__label { font-size: 13px; font-weight: 600; color: #3d4756; }
+
+  &:hover { border-color: #9aa5b1; }
+  &:focus-within { outline: 2px solid $accent; outline-offset: 2px; }
+  &:active { transform: translateY(1px); }
+  &.is-disabled { opacity: 0.55; cursor: not-allowed; }
+
+  input:checked ~ &__box { color: #fff; }
+  &--neutral input:checked ~ &__box { background: $accent; border-color: $accent; }
+  &--warn input:checked ~ &__box { background: $warn; border-color: $warn; }
+  &--danger input:checked ~ &__box { background: $danger; border-color: $danger; }
+}
+// :has() tints the whole pill where the browser supports it; the dot alone shows the state elsewhere
+.of-chip--neutral:has(input:checked) { background: $accent-soft; border-color: $accent; }
+.of-chip--warn:has(input:checked) { background: $warn-soft; border-color: $warn; }
+.of-chip--danger:has(input:checked) { background: $danger-soft; border-color: $danger; }
+
+.of-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+
+  span { font-size: 12px; color: $muted; }
+  strong { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: $ink; }
+}
+
+// ---------- Rows of items and costs ----------
+
+.of-item-row,
+.of-cost-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.of-item-row { grid-template-columns: 22px minmax(0, 1fr) 110px 140px 96px 34px; }
+.of-cost-row { grid-template-columns: 22px 160px minmax(0, 1fr) 120px 170px 34px; }
+
+.of-row-no { font-size: 12.5px; font-weight: 700; color: $muted; text-align: center; }
+.of-row-sum { font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; color: $ink; }
+
+.of-row-actions { display: flex; gap: 8px; }
+
+.of-empty { margin: 0 0 12px; font-size: 13px; line-height: 1.6; color: $muted; }
+
+// ---------- Packages ----------
+
+.of-package {
+  border: 1px solid $line;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  margin-bottom: 12px;
+
+  &:last-of-type { margin-bottom: 0; }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+
+    strong { font-size: 14.5px; font-weight: 700; }
+    a { text-decoration: none; }
+    .custom-badge { font-family: system-ui, sans-serif; }
+  }
+
+  &__tracking { font-size: 13px; font-weight: 600; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; color: $ink; }
+  &__missing { font-size: 12.5px; color: $muted; }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__images .MuiAvatar-root { cursor: pointer; width: 30px; height: 30px; }
+
+  &__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+    padding: 10px 12px;
+    background: $soft;
+    border-radius: 8px;
+
+    dt { font-size: 11.5px; font-weight: 600; color: $muted; }
+    dd { margin: 0; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: $ink; }
+    dd svg { color: $accent; }
+  }
+
+  &__charge { color: $accent !important; }
+
+  &__note {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #3d4756;
+
+    svg { flex: none; margin-top: 3px; color: $muted; }
+  }
+}
+
+// The journey of a package: one block per checkpoint. A reached checkpoint is filled; the
+// others stay white.
+.of-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  // A shipment has no "paid" checkpoint
+  &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  // A purchase link has one checkpoint only
+  &--1 { grid-template-columns: minmax(0, 260px); margin-top: 12px; }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    padding: 9px 12px;
+    border: 1px solid #cfd6de;
+    border-radius: 8px;
+    background: #fff;
+    text-align: start;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+
+    &:hover:not(:disabled) { border-color: $accent; }
+    &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+    &:active:not(:disabled) { transform: translateY(1px); }
+    &:disabled { cursor: not-allowed; opacity: 0.6; }
   }
 
-  a {
-    margin: 0;
-    padding: 0;
-    font-size: 0.7rem;
-    color: rgb(0, 0, 255);
-    text-decoration: none;
-    &:hover {
-      color: rgb(0, 0, 200);
-    }
+  &__mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1.5px solid #9aa5b1;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    color: $muted;
+
+    svg { font-size: 15px; }
   }
+
+  &__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+  &__label { font-size: 13px; font-weight: 700; color: #3d4756; }
+  &__hint { font-size: 11.5px; color: $muted; }
+
+  li.is-done button { background: $accent-soft; border-color: $accent; }
+  li.is-done &__mark { background: $accent; border-color: $accent; color: #fff; }
+  li.is-done &__label { color: $accent; }
+}
+
+// ---------- Order type ----------
+
+.of-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.of-kind {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #cfd6de;
+  border-radius: 8px;
+  background: #fff;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover:not(:disabled) { border-color: $accent; }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+
+  &__mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    border: 1.5px solid #9aa5b1;
+    border-radius: 50%;
+    color: #fff;
+
+    svg { font-size: 13px; }
+  }
+
+  &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  &__label { font-size: 14px; font-weight: 700; color: $ink; }
+  &__hint { font-size: 12.5px; line-height: 1.45; color: $muted; }
+
+  &.is-active { background: $accent-soft; border-color: $accent; box-shadow: inset 0 0 0 1px $accent; }
+  &.is-active &__mark { background: $accent; border-color: $accent; }
+}
+
+.of-made-by .MuiSelect-select {
+  display: flex;
+  align-items: center;
+}
+
+// ---------- Package dialog ----------
+
+.of-dialog__title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.of-dialog__sub {
+  margin-inline-start: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  color: $muted;
+}
+.of-dialog__hint { margin-inline-end: auto; padding-inline-start: 12px; font-size: 12.5px; color: $muted; }
+
+.of-group {
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 0 0 20px;
+  border-bottom: 1px solid $line;
+
+  &:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+
+  &__title {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: $ink;
+  }
+
+  .MuiFormControl-root { width: 100%; }
+}
+
+.of-charge {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: $accent-soft;
+  border-radius: 8px;
+
+  span { font-size: 13px; color: #3d4756; }
+  strong { font-size: 15px; font-variant-numeric: tabular-nums; color: $accent; }
+}
+
+.of-switch {
+  margin-top: 8px;
+
+  .MuiTypography-root { font-size: 13.5px; }
+}
+
+@media (max-width: 900px) {
+  .of-grid--3, .of-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  // Each cost becomes a small block: date and description on their own lines, then amount and currency
+  .of-cost-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding-bottom: 12px;
+    border-bottom: 1px solid $line;
+
+    .of-row-no { display: none; }
+    > :nth-child(2), > :nth-child(3) { grid-column: 1 / -1; }
+    > :nth-child(6) { justify-self: start; }
+  }
+}
+
+@media (max-width: 640px) {
+  .of-section { padding: 14px; }
+  .of-section__head { flex-direction: column; }
+  .of-total { align-items: flex-start; }
+  .of-grid--2, .of-grid--3, .of-grid--4 { grid-template-columns: minmax(0, 1fr); }
+  // Description on its own line, then quantity, price and the remove button
+  .of-item-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid $line;
+
+    .of-row-no { display: none; }
+    > :nth-child(2) { grid-column: 1 / -1; }
+    .of-row-sum { grid-column: 1 / -1; grid-row: 3; text-align: left; }
+  }
+  .of-inline { flex-wrap: wrap; }
+  .of-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .of-kinds { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .of-chip, .of-track button, .of-kind { transition: none; }
 }

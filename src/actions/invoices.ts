@@ -18,8 +18,11 @@ export const createInvoice = (data: any) => {
     });
 
     api.fetchFormData('orders', 'POST', data)
-      .then((res: any) => {        
-        if (!(res?.success !== undefined && !res?.success)) {
+      .then((res: any) => {
+        // fetchFormData never throws: a network failure comes back as an Error, a refused
+        // request as { success: false, message }. Only a created order is a success.
+        const failed = !res || res instanceof Error || res.success === false;
+        if (!failed) {
           dispatch({
             status: STATUS_SUCCESS,
             type: CREATE_INVOICE,
@@ -29,14 +32,11 @@ export const createInvoice = (data: any) => {
           });
         } else {
           dispatch({
-            payload: { error: res.statusText },
+            payload: { error: { data: { message: res?.message } } },
             status: STATUS_ERROR,
             type: CREATE_INVOICE,
           });
         }
-        // window.setTimeout(function(){
-        //   window.location.replace('/expenses');
-        // }, 2500);
       })
       .catch(error => {
         dispatch({

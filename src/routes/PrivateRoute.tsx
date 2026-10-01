@@ -8,8 +8,8 @@ import { Session } from '../models';
 import { Suspense, useEffect } from 'react';
 import { CLOSE_SIDEBAR } from '../constants/actions';
 
-// TypeScript does not resolve SCSS side-effect imports without a stylesheet declaration.
-// @ts-expect-error SCSS is processed by the bundler at runtime.
+// SCSS is processed by the bundler at runtime.
+// @ts-ignore
 import '../App.scss';
 
 type Props = {
@@ -21,6 +21,8 @@ const PrivateRoute = (props: Props) => {
   const dispatch = useDispatch();
   const history = useNavigate();
   const location = useLocation();
+
+  const inAccounting = /^\/accounting(\/|$)/.test(location.pathname);
 
   const redirectPathFound = localStorage.getItem('rd_path');
   
@@ -42,9 +44,10 @@ const PrivateRoute = (props: Props) => {
   return props.session.isLoggedIn ?
   (
     <>
-      <Navbar session={props.session} />
+      <Navbar session={props.session} homeLink={inAccounting} />
       <div className='d-flex'>
-        {isMobile ?
+        {/* Accounting has its own menu and takes the full width; the navbar leads back home */}
+        {inAccounting ? null : isMobile ?
           <Backdrop
             sx={{ zIndex: 400 }}
             open={isSidebarOpen}

@@ -1,1338 +1,544 @@
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, AvatarGroup, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, InputAdornment, InputLabel, MenuItem, Select, Stack, Switch, TextField } from '@mui/material';
-import { isMobile } from 'react-device-detect';
-
-import { BiNote, BiPackage } from 'react-icons/bi';
-import { BsCheck2Circle } from 'react-icons/bs';
-import { Invoice, OrderItem, User } from '../../models';
-import './InvoiceForm.scss';
-import { convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods';
+import { useSelector } from 'react-redux';
+import {
+  Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl,
+  IconButton, InputAdornment, InputLabel, MenuItem, Select, TextField, Tooltip,
+} from '@mui/material';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
-import ImageUploader from '../ImageUploader/ImageUploader';
-import CustomButton from '../CustomButton/CustomButton';
-import api from '../../api';
-import { getErrorMessage } from '../../utils/errorHandler';
-import Badge from '../Badge/Badge';
-import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import moment from 'moment';
-import ItemsSwitcher from '../ItemsSwitcher/ItemsSwitcher';
-import { useSelector } from 'react-redux';
-import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
+import { BiNote } from 'react-icons/bi';
+import { BsCheck2Circle } from 'react-icons/bs';
+import { MdAdd, MdAttachFile, MdOpenInNew, MdOutlineEdit } from 'react-icons/md';
+
+import api from '../../api';
+import { Invoice, OrderItem, User } from '../../models';
+import { convertGoogleStorageUrl, getOrderSteps } from '../../utils/methods';
+import { getErrorMessage } from '../../utils/errorHandler';
 import { SpecialPrices, getShippingMode } from '../../utils/specialPrices';
+import Badge from '../Badge/Badge';
+import ImageUploader from '../ImageUploader/ImageUploader';
+import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
+import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
+import { LIBYAN_CITIES, OFFICES, ORIGIN_COUNTRIES, OrderKind, PACKAGE_STEPS, PURCHASE_CURRENCIES, SHIPMENT_METHODS, apiErrorMessage, toDate, unitForMethod } from './constants';
+import { Checkpoints, ComboField, NUMBER_INPUT, OrderKindPicker, RemoveRowButton, Section, SelectField, ToggleChip, blurOnWheel, formatMoney, packageFigures } from './parts';
+import './InvoiceForm.scss';
 
 type Props = {
-  handleChange?: any
-  paymentList?: any
-  items?: any
-  purchaseItems?: any
-  addNewItemForOrder?: any
-  addNewPurchaseItemForOrder?: any
-  deteteItemRow?: any
-  addNewPaymentField?: any
-  fileUploaderHandler?: any
-  deleteFileOfLink?: any
-  displayAlert?: any
-  deteteRow?: any
-  invoice?: Invoice | undefined
-  isEmployee?: boolean
+  // Every field reports here as (event, checked?, child?, fieldName?); rows pass their index as the id
+  handleChange: any
+  invoice?: Invoice
   employees?: User[]
+  isEmployee?: boolean
   totalInvoice: number
+  displayAlert: (alert: { type: 'error' | 'success', message: string }) => void
+
+  items?: OrderItem[]
+  onAddItem: () => void
+  onRemoveItem: (index: number) => void
+
+  // Purchase costs exist on a saved order only; without these the section is hidden
+  purchaseItems?: any[]
+  onAddPurchaseItem?: () => void
+  onRemovePurchaseItem?: (index: number) => void
+
+  paymentList?: any[]
+  // A new package starts with the order's shipping method and the unit that goes with it
+  onAddPackage: (defaults: { shipmentMethod?: string, measureUnit?: string }) => void
+  onRemovePackage: (index: number) => void
+  onUploadPackageFiles?: (event: any) => Promise<any[]>
+  onDeletePackageFile?: (file: any, packageId: string) => Promise<any[]>
 }
 
+const rowKey = (row: any, index: number) => row?._id || row?.index || index;
+const isLink = (value: any) => /^https?:\/\//i.test(String(value || '').trim());
+const kindOf = (invoice?: Invoice): OrderKind => (invoice?.isPayment ? (invoice?.isShipment ? 'both' : 'payment') : 'shipment');
+// A purchase link is only bought and paid; it has no journey to follow
+const PAID_STEP = PACKAGE_STEPS.slice(0, 1);
+// A shipment is not bought by us, so its packages have nothing to be paid at the seller
+const SHIPPING_STEPS = PACKAGE_STEPS.slice(1);
+// The shared account for shipments whose owner is not known yet
+const UNKNOWN_CUSTOMER = { id: 'A000', name: 'مجهول' };
+
 const InvoiceForm = (props: Props) => {
-  const filesRef = useRef();
-  
+  const { handleChange, employees, items = [], purchaseItems = [], paymentList = [] } = props;
   const { roles } = useSelector((state: any) => state.session.account);
 
-  const [previewImages, setPreviewImages] = useState<any>();  
-  const [ note, setNote ] = useState({
-    openNoteModal: false,
-    note: '',
-    id: ''
-  });
+  // A local copy for what this form shows about the customer; the page keeps the data to save
+  const [invoice, setInvoice] = useState<Invoice | undefined>(props.invoice);
+  const [customerId, setCustomerId] = useState<string | undefined>(props.invoice?.user?.customerId);
+  const [userId, setUserId] = useState<string | undefined>(props.invoice?.user?._id);
+  const [customerCity, setCustomerCity] = useState<string | undefined>();
+  const [isChecking, setIsChecking] = useState(false);
+  const [specialPrices, setSpecialPrices] = useState<SpecialPrices | undefined>((props.invoice?.user as any)?.specialPrices);
+  const [shipmentMethod, setShipmentMethod] = useState<string | undefined>(props.invoice?.shipment?.method);
+  const [shipmentPrice, setShipmentPrice] = useState<number | string>(props.invoice?.shipment?.exiosShipmentPrice ?? '');
 
-  const [ deliveredPackages, setDeliveredPackages ] = useState<any>({
-    openModal: false,
-    trackingNumber: '',
-    containerNumber: '',
-    receiptNo: '',
-    packageWeight: null,
-    measureUnit: '',
-    boxesCount: null,
-    exiosShipmentPrice: '',
-    originShipmentPrice: '',
-    locationPlace: '',
-    receivedShipmentLYD: 0,
-    receivedShipmentUSD: 0,
-    shipmentMethod: 'air',
-    arrivedAt: null,
-    id: '',
-    _id: ''
-  });
-  
-  // setDebt and credit are used by the debt/credit inputs that are commented out below
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [ debt, setDebt ] = useState<{total: number, currency: string}>({
-    total: 0,
-    currency: ''
-  });
+  const [kind, setKind] = useState<OrderKind>(kindOf(props.invoice));
+  const [packageDialog, setPackageDialog] = useState<PackageDraft>(CLOSED_PACKAGE);
+  // The row whose note is being written, and the text so far
+  const [noteDialog, setNoteDialog] = useState<{ index: number, text: string } | null>(null);
+  // The purchase link whose photos and files are open
+  const [filesDialog, setFilesDialog] = useState<{ index: number, _id?: string, images: any[] } | null>(null);
+  const filesRef = useRef();
+  const [invoiceDate, setInvoiceDate] = useState<Date | null>(toDate((props.invoice as any)?.createdAt) || new Date());
+  const [removingPackage, setRemovingPackage] = useState<number | null>(null);
+  const [previewImages, setPreviewImages] = useState<any[] | undefined>();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [ credit, setCredit ] = useState<{total: number, currency: string}>({
-    total: 0,
-    currency: ''
-  });
-  
-  const [ confirmRemoveLinkModal, setConfirmRemoveLinkModal ] = useState(false);
-  const [ invoice, setInvoice ] = useState<Invoice | undefined>(props.invoice);
-  const [ customerId, setCustomerId ] = useState<string | undefined>(props.invoice?.user?.customerId);
-  const [ userId, setUserId ] = useState<string | undefined>(props.invoice?.user?._id);
-  const [ specialPrices, setSpecialPrices ] = useState<SpecialPrices | undefined>((props.invoice?.user as any)?.specialPrices);
-  const [ shipmentMethod, setShipmentMethod ] = useState<string | undefined>(props.invoice?.shipment?.method);
-  const [ shipmentPrice, setShipmentPrice ] = useState<number | string | undefined>(props.invoice?.shipment?.exiosShipmentPrice);
-  // The price inputs are uncontrolled, so a new key re-mounts them with a picked price
-  const [ pickedPriceKey, setPickedPriceKey ] = useState(0);
-
-  const pickShipmentPrice = (price: number) => {
-    props.handleChange({ target: { name: 'exiosShipmentPrice', value: price } });
-    setShipmentPrice(price);
-    setPickedPriceKey(key => key + 1);
-  };
-
-  const pickPackagePrice = (price: number) => {
-    props.handleChange({ target: { name: 'exiosPrice', value: price, id: deliveredPackages.id } });
-    setDeliveredPackages({ ...deliveredPackages, exiosPrice: price });
-    setPickedPriceKey(key => key + 1);
-  };
-
-  const steps = getOrderSteps(invoice);
+  // Read from the page's order, so cancelling or confirming locks the form at once
+  const isCanceled = !!props.invoice?.isCanceled;
+  const isConfirmed = !!props.invoice?.invoiceConfirmed;
+  const itemsLocked = isCanceled || isConfirmed;
+  const canChangeDate = !!roles.isAdmin && !itemsLocked;
+  const canSeeCosts = (roles.isAccountant || roles.isAdmin) && !!props.onAddPurchaseItem;
+  const hasShipping = kind !== 'payment';
+  const hasLinks = kind !== 'shipment';
+  const steps = getOrderSteps({ ...(invoice || {}), isPayment: hasLinks, isShipment: hasShipping } as any);
+  const total = props.totalInvoice || invoice?.totalInvoice || 0;
 
   useEffect(() => {
-    props.handleChange({ target: { value: props.invoice?.user?.customerId, name: 'customerId' } })
+    handleChange({ target: { value: props.invoice?.user?.customerId, name: 'customerId' } });
     // Run once on mount only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
-  const getCustomerData = async (event: MouseEvent) => {
-    event.preventDefault();
-    
+  const changeCustomerInfo = (field: 'fullName' | 'email' | 'phone') => (event: any) => {
+    handleChange(event);
+    const value = event.target.value;
+    setInvoice((current) => ({ ...(current || {}), customerInfo: { ...(current?.customerInfo || {}), [field]: value } } as any));
+  };
+
+  // Fills name, phone and email from the customer's account. `knownAs` replaces the account's
+  // name (the shared account of shipments whose owner is not known yet).
+  const checkCustomer = async (id = customerId, knownAs?: string) => {
+    if (!String(id || '').trim()) return props.displayAlert({ type: 'error', message: 'Type the customer id first' });
     try {
-      const res = await api.get(`customer/${customerId}`);
-      const user: User = res.data;
+      setIsChecking(true);
+      const user: User = (await api.get(`customer/${String(id).trim()}`)).data;
+      const fullName = knownAs || `${user.firstName} ${user.lastName}`;
       setUserId(user._id);
+      setCustomerCity(user.city);
       setSpecialPrices((user as any).specialPrices);
-      setInvoice({
-        ...invoice,
-        netIncome: [],
-        customerInfo: {
-          fullName: `${user.firstName} ${user.lastName}`,
-          phone: user.phone,
-          email: user.username
-        },
-        shipment: {
-          toWhere: user.city
-        }
-      } as any)
-      props.handleChange({ target: { value: `${user.firstName} ${user.lastName}`, name: 'fullName' } })
-      props.handleChange({ target: { value: user.phone, name: 'phone' } })
-      props.handleChange({ target: { value: user.username, name: 'email' } })
-      props.displayAlert({ type: 'success', message: 'User data updated' });
+      setInvoice((current) => ({ ...(current || {}), customerInfo: { fullName, phone: user.phone, email: user.username } } as any));
+      handleChange({ target: { value: fullName, name: 'fullName' } });
+      handleChange({ target: { value: user.phone, name: 'phone' } });
+      handleChange({ target: { value: user.username, name: 'email' } });
+      props.displayAlert({ type: 'success', message: 'Customer details filled in' });
     } catch (error: any) {
-      props.displayAlert({ type: 'error', message: getErrorMessage(error.response.data.message) });
+      const code = error?.response?.data?.message;
+      props.displayAlert({ type: 'error', message: (code && getErrorMessage(code)) || apiErrorMessage(error) });
     }
-  }
-  
+    setIsChecking(false);
+  };
+
+  // A shipment that arrived with no known owner goes on the shared account until it is claimed
+  const pickUnknownCustomer = () => {
+    setCustomerId(UNKNOWN_CUSTOMER.id);
+    handleChange({ target: { name: 'customerId', value: UNKNOWN_CUSTOMER.id } });
+    checkCustomer(UNKNOWN_CUSTOMER.id, UNKNOWN_CUSTOMER.name);
+  };
+
+  const changeShipmentPrice = (price: number | string) => {
+    setShipmentPrice(price);
+    handleChange({ target: { name: 'exiosShipmentPrice', value: price, inputMode: 'numeric' } });
+  };
+
+  const changeKind = (next: OrderKind) => {
+    setKind(next);
+    handleChange({ target: { name: 'isPayment' } }, next !== 'shipment');
+    handleChange({ target: { name: 'isShipment' } }, next !== 'payment');
+  };
+
+  // What a package takes from the order when it has no method or unit of its own
+  const packageDefaults = (method = shipmentMethod): { shipmentMethod?: string, measureUnit?: string } => (
+    method === 'air' || method === 'sea' ? { shipmentMethod: method, measureUnit: unitForMethod(method) } : {}
+  );
+
+  // The order's shipping method is also the method of every package that has none yet
+  const changeShipmentMethod = (event: any) => {
+    const method = String(event.target.value);
+    setShipmentMethod(method);
+    handleChange(event);
+    const defaults = packageDefaults(method);
+    if (!defaults.shipmentMethod) return;
+    paymentList.forEach((payment: any, index: number) => {
+      const details = payment?.deliveredPackages || {};
+      if (details.shipmentMethod) return;
+      reportPackageField(handleChange, index, 'shipmentMethod', defaults.shipmentMethod);
+      if (!packageFigures(details).unit) reportPackageField(handleChange, index, 'measureUnit', defaults.measureUnit);
+    });
+  };
+
+  const stepDone = (payment: any, name: string) => !!(payment?.[name] || payment?.status?.[name]);
+
+  const openPackage = (payment: any, index: number) => {
+    const details = payment?.deliveredPackages || {};
+    const { weight, unit } = packageFigures(details);
+    // An older package with no method or unit takes them from the order, and keeps them
+    const defaults = isCanceled ? {} : packageDefaults();
+    const method = details.shipmentMethod || defaults.shipmentMethod || '';
+    const measureUnit = unit || (isCanceled ? '' : unitForMethod(method));
+    if (method && !details.shipmentMethod) reportPackageField(handleChange, index, 'shipmentMethod', method);
+    if (measureUnit && !unit) reportPackageField(handleChange, index, 'measureUnit', measureUnit);
+    setPackageDialog({
+      open: true,
+      id: index,
+      _id: payment?._id,
+      trackingNumber: details.trackingNumber || '',
+      shipmentMethod: method,
+      locationPlace: details.locationPlace || '',
+      packageWeight: weight || '',
+      measureUnit,
+      exiosPrice: details.exiosPrice ?? '',
+      boxesCount: details.boxesCount ?? '',
+      arrivedAt: details.arrivedAt,
+      visableForClient: payment?.settings?.visableForClient !== false,
+      images: payment?.images || [],
+    });
+  };
+
+  const changeNote = (text: string) => {
+    if (!noteDialog) return;
+    setNoteDialog({ ...noteDialog, text });
+    handleChange({ target: { id: String(noteDialog.index), name: 'note', value: text } });
+  };
+
   return (
-    <div className='row invoice-page'>
-      <div className="col-md-12 mb-3">
-        <h4> Invoice Details </h4>
-      </div>
+    <div className="order-form">
+      <Section title="Order type" hint="Choose this first. The packages section below follows it.">
+        <OrderKindPicker value={kind} onChange={changeKind} disabled={isCanceled} />
+      </Section>
 
-        {/* Contact Info Section */}
-        <div className="col-md-12">
-          <p className='title'> Contact Info </p>
-        </div>
-
-        <div className="col-md-6">
-          <div className='grid mb-4'>
-            <TextField
-              id={'outlined-helperText'}
-              name="customerId"
-              required={true}
-              label={'Customer Id'}
-              onChange={(event: any) => {
-                props.handleChange(event);
-                setCustomerId(event.target.value)
-              }}
-              defaultValue={invoice?.user?.customerId}
-              disabled={invoice?.isCanceled}
-            />
-            {userId && <a target="_blank" href={`/user/${userId}`} rel="noreferrer">View User Page</a>}
+      <Section title="Customer" hint="Type the customer id and press Check to fill the rest from their account.">
+        <div className="of-grid of-grid--2">
+          <div>
+            <div className="of-inline">
+              <TextField
+                name="customerId" required label="Customer id" value={customerId || ''} disabled={isCanceled}
+                onChange={(event: any) => { handleChange(event); setCustomerId(event.target.value); }}
+                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); checkCustomer(); } }}
+              />
+              <Button variant="contained" type="button" onClick={() => checkCustomer()} disabled={isCanceled || isChecking}>{isChecking ? 'Checking' : 'Check'}</Button>
+            </div>
+            <div className="of-under">
+              <button type="button" className="of-textlink" onClick={pickUnknownCustomer} disabled={isCanceled || isChecking}>Unknown owner? Use {UNKNOWN_CUSTOMER.id} ({UNKNOWN_CUSTOMER.name})</button>
+              {userId && <a className="of-link" target="_blank" href={`/user/${userId}`} rel="noreferrer">Open customer page</a>}
+            </div>
           </div>
-        </div>
-
-        <div className="col-md-3 d-flex align-items-center mb-4">
-          <CustomButton 
-            background='rgb(0, 171, 85)' 
-            size="large"
-            onClick={getCustomerData}
-          >
-            Check
-          </CustomButton>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            name="fullName"
-            required={true}
-            label={'Full Name'}
-            onChange={(event: any) => {
-              props.handleChange(event);
-              setInvoice({ ...(invoice || {}), customerInfo: { ...(invoice || {}).customerInfo, fullName: event.target.value } } as any);
-            }}
-            value={invoice?.customerInfo?.fullName}
-            defaultValue={invoice?.customerInfo?.fullName}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-        <div className="col-md-6 mb-4">
-          <TextField
-            name="email"
-            id={'outlined-helperText'}
-            label={'Email'}
-            onChange={(event: any) => {
-              props.handleChange(event);
-              setInvoice({ ...invoice, customerInfo: { email: event.target.value } } as any);
-            }}
-            value={invoice?.customerInfo?.email}
-            defaultValue={invoice?.customerInfo?.email}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Phone'}
-            name="phone"
-            onChange={(event: any) => {
-              props.handleChange(event);
-              setInvoice({ ...invoice, customerInfo: { phone: event.target.value } } as any);
-            }}
-            value={invoice?.customerInfo?.phone}
-            defaultValue={invoice?.customerInfo?.phone}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <FormControl style={{ width: '100%' }}>
-            <InputLabel id="demo-select-small">Made By</InputLabel>
-            <Select
-              className='made-by-selector'
-              style={{ display: 'flex' }}
-              labelId={'Made By'}
-              id={'madeBy'}
-              defaultValue={invoice?.madeBy?._id}
-              label={'Made By'}
-              name="madeBy"
-              onChange={(event) => {
-                return props.handleChange(event);
-              }}
-              disabled={invoice?.isCanceled}
-            >
-              {props.employees && props.employees.map(employee => (
-                <MenuItem value={employee?._id}>
-                  <Avatar sx={{ width: 30, height: 30, marginRight: '10px' }} alt={`${employee.firstName} ${employee.lastName}`} src={employee.imgUrl} />
-                  <em className='ml-2'> {`${employee.firstName} ${employee.lastName}`} </em>
+          <TextField name="fullName" required label="Full name" value={invoice?.customerInfo?.fullName || ''} onChange={changeCustomerInfo('fullName')} disabled={isCanceled} />
+          <TextField name="phone" required label="Phone" value={invoice?.customerInfo?.phone ?? ''} onChange={changeCustomerInfo('phone')} disabled={isCanceled} />
+          <TextField name="email" label="Email" value={invoice?.customerInfo?.email || ''} onChange={changeCustomerInfo('email')} disabled={isCanceled} />
+          <FormControl disabled={isCanceled}>
+            <InputLabel>Made by</InputLabel>
+            <Select className="of-made-by" label="Made by" name="madeBy" defaultValue={invoice?.madeBy?._id || ''} onChange={(event) => handleChange(event)}>
+              {(employees || []).map((employee) => (
+                <MenuItem key={employee._id} value={employee._id}>
+                  <Avatar sx={{ width: 26, height: 26, marginRight: '10px' }} alt={`${employee.firstName} ${employee.lastName}`} src={employee.imgUrl} />
+                  {employee.firstName} {employee.lastName}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
         </div>
+      </Section>
 
-        {/* Order Items Section  */}
-        <div className="col-md-12">
-          <p className='title'> Order Items </p>
+      <Section title="Order">
+        <div className="of-grid of-grid--2">
+          <TextField name="productName" required label="Products category" onChange={handleChange} defaultValue={invoice?.productName} disabled={isCanceled} />
+          <SelectField label="Office" name="placedAt" options={OFFICES} defaultValue={invoice?.placedAt} onChange={handleChange} required disabled={isCanceled} />
+          <ComboField label="Shipment from" name="fromWhere" options={ORIGIN_COUNTRIES} defaultValue={invoice?.shipment?.fromWhere} onChange={handleChange} required disabled={isCanceled} helperText="Choose غير to write a country that is not listed" />
+          <ComboField
+            label="Shipment to" name="toWhere" options={LIBYAN_CITIES} defaultValue={invoice?.shipment?.toWhere} onChange={handleChange} required disabled={isCanceled}
+            helperText={customerCity ? `Customer city: ${customerCity}` : 'Choose غير to write a city that is not listed'}
+          />
+          {/* A shipment's invoice is final from the moment it is created; only a purchase has a date to set */}
+          {hasLinks && <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Invoice date" inputFormat="dd/MM/yyyy" value={invoiceDate} disabled={!canChangeDate}
+              renderInput={(params: any) => (
+                <TextField
+                  {...params}
+                  helperText={!roles.isAdmin ? 'Only admins can change the date' : isConfirmed ? 'Locked: the invoice is confirmed' : 'Can be changed until the invoice is confirmed'}
+                />
+              )}
+              onChange={(date: any) => {
+                setInvoiceDate(date);
+                if (toDate(date)) handleChange({ target: { name: 'createdAt', value: toDate(date)!.toISOString() } });
+              }}
+            />
+          </LocalizationProvider>}
+          <div className="of-grid__wide">
+            <TextField name="orderNote" label="Order note" multiline minRows={2} maxRows={8} dir="auto" onChange={handleChange} defaultValue={invoice?.orderNote} disabled={isCanceled} />
+          </div>
         </div>
-        
-        {(props.items || []).map((item: OrderItem, i: number) => (
-          <div className='col-md-12 mb-2'>
-            <div className="d-flex mb-3">
-              <TextField
-                id={String(i)}
-                label={`Description (${i + 1})`}
-                name="description"
-                onChange={props.handleChange}
-                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
-                style={{ direction: 'rtl' }}
-                defaultValue={item.description}
-              />
-              <TextField
-                id={String(i)}
-                label={`Quantity`}
-                name="itemQuantity"
-                onChange={props.handleChange}
-                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
-                type={'number'}
-                inputProps={{ inputMode: 'numeric', step: .01 }}
-                onWheel={(event: any) => event.target.blur()}
-                defaultValue={item.quantity}
-              />
-              <TextField
-                id={String(i)}
-                label={`Unit Price $`}
-                name="unitPrice"
-                onChange={props.handleChange}
-                disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
-                type={'number'}
-                inputProps={{ inputMode: 'numeric', step: .01 }}
-                onWheel={(event: any) => event.target.blur()}
-                defaultValue={item.unitPrice}
-              />
-            </div>
+
+        <div className="of-flags">
+          <div className="of-chips">
+            <ToggleChip label="Not active order" name="unsureOrder" tone="warn" defaultChecked={invoice?.unsureOrder} onChange={handleChange} disabled={isCanceled} />
+            <ToggleChip label="Has remaining payment" name="hasRemainingPayment" tone="warn" defaultChecked={invoice?.hasRemainingPayment} onChange={handleChange} disabled={isCanceled} />
+            <ToggleChip label="Order has a problem" name="hasProblem" tone="danger" defaultChecked={invoice?.hasProblem} onChange={handleChange} disabled={isCanceled} />
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Shipping and status">
+        <div className="of-grid of-grid--2">
+          <SelectField
+            label="Order status" name="orderStatus" required disabled={isCanceled} defaultValue={invoice?.orderStatus || 0} onChange={handleChange}
+            options={steps.map((step: any, index: number) => [index as any, step.label])}
+          />
+          <SelectField
+            label="Shipping method" name="method" options={SHIPMENT_METHODS} required disabled={isCanceled} defaultValue={invoice?.shipment?.method}
+            onChange={changeShipmentMethod}
+          />
+          <div>
+            <TextField
+              label="Exios price" name="exiosShipmentPrice" required type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} disabled={isCanceled}
+              value={shipmentPrice} onChange={(event) => changeShipmentPrice(event.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              helperText="What the customer pays per KG or CBM"
+            />
+            <SpecialPricePicker prices={specialPrices} mode={getShippingMode(undefined, shipmentMethod)} selected={shipmentPrice} onPick={changeShipmentPrice} disabled={isCanceled} />
+          </div>
+          {!props.isEmployee && (
+            <TextField
+              label="Net income" name="netIncome" type="number" inputProps={{ ...NUMBER_INPUT, min: undefined }} onChange={handleChange} onWheel={blurOnWheel} disabled={isCanceled}
+              defaultValue={invoice?.netIncome?.length ? invoice.netIncome[0]?.total : ''}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            />
+          )}
+        </div>
+      </Section>
+
+      {/* A shipment bills by the weight of its packages, so it has no items to list */}
+      {hasLinks && <Section
+        title="Invoice items"
+        hint={isConfirmed ? 'The invoice is confirmed. To change its items, request an edit from the Payments tab.' : 'What the customer is billed for.'}
+        action={<div className="of-total"><span>Total</span><strong>{formatMoney(Number(total))}</strong></div>}
+      >
+        {items.map((item: OrderItem, index: number) => (
+          <div className="of-item-row" key={rowKey(item, index)}>
+            <span className="of-row-no">{index + 1}</span>
+            <TextField id={String(index)} label="Description" name="description" onChange={handleChange} disabled={itemsLocked} dir="auto" defaultValue={item.description} />
+            <TextField id={String(index)} label="Quantity" name="itemQuantity" type="number" inputProps={NUMBER_INPUT} onChange={handleChange} onWheel={blurOnWheel} disabled={itemsLocked} defaultValue={item.quantity} />
+            <TextField id={String(index)} label="Unit price" name="unitPrice" type="number" inputProps={NUMBER_INPUT} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} onChange={handleChange} onWheel={blurOnWheel} disabled={itemsLocked} defaultValue={item.unitPrice} />
+            <span className="of-row-sum">{formatMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0))}</span>
+            <RemoveRowButton label="Remove this item" onClick={() => props.onRemoveItem(index)} disabled={itemsLocked || items.length <= 1} />
           </div>
         ))}
-        <div className='mb-4'>
-          <Button disabled={invoice?.isCanceled || invoice?.invoiceConfirmed} style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewItemForOrder} type='button' size='small'>ADD</Button>
-          <Button 
-            color='error' 
-            variant="contained" 
-            type='button' 
-            size='small'
-            onDoubleClick={props.deteteItemRow} 
-            disabled={invoice?.isCanceled || invoice?.invoiceConfirmed}
-          >
-            Remove
-          </Button>
+        <div className="of-row-actions">
+          <Button variant="outlined" size="small" type="button" startIcon={<MdAdd />} onClick={props.onAddItem} disabled={itemsLocked}>Add item</Button>
         </div>
+      </Section>}
 
-        {(roles.isAccountant || roles.isAdmin) &&
-          <>
-            {/* Purchase Items Section  */}
-            <div className="col-md-12">
-              <p className='title'> Purchase Items </p>
-            </div>
-
-
-            {(props?.purchaseItems || []).map((item: any, i: number) => (
-              <div className='col-md-12'>
-                <div className="d-flex mb-1">
-                  <div className="col-md-3 mb-4 d-flex">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <Stack spacing={3}>
-                        <DatePicker
-                          label={`Payment Date (${i + 1})`}
-                          inputFormat="dd/MM/yyyy"
-                          value={new Date(item?.date) || new Date()}
-                          renderInput={(params: any) => <TextField {...params} /> }          
-                          onChange={(value) => {
-                            props.handleChange({ target: { value, id: String(i) }}, undefined, undefined, 'purchaseItemDate');
-                          }}
-                        />
-                      </Stack>
-                    </LocalizationProvider>
-                  </div>
-
-                  <TextField
-                    id={String(i)}
-                    label={`Description (${i + 1})`}
-                    name="purchaseItemDescription"
-                    onChange={props.handleChange}
-                    style={{ direction: 'rtl' }}
-                    defaultValue={item.description}
-                  />
-                  <TextField
-                    id={String(i)}
-                    label={`Unit Price`}
-                    name="purchaseItemUnitPrice"
-                    onChange={props.handleChange}
-                    type={'number'}
-                    inputProps={{ inputMode: 'numeric', step: .01 }}
-                    onWheel={(event: any) => event.target.blur()}
-                    defaultValue={item.unitPrice}
-                  />
-                  <FormControl 
-                  required={debt.total > 0 ? true : false} 
-                  style={{ width: '100%' }}
-                >
-
-                  <InputLabel id="demo-select-small">Currency</InputLabel>
-                  <Select
-                    className='connect-field-left'
-                    labelId={'Currency'}
-                    id={String(i)}
-                    defaultValue={item?.currency}
-                    label={'Currency'}
-                    name="purchaseItemCurrency"
-                    onChange={(event) => {
-                      props.handleChange({ target: { value: event.target.value, id: String(i) } }, undefined, undefined, 'purchaseItemCurrency');
-                    }}
-                    >
-                    <MenuItem value={'USD'}>USD - US Dollar</MenuItem>
-                    <MenuItem value={'LYD'}>LYD - Libyan Dinar</MenuItem>
-                    <MenuItem value={'EUR'}>EUR - Euro</MenuItem>
-                    <MenuItem value={'CNY'}>CNY - Chinese Yuan</MenuItem>
-                    <MenuItem value={'TRY'}>TRY - Turkish Lira</MenuItem>
-                    <MenuItem value={'AED'}>AED - UAE Dirham</MenuItem>
-                    <MenuItem value={'GBP'}>GBP - UK</MenuItem>
-                    <MenuItem value={'SAR'}>SAR - Saudi Riyal</MenuItem>
-                    <MenuItem value={'KWD'}>KWD - Kuwaiti Dinar</MenuItem>
-                    <MenuItem value={'QAR'}>QAR - Qatari Riyal</MenuItem> 
-                    <MenuItem value={'OMR'}>OMR - Omani Rial</MenuItem>
-                    <MenuItem value={'BHD'}>BHD - Bahraini Dinar</MenuItem>
-                    <MenuItem value={'JPY'}>JPY - Japanese Yen</MenuItem>
-                    <MenuItem value={'INR'}>INR - Indian Rupee</MenuItem>
-
-                    <MenuItem value={'JOD'}>JOD - Jordanian Dinar</MenuItem>
-                    <MenuItem value={'EGP'}>EGP - Egyptian Pound</MenuItem>
-                    <MenuItem value={'IQD'}>IQD - Iraqi Dinar</MenuItem>
-                    <MenuItem value={'LBP'}>LBP - Lebanese Pound</MenuItem>
-
-                    <MenuItem value={'YER'}>YER - Yemeni Rial</MenuItem>
-                    <MenuItem value={'SYP'}>SYP - Syrian Pound</MenuItem>
-                    <MenuItem value={'SDG'}>SDG - Sudanese Pound</MenuItem>
-                    <MenuItem value={'IRR'}>IRR - Iranian Rial</MenuItem>
-                  </Select>
-                </FormControl>
-                </div>
-              </div>
-            ))}
-            <div className='mb-4'>
-              <Button style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewPurchaseItemForOrder} type='button' size='small'>ADD</Button>
-              <Button 
-                color='error' 
-                variant="contained" 
-                type='button' 
-                size='small'
-                onDoubleClick={props.deteteItemRow} 
-              >
-                Remove
-              </Button>
-            </div>
-          </>
-        }
-
-        {/* Order Info Section  */}
-        <div className="col-md-12">
-          <p className='title'> Order Info </p>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Products Category'}
-            name="productName"
-            onChange={props.handleChange}
-            defaultValue={invoice?.productName}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        {/* <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Quentity'}
-            name="quantity"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric' }}
-            onChange={props.handleChange}
-            defaultValue={invoice?.quantity}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div> */}
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Total Invoice'}
-            name="totalInvoice"
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            onChange={props.handleChange}
-            value={props.totalInvoice || invoice?.totalInvoice}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={true}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Shipment From Where'}
-            name="fromWhere"
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.fromWhere}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            required={true}
-            label={'Shipment To Where'}
-            name="toWhere"
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.toWhere}
-            disabled={invoice?.isCanceled}
-          />
-          {invoice?.shipment?.toWhere && <span style={{ color: '#04ad20' }}>Customer City: {invoice?.shipment?.toWhere}</span>}
-        </div>
-
-        {!props.isEmployee && 
-          <div className="col-md-6 mb-4">
-            <TextField
-              label={'Net Income'}
-              name="netIncome"
-              inputProps={{ inputMode: 'numeric', step: .01 }}
-              type={'number'}
-              onChange={props.handleChange}
-              defaultValue={invoice && invoice?.netIncome?.length > 0 ? invoice?.netIncome[0]?.total : ''}
-              onWheel={(event: any) => event.target.blur()}
-              disabled={invoice?.isCanceled}
-            />
-          </div>
-        }
-
-        <div className="col-md-6 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Select Office</InputLabel>
-            <Select
-              labelId={'Select Office'}
-              id={'Select Office'}
-              defaultValue={invoice?.placedAt}
-              label={'Select Office'}
-              name="placedAt"
-              onChange={(event) => {
-                return props.handleChange(event);
-              }}
-              disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'tripoli'}>
-                <em> Tripoli Office </em>
-              </MenuItem>
-              <MenuItem value={'benghazi'}>
-                <em> Benghazi Office </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        {/* <div className="d-flex col-md-6 mb-4">
-          <TextField
-              className='connect-field-right'
-              id={'outlined-helperText'}
-              name="debt"
-              type={'number'}
-              inputProps={{ inputMode: 'numeric' }}
-              label={'Debt'}
-              required={!!debt.currency}
-              onChange={(event) => {
-                setDebt({
-                  ...debt,
-                  total: Number(event.target.value)
-                })
-                props.handleChange(event);
-              }}
-              defaultValue={invoice?.debt?.total}
-              onWheel={(event: any) => event.target.blur()}
-              disabled={invoice?.isCanceled || props.isEmployee}
-            />
-            <FormControl 
-              required={debt.total > 0 ? true : false} 
-              style={{ width: '100%' }}
-            >
-              <InputLabel id="demo-select-small">Currency</InputLabel>
-              <Select
-                className='connect-field-left'
-                labelId={'currency'}
-                id={'currency'}
-                defaultValue={invoice?.debt?.currency}
-                label={'Currency'}
-                name="currency"
-                onChange={(event) => {
-                  setDebt({
-                    ...debt,
-                    currency: String(event.target.value)
-                  })
-                  return props.handleChange(event);
-                }}
-                disabled={invoice?.isCanceled || props.isEmployee}
-                >
-                <MenuItem value={'USD'}>
-                  <em> USD </em>
-                </MenuItem>
-                <MenuItem value={'LYD'}>
-                  <em> LYD </em>
-                </MenuItem>
-                <MenuItem value={'TRY'}>
-                  <em> TRY </em>
-                </MenuItem>
-              </Select>
-            </FormControl>
-        </div>
-
-        <div className="d-flex col-md-6 mb-4">
-          <TextField
-              className='connect-field-right'
-              id={'outlined-helperText'}
-              name="credit"
-              type={'number'}
-              inputProps={{ inputMode: 'numeric' }}
-              label={'Credit'}
-              required={!!credit.currency}
-              onChange={(event) => {
-                setCredit({
-                  ...credit,
-                  total: Number(event.target.value)
-                })
-                props.handleChange(event);
-              }}
-              defaultValue={invoice?.credit?.total}
-              onWheel={(event: any) => event.target.blur()}
-              disabled={invoice?.isCanceled}
-            />
-            <FormControl 
-              required={credit.total > 0 ? true : false} 
-              style={{ width: '100%' }}
-            >
-              <InputLabel id="demo-select-small">Currency</InputLabel>
-              <Select
-                className='connect-field-left'
-                labelId={'currency'}
-                id={'creditCurrency'}
-                defaultValue={invoice?.credit?.currency}
-                label={'Currency'}
-                name="creditCurrency"
-                onChange={(event) => {
-                  setCredit({
-                    ...credit,
-                    currency: String(event.target.value)
-                  })
-                  return props.handleChange(event);
-                }}
-                disabled={invoice?.isCanceled}
-              >
-                <MenuItem value={'USD'}>
-                  <em> USD </em>
-                </MenuItem>
-                <MenuItem value={'LYD'}>
-                  <em> LYD </em>
-                </MenuItem>
-                <MenuItem value={'TRY'}>
-                  <em> TRY </em>
-                </MenuItem>
-              </Select>
-            </FormControl>
-        </div> */}
-
-        <div className="col-md-12 mb-4">
-          <textarea 
-            rows={5}
-            placeholder='Order Note...' 
-            className='form-control' 
-            name={'orderNote'} 
-            onChange={props.handleChange}
-            defaultValue={invoice?.orderNote}
-            disabled={invoice?.isCanceled}
-          >
-          </textarea>
-        </div>
-        
-        {invoice?.isPayment && invoice?.isShipment ?
-          <>
-            <div className="col-md-4 mb-4">
-              <Checkbox 
-                name='isPayment' 
-                onChange={props.handleChange} 
-                defaultChecked={invoice?.isPayment}
-                color="success"
-                disabled={invoice?.isCanceled}
-              /> 
-              Payment
-            </div>
-
-            <div className="col-md-4 mb-4">
-              <Checkbox 
-                name='isShipment' 
-                onChange={props.handleChange} 
-                defaultChecked={invoice?.isShipment}
-                color="success"
-                disabled={invoice?.isCanceled}
+      {canSeeCosts && (
+        <Section title="Purchase costs" hint="What was paid to the seller for this order. Visible to admins and accountants only.">
+          {purchaseItems.length === 0 && <p className="of-empty">No purchase costs recorded.</p>}
+          {purchaseItems.map((item: any, index: number) => (
+            <div className="of-cost-row" key={rowKey(item, index)}>
+              <span className="of-row-no">{index + 1}</span>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Payment date" inputFormat="dd/MM/yyyy" value={toDate(item?.date) || new Date()}
+                  renderInput={(params: any) => <TextField {...params} />}
+                  onChange={(value) => handleChange({ target: { value, id: String(index) } }, undefined, undefined, 'purchaseItemDate')}
+                />
+              </LocalizationProvider>
+              <TextField id={String(index)} label="Description" name="purchaseItemDescription" onChange={handleChange} dir="auto" defaultValue={item.description} />
+              <TextField id={String(index)} label="Amount" name="purchaseItemUnitPrice" type="number" inputProps={NUMBER_INPUT} onChange={handleChange} onWheel={blurOnWheel} defaultValue={item.unitPrice} />
+              <SelectField
+                label="Currency" name="purchaseItemCurrency" id={String(index)} defaultValue={item?.currency}
+                options={PURCHASE_CURRENCIES.map(([code, name]) => [code, `${code} - ${name}`])}
+                onChange={(event) => handleChange(event, undefined, undefined, 'purchaseItemCurrency')}
               />
-              Shipment
+              <RemoveRowButton label="Remove this cost" onClick={() => props.onRemovePurchaseItem!(index)} />
             </div>
-          </>
-          :
-          <div className="col-md-4 mb-4">
-            <ItemsSwitcher
-              leftLabel='فاتورة شراء'
-              rightLabel='شحن'
-              checked={invoice?.isPayment ? false : true}
-              handleChange={props.handleChange}
-            />
+          ))}
+          <div className="of-row-actions">
+            <Button variant="outlined" size="small" type="button" startIcon={<MdAdd />} onClick={props.onAddPurchaseItem}>Add cost</Button>
           </div>
-        }
+        </Section>
+      )}
 
-        <div className="col-md-4 mb-4">
-          <Checkbox
-            name='unsureOrder' 
-            onChange={props.handleChange} 
-            defaultChecked={invoice?.unsureOrder}
-            color="success"
-            disabled={invoice?.isCanceled}
-          />
-          Not Active Order
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <Checkbox
-            name='hasRemainingPayment' 
-            onChange={props.handleChange} 
-            defaultChecked={invoice?.hasRemainingPayment}
-            color="success"
-            disabled={invoice?.isCanceled}
-          />
-          Has Remaining Payment
-        </div>
-
-        <div className="col-md-4 mb-4">
-          <Checkbox
-            name='hasProblem' 
-            onChange={props.handleChange} 
-            defaultChecked={invoice?.hasProblem}
-            color="success"
-            disabled={invoice?.isCanceled}
-          />
-          Order has problem
-        </div>
-
-        {/* Received Money Section  */}
-        <div className="col-md-12">
-          <p className='title'> Received Money </p>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            label="Received Payment USD"
-            name='receivedUSD'
-            id={'outlined-helperText'}
-            type={'number'}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">USD</InputAdornment>,
-              inputMode: 'numeric'
-            }}
-            defaultValue={invoice?.receivedUSD}
-            onChange={props.handleChange}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            label="Received Payment LYD"
-            id={'outlined-helperText'}
-            name='receivedLYD'
-            type={'number'}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">LYD</InputAdornment>,
-              inputMode: 'numeric'
-            }}
-            defaultValue={invoice?.receivedLYD}
-            onChange={props.handleChange}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        {/* {!props.isEmployee &&
-          <div className="col-md-12 mb-4">
-            <TextField
-              id={'outlined-helperText'}
-              label={'هل قيمة مدخوله في حسبه وفي اي تاريخ؟'}
-              name="paymentExistNote"
-              onChange={props.handleChange}
-              defaultValue={invoice?.paymentExistNote}
-              disabled={invoice?.isCanceled || !!invoice?.paymentExistNote}
-            />
-          </div>
-        } */}
-
-        {/* <div className="col-md-6 mb-4">
-          <TextField
-            label="Received Shipment USD"
-            name='receivedShipmentUSD'
-            id={'outlined-helperText'}
-            type={'number'}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">USD</InputAdornment>,
-              inputMode: 'numeric'
-            }}
-            defaultValue={invoice?.receivedShipmentUSD}
-            onChange={props.handleChange}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            label="Received Shipment LYD"
-            id={'outlined-helperText'}
-            name='receivedShipmentLYD'
-            type={'number'}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">LYD</InputAdornment>,
-              inputMode: 'numeric'
-            }}
-            defaultValue={invoice?.receivedShipmentLYD}
-            onChange={props.handleChange}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div> */}
-
-        {/* Packages Info Section  */}
-        <div className="col-md-12">
-          <p className='title'> Packages Info </p>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            key={`exiosShipmentPrice-${pickedPriceKey}`}
-            id={'outlined-helperText'}
-            label={'Exios Shipment Price'}
-            name="exiosShipmentPrice"
-            required
-            type={'number'}
-            inputProps={{ inputMode: 'numeric', step: .01 }}
-            onChange={(event: any) => {
-              props.handleChange(event);
-              setShipmentPrice(event.target.value);
-            }}
-            defaultValue={shipmentPrice}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-          <SpecialPricePicker
-            prices={specialPrices}
-            mode={getShippingMode(undefined, shipmentMethod)}
-            selected={shipmentPrice}
-            onPick={pickShipmentPrice}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <TextField
-            id={'outlined-helperText'}
-            label={'Origin Shipment Price'}
-            name="originShipmentPrice"
-            required
-            type={'number'}
-            inputProps={{ inputMode: 'decimal', step: .01 }}
-            onChange={props.handleChange}
-            defaultValue={invoice?.shipment?.originShipmentPrice}
-            onWheel={(event: any) => event.target.blur()}
-            disabled={invoice?.isCanceled}
-          />
-        </div>
-
-        <div className="col-md-12 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Shipment Method</InputLabel>
-            <Select
-              labelId={'Shipment Method'}
-              id={'Shipment Method'}
-              defaultValue={invoice?.shipment?.method}
-              label={'Shipment Method'}
-              name="method"
-              onChange={(event) => {
-                setShipmentMethod(String(event.target.value));
-                return props.handleChange(event);
-              }}
-              disabled={invoice?.isCanceled}
-            >
-              <MenuItem value={'air'}>
-                <em> By Air </em>
-              </MenuItem>
-              <MenuItem value={'sea'}>
-                <em> By Sea </em>
-              </MenuItem>
-              <MenuItem value={'unknown'}>
-                <em> Unknown </em>
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-
-        {/* Order Status Section  */}
-        <div className="col-md-12">
-          <p className='title'> Order Status </p>
-        </div>
-
-        <div className="col-md-12 mb-4">
-          <FormControl style={{ width: '100%' }} required>
-            <InputLabel id="demo-select-small">Status</InputLabel>
-            <Select
-              labelId={'Status'}
-              id={'orderStatus'}
-              defaultValue={invoice?.orderStatus || 0}
-              label={'Status'}
-              name="orderStatus"
-              onChange={(event) => {
-                return props.handleChange(event);
-              }}
-              disabled={invoice?.isCanceled}
-            >
-              {steps.map(((steps: any, i) => (
-                <MenuItem key={i} value={i}>
-                  <em> {steps.label} </em>
-                </MenuItem>
-              )))}
-            </Select>
-          </FormControl>
-        </div>
-
-        {/* Payment Links Section  */}
-        <div className="col-md-12">
-          <p className='title'> Payment Links </p>
-        </div>
-        
-        {props.paymentList?.map((payment: any, i: number) => {
-          return(
-            <div key={i} className="col-md-12 mb-4">
-              <div>
-                {payment?.deliveredPackages?.deliveredInfo?.deliveredDate && (payment.received || payment?.status?.received) &&
-                  <p className='m-0' style={{ fontSize: 'small', color: '#2E7D32' }}>{moment(new Date(payment?.deliveredPackages?.deliveredInfo?.deliveredDate)).format('DD/MM/YYYY - HH:mm')} <BsCheck2Circle /></p>
-                }
-
-                <div className={`d-flex align-items-center gap-2 ${isMobile ? 'flex-column' : ''}`}>
-                  <ButtonGroup disabled={invoice?.isCanceled} key={i} color='success' size="small" aria-label="small button group">
-                    <Button id={String(i)} name="paid" onDoubleClick={props.handleChange} variant={payment.paid || payment?.status?.paid ? 'contained': 'outlined'} key="paid">Paid</Button>
-                    <Button id={String(i)} name="arrived" onDoubleClick={props.handleChange} variant={payment.arrived || payment?.status?.arrived ? 'contained': 'outlined'} key="arrived">Arrived</Button>
-                    <Button id={String(i)} name="arrivedLibya" onDoubleClick={props.handleChange} variant={payment.arrivedLibya || payment?.status?.arrivedLibya ? 'contained': 'outlined'} key="arrivedLibya">Libya</Button>
-                    <Button id={String(i)} name="received" onDoubleClick={props.handleChange} variant={payment.received || payment?.status?.received ? 'contained': 'outlined'} key="received"><BsCheck2Circle /></Button>
-                  </ButtonGroup>
-
-                  <div className='d-flex align-items-center'>
-                    {payment?.deliveredPackages?.shipmentMethod &&
-                      <Badge
-                        style={{
-                          fontFamily: 'system-ui',
-                          marginLeft: '6px'
-                        }}
-                        text={payment?.deliveredPackages?.shipmentMethod?.toUpperCase()} 
-                        color="primary"
-                      />
-                    }
-
-                    {payment?.deliveredPackages?.trackingNumber &&
-                      <Badge
-                        style={{
-                          fontFamily: 'system-ui',
-                          marginLeft: '6px'
-                        }}
-                        text={payment?.deliveredPackages?.trackingNumber} 
-                        color='warning'
-                      />
-                    }
-
-                    {payment?.deliveredPackages?.locationPlace &&
-                      <Badge
-                        style={{
-                          fontFamily: 'system-ui',
-                          marginLeft: '6px'
-                        }}
-                        text={payment?.deliveredPackages?.locationPlace} 
-                        color="primary"
-                      />
-                    }
-
-                    {payment?.flight &&
-                      <a href={`/inventory/${payment?.flight?._id}/edit`} target='__blank' style={{ textDecoration: 'none' }}>
-                        <Badge
-                          style={{
-                            fontFamily: 'system-ui',
-                            marginLeft: '6px'
-                          }}
-                          text={payment?.flight.voyage}
-                          color="sky"
-                        />
-                      </a>
-                    }
-
-                    {payment?.images?.length > 0 &&
-                      <AvatarGroup max={3}>
-                        {payment?.images && payment.images.map((img: any) => (
-                          <Avatar
-                            key={img.filename}
-                            className='order-image'
-                            alt={img.filename} 
-                            src={convertGoogleStorageUrl(img.path)}
-                            onClick={(event: React.MouseEvent) => setPreviewImages(payment.images)}
-                          />
-                        ))}
-                      </AvatarGroup>
-                    }
-                  </div>
-                </div>
-
-                <div className="d-flex">
-                  <TextField
-                    id={String(i)}
-                    className='connect-field-right connect-field-left'
-                    label={`Payment Link (${i + 1})`}
-                    name="paymentLink"
-                    onChange={props.handleChange}
-                    defaultValue={payment?.link}
-                    disabled={invoice?.isCanceled}
-                  />
-
-                  <ButtonGroup disabled={invoice?.isCanceled} key={i} color='success' size="small" aria-label="small button group">
-                    <Button id={String(i)} name="note" key="note" onClick={() => { setNote({ openNoteModal: true, note: payment.note, id: String(i) }) }} variant={payment.note ? 'contained': 'outlined'} ><BiNote /></Button>
-                    <Button id={String(i)} 
-                      key="deliveredPackages" 
-                      name="deliveredPackages" 
-                      onClick={() => { 
-                        setDeliveredPackages({
-                          measureUnit: payment?.deliveredPackages?.measureUnit, 
-                          packageWeight: payment?.deliveredPackages?.weight, 
-                          trackingNumber: payment?.deliveredPackages?.trackingNumber,
-                          containerNumber: payment?.deliveredPackages?.containerInfo?.billOfLading,
-                          boxesCount: payment?.deliveredPackages?.boxesCount,
-                          receiptNo: payment?.deliveredPackages?.receiptNo,
-                          originPrice: payment?.deliveredPackages?.originPrice,  
-                          exiosPrice: payment?.deliveredPackages?.exiosPrice,
-                          receivedShipmentUSD: payment?.deliveredPackages?.receivedShipmentUSD,  
-                          receivedShipmentLYD: payment?.deliveredPackages?.receivedShipmentLYD,
-                          locationPlace: payment?.deliveredPackages?.locationPlace,
-                          shipmentMethod: payment?.deliveredPackages?.shipmentMethod,
-                          arrivedAt: payment?.deliveredPackages?.arrivedAt + '',
-                          images: payment?.images,
-                          visableForClient: payment?.settings?.visableForClient,
-                          openModal: true, 
-                          id: i,
-                          _id: payment?._id
-                      }) }}
-                      variant={payment?.deliveredPackages?.trackingNumber ? 'contained': 'outlined'}
-                    >
-                      <BiPackage />
-                    </Button>
-                  </ButtonGroup>
-                </div>
-              </div>
-            </div>
-        )})}
-
-        <Dialog open={note.openNoteModal} onClose={() => setNote({ ...note, openNoteModal: false })}>
-          <DialogTitle>Note</DialogTitle>
-          <DialogContent>
-            <textarea style={{ width: '400px', height: '200px' }} placeholder='Leave a note here' className='form-control' name={'note'} onChange={props.handleChange} defaultValue={note.note} id={note.id}></textarea>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setNote({ ...note, openNoteModal: false })} >Save</Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog fullWidth={true} open={deliveredPackages.openModal} onClose={() => setDeliveredPackages({ ...deliveredPackages, openModal: false })}>
-          <DialogTitle>Delivered Packages</DialogTitle>
-          <DialogContent>
-            <div className="row mt-1">
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Tracking number'}
-                  name="trackingNumber"
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.trackingNumber}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-
-              <div className="d-flex col-md-6 mb-4">
-                <TextField
-                  id={deliveredPackages.id}
-                  className='connect-field-right'
-                  name="packageWeight"
-                  type={'number'}
-                  inputProps={{ inputMode: 'numeric' }}
-                  label={'Weight'}
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.packageWeight?.total || deliveredPackages?.packageWeight}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-                <FormControl style={{ width: '100%' }}>
-                  <InputLabel>Unit</InputLabel>
-                  <Select
-                    className='connect-field-left'
-                    defaultValue={deliveredPackages?.packageWeight?.measureUnit || deliveredPackages?.measureUnit}
-                    label={'Unit'}
-                    name="measureUnit"
-                    onChange={(event, child) => {
-                      setDeliveredPackages({ ...deliveredPackages, measureUnit: event.target.value });
-                      return props.handleChange(event, null, child);
-                    }}
-                  >
-                    <MenuItem id={deliveredPackages.id} value={'KG'}>
-                      <em> KG </em>
-                    </MenuItem>
-                    <MenuItem id={deliveredPackages.id} value={'CBM'}>
-                      <em> CBM </em>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex flex-column">
-                <TextField
-                  key={`exiosPrice-${deliveredPackages.id}-${pickedPriceKey}`}
-                  id={deliveredPackages.id}
-                  label={'Exios Price'}
-                  name="exiosPrice"
-                  type={'number'}
-                  inputProps={{ inputMode: 'numeric' }}
-                  onChange={(event: any) => {
-                    props.handleChange(event);
-                    setDeliveredPackages({ ...deliveredPackages, exiosPrice: event.target.value });
-                  }}
-                  defaultValue={deliveredPackages?.exiosPrice}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-                <SpecialPricePicker
-                  prices={specialPrices}
-                  mode={getShippingMode(
-                    // measureUnit is set when staff change the unit in this dialog, so it wins
-                    deliveredPackages?.measureUnit || deliveredPackages?.packageWeight?.measureUnit,
-                    deliveredPackages?.shipmentMethod
-                  )}
-                  selected={deliveredPackages?.exiosPrice}
-                  onPick={pickPackagePrice}
-                />
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Original Price'}
-                  name="originPrice"
-                  type={'number'}
-                  inputProps={{ inputMode: 'numeric' }}
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.originPrice}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Boxes Count'}
-                  name="boxesCount"
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.boxesCount}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex">
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Stack spacing={3}>
-                    <DatePicker
-                      label="Arrived Date"
-                      inputFormat="dd/MM/yyyy"
-                      value={new Date(deliveredPackages?.arrivedAt)}
-                      renderInput={(params: any) => <TextField {...params} /> }                    
-                      onChange={(value) => {
-                        props.handleChange({ target: { value, id: deliveredPackages.id }}, undefined, undefined, 'arrivedAt');
-                        setDeliveredPackages({ ...deliveredPackages, arrivedAt: value });
-                      }}
-                    />
-                  </Stack>
-                </LocalizationProvider>
-              </div>
-
-              <div className="col-md-6 mb-4">
-                <FormControl style={{ width: '100%' }} required>
-                  <InputLabel id="demo-select-small">Shipment Method</InputLabel>
-                  <Select
-                    id={deliveredPackages.id}
-                    labelId={'Shipment Method'}
-                    defaultValue={deliveredPackages?.shipmentMethod}
-                    label={'Shipment Method'}
-                    name="shipmentMethod"
-                    onChange={(event, child) => {
-                      setDeliveredPackages({ ...deliveredPackages, shipmentMethod: event.target.value });
-                      return props.handleChange(event, null, child);
-                    }}
-                    disabled={invoice?.isCanceled}
-                    onWheel={(event: any) => event.target.blur()}
-                  >
-                    <MenuItem id={deliveredPackages.id} value={'air'}>
-                      <em> By Air </em>
-                    </MenuItem>
-                    <MenuItem id={deliveredPackages.id} value={'sea'}>
-                      <em> By Sea </em>
-                    </MenuItem>
-                    <MenuItem id={deliveredPackages.id} value={'unknown'}>
-                      <em> Unknown </em>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Placed At'}
-                  name="locationPlace"
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.locationPlace}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-            </div>
-
-            <hr />
-
-            <DialogTitle className='p-0 mb-3'>ٍShipping Info</DialogTitle>
-            <div className="row mt-1">
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Container Number'}
-                  name="containerNumber"
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.containerNumber}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-              <div className="col-md-6 mb-4 d-flex">
-                <TextField
-                  id={deliveredPackages.id}
-                  label={'Receipt No'}
-                  name="receiptNo"
-                  onChange={props.handleChange}
-                  defaultValue={deliveredPackages?.receiptNo}
-                  onWheel={(event: any) => event.target.blur()}
-                />
-              </div>
-            </div>
-
-            <hr />
-
-            <div className="row mt-1">
-              <DialogTitle className='p-2'>Settings</DialogTitle>
-              <div className="col-md-12 mb-4">
-                <FormControlLabel
-                  id={deliveredPackages.id}
-                  name='visableForClient'
-                  label={'Link visible for client'} 
-                  control={                    
-                    <Switch
-                      defaultChecked={deliveredPackages?.visableForClient}
-                      onChange={(event) => {
-                        props.handleChange({ target: { value: event.target.checked, id: deliveredPackages.id }}, undefined, undefined, 'visableForClient');
-                      }}
-                    />
-                  } 
-                />
-              </div>
-            </div>
-
-            {!!deliveredPackages?._id &&
-              <div className="row mt-1">
-                <div className='col-md-5 mt-3'>
-                  <h6>Upload Files</h6>
-                  <ImageUploader
-                    id={deliveredPackages?._id}
-                    inputFileRef={filesRef}
-                    fileUploaderHandler={async (event: any) => {
-                      const images = await props.fileUploaderHandler(event);
-                      setDeliveredPackages({ ...deliveredPackages, images })
-                    }}
-                    previewFiles={deliveredPackages?.images || []}
-                    deleteImage={async (file: any) => {
-                      const images = await props.deleteFileOfLink(file, deliveredPackages?._id);
-                      setDeliveredPackages({ ...deliveredPackages, images });
-                    }}
-                  />
-                </div>
-              </div>
-            }
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeliveredPackages({ ...deliveredPackages, openModal: false })} >Save</Button>
-          </DialogActions>
-        </Dialog>
-
-        <div className='col-md-6 mb-4'>
-          <Button disabled={invoice?.isCanceled} style={{ marginRight: '10px' }} variant="contained" onClick={props.addNewPaymentField} type='button' size='small'>ADD</Button>
-          <Button 
-            color='error' 
-            variant="contained" 
-            type='button' 
-            size='small'
-            onClick={() => setConfirmRemoveLinkModal(true)} 
-            disabled={invoice?.isCanceled}
-          >
-            Remove
+      <Section
+        title={`${hasShipping ? 'Packages' : 'Payment links'} (${paymentList.length})`}
+        hint={hasShipping
+          ? `Each package has its own journey, weight and price${hasLinks ? ', and the link it was bought from' : ''}. Click a step to tick it.`
+          : 'What we buy for the customer: one row per link, with its note and whether it is paid.'}
+        action={(
+          <Button variant="outlined" size="small" type="button" startIcon={<MdAdd />} onClick={() => props.onAddPackage(packageDefaults())} disabled={isCanceled}>
+            {hasShipping ? 'Add package' : 'Add link'}
           </Button>
-        </div>
+        )}
+      >
+        {paymentList.map((payment: any, index: number) => {
+          const details = payment?.deliveredPackages || {};
+          const figures = packageFigures(details);
+          const deliveredAt = toDate(details.deliveredInfo?.deliveredDate);
+          const link = payment?.link ?? payment?.paymentLink;
+          const hidden = payment?.settings?.visableForClient === false;
+          const paid = stepDone(payment, 'paid');
+          const toggleStep = (name: string) => handleChange({ target: { id: String(index), name } });
 
-        {/* show confirm remove link dialog */}
-        <Dialog
-          open={confirmRemoveLinkModal}
-          onClose={() => setConfirmRemoveLinkModal(false)}
-          aria-labelledby="alert-dialog-title"
-          aria-describedby="alert-dialog-description"
-        >
-          <DialogTitle id="alert-dialog-title" className='text-end'>
-            {"حذف رابط دفع"}
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText id="alert-dialog-description" className='text-end'>
-              هل انت متاكد من حذف رابط المنتج هذا؟
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmRemoveLinkModal(false)}>تراجع</Button>
-            <Button
-              color='error'
-              onClick={() => {
-                setConfirmRemoveLinkModal(false);
-                props.deteteRow();
-              }} 
-              autoFocus
-            >
-              نعم، اريد حذفه
+          const images = payment?.images?.length > 0 && (
+            <AvatarGroup max={3} className="of-package__images">
+              {payment.images.map((img: any) => (
+                <Avatar key={img.filename} alt={img.filename} src={convertGoogleStorageUrl(img.path)} onClick={() => setPreviewImages(payment.images)} />
+              ))}
+            </AvatarGroup>
+          );
+          const noteButton = (
+            <Button variant="outlined" size="small" type="button" startIcon={<BiNote />} onClick={() => setNoteDialog({ index, text: payment?.note || '' })} disabled={isCanceled}>
+              {payment?.note ? 'Edit note' : 'Add note'}
             </Button>
-          </DialogActions>
-        </Dialog>
+          );
+          const remove = (
+            <RemoveRowButton label={hasShipping ? 'Remove this package' : 'Remove this link'} onClick={() => setRemovingPackage(index)} disabled={isCanceled || paymentList.length <= 1} />
+          );
+          const note = payment?.note && <p className="of-package__note" dir="auto"><BiNote /> {payment.note}</p>;
+          const linkField = (
+            <div className="of-inline">
+              <TextField id={String(index)} label={hasShipping ? 'Purchase link' : 'Payment link'} name="paymentLink" onChange={handleChange} defaultValue={link} disabled={isCanceled} placeholder="https://" />
+              {isLink(link) && (
+                <Tooltip title="Open the link">
+                  <IconButton component="a" href={String(link).trim()} target="_blank" rel="noreferrer" aria-label="Open the link"><MdOpenInNew /></IconButton>
+                </Tooltip>
+              )}
+            </div>
+          );
 
-        <Dialog 
-          open={previewImages}
-          onClose={() => setPreviewImages(undefined)}
-        >
-          <DialogContent>
-            <SwipeableTextMobileStepper data={previewImages} />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
-          </DialogActions>
-        </Dialog>
+          // A purchase with no shipping: the link, its note and whether it is paid
+          if (!hasShipping) {
+            return (
+              <article className="of-package" key={rowKey(payment, index)}>
+                <header className="of-package__head">
+                  <div className="of-package__title">
+                    <strong>Link {index + 1}</strong>
+                    <Badge text={paid ? 'Paid' : 'Not paid'} color={paid ? 'success' : 'warning'} />
+                  </div>
+                  <div className="of-package__actions">
+                    {images}
+                    <Button variant="outlined" size="small" type="button" startIcon={<MdAttachFile />} onClick={() => setFilesDialog({ index, _id: payment?._id, images: payment?.images || [] })}>
+                      Files{payment?.images?.length ? ` (${payment.images.length})` : ''}
+                    </Button>
+                    {noteButton}
+                    {remove}
+                  </div>
+                </header>
+                {linkField}
+                {note}
+                <Checkpoints steps={PAID_STEP} disabled={isCanceled} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
+              </article>
+            );
+          }
+
+          return (
+            <article className="of-package" key={rowKey(payment, index)}>
+              <header className="of-package__head">
+                <div className="of-package__title">
+                  <strong>Package {index + 1}</strong>
+                  {details.trackingNumber ? <span className="of-package__tracking">{details.trackingNumber}</span> : <span className="of-package__missing">No tracking number yet</span>}
+                  {details.shipmentMethod && <Badge text={String(details.shipmentMethod).toUpperCase()} color="primary" />}
+                  {details.locationPlace && <Badge text={details.locationPlace} color="warning" />}
+                  {payment?.flight && <a href={`/inventory/${payment.flight._id}/edit`} target="_blank" rel="noreferrer"><Badge text={payment.flight.voyage} color="sky" /></a>}
+                  {hidden && <Badge text="Hidden from customer" color="danger" />}
+                </div>
+                <div className="of-package__actions">
+                  {images}
+                  {noteButton}
+                  <Button variant="contained" size="small" type="button" startIcon={<MdOutlineEdit />} onClick={() => openPackage(payment, index)}>Details</Button>
+                  {remove}
+                </div>
+              </header>
+
+              <Checkpoints steps={hasLinks ? PACKAGE_STEPS : SHIPPING_STEPS} disabled={isCanceled} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
+
+              <dl className="of-package__facts">
+                <div><dt>Weight</dt><dd>{figures.weight ? `${figures.weight} ${figures.unit}` : 'Not set'}</dd></div>
+                <div><dt>Exios price</dt><dd>{figures.price ? formatMoney(figures.price) : 'Not set'}</dd></div>
+                <div><dt>Charge</dt><dd className="of-package__charge">{figures.charge ? formatMoney(figures.charge) : 'Not set'}</dd></div>
+                <div><dt>Boxes</dt><dd>{details.boxesCount || 'Not set'}</dd></div>
+                {deliveredAt && stepDone(payment, 'received') && <div><dt>Delivered</dt><dd><BsCheck2Circle /> {moment(deliveredAt).format('DD/MM/YYYY HH:mm')}</dd></div>}
+              </dl>
+
+              {note}
+              {hasLinks && linkField}
+            </article>
+          );
+        })}
+      </Section>
+
+      <Dialog open={!!filesDialog} onClose={() => setFilesDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Link {(filesDialog?.index ?? 0) + 1} files</DialogTitle>
+        <DialogContent dividers>
+          {filesDialog?._id && props.onUploadPackageFiles ? (
+            <ImageUploader
+              id={filesDialog._id}
+              inputFileRef={filesRef}
+              fileUploaderHandler={async (event: any) => { const images = await props.onUploadPackageFiles!(event); setFilesDialog((current) => current && { ...current, images }); }}
+              previewFiles={filesDialog.images}
+              deleteImage={props.onDeletePackageFile && !isCanceled
+                ? async (file: any) => { const images = await props.onDeletePackageFile!(file, filesDialog._id!); setFilesDialog((current) => current && { ...current, images }); }
+                : undefined}
+            />
+          ) : (
+            <p className="of-empty">Photos and files can be attached after the link is saved. Save the invoice, then open Files again.</p>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setFilesDialog(null)}>Done</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!noteDialog} onClose={() => setNoteDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{hasShipping ? 'Package' : 'Link'} {(noteDialog?.index ?? 0) + 1} note</DialogTitle>
+        <DialogContent>
+          <TextField
+            className="mt-2" label="Note" multiline minRows={4} maxRows={10} fullWidth autoFocus dir="auto"
+            value={noteDialog?.text || ''} onChange={(event) => changeNote(event.target.value)}
+            helperText="Kept with the form and stored when you save the invoice."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button color="error" onClick={() => changeNote('')} disabled={!noteDialog?.text}>Clear</Button>
+          <Button variant="contained" onClick={() => setNoteDialog(null)}>Done</Button>
+        </DialogActions>
+      </Dialog>
+
+      <PackageDialog
+        value={packageDialog}
+        onChange={setPackageDialog}
+        onClose={() => setPackageDialog({ ...packageDialog, open: false })}
+        handleChange={handleChange}
+        specialPrices={specialPrices}
+        disabled={isCanceled}
+        onUploadFiles={props.onUploadPackageFiles}
+        onDeleteFile={props.onDeletePackageFile}
+      />
+
+      <Dialog open={removingPackage !== null} onClose={() => setRemovingPackage(null)}>
+        <DialogTitle dir="rtl">حذف طرد</DialogTitle>
+        <DialogContent>
+          <DialogContentText dir="rtl">هل انت متاكد من حذف الطرد رقم {(removingPackage ?? 0) + 1} ورابطه؟ يُحذف نهائياً عند حفظ الفاتورة.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemovingPackage(null)}>تراجع</Button>
+          <Button color="error" variant="contained" autoFocus onClick={() => { props.onRemovePackage(removingPackage!); setRemovingPackage(null); }}>نعم، اريد حذفه</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
+        <DialogContent>
+          <SwipeableTextMobileStepper data={previewImages} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewImages(undefined)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
-  )
-}
+  );
+};
 
 export default InvoiceForm;

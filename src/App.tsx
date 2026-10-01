@@ -34,6 +34,39 @@ import OdoExport from './containers/OdoExport/OdoExport';
 import DeletedStatements from './containers/DeletedStatements/DeletedStatements';
 import Marketing from './containers/Marketing/Marketing';
 import Analytics from './containers/Analytics/Analytics';
+import AccountingLayout from './containers/Accounting/AccountingLayout';
+import AccountingDashboard from './containers/Accounting/Dashboard';
+import JournalEntries from './containers/Accounting/JournalEntries';
+import EntryForm from './containers/Accounting/EntryForm';
+import EntryDetail from './containers/Accounting/EntryDetail';
+import ChartOfAccounts from './containers/Accounting/ChartOfAccounts';
+import AccountLedger from './containers/Accounting/AccountLedger';
+import TrialBalance from './containers/Accounting/TrialBalance';
+import DailyRates from './containers/Accounting/DailyRates';
+import AccountingSettings from './containers/Accounting/AccountingSettings';
+import AccountingAuditLog from './containers/Accounting/AuditLog';
+import { BillsList, BillDetail } from './containers/Accounting/Bills';
+import BillForm from './containers/Accounting/BillForm';
+import { VendorsList, VendorStatement } from './containers/Accounting/Vendors';
+import { CustomerInvoicePage, CustomerInvoicesList, CustomerPage, CustomersList } from './containers/Accounting/Customers';
+import { PaymentsList, PaymentForm } from './containers/Accounting/Payments';
+import QuickExpenses from './containers/Accounting/QuickExpenses';
+import TripCosts from './containers/Accounting/TripCosts';
+import Treasury from './containers/Accounting/Treasury';
+import AccountingAssets from './containers/Accounting/Assets';
+import AccountingEmployees from './containers/Accounting/Employees';
+import { Equity as AccountingEquity, Netting as AccountingNetting } from './containers/Accounting/EquityAndNetting';
+import BankReconciliation from './containers/Accounting/BankReconciliation';
+import AccountingMigration from './containers/Accounting/Migration';
+import AccountingGuide from './containers/Accounting/Guide';
+import AccountingSuspense from './containers/Accounting/Suspense';
+import AccountingReports from './containers/Accounting/Reports';
+import AccountingExceptions from './containers/Accounting/Exceptions';
+import AccountingClosing from './containers/Accounting/Closing';
+import AccountingVoucher from './containers/Accounting/Voucher';
+import AccountingOdooExport from './containers/Accounting/OdooExport';
+import AccountingStartWizard from './containers/Accounting/StartWizard';
+import AccountingAccessControl from './containers/Accounting/AccessControl';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -142,6 +175,49 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/deleted-payments' element={<DeletedStatements />} />
       <Route path='/marketing' element={<Marketing />} />
       <Route path='/analytics' element={<Analytics />} />
+      <Route path='/accounting' element={<AccountingLayout />}>
+        <Route index element={<AccountingDashboard />} />
+        <Route path='entries' element={<JournalEntries />} />
+        <Route path='entries/new' element={<EntryForm />} />
+        <Route path='entries/:id' element={<EntryDetail />} />
+        <Route path='accounts' element={<ChartOfAccounts />} />
+        <Route path='accounts/:id' element={<AccountLedger />} />
+        <Route path='trial-balance' element={<TrialBalance />} />
+        <Route path='rates' element={<DailyRates />} />
+        <Route path='settings' element={<AccountingSettings />} />
+        <Route path='audit' element={<AccountingAuditLog />} />
+        <Route path='bills' element={<BillsList />} />
+        <Route path='bills/new' element={<BillForm />} />
+        <Route path='bills/:id' element={<BillDetail />} />
+        <Route path='bills/:id/edit' element={<BillForm />} />
+        <Route path='customers' element={<CustomersList />} />
+        <Route path='customers/:id' element={<CustomerPage />} />
+        <Route path='customer-invoices' element={<CustomerInvoicesList />} />
+        <Route path='customer-invoices/:id' element={<CustomerInvoicePage />} />
+        <Route path='receivables' element={<Navigate to='/accounting/reports?tab=receivables' replace />} />
+        <Route path='vendors' element={<VendorsList />} />
+        <Route path='vendors/:id' element={<VendorStatement />} />
+        <Route path='payments' element={<PaymentsList />} />
+        <Route path='payments/new' element={<PaymentForm />} />
+        <Route path='expenses' element={<QuickExpenses />} />
+        <Route path='trips' element={<TripCosts />} />
+        <Route path='treasury' element={<Treasury />} />
+        <Route path='bank' element={<BankReconciliation />} />
+        <Route path='employees' element={<AccountingEmployees />} />
+        <Route path='assets' element={<AccountingAssets />} />
+        <Route path='equity' element={<AccountingEquity />} />
+        <Route path='netting' element={<AccountingNetting />} />
+        <Route path='migration' element={<AccountingMigration />} />
+        <Route path='guide' element={<AccountingGuide />} />
+        <Route path='suspense' element={<AccountingSuspense />} />
+        <Route path='reports' element={<AccountingReports />} />
+        <Route path='exceptions' element={<AccountingExceptions />} />
+        <Route path='closing' element={<AccountingClosing />} />
+        <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
+        <Route path='odoo' element={<AccountingOdooExport />} />
+        <Route path='start' element={<AccountingStartWizard />} />
+        <Route path='access' element={<AccountingAccessControl />} />
+      </Route>
     </>
   }
 }

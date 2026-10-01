@@ -18,6 +18,7 @@ import UserInvoices from './UserInvoices';
 import SpecialPricesTab from './SpecialPricesTab';
 import PassportVerificationTab from './PassportVerificationTab';
 import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
+import { CustomerAccounting } from '../Accounting/AccountingPanels';
 
 // The fields the Customer info card edits; the rest of the loaded user stays as it is
 const pickCustomerInfo = (updated: any) => ({
@@ -41,7 +42,7 @@ const UserDetails = (props: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
-  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings'>('profile');
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings' | 'accounting'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
   useEffect(() => {
@@ -137,6 +138,7 @@ const UserDetails = (props: Props) => {
         <Tab label="Created Invoices" value="invoices" />
         <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
+        {canReviewPassports && <Tab label="Accounting" value="accounting" />}
       </Tabs>
 
       {activeTap === 'profile' ? (
@@ -189,6 +191,10 @@ const UserDetails = (props: Props) => {
             onStatementChanged={refreshWalletAndStatement}
             isLoading={isStatementLoading}
           />
+        </div>
+      ) : activeTap === 'accounting' ? (
+        <div className="col-md-12">
+          <CustomerAccounting customerId={user._id} />
         </div>
       ) : activeTap === 'orders' ? (
         <div className="col-md-12">

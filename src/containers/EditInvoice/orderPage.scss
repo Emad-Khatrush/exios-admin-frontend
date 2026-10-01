@@ -1,0 +1,519 @@
+// The create and edit pages of an order. Same tokens as the order form: neutral greys, the
+// admin's green as the only accent, 12px panels and 8px controls. Every text element sets its own
+// size because the admin's global stylesheet forces a font size on all elements.
+
+.order-page {
+  --op-ink: #1c2530;
+  --op-muted: #5d6875;
+  --op-line: #e4e8ee;
+  --op-soft: #f6f8fa;
+  --op-accent: #007b3d;
+  --op-accent-ink: #00602f;
+
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+  color: var(--op-ink);
+  font-size: 14px;
+  line-height: 1.5;
+
+  // Colours, radius and sizes of the controls come from OrderTheme
+  .MuiButton-root:active { transform: translateY(1px); }
+  .MuiFormControl-root { width: 100%; }
+}
+
+// The admin's global rule gives every element 20px. Inside the page text follows its parent
+// instead; :where() keeps this at zero specificity, so any class (MUI's included) still wins.
+:where(.order-page *) { font-size: inherit; }
+
+// ---------- Header ----------
+
+.op-crumbs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+
+  a, span { font-size: 12.5px; color: var(--op-muted); text-decoration: none; }
+  a:hover { color: var(--op-ink); text-decoration: underline; }
+}
+
+.op-header {
+  margin-bottom: 14px;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; }
+  }
+
+  &__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__sub {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    color: var(--op-muted);
+
+    a { font-size: 13.5px; color: var(--op-accent-ink); text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+  }
+}
+
+.op-copy {
+  border: 1px solid var(--op-line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--op-muted);
+  cursor: pointer;
+
+  &:hover { color: var(--op-ink); border-color: #c9d0d9; }
+  &:active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--op-accent); outline-offset: 2px; }
+}
+
+.op-alert { margin-top: 12px; font-size: 13.5px; }
+
+.op-tabs {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  padding: 0 6px;
+  margin-bottom: 14px;
+}
+
+// ---------- Layout ----------
+
+.op-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 14px;
+  align-items: start;
+
+  &[hidden] { display: none; }
+}
+
+.op-main { min-width: 0; }
+
+.op-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.op-panel {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  &__title { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--op-ink); }
+  &__head &__title { margin: 0; }
+  &__hint { margin: 2px 0 0; font-size: 12.5px; color: var(--op-muted); strong { font-size: 13px; color: var(--op-ink); } }
+}
+
+.op-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.op-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  &--between { justify-content: space-between; }
+  &--start { justify-content: flex-start; margin-bottom: 10px; }
+
+  .MuiFormControlLabel-label { font-size: 13px; }
+}
+
+.op-templates {
+  flex-wrap: wrap;
+
+  .MuiButton-root { font-size: 12.5px; flex: 1 1 auto; }
+}
+
+.op-muted { margin: 0; font-size: 13px; color: var(--op-muted); }
+
+.op-skeleton { border-radius: 12px; margin-bottom: 14px; }
+
+// The customer-facing timeline of the order
+.op-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--op-line);
+  }
+  li:last-child { border-bottom: 0; }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    span { font-size: 13.5px; line-height: 1.6; }
+  }
+
+  &__meta { font-size: 12px !important; color: var(--op-muted); }
+  &__confirm { display: inline-flex; gap: 4px; flex: none; }
+}
+
+// Saving stays in reach while the long form scrolls
+.op-savebar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(28, 37, 48, 0.08);
+
+  span { font-size: 13px; }
+  &__dirty { color: #9a5b00; font-weight: 600; }
+}
+
+// ---------- Payments ----------
+
+.op-payments-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+
+  .op-panel--wide { grid-column: 1 / -1; }
+}
+
+// What is owed and paid, at a glance
+.op-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.op-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+
+  &__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+  &__title { font-size: 12.5px; font-weight: 700; color: var(--op-muted); }
+  &__value { font-size: 22px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--op-ink); overflow-wrap: anywhere; }
+  &__caption { font-size: 12.5px; color: var(--op-muted); }
+  &__line { font-size: 12.5px; line-height: 1.5; color: var(--op-muted); }
+  &__warn { font-size: 12px; line-height: 1.5; color: #9a5b00; }
+  &__link { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--op-accent-ink); text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+.op-bar {
+  height: 6px;
+  margin: 6px 0 2px;
+  border-radius: 999px;
+  background: #e9edf1;
+  overflow: hidden;
+
+  span { display: block; height: 100%; border-radius: 999px; background: var(--op-accent); transition: width 0.3s ease; }
+}
+
+.op-subtitle { margin: 16px 0 10px; font-size: 13px; font-weight: 700; color: var(--op-ink); }
+
+.op-payments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--op-line);
+    border-radius: 8px;
+    background: var(--op-soft);
+  }
+  > li:last-child { margin-bottom: 0; }
+
+  &__main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+
+    strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+    span { font-size: 12.5px; }
+    .MuiAvatar-root { width: 28px; height: 28px; cursor: pointer; }
+    .custom-badge { font-family: system-ui, sans-serif; }
+  }
+
+  &__delete { margin-inline-start: auto; }
+  &__warn { color: #9a5b00; font-weight: 600; }
+  &__note { margin-top: 6px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+  &__meta { display: block; margin-top: 6px; font-size: 12px; color: var(--op-muted); }
+
+  &__packages {
+    margin: 6px 0 0;
+    padding-inline-start: 18px;
+
+    li { font-size: 12.5px; color: var(--op-muted); }
+  }
+}
+
+// Packages to pay the shipping of
+.op-packages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--op-line);
+  border-radius: 8px;
+  overflow: hidden;
+
+  &:empty { display: none; }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 4px;
+    border-bottom: 1px solid var(--op-line);
+  }
+  li:last-child { border-bottom: 0; }
+  li.is-selected { background: #e8f5ee; }
+
+  &__text { display: flex; flex-direction: column; flex: 1; min-width: 0; span { font-size: 12.5px; } }
+  &__tracking { font-size: 13px !important; font-weight: 600; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; overflow-wrap: anywhere; }
+  &__charge { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .custom-badge { font-family: system-ui, sans-serif; }
+}
+
+.op-paybar { margin-top: 10px; strong { font-size: 13.5px; color: var(--op-ink); } }
+
+.op-debts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--op-line);
+
+    strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+    span { font-size: 12.5px; }
+  }
+
+  &__note { flex-basis: 100%; font-size: 13px !important; line-height: 1.6; color: var(--op-ink); }
+}
+
+.op-change {
+  padding: 10px 0;
+  border-top: 1px solid var(--op-line);
+
+  &:first-of-type { border-top: 0; padding-top: 0; }
+  &__meta { margin: 6px 0 4px; font-size: 13px; color: var(--op-muted); s { font-size: 13px; } }
+  &__items { margin: 0 0 8px; padding-inline-start: 18px; li { font-size: 13px; } }
+}
+
+// ---------- Dialogs ----------
+// A dialog opens outside the page element, so nothing here can use the page's variables or
+// its font reset: colours are written out and every text sets its size.
+
+.op-dialog__sub { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; color: #5d6875; }
+
+.op-alert--tight { margin: 0 0 12px; }
+
+.op-due {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #f6f8fa;
+  border: 1px solid #e4e8ee;
+  border-radius: 8px;
+
+  span { font-size: 13px; color: #5d6875; }
+  strong { font-size: 18px; font-variant-numeric: tabular-nums; color: #1c2530; }
+}
+
+.op-picked {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+
+  li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dashed #e4e8ee; }
+  span { font-size: 12.5px; color: #3d4756; overflow-wrap: anywhere; }
+}
+
+.op-label { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #1c2530; }
+
+.op-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.op-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #cfd6de;
+  border-radius: 8px;
+  background: #fff;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: #007b3d; }
+  &:focus-visible { outline: 2px solid #007b3d; outline-offset: 2px; }
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+
+  &__mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid #9aa5b1;
+    border-radius: 50%;
+    color: #fff;
+
+    svg { font-size: 13px; }
+  }
+
+  &__text { display: flex; flex-direction: column; min-width: 0; }
+  &__label { font-size: 12.5px; font-weight: 600; color: #5d6875; }
+  &__value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c2530; }
+  &__hint { font-size: 12px; color: #5d6875; }
+
+  &.is-active { background: #e8f5ee; border-color: #007b3d; box-shadow: inset 0 0 0 1px #007b3d; }
+  &.is-active &__mark { background: #007b3d; border-color: #007b3d; }
+}
+
+.op-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 4px;
+
+  .MuiFormControl-root { width: 100%; }
+}
+
+.op-note { width: 100%; margin-top: 12px !important; }
+
+// The dinar rate is shown, never typed
+.op-rate { width: 100%; margin: 4px 0 10px !important; }
+
+.op-outcome {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  background: #f6f8fa;
+  border-radius: 8px;
+
+  dt { font-size: 11.5px; font-weight: 600; color: #5d6875; }
+  dd { margin: 0; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c2530; }
+  dd.is-bad { color: #c62828; }
+}
+
+.op-delete-list {
+  margin: 0 0 14px;
+  padding-inline-start: 18px;
+
+  li { font-size: 13.5px; line-height: 1.7; color: #3d4756; }
+}
+
+// ---------- Shipping label ----------
+
+.op-label-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  .MuiFormControlLabel-label { font-size: 13.5px; }
+}
+
+.op-label-address { font-size: 12.5px; line-height: 1.7; color: #5d6875; }
+
+.op-label {
+  width: 400px;
+  max-width: 100%;
+  background: #fff;
+  text-align: center;
+  border: 2px solid #000;
+
+  > div { border: 2px solid #000; padding: 16px; }
+  p { margin: 0 0 6px; font-size: 16px; }
+  strong { font-size: inherit; }
+  &__inspection { color: #d32f2f; }
+}
+
+@media (max-width: 1100px) {
+  .op-layout { grid-template-columns: minmax(0, 1fr); }
+  .op-payments-grid { grid-template-columns: minmax(0, 1fr); }
+  .op-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .op-stats, .op-outcome, .op-choices { grid-template-columns: minmax(0, 1fr); }
+  .order-page { padding: 12px 12px 40px; }
+  .op-header__title h1 { font-size: 20px; }
+  .op-savebar { flex-direction: column; align-items: stretch; text-align: center; }
+}
