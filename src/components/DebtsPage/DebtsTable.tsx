@@ -8,20 +8,19 @@ import { calculateTotalDebt, checkIfDataArray } from '../../utils/methods';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { Clock, Download, Plus, Search, Users, Wallet, X, FolderOpen, RotateCw } from 'lucide-react';
+import { useOffices } from '../../utils/useOffices';
 
 type Props = {
   setDialog: (state: any) => void
   onCreateDebt: () => void
 }
 
-const OFFICES = [
-  { value: 'tripoli', label: 'Tripoli' },
-  { value: 'benghazi', label: 'Benghazi' },
-]
 
 const SEARCH_DELAY_MS = 350;
 
 const DebtsTable = (props: Props) => {
+  // Offices are data (spec C4)
+  const OFFICES = useOffices().map((o) => ({ value: o.code, label: o.nameEn || o.name }));
   const account: Account = useSelector((state: any) => state.session?.account)
 
   const [isLoading, setIsLoading] = useState<boolean>(false);

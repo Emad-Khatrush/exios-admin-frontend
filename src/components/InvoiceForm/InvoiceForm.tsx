@@ -22,8 +22,9 @@ import ImageUploader from '../ImageUploader/ImageUploader';
 import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
-import { LIBYAN_CITIES, OFFICES, ORIGIN_COUNTRIES, OrderKind, PACKAGE_STEPS, PURCHASE_CURRENCIES, SHIPMENT_METHODS, apiErrorMessage, toDate, unitForMethod } from './constants';
+import { LIBYAN_CITIES, ORIGIN_COUNTRIES, OrderKind, PACKAGE_STEPS, PURCHASE_CURRENCIES, SHIPMENT_METHODS, apiErrorMessage, toDate, unitForMethod } from './constants';
 import { Checkpoints, ComboField, NUMBER_INPUT, OrderKindPicker, RemoveRowButton, Section, SelectField, ToggleChip, blurOnWheel, formatMoney, packageFigures } from './parts';
+import { useOffices } from '../../utils/useOffices';
 import './InvoiceForm.scss';
 
 type Props = {
@@ -63,6 +64,9 @@ const SHIPPING_STEPS = PACKAGE_STEPS.slice(1);
 const UNKNOWN_CUSTOMER = { id: 'A000', name: 'مجهول' };
 
 const InvoiceForm = (props: Props) => {
+  // Offices are data (spec C4)
+  const offices = useOffices();
+  const officeOptions: [string, string][] = offices.map((o) => [o.code, `${o.nameEn || o.name} office`]);
   const { handleChange, employees, items = [], purchaseItems = [], paymentList = [] } = props;
   const { roles } = useSelector((state: any) => state.session.account);
 
@@ -260,7 +264,7 @@ const InvoiceForm = (props: Props) => {
       <Section title="Order">
         <div className="of-grid of-grid--2">
           <TextField name="productName" required label="Products category" onChange={handleChange} defaultValue={invoice?.productName} disabled={isCanceled} />
-          <SelectField label="Office" name="placedAt" options={OFFICES} defaultValue={invoice?.placedAt} onChange={handleChange} required disabled={isCanceled} />
+          <SelectField label="Office" name="placedAt" options={officeOptions} defaultValue={invoice?.placedAt} onChange={handleChange} required disabled={isCanceled} />
           <ComboField label="Shipment from" name="fromWhere" options={ORIGIN_COUNTRIES} defaultValue={invoice?.shipment?.fromWhere} onChange={handleChange} required disabled={isCanceled} helperText="Choose غير to write a country that is not listed" />
           <ComboField
             label="Shipment to" name="toWhere" options={LIBYAN_CITIES} defaultValue={invoice?.shipment?.toWhere} onChange={handleChange} required disabled={isCanceled}

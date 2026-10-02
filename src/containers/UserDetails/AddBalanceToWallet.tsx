@@ -9,12 +9,11 @@ import { sys } from '../Accounting/accountingApi';
 import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
+import { useOffices } from '../../utils/useOffices';
 
 type Props = {}
 
-const offices = [
-  { value: 'tripoli', label: 'مكتب طرابلس' },
-  { value: 'benghazi', label: 'مكتب بنغازي' },
+const BANK_PLACES = [
   { value: 'bank', label: 'بنك الليبي' },
   { value: 'almutahidaTrBank', label: 'حساب الشركة المتحدة تركيا' },
   // { value: 'alipayCompany1', label: 'محفظة Alipay - الشركة' },
@@ -29,6 +28,8 @@ const actionTypes = [
 ];
 
 const AddBalanceToWallet = (props: Props) => {
+  // Offices are data (spec C4); the old bank choices stay after them
+  const offices = [...useOffices().map((o) => ({ value: o.code, label: `مكتب ${o.name}` })), ...BANK_PLACES];
   const { id } = useParams();
 
   const [currency, setCurrency] = useState<string>('');

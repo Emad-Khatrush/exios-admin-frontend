@@ -8,6 +8,7 @@ import api from '../../api';
 import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
+import { useOffices } from '../../utils/useOffices';
 
 type Props = {
   balances?: any
@@ -19,12 +20,9 @@ type Props = {
   actionType?: 'cash' | 'refund' | 'compensation' | 'wallet' | 'withdrawal'
 }
 
-const offices = [
-  { value: 'tripoli', label: 'Tripoli' },
-  { value: 'benghazi', label: 'Benghazi' },
-];
-
 const UseWalletBalance = (props: Props) => {
+  // Offices are data (spec C4)
+  const offices = useOffices().map((o) => ({ value: o.code, label: o.nameEn || o.name }));
   const { id } = useParams();
 
   const [currency, setCurrency] = useState<string>('');

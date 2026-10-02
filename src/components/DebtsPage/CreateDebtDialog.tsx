@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import { sys } from "../../containers/Accounting/accountingApi";
 import { getErrorMessage } from "../../utils/errorHandler";
+import { useOffices } from '../../utils/useOffices';
 
 import './Debts.scss';
 
@@ -14,6 +15,7 @@ type Props = {
 }
 
 const CreateDebtDialog = (props: Props) => {
+  const offices = useOffices();
   const [form, setForm] = useState<any>({ debtType: props.debtType });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -135,8 +137,7 @@ const CreateDebtDialog = (props: Props) => {
                 name="createdOffice"
                 onChange={onChangeHandler}
               >
-                <MenuItem value={'tripoli'}>Tripoli office</MenuItem>
-                <MenuItem value={'benghazi'}>Benghazi office</MenuItem>
+                {offices.map((o) => <MenuItem key={o.code} value={o.code}>{o.nameEn || o.name} office</MenuItem>)}
               </Select>
             </FormControl>
           </div>
