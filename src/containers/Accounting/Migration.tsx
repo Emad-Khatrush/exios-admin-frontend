@@ -441,6 +441,37 @@ const Migration = () => {
             </Panel>
           )}
 
+          {report.overpaidSettled?.count > 0 && (
+            <Panel flush title={`دفع زائد سُجّل إيرادات أخرى (${report.overpaidSettled.count})`} subtitle={<>ما دفعه العميل على طلب فوق كل ما عليه (جمرك من المحفظة، دين على الطلب أكبر من فاتورته…). سُجّل إيرادات أخرى على نفس الطلب. راجِع القائمة: ما كان خطأً يُعاد للعميل. الإجمالي <Money value={report.overpaidSettled.total} /></>}>
+              <DataTable
+                dense
+                maxHeight={320}
+                rows={report.overpaidSettled.list || []}
+                rowKey={(row: any) => row.arKey}
+                columns={[
+                  { key: 'order', header: 'الطلب', render: (row: any) => (row.orderId ? <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> : 'دين عام') },
+                  { key: 'kind', header: 'المطالبة', render: (row: any) => ({ PUR: 'فاتورة شراء', SHP: 'شحن', GEN: 'دين' } as any)[row.arKey.split(':')[0]] || row.arKey },
+                  { key: 'amount', header: 'الزائد', numeric: true, render: (row: any) => <Money value={row.amount} /> },
+                ]}
+              />
+            </Panel>
+          )}
+
+          {report.unsurePaid?.count > 0 && (
+            <Panel flush title={`طلبات غير مؤكدة عليها دفعات (${report.unsurePaid.count})`} subtitle="دُفع عليها فعوملت كطلبات عادية. هذا خطأ في البيانات يجب تصحيحه: أكّد الطلب أو صحّح الدفعة. تظهر أيضاً في المطابقة والاستثناءات.">
+              <DataTable
+                dense
+                rows={report.unsurePaid.list || []}
+                rowKey={(row: any) => String(row.orderId)}
+                columns={[
+                  { key: 'order', header: 'الطلب', render: (row: any) => <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> },
+                  { key: 'total', header: 'قيمة الفاتورة', numeric: true, render: (row: any) => <Ltr>{row.totalInvoice}$</Ltr> },
+                  { key: 'paid', header: 'المدفوع', numeric: true, render: (row: any) => <Money value={row.paid} /> },
+                ]}
+              />
+            </Panel>
+          )}
+
           {report.debtsWithoutSource?.count > 0 && (
             <Panel title={`ديون عامة قديمة بلا مصدر (${report.debtsWithoutSource.count})`} subtitle="لا يُعرف من أي خزينة خرج مالها، فسُجّلت مقابل حساب المعلّق (لا كإيراد)، وتُقفل معه في الرصيد الافتتاحي إن اخترت ذلك.">
               <p className="acc-muted m-0">الإجمالي <Money value={report.debtsWithoutSource.usd} /></p>
