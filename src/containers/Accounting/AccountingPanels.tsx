@@ -300,6 +300,91 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
   );
 };
 
+// Abandoned goods (spec v8): a package not collected long after it reached Libya. An admin or the
+// owner declares it abandoned (the customer is billed only what was paid; its whole cost is
+// recognised), may undo that until it is sold, then records the sale.
+const ABANDON_LABEL: Record<string, string> = { abandoned: 'متروك', sold: 'مُباع' };
+const AbandonedPanel = ({ orderId, onChanged }: { orderId: string; onChanged: () => void }) => {
+  const [data, setData] = useState<any>(null);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selling, setSelling] = useState<any>(null);
+  const [form, setForm] = useState({ accountId: '', amount: '', usdValue: '', day: todayLibya() });
+  const [error, setError] = useState('');
+  const load = useCallback(() => {
+    sys.get(`acc/orders/${orderId}/packages-state`).then((res: any) => setData(res.data)).catch(() => {});
+  }, [orderId]);
+  useEffect(load, [load]);
+  if (!data) return null;
+  const rows = (data.results || []).filter((p: any) => !p.received && (p.arrivedLibya || p.abandoned));
+  if (!rows.length) return null;
+  const act = async (row: any, action: 'abandon' | 'restore', confirmText: string) => {
+    if (!window.confirm(confirmText)) return;
+    try {
+      setError('');
+      await sys.post(`acc/orders/${orderId}/packages/${row._id}/${action}`);
+      load();
+      onChanged();
+    } catch (err: any) {
+      setError(errorText(err));
+    }
+  };
+  const account = accounts.find((a) => a._id === form.accountId);
+  const sell = async () => {
+    try {
+      setError('');
+      await sys.post(`acc/orders/${orderId}/packages/${selling._id}/sell`, { ...form, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined });
+      setSelling(null);
+      load();
+      onChanged();
+    } catch (err: any) {
+      setError(errorText(err));
+    }
+  };
+  const openSale = (row: any) => {
+    setSelling(row);
+    if (!accounts.length) sys.get('acc/money-accounts').then((res: any) => setAccounts(res.data.results || [])).catch(() => {});
+  };
+  return (
+    <Panel flush title="طرود لم تُستلم" subtitle={`ما مرّ على وصوله ${data.abandonAfterDays} يوماً أو أكثر يُعلَّم «متأخر». الإعلان «متروك» يُبقي على العميل ما دفعه فقط ويحمّل التكلفة كاملة؛ المحفظة لا تتأثر. التراجع ممكن قبل البيع.`}>
+      {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+      <DataTable
+        dense rows={rows} rowKey={(row: any) => row._id}
+        columns={[
+          { key: 'tracking', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.abandoned?.status && <Badge tone={row.abandoned.status === 'sold' ? 'muted' : 'warn'}>{ABANDON_LABEL[row.abandoned.status]}</Badge>}{!row.abandoned && row.overdue && <Badge tone="danger">متأخر</Badge>}</> },
+          { key: 'age', header: 'منذ الوصول', numeric: true, render: (row: any) => (row.age === null ? '-' : `${row.age} يوم`) },
+          { key: 'sale', header: 'البيع', render: (row: any) => (row.abandoned?.sale ? <><Ltr>{row.abandoned.sale.amount} {row.abandoned.sale.currency}</Ltr><Sub><Ltr>{row.abandoned.sale.day}</Ltr></Sub></> : null) },
+          ...(data.canManage ? [{
+            key: 'actions', header: '', align: 'end' as const, render: (row: any) => (
+              <span className="d-inline-flex gap-1">
+                {!row.abandoned && <Button size="small" color="warning" onClick={() => act(row, 'abandon', 'إعلان الطرد متروكاً؟ يبقى على العميل ما دفعه فقط، وتُحمَّل تكلفته كاملة.')}>إعلان متروك</Button>}
+                {row.abandoned?.status === 'abandoned' && <Button size="small" onClick={() => openSale(row)}>بيع</Button>}
+                {row.abandoned?.status === 'abandoned' && <Button size="small" onClick={() => act(row, 'restore', 'التراجع عن إعلان الطرد متروكاً؟ تعود مطالبته وتكلفته كما كانت.')}>تراجع</Button>}
+              </span>
+            ),
+          }] : []),
+        ]}
+      />
+      <Dialog open={!!selling} onClose={() => setSelling(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>بيع بضاعة متروكة {selling?.tracking}</DialogTitle>
+        <DialogContent>
+          <div className="acc-form-grid">
+            <TextField select label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+              {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
+            </TextField>
+            <TextField type="number" label={`المبلغ (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (فارغ = سعر اليوم)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
+            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelling(null)}>إلغاء</Button>
+          <Button variant="contained" disabled={!form.accountId || !(Number(form.amount) > 0)} onClick={sell}>تسجيل البيع</Button>
+        </DialogActions>
+      </Dialog>
+    </Panel>
+  );
+};
+
 // Writing off what is left on a delivered package or a purchase invoice (spec 19.7)
 const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () => void; onDone: () => void }) => {
   const [form, setForm] = useState({ amount: (claim.open / 100).toFixed(2), reason: '', day: todayLibya() });
@@ -349,6 +434,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
         <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={() => {}} />
         <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
         {isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
+        <AbandonedPanel orderId={orderId} onChanged={() => {}} />
       </Frame>
     );
   }
@@ -359,6 +445,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
       {data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
       <PreviousCustomerLines orderId={orderId} onMoved={reload} />
       {(isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
+      <AbandonedPanel orderId={orderId} onChanged={reload} />
       {empty && <NoEntries />}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
