@@ -177,6 +177,53 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
   );
 };
 
+// After an order moves from A000 to its real customer: A000's wallet lines for this shipment
+// (a deposit made for it, the payment taken from it). The staff member ticks the ones that belong
+// to the new customer; they change owner and are posted again on their own dates (spec 19.10).
+const PreviousCustomerLines = ({ orderId, onMoved }: { orderId: string; onMoved: () => void }) => {
+  const [rows, setRows] = useState<any[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sys.get(`acc/orders/${orderId}/previous-statements`).then((res: any) => {
+      setRows(res.data.results || []);
+      setPicked((res.data.results || []).filter((r: any) => r.linked).map((r: any) => r._id));
+    }).catch(() => setRows([]));
+  }, [orderId]);
+  useEffect(load, [load]);
+  if (!rows.length) return null;
+  const move = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      await sys.post(`acc/orders/${orderId}/move-statements`, { statementIds: picked });
+      load();
+      onMoved();
+    } catch (err: any) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel flush title="سطور محفظة العميل السابق لهذا الطلب" subtitle="الطلب كان على عميل آخر (مثل A000). اختر السطور التي تخص العميل الحالي لنقلها إلى محفظته بتواريخها.">
+      {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+      <DataTable
+        dense rows={rows} rowKey={(row: any) => row._id}
+        columns={[
+          { key: 'pick', header: '', render: (row: any) => <input type="checkbox" checked={picked.includes(row._id)} onChange={(e) => setPicked(e.target.checked ? [...picked, row._id] : picked.filter((id) => id !== row._id))} /> },
+          { key: 'date', header: 'التاريخ', render: (row: any) => <Ltr>{String(row.date).slice(0, 10)}</Ltr> },
+          { key: 'customer', header: 'العميل', render: (row: any) => (row.customer ? userLabel(row.customer) : '') },
+          { key: 'description', header: 'البيان', render: (row: any) => <>{row.description}{row.note && <Sub>{row.note}</Sub>}{row.linked && <Badge tone="info">مرتبط بالطلب</Badge>}</> },
+          { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Ltr>{row.calculationType === '-' ? '-' : '+'}{row.amount} {row.currency}</Ltr> },
+        ]}
+      />
+      <div className="p-3"><Button variant="contained" disabled={busy || !picked.length} onClick={move}>نقل المحدد إلى العميل الحالي</Button></div>
+    </Panel>
+  );
+};
+
 export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, orderNumber?: string }) => {
   const { access, canSee, data, error, reload } = useSummary(orderId ? `summary/order/${orderId}` : null);
   if (!orderId || access.loading) return null;
@@ -185,6 +232,7 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
     return (
       <Frame title="المحاسبة" error="" loading={false}>
         <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={() => {}} />
+        <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
       </Frame>
     );
   }
@@ -193,6 +241,7 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
   return (
     <Frame title="المحاسبة" error={error} loading={!data}>
       {data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
+      <PreviousCustomerLines orderId={orderId} onMoved={reload} />
       {empty && <NoEntries />}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
