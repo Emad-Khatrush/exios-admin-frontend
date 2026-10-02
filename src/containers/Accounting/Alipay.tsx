@@ -3,7 +3,8 @@ import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogCon
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { CancelDialog, today, useVendors } from './shared';
+import { CancelDialog, RemotePicker, orderLabel, today, useVendors } from './shared';
+import { AlipaySendPanel } from './AlipaySend';
 import { Amount, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 
 // The Alipay section (spec 19.5): yuan bought from brokers, yuan waiting to arrive, the Alipay
@@ -17,6 +18,8 @@ const Alipay = () => {
   const [buying, setBuying] = useState(false);
   const [arriving, setArriving] = useState<any>(null);
   const [cancel, setCancel] = useState<any>(null);
+  const [sending, setSending] = useState(false);
+  const [sendOrder, setSendOrder] = useState<any>(null);
   const load = () => acc.get('alipay').then((res: any) => setData(res.data)).catch((err: any) => setError(errorText(err)));
   useEffect(() => { load(); }, []);
 
@@ -26,7 +29,7 @@ const Alipay = () => {
       <PageHeader
         title="Alipay"
         subtitle="شراء اليوان من الوسطاء وأرصدة حسابات Alipay بمتوسط سعرها، والحوالات لعملاء الصين بربح كل منها. الحوالة نفسها فاتورة شراء معلَّمة «حوالة Alipay» تُسجَّل من المنظومة."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setBuying(true)}>شراء يوان</Button>}
+        actions={<div className="d-flex gap-2"><Button variant="outlined" onClick={() => setSending(true)}>إرسال حوالة</Button><Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setBuying(true)}>شراء يوان</Button></div>}
       />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       {data && (
@@ -120,6 +123,15 @@ const Alipay = () => {
           </Panel>
         </>
       )}
+      <Dialog open={sending} onClose={() => { setSending(false); setSendOrder(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle>إرسال حوالة لطلب</DialogTitle>
+        <DialogContent>
+          <RemotePicker endpoint="lookup/orders" label="رقم الطلب (معلَّم حوالة Alipay)" value={sendOrder} getLabel={orderLabel} onChange={setSendOrder} />
+          {sendOrder && <div className="mt-3"><AlipaySendPanel key={sendOrder._id} orderId={sendOrder._id} from="accounting" onSent={load} /></div>}
+          {sendOrder && <p className="acc-muted mt-2">إن لم يظهر نموذج الدفع فالطلب غير معلَّم «حوالة Alipay».</p>}
+        </DialogContent>
+        <DialogActions><Button onClick={() => { setSending(false); setSendOrder(null); }}>إغلاق</Button></DialogActions>
+      </Dialog>
       {buying && <BuyDialog onClose={() => setBuying(false)} onDone={() => { setBuying(false); load(); }} />}
       {arriving && <ArrivalDialog purchase={arriving} onClose={() => setArriving(null)} onDone={() => { setArriving(null); load(); }} />}
       {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingYuanPurchase" id={cancel._id} title={`شراء اليوان ${cancel.number}`} />}

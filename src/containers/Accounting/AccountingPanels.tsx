@@ -4,6 +4,7 @@ import { EVENT_LABELS, acc, errorText, newKey, sys, todayLibya } from './account
 import { userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
 import { useAccountingAccess } from './useAccountingAccess';
+import { AlipaySendPanel } from './AlipaySend';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
@@ -435,6 +436,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
         <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
         {isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
         <AbandonedPanel orderId={orderId} onChanged={() => {}} />
+        {isPayment && <AlipaySendPanel orderId={orderId} />}
       </Frame>
     );
   }
@@ -446,6 +448,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
       <PreviousCustomerLines orderId={orderId} onMoved={reload} />
       {(isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
       <AbandonedPanel orderId={orderId} onChanged={reload} />
+      {(isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
       {empty && <NoEntries />}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
