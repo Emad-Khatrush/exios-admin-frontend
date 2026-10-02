@@ -24,7 +24,7 @@ const BillForm = () => {
   const { vendors, reload: reloadVendors } = useVendors();
   const [form, setForm] = useState<any>({
     vendorId: '', vendorRef: '', day: today(), currency: 'USD', rate: '', note: '',
-    isCreditNote: !!params.get('creditFor'), originalBillId: params.get('creditFor') || '', payNow: false, paidImmediatelyFrom: '', employee: null,
+    isCreditNote: !!params.get('creditFor'), originalBillId: params.get('creditFor') || '', payNow: false, paidBeforeCount: false, paidImmediatelyFrom: '', employee: null,
   });
   const [lines, setLines] = useState<any[]>([blankLine(params.get('tripId') ? 'trip' : params.get('orderId') ? 'order' : 'expense')]);
   const [error, setError] = useState('');
@@ -81,7 +81,8 @@ const BillForm = () => {
     vendorId: form.vendorId, vendorRef: form.vendorRef || undefined, day: form.day, currency: form.currency,
     rate: Number(form.rate) || undefined, note: form.note || undefined, idempotencyKey: idempotencyKey.current,
     isCreditNote: form.isCreditNote || undefined, originalBillId: form.isCreditNote ? form.originalBillId : undefined,
-    paidImmediatelyFrom: form.payNow && !form.isCreditNote ? form.paidImmediatelyFrom : undefined,
+    paidImmediatelyFrom: form.payNow && !form.paidBeforeCount && !form.isCreditNote ? form.paidImmediatelyFrom : undefined,
+    paidBeforeCount: form.paidBeforeCount && !form.isCreditNote ? true : undefined,
     employeeId: form.payNow && payAccount?.requires?.includes('employee') ? form.employee?._id : undefined,
     lines: lines.map((line) => ({
       description: line.description, amount: Number(line.amount), target: line.target, office: line.office || undefined,
@@ -231,7 +232,8 @@ const BillForm = () => {
       <Panel>
         {!form.isCreditNote && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
-            <FormControlLabel control={<Checkbox checked={form.payNow} onChange={(e) => setForm({ ...form, payNow: e.target.checked })} />} label="دُفعت الآن من" />
+            <FormControlLabel control={<Checkbox checked={form.paidBeforeCount} onChange={(e) => setForm({ ...form, paidBeforeCount: e.target.checked, payNow: false })} />} label="دُفعت قبل يوم الجرد (من الرصيد الافتتاحي)" />
+            <FormControlLabel control={<Checkbox checked={form.payNow} disabled={form.paidBeforeCount} onChange={(e) => setForm({ ...form, payNow: e.target.checked })} />} label="دُفعت الآن من" />
             {form.payNow && (
               <>
                 <TextField select value={form.paidImmediatelyFrom} onChange={(e) => setForm({ ...form, paidImmediatelyFrom: e.target.value })} style={{ minWidth: 280 }} label="حساب الدفع">

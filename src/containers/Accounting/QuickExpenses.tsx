@@ -21,6 +21,8 @@ const QuickExpenses = () => {
 
   const cashAccounts = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
   const from = cashAccounts.find((a) => a._id === form.fromAccountId);
+  // An old expense paid before the count day: out of the opening balance, not a box (spec v8)
+  const beforeCount = form.fromAccountId === '__beforeCount__';
   const type = types.find((t) => t._id === form.typeId);
 
   const loadRecent = () => acc.get('bills', { quick: 'true', limit: 30 }).then((res: any) => setRecent(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
@@ -34,8 +36,8 @@ const QuickExpenses = () => {
     try {
       setIsSaving(true);
       await acc.post('bills', {
-        vendorId: cashVendor._id, day: form.day, currency: from?.currency || 'USD', rate: Number(form.rate) || undefined,
-        isQuickExpense: true, paidImmediatelyFrom: form.fromAccountId, idempotencyKey: idempotencyKey.current,
+        vendorId: cashVendor._id, day: form.day, currency: beforeCount ? 'USD' : from?.currency || 'USD', rate: Number(form.rate) || undefined,
+        isQuickExpense: true, ...(beforeCount ? { paidBeforeCount: true } : { paidImmediatelyFrom: form.fromAccountId }), idempotencyKey: idempotencyKey.current,
         lines: [{ description: form.description || type?.name, amount: Number(form.amount), target: 'expense', accountId: type.accountId?._id || type.accountId, office: form.office }],
       });
       setMessage({ type: 'success', text: 'تم تسجيل المصروف.' });
@@ -66,8 +68,9 @@ const QuickExpenses = () => {
             setForm({ ...form, fromAccountId: e.target.value, office: account?.office || form.office });
           }}>
             {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+            <MenuItem value="__beforeCount__">دُفع قبل يوم الجرد (من الرصيد الافتتاحي، بالدولار)</MenuItem>
           </TextField>
-          <TextField type="number" label={`المبلغ (${from?.currency || '-'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <TextField type="number" label={`المبلغ (${beforeCount ? 'USD' : from?.currency || '-'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           {from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
           <TextField select label="المكتب" value={form.office} onChange={(e) => setForm({ ...form, office: e.target.value })}>
             {offices.filter((o) => o.isActive).map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
@@ -75,7 +78,7 @@ const QuickExpenses = () => {
           <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
         </div>
         <div className="d-flex justify-content-end mt-3">
-          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !from || !form.office || !(Number(form.amount) > 0)} onClick={save}>تسجيل المصروف</Button>
+          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !(from || beforeCount) || !form.office || !(Number(form.amount) > 0)} onClick={save}>تسجيل المصروف</Button>
         </div>
       </Panel>
 
