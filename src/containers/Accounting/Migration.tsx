@@ -354,6 +354,14 @@ const Migration = () => {
             </Panel>
           )}
 
+          {report.openingCash?.some((row: any) => row.uncounted) && (
+            <Alert severity="warning" className="mb-3">
+              <b>خزائن لم تُجرد.</b>{' '}
+              هذه الحسابات فيها رصيد في الدفاتر ولم يُكتب لها جرد، فبقيت على ما سجلته المنظومة:{' '}
+              {report.openingCash.filter((row: any) => row.uncounted).map((row: any) => `${row.code} ${row.name}`).join('، ')}.
+              اجردها قبل يوم التشغيل واكتب رصيدها (صفر إن كانت فارغة)، ثم أعد التشغيل التجريبي.
+            </Alert>
+          )}
           {report.openingCash?.length > 0 && (
             <Panel
               flush
@@ -362,13 +370,14 @@ const Migration = () => {
             >
               <DataTable
                 dense
-                rows={report.openingCash}
+                rows={report.openingCash.filter((row: any) => !row.uncounted)}
                 rowKey={(row: any) => row.accountId}
                 columns={[
                   { key: 'account', header: 'الحساب', render: (row: any) => <AccountRef code={row.code} name={row.name} /> },
                   { key: 'booked', header: 'حسب حركات المنظومة', numeric: true, render: (row: any) => <Money value={row.booked} currency={row.currency} tone="plain" /> },
                   { key: 'opening', header: 'فرق سُوّي بقيد', numeric: true, render: (row: any) => (row.opening ? <Money value={row.opening} currency={row.currency} /> : <span className="acc-muted">مطابق</span>) },
                   { key: 'counted', header: 'الرصيد في الدفاتر = جردك', numeric: true, render: (row: any) => <Money value={row.counted} currency={row.currency} strong /> },
+                  { key: 'sheet', header: 'ورقة الجرد', align: 'end', render: (row: any) => (row.entryId ? <AttachSheet entryId={row.entryId} /> : null) },
                 ]}
               />
             </Panel>
@@ -602,3 +611,28 @@ const Migration = () => {
 };
 
 export default Migration;
+
+// The signed count sheet kept with the opening entry of a box
+const AttachSheet = ({ entryId }: { entryId: string }) => {
+  const input = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState('');
+  const upload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const body = new FormData();
+    Array.from(files).forEach((file) => body.append('files', file));
+    try {
+      setState('…');
+      await acc.post(`entries/${entryId}/attachments`, body);
+      setState('أُرفقت');
+    } catch (err) {
+      setState(errorText(err));
+    }
+  };
+  return (
+    <>
+      <input ref={input} type="file" hidden multiple accept="image/*,application/pdf" onChange={(e) => upload(e.target.files)} />
+      <button type="button" className="acc-link" onClick={() => input.current?.click()}>إرفاق</button>
+      {state && <Sub>{state}</Sub>}
+    </>
+  );
+};

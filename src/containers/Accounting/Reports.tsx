@@ -170,7 +170,10 @@ const BalanceSheet = () => {
   );
   const liabilities = data ? [
     ...data.liabilities.rows, { title: 'إجمالي الالتزامات', amount: data.liabilities.total },
-    ...data.equity.rows, { title: 'نتيجة فترات لم تُقفل بعد', amount: data.equity.unclosedEarnings },
+    ...data.equity.rows,
+    // This year's result apart from earlier years not closed yet
+    ...(data.equity.priorUnclosedEarnings ? [{ title: 'أرباح سنوات سابقة لم تُقفل بعد', amount: data.equity.priorUnclosedEarnings }] : []),
+    { title: `نتيجة السنة الحالية (منذ ${data.equity.yearStart || ''})`, amount: data.equity.currentYearEarnings ?? data.equity.unclosedEarnings },
     { title: 'إجمالي حقوق الملكية', amount: data.equity.totalWithEarnings },
     { title: 'إجمالي الالتزامات وحقوق الملكية', amount: data.liabilities.total + data.equity.totalWithEarnings },
   ] : [];
