@@ -63,6 +63,8 @@ const BankReconciliation = () => {
   // where it would go
   const [classes, setClasses] = useState<any[] | null>(null);
   const [newRule, setNewRule] = useState<any>(null);
+  // Several lines for one purchase typed on an order (spec v8)
+  const [group, setGroup] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const account = banks.find((a) => a._id === accountId);
   const currency = account?.currency || 'USD';
@@ -316,6 +318,16 @@ const BankReconciliation = () => {
       {accountId && (
         <Panel flush title="سطور الكشف" subtitle="حدّد السطور ثم «ترحيل على الحساب المقترح»، أو عالج كل سطر وحده.">
           {bulk.bar}
+          {(() => {
+            const picked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched' && l.amount < 0);
+            return picked.length > 0 && (
+              <div className="px-3 pb-2">
+                <Button size="small" variant="outlined" onClick={() => setGroup({ lines: picked, order: null, items: [], itemId: '', confirmDifference: false })}>
+                  ربط المحدد ({picked.length}) بمشتريات طلب واحدة
+                </Button>
+              </div>
+            );
+          })()}
           <DataTable
             selection={bulk.selection}
             loading={isLoading || !data}
@@ -599,6 +611,37 @@ const BankReconciliation = () => {
             disabled={(entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !entryFor?.counterAccountId) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
             ترحيل
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ---- Several lines for one purchase ---- */}
+      <Dialog open={!!group} onClose={() => setGroup(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>ربط سطور الكشف بمشتريات طلب</DialogTitle>
+        {group && (
+          <DialogContent>
+            <p className="acc-muted">
+              {group.lines.length} سطر، مجموعها <Money value={group.lines.reduce((sum: number, l: any) => sum + l.amount, 0)} currency={currency} decimals={decimals} strong />.
+              تُسجَّل فاتورة واحدة للمشتريات على الطلب ودفعة من كل سطر بعملة البنك.
+            </p>
+            <RemotePicker endpoint="lookup/orders" label="الطلب" value={group.order} getLabel={orderLabel} onChange={async (order) => {
+              const items = order ? (await acc.get(`bank/order-items/${order._id}`)).data.items : [];
+              setGroup({ ...group, order, items, itemId: items.find((i: any) => !i.linked)?._id || '' });
+            }} />
+            {group.order && (
+              <TextField select fullWidth size="small" className="mt-3" label="المشتريات" value={group.itemId} onChange={(e) => setGroup({ ...group, itemId: e.target.value })}>
+                {group.items.map((i: any) => <MenuItem key={i._id} value={i._id} disabled={i.linked}>{i.description} · {i.unitPrice} {i.currency}{i.linked ? ' (مرتبطة)' : ''}</MenuItem>)}
+              </TextField>
+            )}
+            {group.order && !group.items.length && <Alert severity="info" className="mt-2">لا مشتريات مكتوبة على هذا الطلب. أضفها في صفحة الطلب أولاً.</Alert>}
+            <FormControlLabel className="mt-2" control={<Checkbox size="small" checked={group.confirmDifference} onChange={(e) => setGroup({ ...group, confirmDifference: e.target.checked })} />} label="نفس العملية حتى لو اختلف المبلغ بأكثر من 2%" />
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button onClick={() => setGroup(null)}>إلغاء</Button>
+          <Button variant="contained" disabled={!group?.itemId} onClick={async () => {
+            const ok = await run(() => acc.post('bank/link-group', { lineIds: group.lines.map((l: any) => l._id), orderId: group.order._id, itemId: group.itemId, confirmDifference: group.confirmDifference }), (d) => `رُبطت ${d.linked} سطور بمشتريات الطلب.`);
+            if (ok) setGroup(null);
+          }}>ربط</Button>
         </DialogActions>
       </Dialog>
 
