@@ -206,7 +206,7 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
   const pkg = order?.paymentList?.deliveredPackages;
   const status = order?.paymentList?.status;
   const meta = detailed ? [
-    pkg?.weight?.total ? `${pkg.weight.total} ${pkg.weight.measureUnit || ''}`.trim() : '',
+    pkg?.weight?.total ? `${pkg.weight.total} ${pkg.weight.measureUnit || ''}${pkg?.volumetric?.enabled ? ' (حجمي)' : ''}`.trim() : '',
     order?.shipment?.fromWhere ? order?.shipment?.toWhere : '',
     pkg?.locationPlace,
     pkg?.boxesCount ? `${pkg.boxesCount} صناديق` : '',

@@ -242,6 +242,7 @@ export class EditInvoice extends Component<Props, State> {
       const details = row.deliveredPackages = { ...(row.deliveredPackages || {}) };
       if (field === 'weight') details.weight = { ...(details.weight || {}), total: value };
       else if (field === 'measureUnit') details.weight = { ...(details.weight || {}), measureUnit: value };
+      else if (field === 'actualWeight') details.weight = { ...(details.weight || {}), actual: value === '' ? undefined : Number(value) };
       else if (field === 'visableForClient') row.settings = { ...(row.settings || {}), visableForClient: value };
       else details[field] = value;
       this.setState({ paymentList });

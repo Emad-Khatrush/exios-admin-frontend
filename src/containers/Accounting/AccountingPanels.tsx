@@ -425,7 +425,7 @@ export const TripAccounting = ({ tripId }: { tripId?: string }) => {
               dense maxHeight={420} rows={data.packages} rowKey={(row: any) => String(row.packageId)} empty={{ title: 'لا طرود في الرحلة' }}
               rowTone={(row: any) => (row.isCanceled ? 'canceled' : undefined)}
               columns={[
-                { key: 'package', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.delivered && <Badge tone="ok">مسلَّم</Badge>}<Sub>الطلب <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> · {row.weight} كغ</Sub></>, sortValue: (row: any) => row.orderNumber },
+                { key: 'package', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.delivered && <Badge tone="ok">مسلَّم</Badge>}<Sub>الطلب <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> · {row.weight} كغ محتسب{row.volumetric && <> <Badge tone="info">حجمي</Badge> الفعلي {row.actualWeight ?? '-'} كغ</>}</Sub></>, sortValue: (row: any) => row.orderNumber },
                 { key: 'charge', header: 'أجرة الشحن', numeric: true, render: (row: any) => <Money value={row.charge} tone="plain" />, sortValue: (row: any) => row.charge },
                 { key: 'open', header: 'باقٍ على العميل', numeric: true, render: (row: any) => <Money value={row.open} hideZero />, sortValue: (row: any) => row.open },
                 { key: 'revenue', header: 'إيراد معترف به', numeric: true, render: (row: any) => (row.revenue ? <Money value={row.revenue} /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null), sortValue: (row: any) => row.revenue },

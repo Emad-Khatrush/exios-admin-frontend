@@ -62,7 +62,7 @@ const blankPackage = () => ({
 
 const PACKAGE_ROW_TEXT = ['paymentLink', 'note'];
 const PACKAGE_CHECKPOINTS = ['paid', 'arrived', 'arrivedLibya', 'received'];
-const PACKAGE_FIELDS = ['trackingNumber', 'packageWeight', 'locationPlace', 'measureUnit', 'exiosPrice', 'arrivedAt', 'shipmentMethod', 'boxesCount'];
+const PACKAGE_FIELDS = ['trackingNumber', 'packageWeight', 'locationPlace', 'measureUnit', 'exiosPrice', 'arrivedAt', 'shipmentMethod', 'boxesCount', 'volumetric', 'actualWeight', 'domesticFee'];
 const ITEM_FIELDS = ['description', 'itemQuantity', 'unitPrice'];
 
 const readAsDataUrl = (file: File) => new Promise((resolve) => {

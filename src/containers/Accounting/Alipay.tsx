@@ -160,7 +160,7 @@ const BuyDialog = ({ onClose, onDone }: { onClose: () => void; onDone: () => voi
         {error && <Alert severity="error" className="mb-3">{error}</Alert>}
         <div className="acc-form-grid">
           <Autocomplete size="small" options={vendors} value={form.vendor} getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
-            onChange={(_, vendor: any) => setForm({ ...form, vendor })} renderInput={(p) => <TextField {...p} label="الوسيط (وصل، القافلة...)" />} />
+            onChange={(_, vendor: any) => setForm({ ...form, vendor })} renderInput={(p) => <TextField {...p} label="الوسيط - شركة الحوالة" />} />
           <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="دُفع من" value={form.fromAccountId} onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}>
             {payAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}

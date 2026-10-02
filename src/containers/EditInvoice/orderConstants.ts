@@ -19,7 +19,7 @@ export const CANCEL_ALLOWED_ACCOUNTS = ['62bb47b22aabe070791f8278', '632aeb399ae
 export const SHIPMENT_FIELDS = ['fromWhere', 'toWhere', 'packageCount', 'exiosShipmentPrice', 'method', 'originShipmentPrice', 'weight'];
 
 // Fields of one package (a row of paymentList), as the package dialog names them
-export const PACKAGE_FIELDS = ['trackingNumber', 'boxesCount', 'packageWeight', 'measureUnit', 'exiosPrice', 'locationPlace', 'arrivedAt', 'visableForClient', 'shipmentMethod'];
+export const PACKAGE_FIELDS = ['trackingNumber', 'boxesCount', 'packageWeight', 'measureUnit', 'exiosPrice', 'locationPlace', 'arrivedAt', 'visableForClient', 'shipmentMethod', 'volumetric', 'actualWeight', 'domesticFee'];
 export const PACKAGE_ROW_FIELDS = ['paid', 'arrived', 'arrivedLibya', 'received', 'paymentLink', 'note'];
 export const PACKAGE_CHECKPOINTS = ['paid', 'arrived', 'arrivedLibya', 'received'];
 export const ITEM_FIELDS = ['description', 'itemQuantity', 'unitPrice'];

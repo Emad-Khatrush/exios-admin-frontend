@@ -200,6 +200,10 @@ const InvoiceForm = (props: Props) => {
       arrivedAt: details.arrivedAt,
       visableForClient: payment?.settings?.visableForClient !== false,
       images: payment?.images || [],
+      volumetric: details.volumetric || {},
+      actualWeight: details.weight?.actual ?? details.actualWeight ?? '',
+      domesticFee: details.domesticFee || {},
+      savedWithWeight: !!payment?._id && Number(weight) > 0,
     });
   };
 
