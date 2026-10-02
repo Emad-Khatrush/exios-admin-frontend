@@ -576,7 +576,7 @@ const BankReconciliation = () => {
               onChange={(_, a: any) => setEntryFor({ ...entryFor, counterAccountId: a?._id || '', link: a?._id === suggested[entryFor.line._id]?.account?._id ? suggested[entryFor.line._id]?.link : undefined })}
               renderInput={(p) => <TextField {...p} label="الحساب المقابل (رسوم، إيجار، مورد، أو حساب بنك)" />} />
             )}
-            {entryFor.link && <Alert severity="success" className="mt-2">مربوط بمشتريات الطلبية <Open to={`/invoice/${entryFor.link.orderId}/edit`}><Ltr>{entryFor.link.orderNumber}</Ltr></Open>: {entryFor.link.itemDescription} ({entryFor.link.amount} {entryFor.link.currency}). تُسجَّل تكلفةً على الطلبية.</Alert>}
+            {entryFor.link && <Alert severity="success" className="mt-2">مربوط بمشتريات الطلبية <Open to={`/invoice/${entryFor.link.orderId}/edit`}><Ltr>{entryFor.link.orderNumber}</Ltr></Open>: {entryFor.link.itemDescription} ({entryFor.link.amount} {entryFor.link.currency}). تُسجَّل تكلفةً على الطلبية.{entryFor.link.near && ' المطابقة تقريبية بالدولار (فرق حتى 2%)؛ تأكد أنها نفس الشراء.'}</Alert>}
             <div className="acc-form-grid mt-3">
               <TextField select size="small" label="المكتب" value={entryFor.office} onChange={(e) => setEntryFor({ ...entryFor, office: e.target.value })}>
                 <MenuItem value="">حسب البنك</MenuItem>
