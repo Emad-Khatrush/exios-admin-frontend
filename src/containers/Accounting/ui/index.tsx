@@ -141,3 +141,11 @@ export const ForeignTotals = ({ lines }: { lines: any[] }) => {
 };
 
 export const Ltr = ({ children }: { children: ReactNode }) => <bdi dir="ltr" className="acc-ltr">{children}</bdi>;
+
+// Cancelled documents and their reversals are hidden by default; this brings them back
+export const ShowCanceled = ({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) => (
+  <label className="acc-sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    إظهار الملغى
+  </label>
+);

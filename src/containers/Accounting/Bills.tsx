@@ -74,7 +74,8 @@ export const BillsList = () => {
               {vendors.map((v) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
             </TextField>
             <TextField select label="الحالة" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} style={{ minWidth: 130 }}>
-              <MenuItem value="">الكل</MenuItem>
+              <MenuItem value="">غير الملغاة</MenuItem>
+              <MenuItem value="all">الكل مع الملغاة</MenuItem>
               <MenuItem value="draft">مسودة</MenuItem>
               <MenuItem value="posted">مُرحَّلة</MenuItem>
               <MenuItem value="canceled">ملغاة</MenuItem>

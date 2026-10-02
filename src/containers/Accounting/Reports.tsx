@@ -6,7 +6,7 @@ import { Download, Printer } from 'lucide-react';
 import { CURRENCY_DECIMALS, EVENT_LABELS, OFFICE_LABELS, acc, errorText, todayLibya } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
 import { RemotePicker, SHIPPING_TYPES, userLabel } from './shared';
-import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
+import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub, ShowCanceled } from './ui';
 
 // ---------- Shared pieces ----------
 
@@ -483,13 +483,14 @@ const CustomerStatement = ({ initial }: { initial: any }) => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCanceled, setShowCanceled] = useState(false);
 
-  const load = async (next: Period = period, who: any = customer) => {
+  const load = async (next: Period = period, who: any = customer, withCanceled = showCanceled) => {
     if (!who?._id) return;
     try {
       setIsLoading(true);
       setError('');
-      const res = (await acc.get(`reports/customer-statement/${who._id}`, { from: next.from || undefined, to: next.to || undefined })).data;
+      const res = (await acc.get(`reports/customer-statement/${who._id}`, { from: next.from || undefined, to: next.to || undefined, showCanceled: withCanceled || undefined })).data;
       setData(res);
       // Opened by a link that only carries the customer's id: fill in the name once it is known
       if (!who.firstName && res.customer) setCustomer({ ...res.customer, _id: who._id });
@@ -512,6 +513,7 @@ const CustomerStatement = ({ initial }: { initial: any }) => {
       <PeriodBar value={period} onChange={setPeriod} onApply={(next) => load(next)}>
         <div style={{ minWidth: 260 }}><RemotePicker endpoint="lookup/users" label="العميل" value={customer} getLabel={userLabel} onChange={(next) => { setCustomer(next); setData(null); load(period, next); }} /></div>
         {customer?._id && <Open to={`/user/${customer._id}`}>صفحة العميل</Open>}
+        <ShowCanceled checked={showCanceled} onChange={(value) => { setShowCanceled(value); load(period, customer, value); }} />
       </PeriodBar>
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       {!customer && <div className="acc-empty">اختر عميلاً لعرض كشفه.</div>}

@@ -3,14 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
-import { Badge, DataTable, FilterBar, ForeignTotals, Ltr, Money, PageHeader, Panel, Sub } from './ui';
+import { Badge, DataTable, FilterBar, ForeignTotals, Ltr, Money, PageHeader, Panel, ShowCanceled, Sub } from './ui';
 
 const PAGE_SIZE = 50;
 
 const JournalEntries = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [filters, setFilters] = useState({ from: '', to: '', journalId: '', eventType: '', search: '', accountId: params.get('accountId') || '' });
+  const [filters, setFilters] = useState({ from: '', to: '', journalId: '', eventType: '', search: '', accountId: params.get('accountId') || '', showCanceled: '' });
   const [journals, setJournals] = useState<any[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [data, setData] = useState<any>({ results: [], total: 0, page: 1 });
@@ -62,7 +62,8 @@ const JournalEntries = () => {
             <TextField placeholder="رقم القيد أو البيان" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load(1)} />
             <Button variant="outlined" onClick={() => load(1)} disabled={isLoading}>بحث</Button>
             {filters.accountId && <Chip label="حساب واحد فقط" onDelete={() => { const next = { ...filters, accountId: '' }; setFilters(next); load(1, next); }} />}
-          </FilterBar>
+            <ShowCanceled checked={filters.showCanceled === 'true'} onChange={(value) => { const next = { ...filters, showCanceled: value ? 'true' : '' }; setFilters(next); load(1, next); }} />
+        </FilterBar>
         </div>
         {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
         <DataTable

@@ -109,6 +109,7 @@ const KIND_LABEL: Record<string, string> = { purchase: 'فاتورة شراء', 
 const STATUS: Record<string, { text: string, tone: any }> = {
   paid: { text: 'مسددة', tone: 'ok' }, partial: { text: 'مسددة جزئياً', tone: 'warn' }, unpaid: { text: 'غير مسددة', tone: 'danger' },
   none: { text: 'لا قيود بعد', tone: 'muted' }, canceled: { text: 'ملغاة', tone: 'muted' },
+  deleted: { text: 'محذوفة', tone: 'muted' },
 };
 
 const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) => {
@@ -155,7 +156,7 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
         <DataTable
           dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => row._id} maxHeight="65vh"
           onRowClick={(row: any) => navigate(`/accounting/customer-invoices/${row._id}`)}
-          rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
+          rowTone={(row: any) => (row.status === 'canceled' || row.status === 'deleted' ? 'canceled' : undefined)}
           empty={{ title: 'لا فواتير بهذا البحث' }}
           columns={[
             {
@@ -198,9 +199,9 @@ export const CustomerInvoicePage = () => {
     <>
       <PageHeader
         title={<>فاتورة العميل {order && <Ltr>{order.orderId}</Ltr>}</>}
-        subtitle={order?.isCanceled ? 'الطلب ملغى.' : undefined}
+        subtitle={order?.isDeleted ? 'الطلب محذوف من المنظومة (أُنشئ بالخطأ)؛ عُكست مطالباته.' : order?.isCanceled ? 'الطلب ملغى.' : undefined}
         actions={<div className="d-flex gap-3 flex-wrap">
-          <Open to={`/invoice/${id}/edit`}>الطلب في المنظومة</Open>
+          {!order?.isDeleted && <Open to={`/invoice/${id}/edit`}>الطلب في المنظومة</Open>}
           {order?.user && <Open to={`/accounting/customers/${order.user}`}>حساب العميل</Open>}
         </div>}
       />

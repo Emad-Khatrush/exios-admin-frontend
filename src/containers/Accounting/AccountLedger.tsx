@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, TextField } from '@mui/material';
 import { CURRENCY_DECIMALS, EVENT_LABELS, acc, errorText } from './accountingApi';
-import { AccountRef, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
+import { AccountRef, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, ShowCanceled, Stat, StatGrid, Sub } from './ui';
 
 const AccountLedger = () => {
   const { id } = useParams();
@@ -14,12 +14,13 @@ const AccountLedger = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showCanceled, setShowCanceled] = useState(false);
 
-  const load = async () => {
+  const load = async (withCanceled = showCanceled) => {
     try {
       setIsLoading(true);
       setError('');
-      setData((await acc.get(`reports/account-ledger/${id}`, { from: from || undefined, to: to || undefined })).data);
+      setData((await acc.get(`reports/account-ledger/${id}`, { from: from || undefined, to: to || undefined, showCanceled: withCanceled || undefined })).data);
     } catch (err) {
       setError(errorText(err));
     }
@@ -51,8 +52,9 @@ const AccountLedger = () => {
           <FilterBar>
             <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
             <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
-            <Button variant="outlined" onClick={load}>عرض</Button>
-          </FilterBar>
+            <Button variant="outlined" onClick={() => load()}>عرض</Button>
+            <ShowCanceled checked={showCanceled} onChange={(value) => { setShowCanceled(value); load(value); }} />
+        </FilterBar>
         </div>
         {data?.truncated && <Alert severity="info" className="mx-3 mb-2">تُعرض أول 5000 حركة فقط. ضيّق الفترة.</Alert>}
         <DataTable
