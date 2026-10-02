@@ -256,6 +256,8 @@ const OdooExport = () => {
         />
       </Panel>
 
+      <OdooComparison />
+
       <Dialog open={!!undoing} onClose={() => setUndoing(null)} fullWidth maxWidth="xs">
         <DialogTitle>إلغاء الدفعة {undoing?.number}؟</DialogTitle>
         <DialogContent>
@@ -269,6 +271,63 @@ const OdooExport = () => {
         </DialogActions>
       </Dialog>
     </>
+  );
+};
+
+// While Odoo still runs beside Exios (a month or two, spec 19.14): every week the same three
+// figures from both, side by side. Exios's are read from the books; Odoo's are typed in.
+const FIGURES: [string, string][] = [['cash', 'أرصدة الخزائن والبنوك'], ['wallets', 'مجموع محافظ العملاء'], ['receivables', 'ذمم العملاء']];
+
+const OdooComparison = () => {
+  const [day, setDay] = useState(todayLibya());
+  const [data, setData] = useState<any>(null);
+  const [odoo, setOdoo] = useState<Record<string, string>>({ cash: '', wallets: '', receivables: '' });
+  const [message, setMessage] = useState<any>(null);
+  const load = (on = day) => acc.get('odoo/comparison', { day: on }).then((res: any) => setData(res.data)).catch((err: any) => setMessage({ type: 'error', text: errorText(err) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    try {
+      await acc.post('odoo/comparison', { day, odoo });
+      setMessage({ type: 'success', text: 'حُفظت المقارنة.' });
+      setOdoo({ cash: '', wallets: '', receivables: '' });
+      load();
+    } catch (err) {
+      setMessage({ type: 'error', text: errorText(err) });
+    }
+  };
+  const diff = (row: any, key: string) => (row.ours?.[key] || 0) - (row.odoo?.[key] || 0);
+  return (
+    <Panel flush title="المقارنة الأسبوعية مع أودو" subtitle="كل أسبوع: اكتب الأرقام الثلاثة من تقارير أودو بنفس التاريخ. أرقام إكسيوس تُقرأ من الدفاتر. الفرق يجب أن يكون صفراً أو مفهوماً قبل إيقاف أودو.">
+      <div className="px-3">
+        <Notice message={message} onClose={() => setMessage(null)} />
+        <div className="acc-form-grid mb-3">
+          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={(e) => { setDay(e.target.value); load(e.target.value); }} />
+          {FIGURES.map(([key, label]) => (
+            <TextField key={key} type="number" label={`أودو: ${label} ($)`} value={odoo[key]} onChange={(e) => setOdoo({ ...odoo, [key]: e.target.value })}
+              helperText={data?.ours ? <>إكسيوس: <Money value={data.ours[key]} /></> : undefined} />
+          ))}
+        </div>
+        <div className="d-flex justify-content-end mb-3">
+          <Button variant="contained" disabled={FIGURES.some(([key]) => odoo[key] === '')} onClick={save}>حفظ المقارنة</Button>
+        </div>
+      </div>
+      <DataTable
+        dense rows={data?.history || []} rowKey={(row: any) => row._id}
+        empty={{ title: 'لا مقارنات بعد' }}
+        columns={[
+          { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
+          ...FIGURES.map(([key, label]) => ({
+            key, header: label, numeric: true, render: (row: any) => (
+              <>
+                <Money value={row.ours?.[key]} /> <Sub>أودو <Money value={row.odoo?.[key]} tone="plain" /></Sub>
+                {diff(row, key) !== 0 ? <Badge tone="warn">فرق <Money value={diff(row, key)} tone="plain" /></Badge> : <Badge tone="ok">مطابق</Badge>}
+              </>
+            ),
+          })),
+        ]}
+      />
+    </Panel>
   );
 };
 
