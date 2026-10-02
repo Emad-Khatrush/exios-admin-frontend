@@ -224,6 +224,82 @@ const PreviousCustomerLines = ({ orderId, onMoved }: { orderId: string; onMoved:
   );
 };
 
+// A refund from the supplier on a purchase invoice (spec 19.6): the money that came in (in its
+// account's currency, with its real dollar value from the bank) and what is added to the wallet
+const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: () => void }) => {
+  const [rows, setRows] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ accountId: '', amount: '', usdValue: '', walletUsd: '', day: todayLibya(), note: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const idempotencyKey = useRef(newKey());
+  const load = useCallback(() => {
+    sys.get(`acc/orders/${orderId}/refunds`).then((res: any) => setRows(res.data.results || [])).catch(() => {});
+  }, [orderId]);
+  useEffect(() => {
+    load();
+    sys.get('acc/money-accounts').then((res: any) => setAccounts(res.data.results || [])).catch(() => {});
+  }, [load]);
+  const account = accounts.find((a) => a._id === form.accountId);
+  const usd = account?.currency === 'USD' ? Number(form.amount) : Number(form.usdValue);
+  const save = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      await sys.post(`acc/orders/${orderId}/refunds`, { ...form, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined, walletUsd: Number(form.walletUsd) || 0, idempotencyKey: idempotencyKey.current });
+      idempotencyKey.current = newKey();
+      setOpen(false);
+      setForm({ accountId: '', amount: '', usdValue: '', walletUsd: '', day: todayLibya(), note: '' });
+      load();
+      onSaved();
+    } catch (err: any) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel flush title="ريفاند من المورد" subtitle="مبلغ أعاده المورد على مشتريات هذا الطلب: يُخفِّض التكلفة، وما يُضاف لمحفظة العميل يُخفِّض المبيعات. الفرق ربح."
+      actions={<Button size="small" onClick={() => setOpen(true)}>ريفاند جديد</Button>}>
+      {rows.length > 0 && (
+        <DataTable
+          dense rows={rows} rowKey={(row: any) => row._id}
+          rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
+          columns={[
+            { key: 'day', header: 'التاريخ', render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
+            { key: 'in', header: 'دخل في', render: (row: any) => <>{row.accountId?.name}<Sub><Ltr>{row.amount} {row.currency}</Ltr></Sub></> },
+            { key: 'usd', header: 'قيمته', numeric: true, render: (row: any) => <Money value={row.usd} /> },
+            { key: 'wallet', header: 'للمحفظة', numeric: true, render: (row: any) => <Money value={row.walletUsd} /> },
+            { key: 'status', header: '', render: (row: any) => <StatusBadge status={row.status} /> },
+          ]}
+        />
+      )}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>ريفاند من المورد على هذا الطلب</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+          <div className="acc-form-grid">
+            <TextField select label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+              {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
+            </TextField>
+            <TextField type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (من كشف البنك)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
+            <TextField type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
+              helperText={usd > 0 ? <>مثلاً <Ltr>{Math.max(usd - 1, 0).toFixed(2)}</Ltr> (هامش حماية 1$)</> : undefined} />
+            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+            <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>إلغاء</Button>
+          <Button variant="contained" disabled={busy || !form.accountId || !(Number(form.amount) > 0) || !(usd > 0)} onClick={save}>تسجيل</Button>
+        </DialogActions>
+      </Dialog>
+    </Panel>
+  );
+};
+
 // Writing off what is left on a delivered package or a purchase invoice (spec 19.7)
 const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () => void; onDone: () => void }) => {
   const [form, setForm] = useState({ amount: (claim.open / 100).toFixed(2), reason: '', day: todayLibya() });
@@ -262,7 +338,7 @@ const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () =>
   );
 };
 
-export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, orderNumber?: string }) => {
+export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?: string, orderNumber?: string, isPayment?: boolean }) => {
   const { access, canSee, data, error, reload } = useSummary(orderId ? `summary/order/${orderId}` : null);
   const [writeOff, setWriteOff] = useState<any>(null);
   if (!orderId || access.loading) return null;
@@ -272,6 +348,7 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
       <Frame title="المحاسبة" error="" loading={false}>
         <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={() => {}} />
         <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
+        {isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
       </Frame>
     );
   }
@@ -281,6 +358,7 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
     <Frame title="المحاسبة" error={error} loading={!data}>
       {data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
       <PreviousCustomerLines orderId={orderId} onMoved={reload} />
+      {(isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
       {empty && <NoEntries />}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
