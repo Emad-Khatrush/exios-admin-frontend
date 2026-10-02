@@ -49,7 +49,7 @@ import { BillsList, BillDetail } from './containers/Accounting/Bills';
 import BillForm from './containers/Accounting/BillForm';
 import { VendorsList, VendorStatement } from './containers/Accounting/Vendors';
 import { CustomerInvoicePage, CustomerInvoicesList, CustomerPage, CustomersList } from './containers/Accounting/Customers';
-import { PaymentsList, PaymentForm } from './containers/Accounting/Payments';
+import { PaymentsList, PaymentForm, ReceiptForm } from './containers/Accounting/Payments';
 import QuickExpenses from './containers/Accounting/QuickExpenses';
 import OfficeExpensesReview from './containers/Accounting/OfficeExpensesReview';
 import TripCosts from './containers/Accounting/TripCosts';
@@ -188,6 +188,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='vendors/:id' element={<VendorStatement />} />
         <Route path='payments' element={<PaymentsList />} />
         <Route path='payments/new' element={<PaymentForm />} />
+        <Route path='receipts/new' element={<ReceiptForm />} />
         <Route path='expenses' element={<QuickExpenses />} />
         <Route path='office-expenses' element={<OfficeExpensesReview />} />
         <Route path='trips' element={<TripCosts />} />

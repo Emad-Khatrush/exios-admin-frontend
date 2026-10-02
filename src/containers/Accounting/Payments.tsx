@@ -60,6 +60,124 @@ export const PaymentsList = () => {
         />
       </Panel>
       {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingSupplierPayment" id={cancel._id} title={`الدفعة ${cancel.number}`} />}
+      <ReceiptsList />
+    </>
+  );
+};
+
+// Money a supplier gave us back (spec 19.13): a refund on a credited bill, or from their balance
+const ReceiptsList = () => {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<any[]>([]);
+  const [cancel, setCancel] = useState<any>(null);
+  const load = () => acc.get('receipts').then((res: any) => setRows(res.data.results)).catch(() => {});
+  useEffect(() => { load(); }, []);
+  return (
+    <Panel flush title="الاستلام من الموردين" subtitle="مبالغ أعادها مورد أو أودعها لنا (مثل 50 يواناً في Alipay): تُسدِّد ما عليه لنا من إشعار دائن، والباقي يُخصم من دفعتنا المقدمة لديه أو يبقى رصيداً له."
+      actions={<Button size="small" startIcon={<Plus size={14} />} onClick={() => navigate('/accounting/receipts/new')}>استلام جديد</Button>}>
+      <DataTable
+        dense rows={rows} rowKey={(row: any) => row._id}
+        rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
+        empty={{ title: 'لا استلامات بعد' }}
+        columns={[
+          { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
+          { key: 'vendor', header: 'المورد', render: (row: any) => <>{row.vendorId?.name}<Sub><Ltr>{row.number}</Ltr>{row.allocations?.length ? ` · على ${row.allocations.map((a: any) => a.billId?.number).join('، ')}` : ''}</Sub></> },
+          { key: 'to', header: 'إلى', hideOnMobile: true, render: (row: any) => (row.toAccountId ? <AccountRef code={row.toAccountId.code} name={row.toAccountId.name} /> : null) },
+          { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Amount value={row.amount} currency={row.currency} /> },
+          { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
+          { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <Button size="small" color="error" onClick={() => setCancel(row)}>إلغاء</Button> : null) },
+        ]}
+      />
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingSupplierReceipt" id={cancel._id} title={`الاستلام ${cancel.number}`} />}
+    </Panel>
+  );
+};
+
+export const ReceiptForm = () => {
+  const navigate = useNavigate();
+  const { accounts } = useAccountingData();
+  const { vendors } = useVendors();
+  const [vendorId, setVendorId] = useState('');
+  const [form, setForm] = useState<any>({ day: today(), toAccountId: '', amount: '', rate: '', note: '' });
+  const [owed, setOwed] = useState<any[]>([]);
+  const [advance, setAdvance] = useState(0);
+  const [allocations, setAllocations] = useState<Record<string, string>>({});
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const idempotencyKey = useRef(newKey());
+  const toAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && a.isCash), [accounts]);
+  const to = toAccounts.find((a) => a._id === form.toAccountId);
+
+  useEffect(() => {
+    if (!vendorId) { setOwed([]); setAdvance(0); return; }
+    acc.get(`vendors/${vendorId}/open-bills`).then((res: any) => {
+      // Bills on which the vendor owes us (paid, then credited)
+      setOwed(res.data.results.filter((b: any) => b.open < 0));
+      setAdvance(res.data.advance);
+      setAllocations({});
+    }).catch(() => {});
+  }, [vendorId]);
+
+  const save = async () => {
+    try {
+      setIsSaving(true);
+      setError('');
+      await acc.post('receipts', {
+        vendorId, day: form.day, toAccountId: form.toAccountId, amount: Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
+        allocations: Object.entries(allocations).filter(([, v]) => Number(v) > 0).map(([billId, v]) => ({ billId, amountUsd: Math.round(Number(v) * 100) })),
+        idempotencyKey: idempotencyKey.current,
+      });
+      navigate('/accounting/payments');
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <>
+      <PageHeader title="استلام من مورد" subtitle="ما دخل الخزينة أو البنك أو Alipay من مورد، بعملة الحساب. وزّعه على ما عليه لنا من فواتير أُرجعت؛ والباقي يُخصم من دفعتنا المقدمة لديه (أو يبقى رصيداً له)." />
+      {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      <Panel title="الاستلام">
+        <div className="acc-form-grid">
+          <Autocomplete size="small" options={vendors} value={vendors.find((v) => v._id === vendorId) || null}
+            getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
+            onChange={(_, v: any) => setVendorId(v?._id || '')} renderInput={(p) => <TextField {...p} label="المورد" />} />
+          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <TextField select label="استُلم في" value={form.toAccountId} onChange={(e) => setForm({ ...form, toAccountId: e.target.value })}>
+            {toAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+          </TextField>
+          <TextField type="number" label={`المبلغ (${to?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          {to?.currency && to.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
+        </div>
+        {vendorId && <p className="acc-muted mt-2">{advance > 0 ? <>دفعتنا المقدمة لديه: <Money value={advance} /></> : advance < 0 ? <>نحتفظ له برصيد: <Money value={-advance} /></> : 'لا دفعة مقدمة ولا رصيد له.'}</p>}
+      </Panel>
+      {owed.length > 0 && (
+        <Panel flush title="ما عليه لنا" subtitle="فواتير دُفعت ثم صدر عليها إشعار دائن.">
+          <DataTable
+            rows={owed} rowKey={(row: any) => row._id}
+            columns={[
+              { key: 'number', header: 'الفاتورة', render: (row: any) => <Ltr>{row.number}</Ltr> },
+              { key: 'open', header: 'عليه لنا', numeric: true, render: (row: any) => <Money value={-row.open} strong /> },
+              {
+                key: 'take', header: 'يُسدَّد الآن ($)', align: 'end', width: 220, render: (row: any) => (
+                  <span className="d-inline-flex gap-1">
+                    <TextField type="number" value={allocations[row._id] || ''} onChange={(e) => setAllocations({ ...allocations, [row._id]: e.target.value })} style={{ width: 120 }} />
+                    <Button size="small" onClick={() => setAllocations({ ...allocations, [row._id]: (-row.open / 100).toFixed(2) })}>الكل</Button>
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </Panel>
+      )}
+      <Panel>
+        <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth />
+        <div className="d-flex justify-content-end gap-2 mt-3">
+          <Button onClick={() => navigate(-1)}>رجوع</Button>
+          <Button variant="contained" disabled={isSaving || !vendorId || !form.toAccountId || !(Number(form.amount) > 0)} onClick={save}>ترحيل الاستلام</Button>
+        </div>
+      </Panel>
     </>
   );
 };
@@ -128,7 +246,14 @@ export const PaymentForm = () => {
               {payAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
             <TextField type="number" label={`المبلغ (${from?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-            {from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
+            {from?.currency && from.currency !== 'USD' && (
+              <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                helperText={allocatedUsd > 0 && Number(form.amount) > 0 ? (
+                  <span>المقترح: المدفوع ÷ الموزَّع = <Ltr>{(Number(form.amount) / (allocatedUsd / 100)).toFixed(4)}</Ltr>{' '}
+                    <Button size="small" onClick={() => setForm({ ...form, rate: (Number(form.amount) / (allocatedUsd / 100)).toFixed(6) })}>استخدمه</Button>
+                  </span>
+                ) : 'وزّع المبلغ على الفواتير ليُقترح السعر الذي يُقفلها على صفر'} />
+            )}
             {from?.requires?.includes('employee') && <RemotePicker endpoint="lookup/users" label="الموظف صاحب العهدة" value={form.employee} getLabel={userLabel} onChange={(employee) => setForm({ ...form, employee })} />}
           </>}
         </div>

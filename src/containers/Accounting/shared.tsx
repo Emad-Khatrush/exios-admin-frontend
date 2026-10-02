@@ -114,5 +114,5 @@ export const Message = ({ message, onClose }: { message: { type: 'error' | 'succ
   message ? <Alert severity={message.type} className="mb-3" onClose={onClose}>{message.text}</Alert> : null
 );
 
-export const VENDOR_TYPES: Record<string, string> = { carrier: 'شركة شحن', supplier: 'مورد', service: 'مقدم خدمة', other: 'أخرى' };
+export const VENDOR_TYPES: Record<string, string> = { carrier: 'شركة شحن', supplier: 'مورد', service: 'مقدم خدمة', funder: 'طرف ثالث (ممول مشتريات)', other: 'أخرى' };
 export const SHIPPING_TYPES: Record<string, string> = { air: 'جوي', sea: 'بحري', domestic: 'داخلي' };
