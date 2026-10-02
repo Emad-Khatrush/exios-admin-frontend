@@ -66,6 +66,7 @@ import AccountingExceptions from './containers/Accounting/Exceptions';
 import AccountingClosing from './containers/Accounting/Closing';
 import AccountingVoucher from './containers/Accounting/Voucher';
 import AccountingOdooExport from './containers/Accounting/OdooExport';
+import AccountingAlipay from './containers/Accounting/Alipay';
 import AccountingStartWizard from './containers/Accounting/StartWizard';
 import AccountingAccessControl from './containers/Accounting/AccessControl';
 
@@ -206,6 +207,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='closing' element={<AccountingClosing />} />
         <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
         <Route path='odoo' element={<AccountingOdooExport />} />
+        <Route path='alipay' element={<AccountingAlipay />} />
         <Route path='start' element={<AccountingStartWizard />} />
         <Route path='access' element={<AccountingAccessControl />} />
       </Route>

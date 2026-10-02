@@ -47,6 +47,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
     links: [
       { to: '/accounting/treasury', label: 'الخزينة والتحويلات', icon: Wallet, perms: ['treasury'] },
       { to: '/accounting/bank', label: 'مطابقة البنك', icon: Landmark, perms: ['treasury'] },
+      { to: '/accounting/alipay', label: 'Alipay', icon: CircleDollarSign, perms: ['treasury', 'reports'] },
       { to: '/accounting/employees', label: 'الموظفون والرواتب', icon: Users, perms: ['payroll'] },
       { to: '/accounting/assets', label: 'الأصول والمقدمات', icon: Building2, perms: ['assets'] },
       { to: '/accounting/equity', label: 'رأس المال والقروض', icon: CircleDollarSign, perms: ['assets'] },
