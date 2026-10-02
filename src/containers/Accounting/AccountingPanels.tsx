@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Autocomplete, Button, MenuItem, TextField } from '@mui/material';
+import { Alert, Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { EVENT_LABELS, acc, errorText, newKey, sys, todayLibya } from './accountingApi';
 import { userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
@@ -224,8 +224,47 @@ const PreviousCustomerLines = ({ orderId, onMoved }: { orderId: string; onMoved:
   );
 };
 
+// Writing off what is left on a delivered package or a purchase invoice (spec 19.7)
+const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () => void; onDone: () => void }) => {
+  const [form, setForm] = useState({ amount: (claim.open / 100).toFixed(2), reason: '', day: todayLibya() });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const idempotencyKey = useRef(newKey());
+  const save = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      await acc.post('write-offs', { arKey: claim.arKey, amountUsd: Math.round(Number(form.amount) * 100), reason: form.reason, day: form.day, idempotencyKey: idempotencyKey.current });
+      onDone();
+    } catch (err: any) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>شطب المتبقي على المطالبة</DialogTitle>
+      <DialogContent>
+        <p className="acc-muted">المتبقي <Money value={claim.open} strong />. يبقى الإيراد بقدر ما دفعه العميل، وتُحمَّل التكلفة كاملة. إن دفع العميل لاحقاً يعود الإيراد تلقائياً بقدر ما دفع.</p>
+        {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+        <div className="acc-form-grid">
+          <TextField type="number" label="المبلغ المشطوب ($)" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+        </div>
+        <TextField className="mt-3" fullWidth label="السبب" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>إلغاء</Button>
+        <Button variant="contained" color="warning" disabled={busy || !form.reason.trim() || !(Number(form.amount) > 0)} onClick={save}>شطب</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, orderNumber?: string }) => {
   const { access, canSee, data, error, reload } = useSummary(orderId ? `summary/order/${orderId}` : null);
+  const [writeOff, setWriteOff] = useState<any>(null);
   if (!orderId || access.loading) return null;
   // Every staff member records purchases for an order; the figures need "reports"
   if (!canSee) {
@@ -264,9 +303,14 @@ export const OrderAccounting = ({ orderId, orderNumber }: { orderId?: string, or
                 { key: 'recognized', header: 'إيراد معترف به', numeric: true, render: (row: any) => (row.recognized ? <Money value={row.recognized} /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null) },
                 { key: 'cost', header: 'التكلفة', numeric: true, hideOnMobile: true, render: (row: any) => <Money value={row.cost} hideZero tone="plain" /> },
                 { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => (row.recognized ? <Money value={row.profit} strong /> : null) },
+                ...(access.can('entries') ? [{
+                  key: 'writeOff', header: '', align: 'end' as const, render: (row: any) => (row.open > 0 && (row.kind === 'PUR' || row.delivered)
+                    ? <Button size="small" color="warning" onClick={() => setWriteOff(row)}>شطب</Button> : null),
+                }] : []),
               ]}
             />
           </Panel>
+          {writeOff && <WriteOffDialog claim={writeOff} onClose={() => setWriteOff(null)} onDone={() => { setWriteOff(null); reload(); }} />}
           <BillsTable bills={data.bills} empty="لا تكلفة مورد مسجلة على هذا الطلب" />
           <EntriesTable entries={data.entries} />
         </>
