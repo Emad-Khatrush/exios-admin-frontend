@@ -7,6 +7,7 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { useBulk } from './bulk';
 import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 import { Mapping, ROLES, StatementRow, detect, readSheet, rowsFrom } from './bankImport';
+import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 
 type Preview = {
   fileName: string
@@ -257,8 +258,10 @@ const BankReconciliation = () => {
   };
 
   const saveEntry = async () => {
-    const { line, ...input } = entryFor;
-    const ok = await run(() => postLine(line, { ...input, office: input.office || undefined }), () => 'أُنشئ القيد.');
+    const { line, target, trip, order, partner, ...input } = entryFor;
+    // A trip, an order or a customer's debt (lines of a partner's current account, spec 19.4)
+    const routed = target === 'trip' ? { target, tripId: trip?._id } : target === 'order' ? { target, orderId: order?._id } : target === 'debt' ? { target, partnerId: partner?._id } : {};
+    const ok = await run(() => postLine(line, { ...input, ...routed, office: input.office || undefined }), () => 'أُنشئ القيد.');
     if (ok) setEntryFor(null);
   };
 
@@ -553,10 +556,26 @@ const BankReconciliation = () => {
                 <FormControlLabel className="d-block mt-1" control={<Checkbox size="small" checked={entryFor.confirmNotDuplicate} onChange={(e) => setEntryFor({ ...entryFor, confirmNotDuplicate: e.target.checked })} />} label="هذا سطر مختلف، رحّله" />
               </Alert>
             )}
+            {entryFor.line.amount < 0 && (
+              <TextField select size="small" fullWidth className="mb-3" label="يُوجَّه إلى" value={entryFor.target || ''} onChange={(e) => setEntryFor({ ...entryFor, target: e.target.value })}
+                helperText={entryFor.target === 'trip' ? 'فاتورة مورد على الرحلة مدفوعة من هذا الحساب (شحن دفعه أسواق مثلاً).'
+                  : entryFor.target === 'order' ? 'فاتورة مورد على الطلب مدفوعة من هذا الحساب (مشتريات أو ضرائب دفعها الشريك).'
+                  : entryFor.target === 'debt' ? 'دين على العميل في المنظومة، مصدره هذا الحساب.' : undefined}>
+                <MenuItem value="">حساب (مصروف، مورد، بنك...)</MenuItem>
+                <MenuItem value="trip">تكلفة رحلة</MenuItem>
+                <MenuItem value="order">تكلفة طلب</MenuItem>
+                <MenuItem value="debt">دين على عميل</MenuItem>
+              </TextField>
+            )}
+            {entryFor.target === 'trip' && <RemotePicker endpoint="trips" minLength={0} label="الرحلة" value={entryFor.trip} getLabel={tripLabel} onChange={(trip) => setEntryFor({ ...entryFor, trip })} />}
+            {entryFor.target === 'order' && <RemotePicker endpoint="lookup/orders" label="رقم الطلب" value={entryFor.order} getLabel={orderLabel} onChange={(order) => setEntryFor({ ...entryFor, order })} />}
+            {entryFor.target === 'debt' && <RemotePicker endpoint="lookup/users" label="العميل" value={entryFor.partner} getLabel={userLabel} onChange={(partner) => setEntryFor({ ...entryFor, partner })} />}
+            {!entryFor.target && (
             <Autocomplete size="small" options={detailAccounts} value={detailAccounts.find((a) => a._id === entryFor.counterAccountId) || null}
               getOptionLabel={(a: any) => accountLabel(a)} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
               onChange={(_, a: any) => setEntryFor({ ...entryFor, counterAccountId: a?._id || '', link: a?._id === suggested[entryFor.line._id]?.account?._id ? suggested[entryFor.line._id]?.link : undefined })}
               renderInput={(p) => <TextField {...p} label="الحساب المقابل (رسوم، إيجار، مورد، أو حساب بنك)" />} />
+            )}
             {entryFor.link && <Alert severity="success" className="mt-2">مربوط بمشتريات الطلبية <Open to={`/invoice/${entryFor.link.orderId}/edit`}><Ltr>{entryFor.link.orderNumber}</Ltr></Open>: {entryFor.link.itemDescription} ({entryFor.link.amount} {entryFor.link.currency}). تُسجَّل تكلفةً على الطلبية.</Alert>}
             <div className="acc-form-grid mt-3">
               <TextField select size="small" label="المكتب" value={entryFor.office} onChange={(e) => setEntryFor({ ...entryFor, office: e.target.value })}>
@@ -565,19 +584,19 @@ const BankReconciliation = () => {
               </TextField>
               <TextField size="small" label="البيان" value={entryFor.description} onChange={(e) => setEntryFor({ ...entryFor, description: e.target.value })} />
             </div>
-            {entryFor.line.amount < 0 && (entryFor.link || detailAccounts.find((a) => a._id === entryFor.counterAccountId)?.type === 'expense') && (
+            {entryFor.line.amount < 0 && (entryFor.link || ['trip', 'order'].includes(entryFor.target) || (!entryFor.target && detailAccounts.find((a) => a._id === entryFor.counterAccountId)?.type === 'expense')) && (
               <TextField size="small" fullWidth className="mt-3" label="المورد" value={entryFor.vendorName === '@bank' ? account?.name || '' : entryFor.vendorName}
                 onChange={(e) => setEntryFor({ ...entryFor, vendorName: e.target.value })}
                 helperText="المشتريات والمصروفات تُسجَّل فاتورة بالدولار لهذا المورد ودفعة من البنك بعملته، والسعر = المدفوع ÷ الدولار. فارغ = اسم التاجر في السطر." />
             )}
-            <FormControlLabel className="mt-2" control={<Checkbox size="small" checked={entryFor.remember} onChange={(e) => setEntryFor({ ...entryFor, remember: e.target.checked })} />} label="تذكّر: كل سطر يحتوي الكلمة التالية يُرحَّل لهذا الحساب" />
+            {!entryFor.target && <FormControlLabel className="mt-2" control={<Checkbox size="small" checked={entryFor.remember} onChange={(e) => setEntryFor({ ...entryFor, remember: e.target.checked })} />} label="تذكّر: كل سطر يحتوي الكلمة التالية يُرحَّل لهذا الحساب" />}
             {entryFor.remember && <TextField size="small" fullWidth label="الكلمة المفتاحية" value={entryFor.keyword} onChange={(e) => setEntryFor({ ...entryFor, keyword: e.target.value })} helperText="مثلاً: commission أو عمولة. تُطبق على الكشوف القادمة." />}
           </DialogContent>
         )}
         <DialogActions>
           <Button onClick={() => setEntryFor(null)}>إلغاء</Button>
           <Button variant="contained" onClick={saveEntry}
-            disabled={!entryFor?.counterAccountId || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
+            disabled={(entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !entryFor?.counterAccountId) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
             ترحيل
           </Button>
         </DialogActions>
