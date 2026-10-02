@@ -480,6 +480,20 @@ const Migration = () => {
               />
             </Panel>
           )}
+          {report.unsureReceived?.count > 0 && (
+            <Panel flush title={`طلبات غير مؤكدة فيها «مبالغ مستلمة» مكتوبة (${report.unsureReceived.count})`} subtitle="حقول المبالغ المستلمة القديمة في طلب غير مؤكد لم تُرحَّل (تقدير لا مال مقبوض). إن كان المال قُبض فعلاً فسجّله إيداعاً أو دفعة على الطلب.">
+              <DataTable
+                dense
+                rows={report.unsureReceived.list || []}
+                rowKey={(row: any) => String(row.orderId)}
+                columns={[
+                  { key: 'order', header: 'الطلب', render: (row: any) => <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> },
+                  { key: 'usd', header: 'دولار مكتوب', numeric: true, render: (row: any) => <Ltr>{row.usd}</Ltr> },
+                  { key: 'lyd', header: 'دينار مكتوب', numeric: true, render: (row: any) => <Ltr>{row.lyd}</Ltr> },
+                ]}
+              />
+            </Panel>
+          )}
 
           {report.debtsWithoutSource?.count > 0 && (
             <Panel title={`ديون عامة قديمة بلا مصدر (${report.debtsWithoutSource.count})`} subtitle="لا يُعرف من أي خزينة خرج مالها، فسُجّلت مقابل حساب المعلّق (لا كإيراد)، وتُقفل معه في الرصيد الافتتاحي إن اخترت ذلك.">

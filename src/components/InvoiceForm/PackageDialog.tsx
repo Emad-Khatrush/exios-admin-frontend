@@ -176,9 +176,9 @@ const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, 
 
         <Group title="Transport to another office (optional)">
           <div className="of-grid of-grid--3">
-            <TextField label="Transport fee" type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} value={fee.amount ?? ''} onChange={(event) => set({ domesticFee: { ...fee, currency: fee.currency || 'LYD', amount: event.target.value } })} disabled={disabled}
+            <TextField label="Transport fee" type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} value={fee.amount ?? ''} onChange={(event) => set({ domesticFee: { currency: fee.currency || 'LYD', amount: event.target.value } })} disabled={disabled}
               helperText="Charged on this package beside its shipping, when the office sends it on" />
-            <TextField select label="Currency" value={fee.currency || 'LYD'} onChange={(event) => set({ domesticFee: { ...fee, currency: event.target.value } })} disabled={disabled}>
+            <TextField select label="Currency" value={fee.currency || 'LYD'} onChange={(event) => set({ domesticFee: { amount: fee.amount, currency: event.target.value } })} disabled={disabled}>
               <MenuItem value="LYD">LYD</MenuItem>
               <MenuItem value="USD">USD</MenuItem>
             </TextField>

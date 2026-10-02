@@ -3,7 +3,7 @@ import { sys } from '../containers/Accounting/accountingApi';
 
 // The package dialog's settings (spec v8): the volumetric factor (KG per CBM), and whether the
 // signed-in user may change a weight or volume that was already saved. Loaded once per page load.
-export type PackageSettings = { volumetricFactor: number; canEditMeasures: boolean };
+export type PackageSettings = { volumetricFactor: number; canEditMeasures: boolean; rate?: number | null };
 
 const FALLBACK: PackageSettings = { volumetricFactor: 167, canEditMeasures: false };
 let loading: Promise<PackageSettings> | null = null;

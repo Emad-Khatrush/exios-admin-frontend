@@ -147,6 +147,31 @@ const EditPackageWeight = (props: Props) => {
               />
             </div>
 
+            {/* The transport fee to another office, in the currency it is charged in (spec v8) */}
+            <div className="col-md-6 mb-4 d-flex">
+              <TextField
+                className='connect-field-right'
+                label={'Transport fee'}
+                type={'number'}
+                inputProps={{ inputMode: 'numeric', step: .01, min: 0 }}
+                defaultValue={deliveredPackages?.domesticFee?.amount ?? ''}
+                onChange={(event: any) => setDeliveredPackages({ ...deliveredPackages, domesticFee: { currency: deliveredPackages?.domesticFee?.currency || 'LYD', amount: event.target.value === '' ? 0 : Number(event.target.value) } })}
+                onWheel={(event: any) => event.target.blur()}
+              />
+              <FormControl style={{ width: '100%' }}>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  className='connect-field-left'
+                  value={deliveredPackages?.domesticFee?.currency || 'LYD'}
+                  label={'Currency'}
+                  onChange={(event: any) => setDeliveredPackages({ ...deliveredPackages, domesticFee: { amount: deliveredPackages?.domesticFee?.amount || 0, currency: event.target.value } })}
+                >
+                  <MenuItem value={'LYD'}>LYD</MenuItem>
+                  <MenuItem value={'USD'}>USD</MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
             <div className="col-md-6 mb-4 d-flex">
               <TextField
                 id={deliveredPackages.id}

@@ -368,7 +368,7 @@ const WarehouseInventory = () => {
 
                     <div className="warehouse__figures">
                       {w.total ?
-                        <span className="warehouse__weight">{w.total} {w.measureUnit}</span>
+                        <span className="warehouse__weight">{w.total} {w.measureUnit}{order?.paymentList?.deliveredPackages?.volumetric?.enabled && <span style={{ color: '#b45309', fontWeight: 700 }} title={`الوزن الفعلي ${w.actual ?? '-'} كغ`}> ⚠ حجمي</span>}</span>
                         : <span className="warehouse__weight is-empty">-</span>
                       }
                       {cost && <span className="warehouse__cost">${cost}</span>}

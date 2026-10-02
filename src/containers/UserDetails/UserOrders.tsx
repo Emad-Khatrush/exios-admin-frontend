@@ -22,6 +22,7 @@ import {
 import { Boxes, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import { convertGoogleStorageUrl } from '../../utils/methods';
+import { usePackageSettings } from '../../utils/usePackageSettings';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -37,6 +38,9 @@ type SelectedPackage = {
   boxesCount?: string | number;
   orderId?: string;
   images?: any;
+  // The transport fee to another office, in the currency it was set in (spec v8)
+  feeAmount?: number;
+  feeCurrency?: string;
 };
 
 type PaymentInput = { amountUSD: string; amountLYD: string };
@@ -55,12 +59,14 @@ const calculateRate = (amountLYD: number, remainingUSD: number) => Math.round((a
 
 const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// The shipping in dollars, plus a transport fee set in dollars. A fee in dinars stays in dinars:
+// paid from the dinar wallet on its own, or converted at today's rate (spec v8)
 const getPackageCost = (pkg: Package): number => {
   const weight = pkg?.deliveredPackages?.weight?.total || 0;
   const price = pkg?.deliveredPackages?.exiosPrice || 0;
-  // The transport fee to another office is paid with the shipping (spec v8)
-  const fee = Number((pkg?.deliveredPackages as any)?.domesticFee?.usd || 0);
-  return Number((weight * price + fee).toFixed(2));
+  const fee = (pkg?.deliveredPackages as any)?.domesticFee;
+  const feeUsd = fee?.currency === 'USD' ? Number(fee.amount || 0) : 0;
+  return Number((weight * price + feeUsd).toFixed(2));
 };
 
 const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
@@ -74,6 +80,8 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   boxesCount: pkg?.deliveredPackages?.boxesCount || '',
   images: pkg?.images || [],
   orderId,
+  feeAmount: Number(pkg?.deliveredPackages?.domesticFee?.amount || 0),
+  feeCurrency: pkg?.deliveredPackages?.domesticFee?.currency || undefined,
 });
 
 // Received packages were already delivered (and paid for), so they can never be selected again
@@ -97,6 +105,9 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const [resMessage, setResMessage] = useState<string>();
   const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
   const [previewImages, setPreviewImages] = useState<any>();
+  // A transport fee in dinars: paid from the dinar wallet on its own, or converted to dollars
+  const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');
+  const { rate: todayRate } = usePackageSettings();
 
   const [cancelToken, setCancelToken] = useState();
   const latestRequestId = useRef(0);
@@ -207,15 +218,19 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     let totalKG = 0;
     let totalCBM = 0;
     let totalFees = 0;
+    let feesLYD = 0;
 
     selectedPackages.forEach(pkg => {
       if (pkg.measureUnit === 'KG') totalKG += pkg.weight;
       if (pkg.measureUnit === 'CBM') totalCBM += pkg.weight;
       totalFees += pkg.cost;
+      if (pkg.feeCurrency === 'LYD' && pkg.feeAmount) feesLYD += pkg.feeAmount;
     });
+    // Converted at today's rate when paid in dollars; otherwise taken from the dinar wallet as is
+    if (feeMode === 'usd' && feesLYD && todayRate) totalFees += Math.round((feesLYD / todayRate) * 100) / 100;
 
-    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)) };
-  }, [selectedPackages]);
+    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)), feesLYD: Number(feesLYD.toFixed(2)), separateLYD: feeMode === 'separate' ? Number(feesLYD.toFixed(2)) : 0 };
+  }, [selectedPackages, feeMode, todayRate]);
 
   // The rate is calculated, never typed (the server calculates it the same way):
   // USD only -> 0, LYD only -> LYD / total, both -> USD is taken first and LYD pays the rest.
@@ -231,7 +246,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const errors: string[] = [];
     if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
     if (amountUSD > walletUsd + 0.001) errors.push(`USD wallet only has $${formatMoney(walletUsd)}.`);
-    if (amountLYD > walletLyd + 0.001) errors.push(`LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
+    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD transport fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
     if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
     if (amountUSD === 0 && amountLYD === 0) errors.push('Enter a USD or LYD amount.');
     if (amountLYD === 0 && amountUSD > 0) {
@@ -240,7 +255,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     }
 
     return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
-  }, [payment, totals.totalFees, walletUsd, walletLyd]);
+  }, [payment, totals.totalFees, totals.separateLYD, walletUsd, walletLyd]);
 
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
@@ -270,6 +285,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           rate: paymentSummary.rate,
         },
         totalCost: totals.totalFees,
+        feeMode,
       });
 
       closeDialog();
@@ -473,6 +489,17 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               <strong>${formatMoney(totals.totalFees)}</strong>
             </div>
           </div>
+
+          {totals.feesLYD > 0 && (
+            <div className="co-fee-box" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, margin: '12px 0' }}>
+              <strong>Transport fees: {formatMoney(totals.feesLYD)} LYD</strong>
+              <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
+                <label><input type="radio" checked={feeMode === 'separate'} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
+                <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>
+              </div>
+              {feeMode === 'separate' && <small>{formatMoney(totals.feesLYD)} LYD are taken from the LYD wallet on their own; the total above is the shipping only.</small>}
+            </div>
+          )}
 
           <div className="co-payment-grid">
             <TextField

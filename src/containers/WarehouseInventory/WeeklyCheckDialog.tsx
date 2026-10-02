@@ -273,6 +273,7 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
                           {pkg.trackingNumber && <span>تتبع {pkg.trackingNumber}</span>}
                           {pkg.receiptNo && <span>إيصال {pkg.receiptNo}</span>}
                           {pkg.weight?.total && <span><Weight size={11} strokeWidth={2} /> {pkg.weight.total} {pkg.weight.measureUnit}</span>}
+                          {pkg.volumetric?.enabled && <span style={{ color: '#b45309', fontWeight: 700 }} title={`الوزن الفعلي ${pkg.weight?.actual ?? '-'} كغ · ${pkg.volumetric.cbm} CBM`}>⚠ حجمي (الفعلي {pkg.weight?.actual ?? '-'})</span>}
                           {pkg.locationPlace && <span><MapPin size={11} strokeWidth={2} /> {pkg.locationPlace}</span>}
                         </div>
                       </div>
