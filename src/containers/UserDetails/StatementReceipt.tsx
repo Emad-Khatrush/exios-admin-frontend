@@ -28,7 +28,6 @@ const actionTypeNames: Record<string, string> = {
 const officeNames: Record<string, string> = {
   tripoli: 'مكتب طرابلس',
   benghazi: 'مكتب بنغازي',
-  misurata: 'مكتب مصراتة',
   turkey: 'تركيا',
   china: 'الصين',
   almutahidaTrBank: 'حساب الشركة المتحدة تركيا',

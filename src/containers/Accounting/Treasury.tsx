@@ -174,7 +174,8 @@ const Treasury = () => {
         </DialogActions>
       </Dialog>
 
-      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => { load(); reload(); }} model={cancel.model} id={cancel.doc._id} title={cancel.doc.number} />}
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => { load(); reload(); }} model={cancel.model} id={cancel.doc._id} title={cancel.doc.number}
+        askConfirm={cancel.model === 'AccountingTreasuryTransfer' ? 'الإلغاء حتى لو أصبح الحساب المستلم سالباً' : undefined} />}
     </>
   );
 };

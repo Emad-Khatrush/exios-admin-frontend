@@ -69,6 +69,7 @@ import AccountingOdooExport from './containers/Accounting/OdooExport';
 import AccountingAlipay from './containers/Accounting/Alipay';
 import AccountingStartWizard from './containers/Accounting/StartWizard';
 import AccountingAccessControl from './containers/Accounting/AccessControl';
+import AccountingBackups from './containers/Accounting/Backups';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
@@ -210,6 +211,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='alipay' element={<AccountingAlipay />} />
         <Route path='start' element={<AccountingStartWizard />} />
         <Route path='access' element={<AccountingAccessControl />} />
+        <Route path='backups' element={<AccountingBackups />} />
       </Route>
     </>
   }

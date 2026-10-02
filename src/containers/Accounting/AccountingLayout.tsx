@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeftRight, BadgeDollarSign, BookMarked, BookOpen, Building2, CalendarClock, ChartColumn, CircleDollarSign, Contact, FileSpreadsheet, FileText, Gauge, HandCoins, History, KeyRound, Landmark, ListChecks,
+  ArrowLeftRight, BadgeDollarSign, BookMarked, BookOpen, Building2, CalendarClock, ChartColumn, CircleDollarSign, Contact, DatabaseBackup, FileSpreadsheet, FileText, Gauge, HandCoins, History, KeyRound, Landmark, ListChecks,
   ListTree, Lock, Receipt, ReceiptText, Rocket, Scale, ScrollText, Settings2, ShieldCheck, Ship, Truck, Users, Wallet,
 } from 'lucide-react';
 import { AccountingTheme } from './ui/AccountingTheme';
@@ -75,6 +75,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
       { to: '/accounting/settings', label: 'الإعدادات', icon: Settings2, perms: ['setup'] },
       { to: '/accounting/audit', label: 'سجل التدقيق', icon: ScrollText, perms: ['audit'] },
       { to: '/accounting/access', label: 'الصلاحيات', icon: KeyRound, owner: true },
+      { to: '/accounting/backups', label: 'النسخ الاحتياطي', icon: DatabaseBackup, owner: true },
     ],
   },
 ];

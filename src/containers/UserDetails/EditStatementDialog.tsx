@@ -14,7 +14,9 @@ type Props = {
   onSaved: () => void
 }
 
-const actionTypes = ['cash', 'bank', 'wallet', 'refund', 'compensation', 'cancellation', 'withdrawal'];
+// The kinds an incoming line can be changed to: money in (cash, bank) or given (refund, compensation).
+// A payment given back and a withdrawal are made by their own actions, not by retyping a line.
+const actionTypes = ['cash', 'bank', 'refund', 'compensation'];
 
 const toForm = (statement: any) => ({
   createdAt: statement?.createdAt ? new Date(statement.createdAt) : new Date(),

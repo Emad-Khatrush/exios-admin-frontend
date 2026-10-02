@@ -33,8 +33,13 @@ export const PaymentsList = () => {
     <>
       <PageHeader
         title="دفعات الموردين"
-        subtitle="المبالغ المدفوعة للموردين موزعة على فواتيرهم. ما لا يُوزَّع يبقى دفعة مقدمة لدى المورد."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button>}
+        subtitle="المبالغ المدفوعة للموردين موزعة على فواتيرهم. ما لا يُوزَّع يبقى دفعة مقدمة لدى المورد. ما يعيده مورد لنا في «الاستلام من الموردين» أسفل الصفحة."
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/receipts/new')}>استلام من مورد</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button>
+          </>
+        )}
       />
       <Panel flush>
         {bulk.bar}

@@ -75,7 +75,12 @@ const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages }: { rows: any[]
                   ))}
                 </AvatarGroup>
               )}
-              {isAdmin && (
+              {payment.deliveryInvoice && (
+                <Tooltip title="دفعة فاتورة تسليم: تُلغى بإلغاء الفاتورة نفسها من صفحة الفواتير، فترجع القيمة للمحفظة مرة واحدة">
+                  <span className="op-muted">Delivery invoice #0{payment.deliveryInvoice.referenceId}</span>
+                </Tooltip>
+              )}
+              {isAdmin && !payment.deliveryInvoice && (
                 <Tooltip title="Delete this payment">
                   <IconButton className="op-payments__delete" size="small" color="error" aria-label="Delete this payment" onClick={() => onDelete(payment)}><MdDeleteOutline /></IconButton>
                 </Tooltip>

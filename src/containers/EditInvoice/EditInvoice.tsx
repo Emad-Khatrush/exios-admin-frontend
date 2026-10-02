@@ -350,14 +350,23 @@ export class EditInvoice extends Component<Props, State> {
 
   // ---------- Order actions ----------
 
+  // What cancelling gives back to the wallet: every payment of the order, in full (owner's decision)
+  paidTotals = () => {
+    const totals: Record<string, number> = {};
+    (this.state.payments || []).forEach((p: any) => { totals[p.currency] = Math.round(((totals[p.currency] || 0) + Number(p.receivedAmount || 0)) * 100) / 100; });
+    return Object.entries(totals).map(([currency, amount]) => `${amount} ${currency}`).join(' + ');
+  };
+
   cancelOrder = () => {
-    const { cancelationReason } = this.state;
-    if (!cancelationReason.trim()) return this.toast('error', 'Write the reason for cancelling first');
+    const { cancelationReason, order } = this.state;
+    if (!order.isCanceled && !cancelationReason.trim()) return this.toast('error', 'Write the reason for cancelling first');
+    const hadPayments = (this.state.payments || []).length > 0;
     this.run(async () => {
       await api.post(`order/${this.orderId}/cancel`, { cancelationReason });
       await this.reloadOrder({ rows: true });
+      await this.reloadMoney();
       this.setState({ changedFields: {}, cancelDialog: false, cancelationReason: '' });
-      return 'Order cancelled';
+      return hadPayments ? 'تم الإلغاء وإرجاع المدفوعات للمحفظة' : 'Order cancelled';
     });
   };
 
@@ -399,7 +408,11 @@ export class EditInvoice extends Component<Props, State> {
   renderHeader() {
     const { order, userDebts, copied } = this.state;
     const { account } = this.props;
-    const canCancel = !order.isCanceled && (CANCEL_ALLOWED_ACCOUNTS.includes(account?._id) || account?.roles.isAdmin);
+    const mayCancel = CANCEL_ALLOWED_ACCOUNTS.includes(account?._id) || account?.roles.isAdmin;
+    const canCancel = !order.isCanceled && mayCancel;
+    const hasPayments = (this.state.payments || []).length > 0;
+    // An order cancelled before payments were given back on cancelling: give them back now
+    const canReturnPayments = order.isCanceled && hasPayments && mayCancel;
     const { totalUsd, totalLyd } = totalDebts(userDebts);
     const step = getOrderSteps(order)[order.orderStatus || 0];
 
@@ -424,7 +437,8 @@ export class EditInvoice extends Component<Props, State> {
           <div className="op-actions">
             <Button variant="outlined" size="small" onClick={() => this.setState({ previewDialog: true })}>Download invoice</Button>
             <Button variant="outlined" size="small" onClick={() => this.setState({ debtDialog: true })}>Add debt</Button>
-            {canCancel && <Button variant="outlined" color="error" size="small" onClick={() => this.setState({ cancelDialog: true })}>Cancel order</Button>}
+            {canCancel && <Button variant="outlined" color="error" size="small" onClick={() => this.setState({ cancelDialog: true })}>{hasPayments ? 'إلغاء وإرجاع للمحفظة' : 'Cancel order'}</Button>}
+            {canReturnPayments && <Button variant="outlined" color="error" size="small" onClick={() => this.setState({ cancelDialog: true })}>إرجاع المدفوعات للمحفظة</Button>}
             {account?.roles.isAdmin && (
               <Button variant="outlined" color="error" size="small" onClick={() => this.setState({ deleteDialog: true, deleteConfirmation: '', deleteError: '' })}>Delete order</Button>
             )}
@@ -561,16 +575,26 @@ export class EditInvoice extends Component<Props, State> {
         </Snackbar>
 
         <Dialog open={this.state.cancelDialog} onClose={() => this.setState({ cancelDialog: false })} fullWidth maxWidth="sm">
-          <DialogTitle>Cancel this order?</DialogTitle>
+          <DialogTitle>{this.state.order?.isCanceled ? 'إرجاع مدفوعات الطلب الملغى للمحفظة؟' : (this.state.payments || []).length ? 'إلغاء الطلب وإرجاع المدفوع للمحفظة؟' : 'Cancel this order?'}</DialogTitle>
           <DialogContent>
-            <TextField
-              className="mt-2" label="يرجى كتابة سبب الالغاء بالتفصيل" dir="rtl" multiline minRows={6} fullWidth autoFocus
-              value={this.state.cancelationReason} onChange={(event) => this.setState({ cancelationReason: event.target.value })}
-            />
+            {(this.state.payments || []).length > 0 && (
+              <Alert severity="info" className="mb-2" dir="rtl">
+                سيُرجع للعميل في محفظته كامل المدفوع على الطلب: <strong>{this.paidTotals()}</strong> ({this.state.payments.length} دفعة).
+                تكلفة المورد إن وُجدت تبقى معلّقة حتى يسوّيها المحاسب.
+              </Alert>
+            )}
+            {!this.state.order?.isCanceled && (
+              <TextField
+                className="mt-2" label="يرجى كتابة سبب الالغاء بالتفصيل" dir="rtl" multiline minRows={6} fullWidth autoFocus
+                value={this.state.cancelationReason} onChange={(event) => this.setState({ cancelationReason: event.target.value })}
+              />
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => this.setState({ cancelDialog: false })}>الرجوع</Button>
-            <Button onClick={this.cancelOrder} color="error" variant="contained" disabled={!this.state.cancelationReason.trim()}>الغاء الفاتورة</Button>
+            <Button onClick={this.cancelOrder} color="error" variant="contained" disabled={!this.state.order?.isCanceled && !this.state.cancelationReason.trim()}>
+              {this.state.order?.isCanceled ? 'إرجاع للمحفظة' : (this.state.payments || []).length ? 'إلغاء وإرجاع للمحفظة' : 'الغاء الفاتورة'}
+            </Button>
           </DialogActions>
         </Dialog>
 
