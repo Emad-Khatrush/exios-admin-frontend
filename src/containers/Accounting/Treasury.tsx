@@ -6,6 +6,7 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, RemotePicker, today, userLabel } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
+import { SubBoxesPanel } from './SubBoxes';
 
 const Treasury = () => {
   const { accounts, reload } = useAccountingData();
@@ -76,6 +77,7 @@ const Treasury = () => {
         </>}
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
+      <SubBoxesPanel canHandOver onChanged={load} />
 
       <Panel flush title="التحويلات وصرف العملات" subtitle="شراء عملة يحفظ تكلفتها الحقيقية؛ مثلاً 71,000 يوان مقابل 10,000$ تُحمل بسعر 7.1.">
         {transferBulk.bar}

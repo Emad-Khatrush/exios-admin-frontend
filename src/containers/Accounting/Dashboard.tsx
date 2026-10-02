@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Button } from '@mui/material';
 import { acc, errorText, OFFICE_LABELS } from './accountingApi';
 import { AccountRef, Badge, DataTable, Money, PageHeader, Panel, Stat, StatGrid } from './ui';
+import { SubBoxesPanel } from './SubBoxes';
 
 const CASH_KIND: Record<string, string> = { cash: 'خزينة', bank: 'بنك', ewallet: 'محفظة إلكترونية' };
 
@@ -108,6 +109,7 @@ const Dashboard = () => {
           tone={live?.liveEnabled ? undefined : 'warn'}
         />
       </StatGrid>
+      <SubBoxesPanel />
 
       <Panel flush title="الخزائن والبنوك والمحافظ الإلكترونية" subtitle="الرصيد بعملة كل حساب، وقيمته بالدولار في الدفاتر، ومتوسط السعر الذي يُحمل به.">
         <DataTable
