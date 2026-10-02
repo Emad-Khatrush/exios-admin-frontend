@@ -293,8 +293,12 @@ const Trips = () => {
   return (
     <Panel
       flush title="ربحية الرحلات"
-      subtitle="الإيراد المعترف به لطرود الرحلة ناقص ما انتقل من تكلفتها. «مؤجل» و«قيد التنفيذ» ينتظران التسليم والسداد. الرحلة الداخلية تكلفة فقط؛ إيراد طرودها في رحلتها الجوية أو البحرية."
-      actions={<Actions onExport={() => exportSheet('trips', (data?.results || []).map((r: any) => ({ trip: r.voyage, type: r.shippingType, status: r.status, packages: r.packages, recognized: r.recognizedPackages, ...profitExport(r) })))} />}
+      subtitle="إجمالي الإيراد = المعترف به (مسلَّم ومسدد) + المؤجل (لم يُسلَّم أو لم يُسدَّد). إجمالي التكلفة = كل مصاريف الرحلة. الصافي = إجمالي الإيراد ناقص إجمالي التكلفة. سعر الوحدة = إجمالي التكلفة (أو الإيراد) ÷ مجموع أوزان الطرود: الجوي بالكيلو والبحري بالـCBM. الرحلة الداخلية تكلفة نقل فقط."
+      actions={<Actions onExport={() => exportSheet('trips', (data?.results || []).map((r: any) => ({
+        trip: r.voyage, type: r.shippingType, status: r.status, packages: r.packages, recognizedPackages: r.recognizedPackages, weight: r.weight, unit: r.unit || '',
+        revenueRecognized: dollars(r.revenue), deferred: dollars(r.deferred), totalRevenue: dollars(r.totalRevenue), totalCost: dollars(r.totalCost), net: dollars(r.net),
+        costPerUnit: r.costPerUnit === null ? '' : dollars(r.costPerUnit), revenuePerUnit: r.revenuePerUnit === null ? '' : dollars(r.revenuePerUnit),
+      })))} />}
     >
       <div className="px-3 acc-noprint">
         <FilterBar>
@@ -324,9 +328,19 @@ const Trips = () => {
             ),
           },
           { key: 'status', header: 'الحالة', hideOnMobile: true, render: (row: any) => <StatusBadge status={row.status} /> },
-          ...profitColumns,
+          { key: 'weight', header: 'الوزن', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.weight, render: (row: any) => (row.weight ? <span className="money">{row.weight.toLocaleString('en-US', { maximumFractionDigits: 3 })} {row.unit || (row.mixedUnits ? 'مختلط' : '')}</span> : null) },
+          { key: 'revenue', header: 'إيراد معترف به', numeric: true, sortValue: (row: any) => row.revenue, render: (row: any) => <Money value={row.revenue} hideZero /> },
+          { key: 'deferred', header: 'مؤجل', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.deferred, render: (row: any) => <Money value={row.deferred} hideZero tone="plain" /> },
+          { key: 'totalRevenue', header: 'إجمالي الإيراد', numeric: true, sortValue: (row: any) => row.totalRevenue, render: (row: any) => <Money value={row.totalRevenue} /> },
+          { key: 'totalCost', header: 'إجمالي التكلفة', numeric: true, sortValue: (row: any) => row.totalCost, render: (row: any) => <Money value={row.totalCost} /> },
+          { key: 'net', header: 'الصافي', numeric: true, sortValue: (row: any) => row.net, render: (row: any) => <Money value={row.net} strong /> },
+          { key: 'costPerUnit', header: 'تكلفة الكيلو/CBM', numeric: true, sortValue: (row: any) => row.costPerUnit ?? -1, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
+          { key: 'revenuePerUnit', header: 'بيع الكيلو/CBM', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.revenuePerUnit ?? -1, render: (row: any) => (row.revenuePerUnit === null ? null : <Money value={row.revenuePerUnit} tone="plain" />) },
         ]}
-        footer={data ? profitFooter(data.totals, 'trip') : undefined}
+        footer={data ? {
+          trip: 'الإجمالي', revenue: <Money value={data.totals.revenue} strong />, deferred: <Money value={data.totals.deferred} tone="plain" />,
+          totalRevenue: <Money value={data.totals.totalRevenue} strong />, totalCost: <Money value={data.totals.totalCost} strong />, net: <Money value={data.totals.net} strong />,
+        } : undefined}
       />
     </Panel>
   );
