@@ -37,8 +37,13 @@ interface LegacyExpense {
   date: string;
 }
 
+// A trip's costs by kind (spec v8): customs is a cost of the trip itself, shared by weight
+const COST_CATEGORIES: [string, string][] = [['shipping', 'Shipping'], ['customs', 'Customs'], ['clearance', 'Clearance'], ['transport', 'Transport'], ['other', 'Other']];
+const categoryLabel = (value?: string | null) => COST_CATEGORIES.find(([key]) => key === value)?.[1] || '';
+
 interface Bill {
   _id: string;
+  costCategory?: string | null;
   number: string;
   day: string;
   vendor: string;
@@ -76,6 +81,7 @@ const emptyForm = () => ({
   vendor: null as any,
   vendorText: '',
   description: '',
+  costCategory: 'shipping',
   amount: '',
   payFrom: '',
   currency: 'USD',
@@ -206,7 +212,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
   // Old expenses and accounting bills in one list, newest first; cancelled bills only on request
   const rows: Row[] = useMemo(() => {
     const fromBills: Row[] = bills.map((bill) => ({
-      key: bill._id, date: bill.day, description: bill.description, supplier: bill.vendor, amount: bill.amount, currency: bill.currency,
+      key: bill._id, date: bill.day, description: [categoryLabel(bill.costCategory), bill.description].filter(Boolean).join(' · '), supplier: bill.vendor, amount: bill.amount, currency: bill.currency,
       usd: (bill.usd || 0) / 100, paidFrom: bill.paid ? bill.paidFrom || 'Paid' : 'Owed to supplier', legacy: false, canceled: bill.status === 'canceled', bill,
     }));
     const fromLegacy: Row[] = legacy.map((exp) => ({
@@ -380,6 +386,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
         vendorId: form.vendor?._id,
         vendorName: form.vendor ? undefined : form.vendorText.trim(),
         description: form.description.trim(),
+        costCategory: form.costCategory,
         amount,
         currency,
         payFromAccountId: form.payFrom || undefined,
@@ -389,7 +396,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       });
       key.current = newKey();
       setToast({ message: form.payFrom ? 'Cost added and paid' : 'Cost added, owed to the supplier' });
-      setForm({ ...emptyForm(), payFrom: form.payFrom, currency: form.currency });
+      setForm({ ...emptyForm(), payFrom: form.payFrom, currency: form.currency, costCategory: form.costCategory });
       if (!form.vendor) fetchOptions();
       await fetchCosts();
     } catch (err) {
@@ -480,6 +487,15 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
             onChange={(_, vendor: any) => setForm((f) => ({ ...f, vendor: vendor && typeof vendor !== 'string' ? vendor : null }))}
             renderInput={(params) => <TextField {...params} placeholder="Carrier, customs agent..." helperText={typedNewVendor ? 'Will be added as a new supplier' : undefined} />}
           />
+        </div>
+
+        <div className="inv-field">
+          <FieldLabel required>Kind of cost</FieldLabel>
+          <FormControl size="small" fullWidth>
+            <Select value={form.costCategory} onChange={(e) => setForm({ ...form, costCategory: String(e.target.value) })} inputProps={{ 'aria-label': 'Kind of cost' }}>
+              {COST_CATEGORIES.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+            </Select>
+          </FormControl>
         </div>
 
         <div className="inv-field is-description">

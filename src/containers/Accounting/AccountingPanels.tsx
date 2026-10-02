@@ -86,7 +86,7 @@ const BillsTable = ({ bills, empty }: { bills: any[]; empty: string }) => (
   </Panel>
 );
 
-const CLAIM_KIND: Record<string, string> = { SHP: 'شحن', PUR: 'فاتورة شراء', GEN: 'دين عام' };
+const CLAIM_KIND: Record<string, string> = { SHP: 'شحن', DOM: 'نقل داخلي', PUR: 'فاتورة شراء', GEN: 'دين عام' };
 
 const blankBill = () => ({ vendor: null as any, description: '', amount: '', payFrom: '', currency: 'USD', rate: '', day: todayLibya() });
 
@@ -374,7 +374,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
             <DataTable
               dense rows={data.claims} rowKey={(row: any) => row.arKey} empty={{ title: 'لا مطالبات' }}
               columns={[
-                { key: 'claim', header: 'المطالبة', render: (row: any) => <>{CLAIM_KIND[row.kind] || row.kind} {row.tracking && <Ltr>{row.tracking}</Ltr>} {row.kind === 'SHP' && (row.delivered ? <Badge tone="ok">مسلَّم</Badge> : <Badge tone="muted">لم يُسلَّم</Badge>)}</> },
+                { key: 'claim', header: 'المطالبة', render: (row: any) => <>{CLAIM_KIND[row.kind] || row.kind} {row.tracking && <Ltr>{row.tracking}</Ltr>} {(row.kind === 'SHP' || row.kind === 'DOM') && (row.delivered ? <Badge tone="ok">مسلَّم</Badge> : <Badge tone="muted">لم يُسلَّم</Badge>)}</> },
                 { key: 'billed', header: 'المطالبة', numeric: true, render: (row: any) => <Money value={row.billed} /> },
                 { key: 'paid', header: 'المدفوع', numeric: true, render: (row: any) => <Money value={row.paid} tone="plain" /> },
                 { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => <Money value={row.open} strong={row.open !== 0} hideZero /> },

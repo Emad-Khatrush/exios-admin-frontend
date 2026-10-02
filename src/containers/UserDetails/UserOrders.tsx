@@ -58,7 +58,9 @@ const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFr
 const getPackageCost = (pkg: Package): number => {
   const weight = pkg?.deliveredPackages?.weight?.total || 0;
   const price = pkg?.deliveredPackages?.exiosPrice || 0;
-  return Number((weight * price).toFixed(2));
+  // The transport fee to another office is paid with the shipping (spec v8)
+  const fee = Number((pkg?.deliveredPackages as any)?.domesticFee?.usd || 0);
+  return Number((weight * price + fee).toFixed(2));
 };
 
 const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({

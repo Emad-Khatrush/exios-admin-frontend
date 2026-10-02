@@ -60,8 +60,10 @@ export const paidInUsd = (payments: any[] = [], category = 'invoice') => {
   return totals;
 };
 
-// What the customer owes for shipping one package: its weight at the Exios price
-export const packageCharge = (row: any) => Number(row?.deliveredPackages?.weight?.total || 0) * Number(row?.deliveredPackages?.exiosPrice || 0);
+// What the customer owes for one package: its chargeable weight at the Exios price, plus the
+// transport fee to another office when there is one (spec v8)
+export const packageCharge = (row: any) => Number(row?.deliveredPackages?.weight?.total || 0) * Number(row?.deliveredPackages?.exiosPrice || 0)
+  + Number(row?.deliveredPackages?.domesticFee?.usd || 0);
 
 export const removeBr = (text: string): string => (text ? text.replace(/<\/br>/g, '') : '');
 

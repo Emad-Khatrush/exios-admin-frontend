@@ -65,7 +65,7 @@ const BillForm = () => {
       }));
       setLines(bill.lines.map((line: any) => ({
         ...blankLine(line.target), description: line.description, amount: id ? String(line.amount) : '', office: line.office || '',
-        accountId: line.accountId || '', trip: findById(trips, line.tripId), order: findById(orders, line.orderId),
+        accountId: line.accountId || '', costCategory: line.costCategory || '', trip: findById(trips, line.tripId), order: findById(orders, line.orderId),
         asset: { name: line.asset?.name || '', usefulLifeMonths: line.asset?.usefulLifeMonths || '', salvageValue: line.asset?.salvageValue || '' },
         prepaid: { expenseAccountId: line.prepaid?.expenseAccountId || '', months: line.prepaid?.months || '', startMonth: line.prepaid?.startMonth || '' },
       })));
@@ -86,6 +86,7 @@ const BillForm = () => {
     lines: lines.map((line) => ({
       description: line.description, amount: Number(line.amount), target: line.target, office: line.office || undefined,
       tripId: line.target === 'trip' ? line.trip?._id : undefined,
+      costCategory: line.target === 'trip' ? line.costCategory || undefined : undefined,
       orderId: line.target === 'order' ? line.order?._id : undefined,
       accountId: ['expense', 'asset'].includes(line.target) ? line.accountId : undefined,
       asset: line.target === 'asset' ? { name: line.asset.name, usefulLifeMonths: Number(line.asset.usefulLifeMonths), salvageValue: Number(line.asset.salvageValue) || 0 } : undefined,
@@ -175,6 +176,12 @@ const BillForm = () => {
                   <div style={{ minWidth: 320, flex: 1 }}>
                     <RemotePicker endpoint="trips" minLength={0} label="الرحلة" value={line.trip} getLabel={tripLabel} onChange={(trip) => update(line.key, { trip })} disabled={form.isCreditNote} />
                   </div>
+                )}
+                {line.target === 'trip' && (
+                  <TextField select size="small" label="نوع التكلفة" value={line.costCategory || ''} onChange={(e) => update(line.key, { costCategory: e.target.value })} style={{ minWidth: 150 }}>
+                    <MenuItem value="">غير مصنف</MenuItem>
+                    {[['shipping', 'شحن'], ['customs', 'جمارك'], ['clearance', 'تخليص'], ['transport', 'نقل'], ['other', 'أخرى']].map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+                  </TextField>
                 )}
                 {line.target === 'order' && (
                   <div style={{ minWidth: 320, flex: 1 }}>

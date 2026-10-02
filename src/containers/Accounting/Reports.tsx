@@ -290,13 +290,57 @@ const profitFooter = (totals: any, first: string) => ({
 });
 const profitExport = (row: any) => ({ revenue: dollars(row.revenue), cost: dollars(row.cost), profit: dollars(row.profit), margin: row.margin, deferred: dollars(row.deferred), costInProgress: dollars(row.costInProgress) });
 
+const COST_CATEGORY_LABELS: Record<string, string> = { shipping: 'شحن', customs: 'جمارك', clearance: 'تخليص', transport: 'نقل', other: 'أخرى', uncategorized: 'غير مصنف' };
+const OFFICE_NAMES: Record<string, string> = { tripoli: 'طرابلس', benghazi: 'بنغازي', misurata: 'مصراتة' };
+
+// One trip opened from the report (spec v8): its cost by kind; for an air or sea trip, the cost and
+// selling price per KG by delivery office with the domestic transport, and its profit before and
+// after that transport; for a domestic trip, the extra cost per KG and the transport fees charged
+const TripDetail = ({ trip }: { trip: any }) => {
+  const categories = Object.entries(trip.byCategory || {}).filter(([, value]) => value);
+  const unit = trip.unit === 'CBM' ? 'CBM' : 'الكيلو';
+  return (
+    <Panel title={<>تفاصيل الرحلة {trip.voyage}</>} subtitle={trip.volumetricPackages ? `${trip.volumetricPackages} طرد محتسب بالوزن الحجمي` : undefined}>
+      <StatGrid>
+        {categories.map(([key, value]) => <Stat key={key} label={`تكلفة ${COST_CATEGORY_LABELS[key] || key}`} value={<Money value={value as number} />} />)}
+        {trip.shippingType === 'domestic' ? (
+          <>
+            <Stat label={`تكلفة ${unit} الإضافية`} value={trip.extraCostPerUnit === null ? '—' : <Money value={trip.extraCostPerUnit} />} />
+            <Stat label="رسوم النقل المفوترة" value={<Money value={trip.feesBilled} />} hint={<>المعترف بها <Money value={trip.feesRecognized} /></>} />
+            <Stat label="الرسوم ناقص التكلفة" value={<Money value={trip.feesBilled - trip.totalCost} />} tone={trip.feesBilled - trip.totalCost < 0 ? 'danger' : 'accent'} />
+          </>
+        ) : (
+          <>
+            <Stat label="الربح قبل النقل الداخلي" value={<Money value={trip.profitBeforeDomestic} />} />
+            <Stat label="الربح بعد النقل الداخلي" value={<Money value={trip.profitAfterDomestic} />} tone={trip.profitAfterDomestic < 0 ? 'danger' : 'accent'} hint={<>النقل الداخلي <Money value={trip.domesticCost} /></>} />
+          </>
+        )}
+      </StatGrid>
+      {trip.shippingType !== 'domestic' && (trip.offices || []).length > 0 && (
+        <DataTable
+          dense rows={trip.offices} rowKey={(row: any) => row.office}
+          columns={[
+            { key: 'office', header: 'مكتب التسليم', render: (row: any) => <>{OFFICE_NAMES[row.office] || row.office}<Sub>{row.packages} طرد · {row.weight} {trip.unit || ''}</Sub></> },
+            { key: 'costPerUnit', header: `تكلفة ${unit} (الرحلة والجمرك)`, numeric: true, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
+            { key: 'fullCostPerUnit', header: `تكلفة ${unit} الكاملة`, numeric: true, render: (row: any) => (row.fullCostPerUnit === null ? null : <Money value={row.fullCostPerUnit} />) },
+            { key: 'sellPerUnit', header: `بيع ${unit}`, numeric: true, render: (row: any) => (row.sellPerUnit === null ? null : <Money value={row.sellPerUnit} />) },
+            { key: 'domesticCost', header: 'النقل الداخلي', numeric: true, render: (row: any) => <Money value={row.domesticCost} hideZero tone="plain" /> },
+            { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
+          ]}
+        />
+      )}
+    </Panel>
+  );
+};
+
 const Trips = () => {
   const [filters, setFilters] = useState({ status: '', shippingType: '', search: '' });
+  const [opened, setOpened] = useState<any>(null);
   const { data, error, isLoading, load } = useReport('reports/trips');
   return (
     <Panel
       flush title="ربحية الرحلات"
-      subtitle="إجمالي الإيراد = المعترف به (مسلَّم ومسدد) + المؤجل (لم يُسلَّم أو لم يُسدَّد). إجمالي التكلفة = كل مصاريف الرحلة. الصافي = إجمالي الإيراد ناقص إجمالي التكلفة. سعر الوحدة = إجمالي التكلفة (أو الإيراد) ÷ مجموع أوزان الطرود: الجوي بالكيلو والبحري بالـCBM. الرحلة الداخلية تكلفة نقل فقط."
+      subtitle="إجمالي الإيراد = المعترف به (مسلَّم ومسدد) + المؤجل (لم يُسلَّم أو لم يُسدَّد). إجمالي التكلفة = كل مصاريف الرحلة. الصافي = إجمالي الإيراد ناقص إجمالي التكلفة. سعر الوحدة = إجمالي التكلفة (أو الإيراد) ÷ مجموع أوزان الطرود: الجوي بالكيلو والبحري بالـCBM. الرحلة الداخلية: تكلفتها تُوزَّع على طرودها بالوزن ويقابلها رسوم النقل. اضغط رحلة لتفاصيلها: التكلفة حسب النوع، والكيلو حسب مكتب التسليم، والربح قبل النقل الداخلي وبعده."
       actions={<Actions onExport={() => exportSheet('trips', (data?.results || []).map((r: any) => ({
         trip: r.voyage, type: r.shippingType, status: r.status, packages: r.packages, recognizedPackages: r.recognizedPackages, weight: r.weight, unit: r.unit || '',
         revenueRecognized: dollars(r.revenue), deferred: dollars(r.deferred), totalRevenue: dollars(r.totalRevenue), totalCost: dollars(r.totalCost), net: dollars(r.net),
@@ -321,6 +365,7 @@ const Trips = () => {
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       <DataTable
         dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => row.tripId} maxHeight="70vh" empty={{ title: 'لا توجد رحلات' }}
+        onRowClick={(row: any) => setOpened(opened?.tripId === row.tripId ? null : row)}
         columns={[
           {
             key: 'trip', header: 'الرحلة', sortValue: (row: any) => row.voyage, render: (row: any) => (
@@ -337,6 +382,7 @@ const Trips = () => {
           { key: 'totalRevenue', header: 'إجمالي الإيراد', numeric: true, sortValue: (row: any) => row.totalRevenue, render: (row: any) => <Money value={row.totalRevenue} /> },
           { key: 'totalCost', header: 'إجمالي التكلفة', numeric: true, sortValue: (row: any) => row.totalCost, render: (row: any) => <Money value={row.totalCost} /> },
           { key: 'net', header: 'الصافي', numeric: true, sortValue: (row: any) => row.net, render: (row: any) => <Money value={row.net} strong /> },
+          { key: 'afterDomestic', header: 'بعد النقل الداخلي', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.profitAfterDomestic ?? row.net, render: (row: any) => (row.profitAfterDomestic === undefined ? null : <Money value={row.profitAfterDomestic} tone="plain" />) },
           { key: 'costPerUnit', header: 'تكلفة الكيلو/CBM', numeric: true, sortValue: (row: any) => row.costPerUnit ?? -1, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
           { key: 'revenuePerUnit', header: 'بيع الكيلو/CBM', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.revenuePerUnit ?? -1, render: (row: any) => (row.revenuePerUnit === null ? null : <Money value={row.revenuePerUnit} tone="plain" />) },
         ]}
@@ -345,6 +391,7 @@ const Trips = () => {
           totalRevenue: <Money value={data.totals.totalRevenue} strong />, totalCost: <Money value={data.totals.totalCost} strong />, net: <Money value={data.totals.net} strong />,
         } : undefined}
       />
+      {opened && <div className="p-3"><TripDetail trip={opened} /></div>}
     </Panel>
   );
 };
