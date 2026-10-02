@@ -191,7 +191,7 @@ const PayCashDialog = (props: Props) => {
               inputProps={{ inputMode: 'numeric', step: .01 }}
               required={true}
               label={'Rate / سعر الصرف'}
-              placeholder="اذا لا يوجد ضع 0"
+              placeholder="للدولار ضع 0، وللدينار واليورو سعر الصرف"
               onChange={onChangeHandler}
             />
           </div>
