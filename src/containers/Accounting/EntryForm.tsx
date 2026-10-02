@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Autocomplete, Button, IconButton, MenuItem, TextField } from '@mui/material';
+import { Alert, Autocomplete, Button, Checkbox, FormControlLabel, IconButton, MenuItem, TextField } from '@mui/material';
 import { Plus, X } from 'lucide-react';
 import { acc, errorText, newKey, todayLibya } from './accountingApi';
 import { AccountingAccount, accountLabel, useAccountingData } from './useAccountingData';
 import { RemotePicker, userLabel } from './shared';
+import { useAccountingAccess } from './useAccountingAccess';
 import { Badge, Money, PageHeader, Panel } from './ui';
 
 type Line = { key: string; accountId: string; side: 'debit' | 'credit'; amount: string; rate: string; office: string; partner: any; label: string; arKey: string };
@@ -39,6 +40,10 @@ const EntryForm = () => {
   const [receivableCode, setReceivableCode] = useState('');
   // One key per form: pressing save twice never creates two entries
   const idempotencyKey = useRef(newKey());
+  // A date in a closed period: only the owner posts there, and says so (spec 19.12)
+  const { isOwner } = useAccountingAccess();
+  const [lockDate, setLockDate] = useState('');
+  const [inLockedPeriod, setInLockedPeriod] = useState(false);
 
   useEffect(() => {
     acc.get('rates/today').then((res: any) => {
@@ -46,7 +51,10 @@ const EntryForm = () => {
       res.data.results.forEach((r: any) => { if (r.rate) map[r.currency] = r.rate; });
       setTodayRates(map);
     }).catch(() => {});
-    acc.get('settings').then((res: any) => setReceivableCode(res.data.roles?.find((r: any) => r.role === 'customer_receivable')?.account?.code || '')).catch(() => {});
+    acc.get('settings').then((res: any) => {
+      setReceivableCode(res.data.roles?.find((r: any) => r.role === 'customer_receivable')?.account?.code || '');
+      setLockDate(res.data.settings?.lockDate || '');
+    }).catch(() => {});
   }, []);
 
   const postable = useMemo(() => accounts.filter((a) => !a.isGroup && a.isActive && a.allowManualEntry).sort((a, b) => a.code.localeCompare(b.code)), [accounts]);
@@ -74,7 +82,7 @@ const EntryForm = () => {
       setIsSaving(true);
       setError('');
       const response = await acc.post('entries', {
-        date, description, idempotencyKey: idempotencyKey.current,
+        date, description, idempotencyKey: idempotencyKey.current, inLockedPeriod: inLockedPeriod || undefined,
         lines: lines.map((line) => ({
           accountId: line.accountId, side: line.side, amount: Number(line.amount), rate: Number(line.rate) || undefined,
           office: line.office || undefined, partnerId: line.partner?._id, label: line.label || undefined, arKey: line.arKey || undefined,
@@ -98,6 +106,15 @@ const EntryForm = () => {
           <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={date} onChange={(e) => setDate(e.target.value)} />
           <TextField label="البيان" value={description} onChange={(e) => setDescription(e.target.value)} style={{ gridColumn: 'span 3' }} />
         </div>
+        {lockDate && date && date <= lockDate && (
+          <Alert severity="warning" className="mb-3">
+            التاريخ في فترة مقفلة (حتى <span dir="ltr">{lockDate}</span>).
+            {isOwner ? (
+              <FormControlLabel className="d-block" control={<Checkbox size="small" checked={inLockedPeriod} onChange={(e) => setInLockedPeriod(e.target.checked)} />}
+                label="رحّله بتاريخه في الفترة المقفلة (إن كانت سنته مقفلة يُضاف قيد إقفال تكميلي ينقل أثره إلى الأرباح المحتجزة)" />
+            ) : ' الترحيل فيها للمالك فقط؛ اختر تاريخاً بعدها.'}
+          </Alert>
+        )}
 
         <div className="acc-lines">
           {lines.map((line) => {
