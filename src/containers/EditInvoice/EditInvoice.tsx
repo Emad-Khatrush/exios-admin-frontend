@@ -581,6 +581,7 @@ export class EditInvoice extends Component<Props, State> {
               <Alert severity="info" className="mb-2" dir="rtl">
                 سيُرجع للعميل في محفظته كامل المدفوع على الطلب: <strong>{this.paidTotals()}</strong> ({this.state.payments.length} دفعة).
                 تكلفة المورد إن وُجدت تبقى معلّقة حتى يسوّيها المحاسب.
+                وإن أُرجع له ريفاند على هذا الطلب، يُخصم من محفظته الآن، فيكون مجموع ما رجع له مساوياً لما دفعه.
               </Alert>
             )}
             {!this.state.order?.isCanceled && (
