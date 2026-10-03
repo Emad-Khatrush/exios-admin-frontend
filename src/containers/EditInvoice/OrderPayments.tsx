@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Tooltip } from '@mui/material';
+import { Alert, Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, TextField, Tooltip } from '@mui/material';
 import { MdDeleteOutline } from 'react-icons/md';
 import moment from 'moment';
 import Badge from '../../components/Badge/Badge';
@@ -18,6 +18,9 @@ type Props = {
   // Opens the wallet dialog to pay the purchase invoice
   onPay: (category: Category, packages: any[], dueUsd: number) => void
   onDeletePayment: (payment: any) => void
+  // An old dinar payment saved without a rate: an admin or the accountant writes it
+  canSetRate?: boolean
+  onSetRate?: (payment: any, rate: number) => Promise<boolean>
   onPreviewImages: (images: any[]) => void
   onConfirmInvoice: () => void
   onRequestEdit: () => void
@@ -54,7 +57,7 @@ const Balance = ({ title, total, paid, lydWithoutRate, empty }: { title: string,
   );
 };
 
-const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages }: { rows: any[], isAdmin: boolean, onDelete: (payment: any) => void, onPreviewImages: (images: any[]) => void }) => {
+const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages, onSetRate }: { rows: any[], isAdmin: boolean, onDelete: (payment: any) => void, onPreviewImages: (images: any[]) => void, onSetRate?: (payment: any) => void }) => {
   if (!rows.length) return <p className="op-muted">No payments recorded yet.</p>;
   return (
     <ul className="op-payments">
@@ -67,7 +70,7 @@ const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages }: { rows: any[]
               <Badge text={payment.paymentType === 'wallet' ? 'Wallet' : 'Cash'} color={payment.paymentType === 'wallet' ? 'primary' : 'sky'} />
               {payment.currency === 'LYD' && (rate > 0
                 ? <span className="op-muted">rate {rate}, counts as {usd(payment.receivedAmount / rate)}</span>
-                : <span className="op-payments__warn">no rate</span>)}
+                : <span className="op-payments__warn">no rate{onSetRate && <> <Button size="small" type="button" onClick={() => onSetRate(payment)}>Set rate</Button></>}</span>)}
               {payment.attachments?.length > 0 && (
                 <AvatarGroup max={3}>
                   {payment.attachments.map((img: any) => (
@@ -166,6 +169,7 @@ const DEBT_STATUS: Record<string, string> = { open: 'Open', overdue: 'Overdue', 
 const OrderPayments = (props: Props) => {
   const { order, isAdmin, payments, wallet, debts } = props;
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [rateFor, setRateFor] = useState<{ payment: any, rate: string, due: number } | null>(null);
 
   const packages: any[] = order.paymentList || [];
   const invoicePaid = paidInUsd(payments, 'invoice');
@@ -192,6 +196,13 @@ const OrderPayments = (props: Props) => {
     danger: true,
     run: () => props.onDeletePayment(payment),
   });
+
+  // The rate that makes the payment settle what is still due on its part of the order
+  const openRate = (payment: any) => {
+    const due = payment.category === 'receivedGoods' ? shippingTotal - shippingPaid.usd : invoiceTotal - invoicePaid.usd;
+    setRateFor({ payment, due, rate: due > 0 ? String(Math.round((Number(payment.receivedAmount) / due) * 10000) / 10000) : '' });
+  };
+  const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
 
   const paidTotals = (category: Category) => {
     const { totalUsd, totalLyd, totalEuro } = totalPaid(payments, category);
@@ -253,7 +264,7 @@ const OrderPayments = (props: Props) => {
           ))}
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
-        <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} />
+        <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>}
 
       <section className="op-panel">
@@ -267,7 +278,7 @@ const OrderPayments = (props: Props) => {
           </div>
         </header>
 
-        <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} />
+        <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>
 
       <section className="op-panel op-panel--wide">
@@ -291,6 +302,28 @@ const OrderPayments = (props: Props) => {
           ))}
         </ul>
       </section>
+
+      <Dialog open={!!rateFor} onClose={() => setRateFor(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Rate of this payment</DialogTitle>
+        {rateFor && (
+          <DialogContent>
+            <DialogContentText>
+              <strong>{money(rateFor.payment.receivedAmount)} {rateFor.payment.currency}</strong> were saved without the rate they were counted at, so the order cannot count them.
+              Write the dinars per dollar they paid at. The accounting books post the payment again at this rate.
+            </DialogContentText>
+            <TextField
+              className="mt-3" fullWidth autoFocus type="number" label="Rate (LYD per 1 USD)" value={rateFor.rate} inputProps={{ min: 0, step: 'any' }}
+              onChange={(event) => setRateFor({ ...rateFor, rate: event.target.value })}
+              helperText={Number(rateFor.rate) > 0 ? `Counts as ${usd(Number(rateFor.payment.receivedAmount) / Number(rateFor.rate))}${rateFor.due > 0 ? ` of the ${usd(rateFor.due)} still due` : ''}` : 'Required'}
+            />
+            {rateFor.due > 0 && <Alert severity="info" className="mt-2">The rate that settles exactly what is due is filled in. Change it if the customer paid at another rate.</Alert>}
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button onClick={() => setRateFor(null)}>Back</Button>
+          <Button variant="contained" disabled={!(Number(rateFor?.rate) > 0)} onClick={async () => { if (rateFor && await props.onSetRate?.(rateFor.payment, Number(rateFor.rate))) setRateFor(null); }}>Save rate</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!confirm} onClose={() => setConfirm(null)} fullWidth maxWidth="xs">
         <DialogTitle>{confirm?.title}</DialogTitle>

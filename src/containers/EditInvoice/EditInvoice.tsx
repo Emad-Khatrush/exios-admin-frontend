@@ -17,6 +17,7 @@ import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog';
 import EditInvoiceItems from '../../components/EditInvoiceItems/EditInvoiceItems';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import { OrderAccounting } from '../Accounting/AccountingPanels';
+import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
 import OrderWalletDialog from './OrderWalletDialog';
@@ -386,6 +387,18 @@ export class EditInvoice extends Component<Props, State> {
     return payment.paymentType === 'wallet' ? 'Payment deleted and returned to the wallet' : 'Payment deleted';
   });
 
+  // An old dinar payment saved without a rate: the rate is written and the books post it again
+  setPaymentRate = async (payment: any, rate: number) => {
+    let saved = false;
+    await this.run(async () => {
+      await sys.put(`acc/order-payments/${payment._id}/rate`, { rate });
+      await this.reloadMoney();
+      saved = true;
+      return `Rate ${rate} saved on the payment of ${payment.receivedAmount} ${payment.currency}`;
+    });
+    return saved;
+  };
+
   // Only an order nothing hangs on can be deleted; the server says what is in the way
   deleteOrder = async () => {
     this.setState({ isBusy: true, deleteError: '' });
@@ -557,6 +570,8 @@ export class EditInvoice extends Component<Props, State> {
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}
+            canSetRate={isAdmin || !!account?.roles.isAccountant}
+            onSetRate={this.setPaymentRate}
             onPreviewImages={(previewImages) => this.setState({ previewImages })}
             onConfirmInvoice={this.confirmInvoice}
             onRequestEdit={() => this.setState({ editItemsDialog: true })}
