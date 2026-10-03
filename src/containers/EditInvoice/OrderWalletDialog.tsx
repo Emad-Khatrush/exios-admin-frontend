@@ -3,6 +3,7 @@ import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Input
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
+import moment from 'moment';
 import { BsCheck2 } from 'react-icons/bs';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -23,20 +24,25 @@ type Props = {
   onDone: (message: string) => void
 }
 
-// The system's dinar rate and the lowest rate a payment may use
-type Limits = { rate: number, minimum: number, tolerance: number }
+// The accountant's dinar rate on the payment date and the lowest rate a payment may use
+type Limits = { rate: number, minimum: number, tolerance: number, day: string }
 
 const money = (value: number) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const round2 = (value: number) => Math.round(value * 100) / 100;
+const round4 = (value: number) => Math.round(value * 10000) / 10000;
+// Up, so that the rate never comes out below the lowest allowed one because of rounding
+const ceil6 = (value: number) => Math.ceil(value * 1000000) / 1000000;
 
 // Pays an order from the customer's wallet. It shows what is due, what the payment counts
 // for in dollars and what stays in the wallet before anything is taken.
 //
-// Dinars are counted at the rate typed, like the delivery of packages: it starts at the system's
-// rate and may not be lower than it by more than the tolerance (0.2).
+// Dinars are counted at a rate. By default the rate is worked out so that the payment closes
+// exactly what is due, but never below the accountant's rate minus the tolerance.
 const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, onClose, onDone }: Props) => {
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
+  // Dinars either pay everything that is due (the rate is worked out) or part of it (the rate is typed)
+  const [mode, setMode] = useState<'full' | 'partial'>('full');
   const [rate, setRate] = useState('');
   const [limits, setLimits] = useState<Limits | null>(null);
   const [date, setDate] = useState<Date | null>(new Date());
@@ -50,6 +56,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     const startsWith: Currency = wallet.walletUsd > 0 || wallet.walletLyd <= 0 ? 'USD' : 'LYD';
     setCurrency(startsWith);
     setAmount(startsWith === 'USD' && dueUsd > 0 ? String(round2(Math.min(dueUsd, wallet.walletUsd))) : '');
+    setMode(dueUsd > 0 ? 'full' : 'partial');
     setRate('');
     setDate(new Date());
     setNote('');
@@ -58,21 +65,33 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // The system's rate, the starting point and the floor of the typed rate
+  // The accountant's rate depends on the payment day
+  const day = date && !Number.isNaN(date.getTime()) ? moment(date).format('YYYY-MM-DD') : '';
   useEffect(() => {
-    if (!open) return;
+    if (!open || !day) return;
     let stale = false;
-    api.get('payment-rate')
+    api.get('payment-rate', { date: day })
       .then((res: any) => { if (!stale) setLimits(res.data?.limits || null); })
       .catch(() => { if (!stale) setLimits(null); });
     return () => { stale = true; };
-  }, [open]);
+  }, [open, day]);
 
   const balance = currency === 'USD' ? wallet.walletUsd : wallet.walletLyd;
   const value = Number(amount) || 0;
   const minimum = limits?.minimum ?? 0;
-  // The rate typed, starting from the system's rate
-  const rateValue = currency === 'USD' ? 1 : (rate !== '' ? Number(rate) || 0 : (limits?.rate ?? 0));
+  // The rate is never typed: it closes what is due, held up to the lowest allowed rate (the
+  // accountant's rate minus the tolerance), and is the accountant's rate when nothing is due
+  const full = mode === 'full' && dueUsd > 0;
+  const closingRate = currency === 'LYD' && full && value > 0 ? ceil6(value / dueUsd) : 0;
+  // A partial payment takes the rate that was typed, starting from the accountant's rate
+  const typedRate = rate !== '' ? Number(rate) || 0 : (limits?.rate ?? 0);
+  // Full payment: the rate is always what closes what is due with this amount (dinars / due), and
+  // follows the amount as it is typed. A higher rate than the accountant's is fine; it only counts
+  // as a full payment while the rate is not below the lowest allowed one.
+  const rateValue = currency === 'USD' ? 1 : full ? (closingRate > 0 ? closingRate : (limits?.rate ?? 0)) : typedRate;
+  const tooLow = full && currency === 'LYD' && closingRate > 0 && closingRate < minimum - 1e-9;
+  // The fewest dinars that still close it, for the message
+  const closeFrom = dueUsd * minimum;
 
   const valueUsd = rateValue > 0 ? value / rateValue : null;
   const dueAfter = valueUsd === null ? null : dueUsd - valueUsd;
@@ -86,23 +105,24 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   })();
   const rateProblem = (() => {
     if (currency !== 'LYD' || !amount || problem) return '';
-    if (!(rateValue > 0)) return 'Enter the rate.';
-    if (limits && rateValue < minimum - 1e-9) return `The rate is too low: the system rate is ${limits.rate}, the lowest allowed is ${minimum}.`;
+    if (tooLow) return `This amount is too low to close the invoice. Pay at least ${money(closeFrom)} LYD, or choose partial payment.`;
+    if (!(rateValue > 0)) return limits ? 'Enter the rate.' : 'No dinar rate is set for this date. Ask an admin to enter it in accounting.';
+    if (!full && rateValue < minimum - 1e-9) return 'This rate is too low.';
     return '';
   })();
   const canPay = !problem && !rateProblem && value > 0 && !!date && !isSaving;
 
   const chooseCurrency = (next: Currency) => {
     setCurrency(next);
-    // Dinars start at what is due at the system's rate
+    // Dinars start at what is due at the accountant's rate; the rate then follows the amount
     const dinars = dueUsd > 0 && limits ? String(round2(Math.min(dueUsd * limits.rate, wallet.walletLyd))) : '';
     setAmount(next === 'USD' ? (dueUsd > 0 ? String(round2(Math.min(dueUsd, wallet.walletUsd))) : '') : dinars);
     setError('');
   };
 
-  // The amount that settles what is due at the rate typed, as far as the wallet allows
+  // The amount that settles what is due at the accountant's rate, as far as the wallet allows
   const fillDue = () => {
-    const due = currency === 'USD' ? dueUsd : dueUsd * rateValue;
+    const due = currency === 'USD' ? dueUsd : dueUsd * (full ? (limits?.rate ?? 0) : typedRate);
     setAmount(String(round2(Math.min(due, balance))));
   };
 
@@ -188,11 +208,27 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
 
         {currency === 'LYD' && (
           <>
+            {dueUsd > 0 && (
+              <div className="op-choices" role="radiogroup" aria-label="Dinar payment">
+                {([['full', 'Pay in full', 'The rate closes what is due'], ['partial', 'Partial payment', 'You enter the rate']] as const).map(([key, label, hint]) => (
+                  <button
+                    key={key} type="button" role="radio" aria-checked={mode === key} disabled={isSaving}
+                    className={`op-choice${mode === key ? ' is-active' : ''}`} onClick={() => setMode(key)}
+                  >
+                    <span className="op-choice__mark">{mode === key && <BsCheck2 />}</span>
+                    <span className="op-choice__text">
+                      <span className="op-choice__label">{label}</span>
+                      <span className="op-choice__hint">{hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
             <TextField
-              className="op-rate" label="Exchange rate" size="small" type="number" required
-              value={rate !== '' ? rate : (limits?.rate ?? '')}
+              className="op-rate" label="Exchange rate" size="small" type="number" required={!full}
+              value={full ? (rateValue > 0 ? String(round4(rateValue)) : '') : (rate !== '' ? rate : (limits?.rate ?? ''))}
               onChange={(event) => setRate(event.target.value)} onWheel={(event: any) => event.target.blur()}
-              error={!!rateProblem} helperText={rateProblem || (limits ? `System rate ${limits.rate}; not below ${limits.minimum}` : '')} inputProps={{ min: 0, step: 'any' }} InputLabelProps={{ shrink: true }}
+              disabled={full} error={!!rateProblem} helperText={rateProblem} inputProps={{ min: 0, step: 'any' }} InputLabelProps={{ shrink: true }}
             />
           </>
         )}
