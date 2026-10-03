@@ -476,3 +476,11 @@ $danger-soft: #fdecea;
 @media (prefers-reduced-motion: reduce) {
   .of-chip, .of-track button, .of-kind { transition: none; }
 }
+
+// The packages total above the cards (shipping, fees, total to collect)
+.of-packages-summary {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}

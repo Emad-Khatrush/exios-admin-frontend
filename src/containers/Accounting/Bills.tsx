@@ -8,7 +8,7 @@ import { useBulk } from './bulk';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 
 const PAGE_SIZE = 50;
-export const TARGET_LABELS: Record<string, string> = { trip: 'تكلفة رحلة', order: 'تكلفة طلب شراء', expense: 'مصروف', asset: 'أصل ثابت', prepaid: 'مصروف مقدم' };
+export const TARGET_LABELS: Record<string, string> = { trip: 'تكلفة رحلة', order: 'تكلفة طلب شراء', expense: 'مصروف', asset: 'أصل ثابت', prepaid: 'مصروف مقدم', customs: 'تخليص جمركي لطرد' };
 
 export const BillsList = () => {
   const navigate = useNavigate();

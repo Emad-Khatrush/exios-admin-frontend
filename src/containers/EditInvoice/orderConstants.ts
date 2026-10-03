@@ -19,7 +19,7 @@ export const CANCEL_ALLOWED_ACCOUNTS = ['62bb47b22aabe070791f8278', '632aeb399ae
 export const SHIPMENT_FIELDS = ['fromWhere', 'toWhere', 'packageCount', 'exiosShipmentPrice', 'method', 'originShipmentPrice', 'weight'];
 
 // Fields of one package (a row of paymentList), as the package dialog names them
-export const PACKAGE_FIELDS = ['trackingNumber', 'boxesCount', 'packageWeight', 'measureUnit', 'exiosPrice', 'locationPlace', 'arrivedAt', 'visableForClient', 'shipmentMethod', 'volumetric', 'actualWeight', 'domesticFee'];
+export const PACKAGE_FIELDS = ['trackingNumber', 'boxesCount', 'packageWeight', 'measureUnit', 'exiosPrice', 'locationPlace', 'arrivedAt', 'visableForClient', 'shipmentMethod', 'volumetric', 'actualWeight', 'domesticFee', 'customsFee'];
 export const PACKAGE_ROW_FIELDS = ['paid', 'arrived', 'arrivedLibya', 'received', 'paymentLink', 'note'];
 export const PACKAGE_CHECKPOINTS = ['paid', 'arrived', 'arrivedLibya', 'received'];
 export const ITEM_FIELDS = ['description', 'itemQuantity', 'unitPrice'];
@@ -61,9 +61,9 @@ export const paidInUsd = (payments: any[] = [], category = 'invoice') => {
 };
 
 // What the customer owes for one package: its chargeable weight at the Exios price, plus the
-// transport fee to another office when there is one (spec v8)
+// transport fee to another office and the customs clearance when there are (spec v8)
 export const packageCharge = (row: any) => Number(row?.deliveredPackages?.weight?.total || 0) * Number(row?.deliveredPackages?.exiosPrice || 0)
-  + Number(row?.deliveredPackages?.domesticFee?.usd || 0);
+  + Number(row?.deliveredPackages?.domesticFee?.usd || 0) + Number(row?.deliveredPackages?.customsFee?.usd || 0);
 
 export const removeBr = (text: string): string => (text ? text.replace(/<\/br>/g, '') : '');
 

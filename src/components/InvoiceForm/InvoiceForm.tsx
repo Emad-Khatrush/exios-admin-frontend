@@ -23,7 +23,7 @@ import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
 import { LIBYAN_CITIES, ORIGIN_COUNTRIES, OrderKind, PACKAGE_STEPS, PURCHASE_CURRENCIES, SHIPMENT_METHODS, apiErrorMessage, toDate, unitForMethod } from './constants';
-import { Checkpoints, ComboField, NUMBER_INPUT, OrderKindPicker, RemoveRowButton, Section, SelectField, ToggleChip, blurOnWheel, formatMoney, packageFigures } from './parts';
+import { Checkpoints, ComboField, NUMBER_INPUT, OrderKindPicker, RemoveRowButton, Section, SelectField, ToggleChip, blurOnWheel, formatMoney, packageFees, packageFigures, packageTotal, PackagesSummary, totalText } from './parts';
 import { useOffices } from '../../utils/useOffices';
 import './InvoiceForm.scss';
 
@@ -203,6 +203,7 @@ const InvoiceForm = (props: Props) => {
       volumetric: details.volumetric || {},
       actualWeight: details.weight?.actual ?? details.actualWeight ?? '',
       domesticFee: details.domesticFee || {},
+      customsFee: details.customsFee || {},
       savedWithWeight: !!payment?._id && Number(weight) > 0,
     });
   };
@@ -394,6 +395,7 @@ const InvoiceForm = (props: Props) => {
           </Button>
         )}
       >
+        {hasShipping && paymentList.length > 0 && <PackagesSummary paymentList={paymentList} />}
         {paymentList.map((payment: any, index: number) => {
           const details = payment?.deliveredPackages || {};
           const figures = packageFigures(details);
@@ -480,6 +482,10 @@ const InvoiceForm = (props: Props) => {
                 <div><dt>Weight</dt><dd>{figures.weight ? `${figures.weight} ${figures.unit}` : 'Not set'}</dd></div>
                 <div><dt>Exios price</dt><dd>{figures.price ? formatMoney(figures.price) : 'Not set'}</dd></div>
                 <div><dt>Charge</dt><dd className="of-package__charge">{figures.charge ? formatMoney(figures.charge) : 'Not set'}</dd></div>
+                {packageFees(details).map((fee) => (
+                  <div key={fee.label}><dt>{fee.label}</dt><dd>{fee.currency === 'USD' ? formatMoney(fee.amount) : `${fee.amount.toLocaleString('en-US')} LYD`}</dd></div>
+                ))}
+                {packageFees(details).length > 0 && <div><dt>Package total</dt><dd className="of-package__charge">{totalText(packageTotal(details))}</dd></div>}
                 <div><dt>Boxes</dt><dd>{details.boxesCount || 'Not set'}</dd></div>
                 {deliveredAt && stepDone(payment, 'received') && <div><dt>Delivered</dt><dd><BsCheck2Circle /> {moment(deliveredAt).format('DD/MM/YYYY HH:mm')}</dd></div>}
               </dl>

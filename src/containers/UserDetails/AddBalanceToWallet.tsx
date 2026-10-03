@@ -9,16 +9,10 @@ import { sys } from '../Accounting/accountingApi';
 import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
-import { useOffices } from '../../utils/useOffices';
+import { useDepositPlaces } from './statementUtils';
+import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
 
 type Props = {}
-
-const BANK_PLACES = [
-  { value: 'bank', label: 'بنك الليبي' },
-  { value: 'almutahidaTrBank', label: 'حساب الشركة المتحدة تركيا' },
-  // { value: 'alipayCompany1', label: 'محفظة Alipay - الشركة' },
-  // { value: 'alipayCompany2', label: 'محفظة Alipay - الشخصي' },
-];
 
 const actionTypes = [
   { value: 'cash', label: 'كاش' },
@@ -28,11 +22,11 @@ const actionTypes = [
 ];
 
 const AddBalanceToWallet = (props: Props) => {
-  // Offices are data (spec C4); the old bank choices stay after them
-  const offices = [...useOffices().map((o) => ({ value: o.code, label: `مكتب ${o.name}` })), ...BANK_PLACES];
   const { id } = useParams();
 
   const [currency, setCurrency] = useState<string>('');
+  // Only the offices and banks with a box in the chosen currency (no dinars into a dollar-only office)
+  const offices = useDepositPlaces(currency) || [];
   const [office, setOffice] = useState<string>('');
   const [, setActionType] = useState<string>('cash');
   const [date, setDate] = useState(new Date());
@@ -41,6 +35,9 @@ const AddBalanceToWallet = (props: Props) => {
     actionType: 'cash',
   });
   const [error, setError] = useState<string>();
+  // Cash dated on or before the count day was in the counted box: accounting does not add it again
+  const count = useCountDay();
+  const beforeCount = ['cash', 'bank'].includes(form.actionType) && isBeforeCount(count, date);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Partners' current accounts (e.g. Wasl) in the deposit's currency: money they hold for us
@@ -162,6 +159,7 @@ const AddBalanceToWallet = (props: Props) => {
             {error}
           </Alert>
         }
+        {beforeCount && count && <Alert className="mb-2" severity="info">{beforeCountText(count)}</Alert>}
         <form className="row" onSubmit={onSubmit}>
           <h6 className="mb-3">Wallet</h6>
           <div className='col-md-6 mb-3'>
@@ -203,7 +201,12 @@ const AddBalanceToWallet = (props: Props) => {
                 name="currency"
                 onChange={(event: any) => {
                   setCurrency(event.target.value);
-                  return onChangeHandler(event);
+                  // The place is chosen again for the new currency
+                  setOffice('');
+                  const rest = { ...form };
+                  delete rest.office;
+                  delete rest.accountId;
+                  return setForm({ ...rest, currency: event.target.value });
                 }}
               >
                 <MenuItem value={'USD'}>
@@ -225,6 +228,7 @@ const AddBalanceToWallet = (props: Props) => {
                 value={office}
                 label="Office"
                 name="office"
+                disabled={!currency}
                 onChange={(event: any) => {
                   const value = String(event.target.value);
                   setOffice(value);

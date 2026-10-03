@@ -373,7 +373,7 @@ const AbandonedPanel = ({ orderId, onChanged }: { orderId: string; onChanged: ()
               {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
             </TextField>
             <TextField type="number" label={amountLabel(account?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-            {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (فارغ = سعر اليوم)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
+            {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (فارغ = سعر تاريخ العملية)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           </div>
         </DialogContent>

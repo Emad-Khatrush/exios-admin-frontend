@@ -153,7 +153,7 @@ export const ReceiptForm = () => {
             {toAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
           </TextField>
           <TextField type="number" label={`المبلغ (${to?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          {to?.currency && to.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
+          {to?.currency && to.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
         </div>
         {vendorId && <p className="acc-muted mt-2">{advance > 0 ? <>دفعتنا المقدمة لديه: <Money value={advance} /></> : advance < 0 ? <>نحتفظ له برصيد: <Money value={-advance} /></> : 'لا دفعة مقدمة ولا رصيد له.'}</p>}
       </Panel>
@@ -252,7 +252,7 @@ export const PaymentForm = () => {
             </TextField>
             <TextField type="number" label={`المبلغ (${from?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
             {from?.currency && from.currency !== 'USD' && (
-              <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })}
+              <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })}
                 helperText={allocatedUsd > 0 && Number(form.amount) > 0 ? (
                   <span>المقترح: المدفوع ÷ الموزَّع = <Ltr>{(Number(form.amount) / (allocatedUsd / 100)).toFixed(4)}</Ltr>{' '}
                     <Button size="small" onClick={() => setForm({ ...form, rate: (Number(form.amount) / (allocatedUsd / 100)).toFixed(6) })}>استخدمه</Button>

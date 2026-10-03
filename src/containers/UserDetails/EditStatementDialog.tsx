@@ -5,7 +5,7 @@ import DatePicker from '@mui/lab/DatePicker';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputAdornment, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import api from '../../api';
-import { formatMoney, statementOffices } from './statementUtils';
+import { formatMoney, getOfficeLabel, useDepositPlaces } from './statementUtils';
 
 type Props = {
   open: boolean
@@ -32,6 +32,9 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   const [form, setForm] = useState(toForm(statement));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const places = useDepositPlaces(statement?.currency);
+  // The office saved on the line stays listed even when it has no box in this currency any more
+  const savedOffice = statement?.office && places && !places.some((p) => p.value === statement.office) ? statement.office : '';
 
   useEffect(() => {
     if (open) {
@@ -105,7 +108,8 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
               onChange={(event) => setField('office', event.target.value)}
             >
               <MenuItem value=""><em>No office</em></MenuItem>
-              {statementOffices.map((office) => (
+              {savedOffice && <MenuItem value={savedOffice} disabled>{getOfficeLabel(savedOffice)} (no {statement?.currency} box)</MenuItem>}
+              {(places || []).map((office) => (
                 <MenuItem key={office.value} value={office.value}>{office.label}</MenuItem>
               ))}
             </Select>

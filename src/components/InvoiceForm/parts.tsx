@@ -147,3 +147,37 @@ export const packageFigures = (details: any = {}) => {
   const price = Number(details.exiosPrice || 0);
   return { weight: Number(weight || 0), unit, price, charge: Number(weight || 0) * price };
 };
+
+// The fees charged on a package beside its shipping, each in its own currency, and what the
+// package comes to: dollars (shipping + fees in dollars) plus dinars (fees in dinars)
+export const PACKAGE_FEES = [{ field: 'domesticFee', label: 'Transport fee' }, { field: 'customsFee', label: 'Customs clearance' }];
+export const packageFees = (details: any = {}) => PACKAGE_FEES
+  .map(({ field, label }) => ({ label, amount: Number(details[field]?.amount || 0), currency: details[field]?.currency || 'LYD' }))
+  .filter((fee) => fee.amount > 0);
+export const packageTotal = (details: any = {}) => {
+  const fees = packageFees(details);
+  return {
+    usd: packageFigures(details).charge + fees.filter((f) => f.currency === 'USD').reduce((sum, f) => sum + f.amount, 0),
+    lyd: fees.filter((f) => f.currency === 'LYD').reduce((sum, f) => sum + f.amount, 0),
+  };
+};
+export const formatLyd = (value: number) => `${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} LYD`;
+// The packages of an order at a glance: shipping, each fee, and the total to collect
+export const PackagesSummary = ({ paymentList }: { paymentList: any[] }) => {
+  const rows = paymentList.map((payment) => payment?.deliveredPackages || {});
+  const shipping = rows.reduce((sum, details) => sum + packageFigures(details).charge, 0);
+  const fees = PACKAGE_FEES.map(({ field, label }) => {
+    const all = rows.map((details) => details[field]).filter((fee) => Number(fee?.amount) > 0);
+    return { label, usd: all.filter((f) => f.currency === 'USD').reduce((s, f) => s + Number(f.amount), 0), lyd: all.filter((f) => f.currency !== 'USD').reduce((s, f) => s + Number(f.amount), 0) };
+  }).filter((fee) => fee.usd || fee.lyd);
+  const total = rows.reduce((sum, details) => { const t = packageTotal(details); return { usd: sum.usd + t.usd, lyd: sum.lyd + t.lyd }; }, { usd: 0, lyd: 0 });
+  return (
+    <dl className="of-package__facts of-packages-summary">
+      <div><dt>Shipping</dt><dd>{formatMoney(shipping)}</dd></div>
+      {fees.map((fee) => <div key={fee.label}><dt>{fee.label}</dt><dd>{totalText(fee)}</dd></div>)}
+      <div><dt>Total</dt><dd className="of-package__charge">{totalText(total)}</dd></div>
+    </dl>
+  );
+};
+
+export const totalText = ({ usd, lyd }: { usd: number, lyd: number }) => [usd || !lyd ? formatMoney(usd) : '', lyd ? formatLyd(lyd) : ''].filter(Boolean).join(' + ');

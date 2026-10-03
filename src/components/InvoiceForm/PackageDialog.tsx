@@ -35,13 +35,15 @@ export type PackageDraft = {
   actualWeight: number | string
   // Transport to another office, charged beside the shipping
   domesticFee: DomesticFee
+  // Customs clearance sold to the customer with this package (a full container, say)
+  customsFee: DomesticFee
   // The package was saved with a weight: only an admin or the accountant changes its measures
   savedWithWeight?: boolean
 }
 
 export const CLOSED_PACKAGE: PackageDraft = {
   open: false, id: 0, trackingNumber: '', shipmentMethod: '', locationPlace: '', packageWeight: '', measureUnit: '', exiosPrice: '',
-  boxesCount: '', arrivedAt: null, visableForClient: true, images: [], volumetric: {}, actualWeight: '', domesticFee: {}, savedWithWeight: false,
+  boxesCount: '', arrivedAt: null, visableForClient: true, images: [], volumetric: {}, actualWeight: '', domesticFee: {}, customsFee: {}, savedWithWeight: false,
 };
 
 type Props = {
@@ -95,6 +97,7 @@ const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, 
   const byVolume = !!volumetric.enabled && unit !== 'CBM';
   const cbm = cbmOf(volumetric);
   const fee = value.domesticFee || {};
+  const customs = value.customsFee || {};
 
   // The volumetric weight follows the volume; the server works it out again on save
   const setVolume = (patch: Volumetric) => {
@@ -179,6 +182,17 @@ const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, 
             <TextField label="Transport fee" type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} value={fee.amount ?? ''} onChange={(event) => set({ domesticFee: { currency: fee.currency || 'LYD', amount: event.target.value } })} disabled={disabled}
               helperText="Charged on this package beside its shipping, when the office sends it on" />
             <TextField select label="Currency" value={fee.currency || 'LYD'} onChange={(event) => set({ domesticFee: { amount: fee.amount, currency: event.target.value } })} disabled={disabled}>
+              <MenuItem value="LYD">LYD</MenuItem>
+              <MenuItem value="USD">USD</MenuItem>
+            </TextField>
+          </div>
+        </Group>
+
+        <Group title="Customs clearance sold to the customer (optional)">
+          <div className="of-grid of-grid--3">
+            <TextField label="Customs clearance price" type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} value={customs.amount ?? ''} onChange={(event) => set({ customsFee: { currency: customs.currency || 'LYD', amount: event.target.value } })} disabled={disabled}
+              helperText="What the customer pays for the clearance, beside the shipping. The agent's invoice is entered in accounting (supplier bill, line kind: customs)" />
+            <TextField select label="Currency" value={customs.currency || 'LYD'} onChange={(event) => set({ customsFee: { amount: customs.amount, currency: event.target.value } })} disabled={disabled}>
               <MenuItem value="LYD">LYD</MenuItem>
               <MenuItem value="USD">USD</MenuItem>
             </TextField>

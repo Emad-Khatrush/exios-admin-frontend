@@ -24,6 +24,9 @@ const Alipay = () => {
   useEffect(() => { load(); }, []);
 
   const totals = useMemo(() => (data?.months || []).find((m: any) => m.month === today().slice(0, 7)), [data]);
+  // Per order the revenue and its cost meet; a month can hold the cost of an order whose revenue
+  // was recognised the month before (yuan sent after the customer paid)
+  const overall = useMemo(() => (data?.transfers || []).reduce((sum: any, t: any) => ({ revenue: sum.revenue + t.revenue, cost: sum.cost + t.cost, profit: sum.profit + t.profit }), { revenue: 0, cost: 0, profit: 0 }), [data]);
   return (
     <>
       <PageHeader
@@ -38,7 +41,8 @@ const Alipay = () => {
             {data.accounts.map((a: any) => (
               <Stat key={a._id} label={a.name} value={cny(a.cny)} hint={<>قيمته <Money value={a.usd} /> · متوسط السعر {rateText(a.rate)}</>} />
             ))}
-            <Stat label="أرباح الحوالات هذا الشهر" value={<Money value={totals?.profit || 0} />} hint={<>إيراد <Money value={totals?.revenue || 0} /> · تكلفة <Money value={totals?.cost || 0} /></>} tone="accent" />
+            <Stat label="أرباح كل الحوالات" value={<Money value={overall.profit} />} hint={<>إيراد <Money value={overall.revenue} /> · تكلفة <Money value={overall.cost} /></>} tone="accent" />
+            <Stat label="أرباح الحوالات هذا الشهر" value={<Money value={totals?.profit || 0} />} hint={<>إيراد <Money value={totals?.revenue || 0} /> · تكلفة <Money value={totals?.cost || 0} />. التكلفة في شهر إرسال اليوان، والإيراد في شهر السداد</>} />
           </StatGrid>
 
           {data.pending.length > 0 && (

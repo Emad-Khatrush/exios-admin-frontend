@@ -5,14 +5,15 @@ import {
   FormControlLabel, IconButton, MenuItem, TextField,
 } from '@mui/material';
 import { Plus, X } from 'lucide-react';
-import { acc, errorText, newKey } from './accountingApi';
+import { acc, errorText, newKey, sys } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { RemotePicker, VENDOR_TYPES, orderLabel, today, tripLabel, userLabel, useVendors } from './shared';
-import { Amount, Money, PageHeader, Panel } from './ui';
+import { Amount, Ltr, Money, PageHeader, Panel } from './ui';
 import { TARGET_LABELS } from './Bills';
+import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
 
 const blankLine = (target = 'expense') => ({
-  key: newKey(), description: '', amount: '', target, office: '', accountId: '', trip: null as any, order: null as any,
+  key: newKey(), description: '', amount: '', target, office: '', accountId: '', trip: null as any, order: null as any, packageId: '', packages: [] as any[],
   asset: { name: '', usefulLifeMonths: '', salvageValue: '' }, prepaid: { expenseAccountId: '', months: '', startMonth: '' },
 });
 
@@ -36,6 +37,9 @@ const BillForm = () => {
   const assetAccounts = useMemo(() => accounts.filter((a) => a.type === 'asset' && !a.isGroup && a.isActive && !a.isCash && a.code.startsWith('15')), [accounts]);
   const payAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && (a.isCash || a.requires?.includes('employee'))), [accounts]);
   const payAccount = payAccounts.find((a) => a._id === form.paidImmediatelyFrom);
+  // Paid on or before the count day: accounting takes it from the opening balance by itself
+  const count = useCountDay();
+  const paidBeforeCount = !form.isCreditNote && (form.payNow || form.paidBeforeCount) && isBeforeCount(count, form.day);
 
   // Prefilled from the "add expense" buttons (?tripId), or a draft / the original bill of a credit note
   useEffect(() => {
@@ -63,17 +67,31 @@ const BillForm = () => {
         ...prev, vendorId: bill.vendorId?._id || bill.vendorId, currency: bill.currency, rate: bill.rate || '',
         ...(id ? { vendorRef: bill.vendorRef || '', day: bill.day, note: bill.note || '', isCreditNote: bill.isCreditNote, originalBillId: bill.originalBillId || '' } : { isCreditNote: true }),
       }));
-      setLines(bill.lines.map((line: any) => ({
+      const loaded = bill.lines.map((line: any) => ({
         ...blankLine(line.target), description: line.description, amount: id ? String(line.amount) : '', office: line.office || '',
-        accountId: line.accountId || '', costCategory: line.costCategory || '', trip: findById(trips, line.tripId), order: findById(orders, line.orderId),
+        accountId: line.accountId || '', costCategory: line.costCategory || '', trip: findById(trips, line.tripId), order: findById(orders, line.orderId), packageId: line.packageId || '',
         asset: { name: line.asset?.name || '', usefulLifeMonths: line.asset?.usefulLifeMonths || '', salvageValue: line.asset?.salvageValue || '' },
         prepaid: { expenseAccountId: line.prepaid?.expenseAccountId || '', months: line.prepaid?.months || '', startMonth: line.prepaid?.startMonth || '' },
-      })));
+      }));
+      setLines(loaded);
+      loaded.forEach((line: any, index: number) => {
+        if (line.target === 'customs') loadPackages(line.key, bill.lines[index].orderId, line.packageId);
+      });
     }).catch((err: any) => setError(errorText(err)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const update = (key: string, change: any) => setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...change } : line)));
+  // A customs line names the package cleared: the order's packages, the only one picked by itself
+  const loadPackages = (key: string, orderId?: string, keep = '') => {
+    if (!orderId) return update(key, { packages: [], packageId: '' });
+    sys.get(`acc/orders/${orderId}/packages-state`)
+      .then((res: any) => {
+        const packages = res.data.results || [];
+        update(key, { packages, packageId: keep || (packages.length === 1 ? packages[0]._id : '') });
+      })
+      .catch(() => update(key, { packages: [] }));
+  };
   const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
   const rateValue = Number(form.rate) || (form.currency === 'USD' ? 1 : 0);
 
@@ -88,7 +106,8 @@ const BillForm = () => {
       description: line.description, amount: Number(line.amount), target: line.target, office: line.office || undefined,
       tripId: line.target === 'trip' ? line.trip?._id : undefined,
       costCategory: line.target === 'trip' ? line.costCategory || undefined : undefined,
-      orderId: line.target === 'order' ? line.order?._id : undefined,
+      orderId: ['order', 'customs'].includes(line.target) ? line.order?._id : undefined,
+      packageId: line.target === 'customs' ? line.packageId || undefined : undefined,
       accountId: ['expense', 'asset'].includes(line.target) ? line.accountId : undefined,
       asset: line.target === 'asset' ? { name: line.asset.name, usefulLifeMonths: Number(line.asset.usefulLifeMonths), salvageValue: Number(line.asset.salvageValue) || 0 } : undefined,
       prepaid: line.target === 'prepaid' ? { expenseAccountId: line.prepaid.expenseAccountId, months: Number(line.prepaid.months), startMonth: line.prepaid.startMonth || undefined } : undefined,
@@ -154,7 +173,7 @@ const BillForm = () => {
             {currencies.filter((c) => c.isActive).map((c) => <MenuItem key={c.code} value={c.code}>{c.code} · {c.name}</MenuItem>)}
           </TextField>
           {form.currency !== 'USD' && (
-            <TextField type="number" label={`السعر (${form.currency} لكل دولار)`} value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} helperText="فارغ = سعر اليوم" />
+            <TextField type="number" label={`السعر (${form.currency} لكل دولار)`} value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} helperText="فارغ = سعر تاريخ العملية" />
           )}
         </div>
       </Panel>
@@ -188,6 +207,17 @@ const BillForm = () => {
                   <div style={{ minWidth: 320, flex: 1 }}>
                     <RemotePicker endpoint="lookup/orders" label="رقم الطلب" value={line.order} getLabel={orderLabel} onChange={(order) => update(line.key, { order })} disabled={form.isCreditNote} />
                   </div>
+                )}
+                {line.target === 'customs' && (
+                  <>
+                    <div style={{ minWidth: 320, flex: 1 }}>
+                      <RemotePicker endpoint="lookup/orders" label="رقم الطلب" value={line.order} getLabel={orderLabel} onChange={(order) => { update(line.key, { order }); loadPackages(line.key, order?._id); }} disabled={form.isCreditNote} />
+                    </div>
+                    <TextField select size="small" label="الطرد المُخلَّص" value={line.packageId || ''} onChange={(e) => update(line.key, { packageId: e.target.value })} style={{ minWidth: 220 }} disabled={!line.order || form.isCreditNote}
+                      helperText="التكلفة تنتظر حتى يُسلَّم الطرد ويُدفع ما بِيع به التخليص">
+                      {(line.packages || []).map((p: any) => <MenuItem key={p._id} value={p._id}><Ltr>{p.tracking || p._id}</Ltr></MenuItem>)}
+                    </TextField>
+                  </>
                 )}
                 {line.target === 'expense' && (
                   <>
@@ -232,8 +262,7 @@ const BillForm = () => {
       <Panel>
         {!form.isCreditNote && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
-            <FormControlLabel control={<Checkbox checked={form.paidBeforeCount} onChange={(e) => setForm({ ...form, paidBeforeCount: e.target.checked, payNow: false })} />} label="دُفعت قبل يوم الجرد (من الرصيد الافتتاحي)" />
-            <FormControlLabel control={<Checkbox checked={form.payNow} disabled={form.paidBeforeCount} onChange={(e) => setForm({ ...form, payNow: e.target.checked })} />} label="دُفعت الآن من" />
+            <FormControlLabel control={<Checkbox checked={form.payNow} onChange={(e) => setForm({ ...form, payNow: e.target.checked, paidBeforeCount: false })} />} label="دُفعت الآن من" />
             {form.payNow && (
               <>
                 <TextField select value={form.paidImmediatelyFrom} onChange={(e) => setForm({ ...form, paidImmediatelyFrom: e.target.value })} style={{ minWidth: 280 }} label="حساب الدفع">
@@ -246,6 +275,7 @@ const BillForm = () => {
             )}
           </div>
         )}
+        {paidBeforeCount && count && <Alert severity="info" className="mb-3">{beforeCountText(count)}</Alert>}
         <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth />
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>

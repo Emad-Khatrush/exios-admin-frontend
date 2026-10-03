@@ -38,7 +38,7 @@ type SelectedPackage = {
   boxesCount?: string | number;
   orderId?: string;
   images?: any;
-  // The transport fee to another office, in the currency it was set in (spec v8)
+  // The fees in dinars (transport to another office, customs clearance), paid from the dinar wallet
   feeAmount?: number;
   feeCurrency?: string;
 };
@@ -59,15 +59,19 @@ const calculateRate = (amountLYD: number, remainingUSD: number) => Math.round((a
 
 const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// The shipping in dollars, plus a transport fee set in dollars. A fee in dinars stays in dinars:
-// paid from the dinar wallet on its own, or converted at today's rate (spec v8)
+// The fees a package can carry beside its shipping: transport to another office, customs clearance
+const feesOf = (pkg: any) => ['domesticFee', 'customsFee'].map((field) => pkg?.deliveredPackages?.[field]).filter((fee) => Number(fee?.amount) > 0);
+
+// The shipping in dollars, plus the fees set in dollars. A fee in dinars stays in dinars: paid from
+// the dinar wallet on its own, or converted at today's rate (spec v8)
 const getPackageCost = (pkg: Package): number => {
   const weight = pkg?.deliveredPackages?.weight?.total || 0;
   const price = pkg?.deliveredPackages?.exiosPrice || 0;
-  const fee = (pkg?.deliveredPackages as any)?.domesticFee;
-  const feeUsd = fee?.currency === 'USD' ? Number(fee.amount || 0) : 0;
+  const feeUsd = feesOf(pkg).filter((fee) => fee.currency === 'USD').reduce((sum, fee) => sum + Number(fee.amount), 0);
   return Number((weight * price + feeUsd).toFixed(2));
 };
+
+const lydFeesOf = (pkg: any) => feesOf(pkg).filter((fee) => fee.currency === 'LYD').reduce((sum, fee) => sum + Number(fee.amount), 0);
 
 const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   id: pkg._id,
@@ -80,8 +84,8 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   boxesCount: pkg?.deliveredPackages?.boxesCount || '',
   images: pkg?.images || [],
   orderId,
-  feeAmount: Number(pkg?.deliveredPackages?.domesticFee?.amount || 0),
-  feeCurrency: pkg?.deliveredPackages?.domesticFee?.currency || undefined,
+  feeAmount: lydFeesOf(pkg),
+  feeCurrency: lydFeesOf(pkg) > 0 ? 'LYD' : undefined,
 });
 
 // Received packages were already delivered (and paid for), so they can never be selected again
@@ -105,7 +109,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const [resMessage, setResMessage] = useState<string>();
   const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
   const [previewImages, setPreviewImages] = useState<any>();
-  // A transport fee in dinars: paid from the dinar wallet on its own, or converted to dollars
+  // Fees in dinars (transport, customs clearance): paid from the dinar wallet on their own, or converted to dollars
   const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');
   const { rate: todayRate } = usePackageSettings();
 
@@ -246,16 +250,18 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const errors: string[] = [];
     if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
     if (amountUSD > walletUsd + 0.001) errors.push(`USD wallet only has $${formatMoney(walletUsd)}.`);
-    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD transport fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
+    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
     if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
-    if (amountUSD === 0 && amountLYD === 0) errors.push('Enter a USD or LYD amount.');
+    // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
+    const nothingOwed = totals.totalFees === 0 && totals.feesLYD === 0;
+    if (amountUSD === 0 && amountLYD === 0 && !nothingOwed) errors.push('Enter a USD or LYD amount.');
     if (amountLYD === 0 && amountUSD > 0) {
       if (difference < -PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(-difference)} short of the total (max $${PAYMENT_TOLERANCE_USD}).`);
       if (difference > PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(difference)} more than the total (max $${PAYMENT_TOLERANCE_USD}).`);
     }
 
     return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
-  }, [payment, totals.totalFees, totals.separateLYD, walletUsd, walletLyd]);
+  }, [payment, totals.totalFees, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd]);
 
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
@@ -492,7 +498,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
 
           {totals.feesLYD > 0 && (
             <div className="co-fee-box" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, margin: '12px 0' }}>
-              <strong>Transport fees: {formatMoney(totals.feesLYD)} LYD</strong>
+              <strong>Fees in LYD (transport, customs clearance): {formatMoney(totals.feesLYD)} LYD</strong>
               <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
                 <label><input type="radio" checked={feeMode === 'separate'} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
                 <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>

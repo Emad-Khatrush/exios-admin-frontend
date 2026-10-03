@@ -380,7 +380,7 @@ const Trips = () => {
           { key: 'revenue', header: 'إيراد معترف به', numeric: true, sortValue: (row: any) => row.revenue, render: (row: any) => <Money value={row.revenue} hideZero /> },
           { key: 'deferred', header: 'مؤجل', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.deferred, render: (row: any) => <Money value={row.deferred} hideZero tone="plain" /> },
           { key: 'totalRevenue', header: 'إجمالي الإيراد', numeric: true, sortValue: (row: any) => row.totalRevenue, render: (row: any) => <Money value={row.totalRevenue} /> },
-          { key: 'totalCost', header: 'إجمالي التكلفة', numeric: true, sortValue: (row: any) => row.totalCost, render: (row: any) => <Money value={row.totalCost} /> },
+          { key: 'totalCost', header: 'إجمالي التكلفة', numeric: true, sortValue: (row: any) => row.totalCost, render: (row: any) => <><Money value={row.totalCost} />{row.freeShippingCost > 0 && <Sub>منها شحن مجاني <Money value={row.freeShippingCost} tone="plain" /> على فواتير الشراء</Sub>}</> },
           { key: 'net', header: 'الصافي', numeric: true, sortValue: (row: any) => row.net, render: (row: any) => <Money value={row.net} strong /> },
           { key: 'afterDomestic', header: 'بعد النقل الداخلي', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.profitAfterDomestic ?? row.net, render: (row: any) => (row.profitAfterDomestic === undefined ? null : <Money value={row.profitAfterDomestic} tone="plain" />) },
           { key: 'costPerUnit', header: 'تكلفة الكيلو/CBM', numeric: true, sortValue: (row: any) => row.costPerUnit ?? -1, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
