@@ -69,7 +69,7 @@ const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages, onSetRate }: { 
               <strong>{money(payment.receivedAmount)} {payment.currency}</strong>
               <Badge text={payment.paymentType === 'wallet' ? 'Wallet' : 'Cash'} color={payment.paymentType === 'wallet' ? 'primary' : 'sky'} />
               {payment.currency === 'LYD' && (rate > 0
-                ? <span className="op-muted">rate {rate}, counts as {usd(payment.receivedAmount / rate)}</span>
+                ? <span className="op-muted">rate {rate}, counts as {usd(payment.receivedAmount / rate)}{onSetRate && payment.rateSetAt && <> <Button size="small" type="button" onClick={() => onSetRate(payment)}>Change rate</Button></>}</span>
                 : <span className="op-payments__warn">no rate{onSetRate && <> <Button size="small" type="button" onClick={() => onSetRate(payment)}>Set rate</Button></>}</span>)}
               {payment.attachments?.length > 0 && (
                 <AvatarGroup max={3}>
@@ -199,7 +199,9 @@ const OrderPayments = (props: Props) => {
 
   // The rate that makes the payment settle what is still due on its part of the order
   const openRate = (payment: any) => {
-    const due = payment.category === 'receivedGoods' ? shippingTotal - shippingPaid.usd : invoiceTotal - invoicePaid.usd;
+    // What is due without this payment (a rate written before counts it already)
+    const own = Number(payment.rate) > 0 ? Number(payment.receivedAmount) / Number(payment.rate) : 0;
+    const due = (payment.category === 'receivedGoods' ? shippingTotal - shippingPaid.usd : invoiceTotal - invoicePaid.usd) + own;
     setRateFor({ payment, due, rate: due > 0 ? String(Math.round((Number(payment.receivedAmount) / due) * 10000) / 10000) : '' });
   };
   const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
@@ -304,19 +306,27 @@ const OrderPayments = (props: Props) => {
       </section>
 
       <Dialog open={!!rateFor} onClose={() => setRateFor(null)} fullWidth maxWidth="xs">
-        <DialogTitle>Rate of this payment</DialogTitle>
+        <DialogTitle>{Number(rateFor?.payment?.rate) > 0 ? 'Change the rate of this payment' : 'Rate of this payment'}</DialogTitle>
         {rateFor && (
           <DialogContent>
             <DialogContentText>
-              <strong>{money(rateFor.payment.receivedAmount)} {rateFor.payment.currency}</strong> were saved without the rate they were counted at, so the order cannot count them.
-              Write the dinars per dollar they paid at. The accounting books post the payment again at this rate.
+              <strong>{money(rateFor.payment.receivedAmount)} {rateFor.payment.currency}</strong>{Number(rateFor.payment.rate) > 0 ? <> are counted at {rateFor.payment.rate}.</> : <> were saved without the rate they were counted at, so the order cannot count them.</>}
+              Write the dinars per dollar the customer was charged. The accounting books post the payment again at this rate.
             </DialogContentText>
             <TextField
               className="mt-3" fullWidth autoFocus type="number" label="Rate (LYD per 1 USD)" value={rateFor.rate} inputProps={{ min: 0, step: 'any' }}
               onChange={(event) => setRateFor({ ...rateFor, rate: event.target.value })}
               helperText={Number(rateFor.rate) > 0 ? `Counts as ${usd(Number(rateFor.payment.receivedAmount) / Number(rateFor.rate))}${rateFor.due > 0 ? ` of the ${usd(rateFor.due)} still due` : ''}` : 'Required'}
             />
-            {rateFor.due > 0 && <Alert severity="info" className="mt-2">The rate that settles exactly what is due is filled in. Change it if the customer paid at another rate.</Alert>}
+            {(() => {
+              const counts = Number(rateFor.rate) > 0 ? Number(rateFor.payment.receivedAmount) / Number(rateFor.rate) : null;
+              const closing = rateFor.due > 0 ? Math.round((Number(rateFor.payment.receivedAmount) / rateFor.due) * 10000) / 10000 : null;
+              const gap = counts === null || rateFor.due <= 0 ? 0 : counts - rateFor.due;
+              // More than rounding: the customer keeps the difference, or still owes it
+              if (gap > 0.05) return <Alert severity="warning" className="mt-2">At this rate the customer paid {usd(gap)} more than is due, and keeps it as a credit. If the dinars closed the invoice, the rate is {closing}: the whole gap is then exchange profit.</Alert>;
+              if (gap < -0.05) return <Alert severity="warning" className="mt-2">At this rate {usd(-gap)} stays owed. The rate that closes it exactly is {closing}.</Alert>;
+              return rateFor.due > 0 ? <Alert severity="info" className="mt-2">This rate settles exactly what is due. The difference from what the dinars cost is exchange profit or loss.</Alert> : null;
+            })()}
           </DialogContent>
         )}
         <DialogActions>
