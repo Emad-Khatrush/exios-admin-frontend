@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button } from '@mui/material';
-import { RotateCw } from 'lucide-react';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip } from '@mui/material';
+import { CheckCheck, RotateCw, Undo2 } from 'lucide-react';
+import { useAccountingAccess } from './useAccountingAccess';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid } from './ui';
 
@@ -18,6 +19,32 @@ const Exceptions = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const { can } = useAccountingAccess();
+  const canReview = can('closing');
+  // Items accepted after review (spec: they leave the list until the mark is taken back)
+  const [reviewed, setReviewed] = useState<any[]>([]);
+  const [reviewing, setReviewing] = useState<any>(null);
+  const [showReviewed, setShowReviewed] = useState(false);
+  const loadReviewed = () => acc.get('exceptions/reviewed').then((res: any) => setReviewed(res.data.results || [])).catch(() => {});
+  useEffect(() => { loadReviewed(); }, []);
+  const saveReview = async () => {
+    try {
+      setData((await acc.post('exceptions/reviewed', { check: reviewing.check, ref: reviewing.item.ref, label: reviewing.item.label, note: reviewing.note })).data);
+      setReviewing(null);
+      loadReviewed();
+    } catch (err) {
+      setError(errorText(err));
+    }
+  };
+  const undoReview = async (id: string) => {
+    try {
+      setData((await acc.delete(`exceptions/reviewed/${id}`)).data);
+      loadReviewed();
+    } catch (err) {
+      setError(errorText(err));
+    }
+  };
+  const titleOf = (key: string) => (data?.results || []).find((r: any) => r.key === key)?.title || key;
 
   const load = async (run = false) => {
     try {
@@ -59,7 +86,10 @@ const Exceptions = () => {
           flush
           title={<><Badge tone={SEVERITY[check.severity]?.tone}>{SEVERITY[check.severity]?.label}</Badge> {check.title} ({check.count})</>}
           subtitle={check.hint}
-          actions={check.link && <Button size="small" variant="outlined" onClick={() => navigate(check.link)}>فتح الشاشة</Button>}
+          actions={<>
+            {check.reviewedCount > 0 && <Button size="small" onClick={() => setShowReviewed(true)}>{check.reviewedCount} تمت مراجعتها</Button>}
+            {check.link && <Button size="small" variant="outlined" onClick={() => navigate(check.link)}>فتح الشاشة</Button>}
+          </>}
         >
           {check.items.length > 0 && (
             <DataTable
@@ -81,11 +111,54 @@ const Exceptions = () => {
                       </>
                   ),
                 },
+                ...(canReview && check.severity !== 'error' ? [{
+                  key: 'review', header: '', align: 'end' as const, render: (row: any) => (
+                    <Tooltip title="تمت المراجعة: يخرج من القائمة (يمكن إرجاعه)"><IconButton size="small" onClick={() => setReviewing({ check: check.key, item: row, note: '' })}><CheckCheck size={15} /></IconButton></Tooltip>
+                  ),
+                }] : []),
               ]}
             />
           )}
         </Panel>
       ))}
+
+      {reviewed.length > 0 && (
+        <Panel
+          flush
+          title={`بنود تمت مراجعتها (${reviewed.length})`}
+          subtitle="قبلها المحاسب بعد المراجعة فخرجت من القوائم أعلاه. إرجاع البند يعيده للقائمة."
+          actions={<Button size="small" onClick={() => setShowReviewed((v) => !v)}>{showReviewed ? 'إخفاء' : 'عرض'}</Button>}
+        >
+          {showReviewed && (
+            <DataTable
+              dense
+              maxHeight={320}
+              rows={reviewed}
+              rowKey={(row: any) => row._id}
+              columns={[
+                { key: 'check', header: 'الفحص', render: (row: any) => <span className="acc-muted">{titleOf(row.check)}</span> },
+                { key: 'label', header: 'البند', render: (row: any) => (row.ref?.startsWith('/') ? <Open to={row.ref}>{row.label}</Open> : row.label) },
+                { key: 'note', header: 'ملاحظة', hideOnMobile: true, render: (row: any) => row.note || '-' },
+                { key: 'by', header: 'بواسطة', hideOnMobile: true, render: (row: any) => <>{row.by ? `${row.by.firstName} ${row.by.lastName}` : ''} <span className="acc-muted"><Ltr>{dayOf(row.createdAt)}</Ltr></span></> },
+                ...(canReview ? [{ key: 'undo', header: '', align: 'end' as const, render: (row: any) => <Tooltip title="إرجاع للمراجعة"><IconButton size="small" onClick={() => undoReview(row._id)}><Undo2 size={15} /></IconButton></Tooltip> }] : []),
+              ]}
+            />
+          )}
+        </Panel>
+      )}
+
+      <Dialog open={!!reviewing} onClose={() => setReviewing(null)} fullWidth maxWidth="xs" dir="rtl">
+        <DialogTitle>تمت مراجعة البند</DialogTitle>
+        <DialogContent>
+          <p className="mb-2">{reviewing?.item?.label}</p>
+          <p className="acc-muted small">يخرج من القائمة اليومية ويبقى في «بنود تمت مراجعتها». لا يغيّر شيئاً في الدفاتر.</p>
+          <TextField label="ملاحظة (اختياري)" placeholder="مثلاً: طلب قديم لا تُعرف تكلفته" value={reviewing?.note || ''} onChange={(e) => setReviewing({ ...reviewing, note: e.target.value })} fullWidth multiline minRows={2} className="mt-2" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReviewing(null)}>إلغاء</Button>
+          <Button variant="contained" onClick={saveReview}>تأكيد</Button>
+        </DialogActions>
+      </Dialog>
 
       {clean.length > 0 && (
         <Panel title="فحوص سليمة">

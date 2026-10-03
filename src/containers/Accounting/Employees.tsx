@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { OFFICE_LABELS, acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { CancelDialog, today } from './shared';
+import { amountLabel, CancelDialog, today } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 
@@ -107,7 +107,7 @@ const Employees = () => {
             <TextField select label={advance.direction === 'give' ? 'دُفع من' : 'أُرجع إلى'} value={advance.cashId} onChange={(e) => setAdvance({ ...advance, cashId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
-            <TextField type="number" label={`المبلغ (${advanceCash?.currency || ''})`} value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} fullWidth className="mt-3" />
+            <TextField type="number" label={amountLabel(advanceCash?.currency)} value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} fullWidth className="mt-3" />
             {advance.direction === 'return' && (advanceCash?.currency || 'USD') !== 'USD' && (
               <TextField type="number" label="يُخصم من العهدة (بالدولار)" value={advance.usd} onChange={(e) => setAdvance({ ...advance, usd: e.target.value })} fullWidth className="mt-3"
                 helperText="العهد تُحفظ بالدولار؛ الفرق يُسجَّل ربح/خسارة صرف" />

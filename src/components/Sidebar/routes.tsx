@@ -195,11 +195,6 @@ const getRoutes = (roles: any) => {
           ...employeeRoutes,
           ...accountingRoutes,
          {
-            title: 'Odo Export',
-            path: '/odo-export',
-            icon: <FaFileInvoiceDollar className="sidebar-icon" />,
-         },
-         {
             mainTitle: 'Settings'
          },
          {

@@ -97,6 +97,10 @@ export const RemotePicker = ({
   );
 };
 
+// "المبلغ (LYD)" once the currency is known, plain "المبلغ" before a box is chosen
+export const amountLabel = (currency?: string | null) => (currency ? `المبلغ (${currency})` : 'المبلغ');
+// Arabic counting, forms [one, two, few, many]: ["بند واحد", "بندان", "بنود", "بنداً"] gives 1 بند واحد, 2 بندان, 3-10 بنود, 11+ بنداً
+export const arCount = (n: number, [one, two, few, many]: string[]) => (n === 1 ? one : n === 2 ? two : n >= 3 && n <= 10 ? `${n} ${few}` : `${n} ${many}`);
 export const userLabel = (user: any) => `${user.customerId ? `${user.customerId} ` : ''}${user.firstName} ${user.lastName}`;
 export const tripLabel = (trip: any) => `${trip.voyage} · ${trip.shippingType === 'air' ? 'جوي' : trip.shippingType === 'sea' ? 'بحري' : 'داخلي'}${trip.status === 'finished' ? ' (مكتملة)' : ''}`;
 export const orderLabel = (order: any) => `${order.orderId} · ${order.customerInfo?.fullName || ''}`;

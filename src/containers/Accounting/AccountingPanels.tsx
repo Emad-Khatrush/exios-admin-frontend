@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { EVENT_LABELS, acc, errorText, newKey, sys, todayLibya } from './accountingApi';
-import { userLabel, SHIPPING_TYPES } from './shared';
+import { amountLabel, userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
 import { useAccountingAccess } from './useAccountingAccess';
 import { AlipaySendPanel } from './AlipaySend';
@@ -372,7 +372,7 @@ const AbandonedPanel = ({ orderId, onChanged }: { orderId: string; onChanged: ()
             <TextField select label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
               {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
             </TextField>
-            <TextField type="number" label={`المبلغ (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <TextField type="number" label={amountLabel(account?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
             {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (فارغ = سعر اليوم)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           </div>
@@ -460,7 +460,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
             <Stat label="التكلفة" value={<Money value={totals.cost} />} hint={totals.costInProgress ? <>قيد التنفيذ <Money value={totals.costInProgress} /></> : undefined} />
             <Stat label="ربح الطلب" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint="المعترف به ناقص تكلفته" />
           </StatGrid>
-          <Panel flush title="المطالبات" subtitle="إيراد الطرد يُعترف به عند تسليمه وسداده كاملاً؛ وإيراد فاتورة الشراء عند سدادها كاملة.">
+          <Panel flush title="المطالبات" subtitle="إيراد الطرد يُعترف به عند تسليمه وسداده كاملاً. فاتورة الشراء: يُعترف من إيرادها وتكلفتها بقدر ما دُفع منها (أقساط)، والباقي يُعترف عند السداد الكامل.">
             <DataTable
               dense rows={data.claims} rowKey={(row: any) => row.arKey} empty={{ title: 'لا مطالبات' }}
               columns={[

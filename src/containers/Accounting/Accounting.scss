@@ -776,3 +776,50 @@
   gap: 16px;
   align-items: start;
 }
+
+// Native date and month fields: Chrome lays out their parts with bidi-override, which draws the
+// Arabic placeholder letters backwards ("ةنس/رهش/موي"). Normal bidi keeps the words readable,
+// and the fields read day/month/year left to right like the dates shown around them
+.acc-root,
+.MuiDialog-root {
+  input[type='date'],
+  input[type='month'],
+  input[type='datetime-local'] {
+    direction: ltr;
+    text-align: right;
+    &::-webkit-datetime-edit,
+    &::-webkit-datetime-edit-fields-wrapper,
+    &::-webkit-datetime-edit-day-field,
+    &::-webkit-datetime-edit-month-field,
+    &::-webkit-datetime-edit-year-field {
+      unicode-bidi: normal !important; // the browser sets it on the field parts itself
+    }
+  }
+}
+
+// Closing: the last twelve months as a strip, closed ones filled
+.acc-months {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+  @media (max-width: 900px) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  @media (max-width: 480px) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.acc-months__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+  &:hover { border-color: var(--accent); }
+  &.is-closed { background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+  &.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+}
+.acc-months__label { font-size: 12px; font-weight: 600; }
+.acc-months__state { font-size: 11px; color: var(--muted); .is-closed & { color: var(--accent-ink); } }

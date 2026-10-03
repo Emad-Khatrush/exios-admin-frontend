@@ -92,7 +92,7 @@ const AccountingSettings = () => {
             </TextField>
             <TextField type="number" label="طرد مسلّم وغير مسدد يظهر في الاستثناءات بعد (يوماً)" fullWidth className="mt-3" value={general.writeOffAfterDays ?? 180}
               onChange={(e) => setGeneral({ ...general, writeOffAfterDays: Number(e.target.value) })} inputProps={{ min: 30, step: 1 }}
-              helperText="تكلفة كل رحلة (جوية، بحرية، داخلية) تُوزَّع على طرودها حسب الوزن المحتسب دائماً." />
+              helperText="بعد هذه المدة يظهر الطرد في شاشة المطابقة لتراجعه مع العميل وتقرر شطبه. لا يُشطب شيء تلقائياً." />
             <TextField type="number" label="معامل الوزن الحجمي (كغ لكل CBM)" fullWidth className="mt-3" value={general.volumetricFactor ?? 167}
               onChange={(e) => setGeneral({ ...general, volumetricFactor: Number(e.target.value) })} inputProps={{ min: 1, step: 1 }}
               helperText="الطرد المحتسب حجمياً: وزنه = CBM × هذا المعامل. يُطبَّق على ما يُحفظ بعد التغيير." />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, TextField, Tooltip } from '@mui/material';
-import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, HandCoins, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
 import { RemotePicker, VENDOR_TYPES, userLabel } from './shared';
@@ -104,6 +104,7 @@ export const VendorsList = () => {
             {
               key: 'actions', header: '', align: 'end', render: (row: any) => (
                 <span onClick={(e) => e.stopPropagation()}>
+                  {row.owed > 0 && <Tooltip title="دفع للمورد"><IconButton size="small" color="primary" onClick={() => navigate(`/accounting/payments/new?vendorId=${row._id}`)}><HandCoins size={15} /></IconButton></Tooltip>}
                   <Tooltip title="تعديل"><IconButton size="small" onClick={() => setForm({ ...row })}><Pencil size={15} /></IconButton></Tooltip>
                   {row.isActive
                     ? <Tooltip title="أرشفة (لا مستحقات)"><IconButton size="small" onClick={() => run(() => acc.post(`vendors/${row._id}/archive`), 'تمت أرشفة المورد.')}><Archive size={15} /></IconButton></Tooltip>

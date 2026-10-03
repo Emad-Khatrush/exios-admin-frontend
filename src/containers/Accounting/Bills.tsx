@@ -112,6 +112,7 @@ export const BillsList = () => {
               key: 'target', header: 'مُحمَّلة على', hideOnMobile: true, render: (row: any) => (
                 <span className="d-inline-flex gap-1 flex-wrap">
                   {row.lines.map((l: any) => l.target).filter((t: string, i: number, all: string[]) => all.indexOf(t) === i).map((t: string) => <Badge key={t} tone="muted">{TARGET_LABELS[t]}</Badge>)}
+                  {row.refs?.length > 0 && <span className="acc-muted small"><Ltr>{row.refs.slice(0, 2).join('، ')}{row.refs.length > 2 ? ` +${row.refs.length - 2}` : ''}</Ltr></span>}
                 </span>
               ),
             },

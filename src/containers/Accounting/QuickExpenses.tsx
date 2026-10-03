@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Button, MenuItem, TextField } from '@mui/material';
 import { OFFICE_LABELS, acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { today } from './shared';
+import { amountLabel, today } from './shared';
 import { Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 
 // Rent, electricity, fuel...: a one-line bill to the "cash expenses" vendor, paid on the spot
@@ -70,7 +70,7 @@ const QuickExpenses = () => {
             {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             <MenuItem value="__beforeCount__">دُفع قبل يوم الجرد (من الرصيد الافتتاحي، بالدولار)</MenuItem>
           </TextField>
-          <TextField type="number" label={`المبلغ (${beforeCount ? 'USD' : from?.currency || '-'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          <TextField type="number" label={amountLabel(beforeCount ? 'USD' : from?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           {from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
           <TextField select label="المكتب" value={form.office} onChange={(e) => setForm({ ...form, office: e.target.value })}>
             {offices.filter((o) => o.isActive).map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}

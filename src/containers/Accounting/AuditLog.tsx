@@ -8,6 +8,7 @@ const PAGE_SIZE = 50;
 
 const ACTIONS: Record<string, string> = {
   'account.create': 'إضافة حساب', 'account.update': 'تعديل حساب', 'account.archive': 'أرشفة حساب', 'account.unarchive': 'إلغاء أرشفة حساب', 'account.delete': 'حذف حساب',
+  'exception.reviewed': 'تمت مراجعة بند', 'exception.unreviewed': 'إرجاع بند للمراجعة', 'backup.download': 'تنزيل نسخة احتياطية',
   'entry.manual': 'قيد يدوي', 'entry.cancel': 'إلغاء قيد', 'document.cancel': 'إلغاء مستند', 'document.attach': 'إرفاق ملف',
   'bill.post': 'ترحيل فاتورة', 'bill.draft': 'حفظ مسودة فاتورة', 'bill.updateDraft': 'تعديل مسودة', 'bill.deleteDraft': 'حذف مسودة',
   'payment.post': 'دفعة لمورد', 'transfer.post': 'تحويل خزينة', 'cashcount.post': 'جرد خزينة', 'salary.post': 'صرف راتب',

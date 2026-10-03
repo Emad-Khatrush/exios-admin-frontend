@@ -51,7 +51,10 @@ export const CustomersList = () => {
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       {totals && (
         <StatGrid>
-          <Stat label="على العملاء (ذمم)" value={<Money value={totals.owed} />} tone={totals.owed > 0 ? 'warn' : undefined} hint={`${totals.customers} عميلاً`} />
+          <Stat label="على العملاء (ذمم)" value={<Money value={totals.owed} />} tone={totals.owed > 0 ? 'warn' : undefined}
+            hint={totals.overpaid < 0
+              ? <>{totals.customers} عميلاً · دفع بعضهم أكثر من المطلوب <Money value={-totals.overpaid} />، فالصافي في الدفاتر <Money value={totals.owed + totals.overpaid} /></>
+              : `${totals.customers} عميلاً`} />
           <Stat label="في محافظهم بالدولار" value={<Money value={totals.walletUsd} />} hint="مستحق لهم على الشركة" />
           <Stat label="في محافظهم بالدينار" value={<Money value={totals.walletLyd} currency="LYD" />} />
           <Stat label="محافظ لا تطابق المنظومة" value={totals.mismatches} tone={totals.mismatches ? 'danger' : undefined} hint={totals.mismatches ? 'اعرضها من «عرض»' : 'كلها مطابقة'} />

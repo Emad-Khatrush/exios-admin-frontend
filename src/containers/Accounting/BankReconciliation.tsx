@@ -50,7 +50,11 @@ const keywordOf = (text: string) => String(text || '').replace(/\d+/g, ' ').repl
 const BankReconciliation = () => {
   const { accounts, offices } = useAccountingData();
   const banks = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
-  const [accountId, setAccountId] = useState('');
+  // Opens on the account last worked on (kept on this device only)
+  const [accountId, setAccountId] = useState(() => { try { return localStorage.getItem('acc-bank-account') || ''; } catch { return ''; } });
+  useEffect(() => { try { if (accountId) localStorage.setItem('acc-bank-account', accountId); } catch { /* storage may be blocked */ } }, [accountId]);
+  // A remembered account that no longer exists is dropped
+  useEffect(() => { if (accountId && banks.length && !banks.some((a) => a._id === accountId)) setAccountId(''); }, [banks, accountId]);
   const [data, setData] = useState<any>(null);
   const [suggested, setSuggested] = useState<Record<string, any>>({});
   const [rules, setRules] = useState<any[]>([]);

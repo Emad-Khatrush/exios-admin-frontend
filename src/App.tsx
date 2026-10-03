@@ -100,6 +100,58 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
+// The accounting section: every page checks the person's own accounting permissions (the owner
+// grants them), so staff reach it too and see only what they were given
+const accountingRoutes = (
+  <Route path='/accounting' element={<AccountingLayout />}>
+    <Route index element={<AccountingDashboard />} />
+    <Route path='entries' element={<JournalEntries />} />
+    <Route path='entries/new' element={<EntryForm />} />
+    <Route path='entries/:id' element={<EntryDetail />} />
+    <Route path='accounts' element={<ChartOfAccounts />} />
+    <Route path='accounts/:id' element={<AccountLedger />} />
+    <Route path='trial-balance' element={<TrialBalance />} />
+    <Route path='rates' element={<DailyRates />} />
+    <Route path='settings' element={<AccountingSettings />} />
+    <Route path='audit' element={<AccountingAuditLog />} />
+    <Route path='bills' element={<BillsList />} />
+    <Route path='bills/new' element={<BillForm />} />
+    <Route path='bills/:id' element={<BillDetail />} />
+    <Route path='bills/:id/edit' element={<BillForm />} />
+    <Route path='customers' element={<CustomersList />} />
+    <Route path='customers/:id' element={<CustomerPage />} />
+    <Route path='customer-invoices' element={<CustomerInvoicesList />} />
+    <Route path='customer-invoices/:id' element={<CustomerInvoicePage />} />
+    <Route path='receivables' element={<Navigate to='/accounting/reports?tab=receivables' replace />} />
+    <Route path='vendors' element={<VendorsList />} />
+    <Route path='vendors/:id' element={<VendorStatement />} />
+    <Route path='payments' element={<PaymentsList />} />
+    <Route path='payments/new' element={<PaymentForm />} />
+    <Route path='receipts/new' element={<ReceiptForm />} />
+    <Route path='expenses' element={<QuickExpenses />} />
+    <Route path='office-expenses' element={<OfficeExpensesReview />} />
+    <Route path='trips' element={<TripCosts />} />
+    <Route path='treasury' element={<Treasury />} />
+    <Route path='bank' element={<BankReconciliation />} />
+    <Route path='employees' element={<AccountingEmployees />} />
+    <Route path='assets' element={<AccountingAssets />} />
+    <Route path='equity' element={<AccountingEquity />} />
+    <Route path='netting' element={<AccountingNetting />} />
+    <Route path='migration' element={<AccountingMigration />} />
+    <Route path='guide' element={<AccountingGuide />} />
+    <Route path='suspense' element={<AccountingSuspense />} />
+    <Route path='reports' element={<AccountingReports />} />
+    <Route path='exceptions' element={<AccountingExceptions />} />
+    <Route path='closing' element={<AccountingClosing />} />
+    <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
+    <Route path='odoo' element={<AccountingOdooExport />} />
+    <Route path='alipay' element={<AccountingAlipay />} />
+    <Route path='start' element={<AccountingStartWizard />} />
+    <Route path='access' element={<AccountingAccessControl />} />
+    <Route path='backups' element={<AccountingBackups />} />
+  </Route>
+);
+
 const getRoutesByRole = (roles: any) => {
   if (roles?.isEmployee) {
     return <>
@@ -119,6 +171,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='/settings/posts' element={<AdminPosts />} />
         <Route path='/settings/popup-ads' element={<PopupAds />} />
       </>}
+      {accountingRoutes}
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
       <Route path='/special-prices' element={<SpecialPriceCustomers />} />
@@ -166,53 +219,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/deleted-payments' element={<DeletedStatements />} />
       <Route path='/marketing' element={<Marketing />} />
       <Route path='/analytics' element={<Analytics />} />
-      <Route path='/accounting' element={<AccountingLayout />}>
-        <Route index element={<AccountingDashboard />} />
-        <Route path='entries' element={<JournalEntries />} />
-        <Route path='entries/new' element={<EntryForm />} />
-        <Route path='entries/:id' element={<EntryDetail />} />
-        <Route path='accounts' element={<ChartOfAccounts />} />
-        <Route path='accounts/:id' element={<AccountLedger />} />
-        <Route path='trial-balance' element={<TrialBalance />} />
-        <Route path='rates' element={<DailyRates />} />
-        <Route path='settings' element={<AccountingSettings />} />
-        <Route path='audit' element={<AccountingAuditLog />} />
-        <Route path='bills' element={<BillsList />} />
-        <Route path='bills/new' element={<BillForm />} />
-        <Route path='bills/:id' element={<BillDetail />} />
-        <Route path='bills/:id/edit' element={<BillForm />} />
-        <Route path='customers' element={<CustomersList />} />
-        <Route path='customers/:id' element={<CustomerPage />} />
-        <Route path='customer-invoices' element={<CustomerInvoicesList />} />
-        <Route path='customer-invoices/:id' element={<CustomerInvoicePage />} />
-        <Route path='receivables' element={<Navigate to='/accounting/reports?tab=receivables' replace />} />
-        <Route path='vendors' element={<VendorsList />} />
-        <Route path='vendors/:id' element={<VendorStatement />} />
-        <Route path='payments' element={<PaymentsList />} />
-        <Route path='payments/new' element={<PaymentForm />} />
-        <Route path='receipts/new' element={<ReceiptForm />} />
-        <Route path='expenses' element={<QuickExpenses />} />
-        <Route path='office-expenses' element={<OfficeExpensesReview />} />
-        <Route path='trips' element={<TripCosts />} />
-        <Route path='treasury' element={<Treasury />} />
-        <Route path='bank' element={<BankReconciliation />} />
-        <Route path='employees' element={<AccountingEmployees />} />
-        <Route path='assets' element={<AccountingAssets />} />
-        <Route path='equity' element={<AccountingEquity />} />
-        <Route path='netting' element={<AccountingNetting />} />
-        <Route path='migration' element={<AccountingMigration />} />
-        <Route path='guide' element={<AccountingGuide />} />
-        <Route path='suspense' element={<AccountingSuspense />} />
-        <Route path='reports' element={<AccountingReports />} />
-        <Route path='exceptions' element={<AccountingExceptions />} />
-        <Route path='closing' element={<AccountingClosing />} />
-        <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
-        <Route path='odoo' element={<AccountingOdooExport />} />
-        <Route path='alipay' element={<AccountingAlipay />} />
-        <Route path='start' element={<AccountingStartWizard />} />
-        <Route path='access' element={<AccountingAccessControl />} />
-        <Route path='backups' element={<AccountingBackups />} />
-      </Route>
+      {accountingRoutes}
     </>
   }
 }

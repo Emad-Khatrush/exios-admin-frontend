@@ -4,6 +4,24 @@ import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTi
 import { CheckCircle2, CircleAlert, XCircle } from 'lucide-react';
 import { acc, errorText, todayLibya } from './accountingApi';
 import { Badge, Ltr, Money, Notice, PageHeader, Panel, Stat, StatGrid } from './ui';
+import { useAccountingAccess } from './useAccountingAccess';
+import { arCount } from './shared';
+
+const NEEDS = ['بند واحد يحتاج نظرة', 'بندان يحتاجان نظرة', 'بنود تحتاج نظرة', 'بنداً يحتاج نظرة'];
+
+
+// The last twelve months, newest first, for the closed/open strip
+const lastMonths = () => {
+  const [year, month] = todayLibya().split('-').map(Number);
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(year, month - 1 - i, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  });
+};
+const monthEndOf = (value: string) => {
+  const [y, m] = value.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
 
 const previousMonth = () => {
   const [year, month] = todayLibya().split('-').map(Number);
@@ -14,6 +32,8 @@ const previousMonth = () => {
 // that moves its result to retained earnings.
 const Closing = () => {
   const navigate = useNavigate();
+  // Reopening a closed year is the owner's emergency action only (decision 65)
+  const { isOwner } = useAccountingAccess();
   const [month, setMonth] = useState(previousMonth());
   const [checklist, setChecklist] = useState<any>(null);
   const [year, setYear] = useState(String(Number(todayLibya().slice(0, 4)) - 1));
@@ -70,10 +90,23 @@ const Closing = () => {
         subtitle="راجع القائمة ثم أقفل. البنود الحمراء تمنع الإقفال؛ الصفراء للعلم والقرار لك."
         actions={<Button variant="contained" disabled={isBusy || !checklist?.canClose || checklist?.alreadyLocked} onClick={() => setConfirm('month')}>إقفال {month}</Button>}
       >
+        {/* Which months are closed: everything up to the lock date. A click picks the month */}
+        <div className="acc-months mb-3">
+          {lastMonths().reverse().map((m) => {
+            const closed = !!checklist?.lockDate && checklist.lockDate >= monthEndOf(m);
+            const current = m === todayLibya().slice(0, 7);
+            return (
+              <button key={m} type="button" className={`acc-months__item${closed ? ' is-closed' : ''}${m === month ? ' is-selected' : ''}`} onClick={() => { setMonth(m); loadMonth(m); }} title={closed ? 'مقفل' : current ? 'الشهر الحالي' : 'مفتوح'}>
+                <span className="acc-months__label"><Ltr>{m}</Ltr></span>
+                <span className="acc-months__state">{closed ? 'مقفل' : current ? 'جارٍ' : 'مفتوح'}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="d-flex gap-2 align-items-center flex-wrap mb-3">
           <TextField type="month" label="الشهر" InputLabelProps={{ shrink: true }} value={month} onChange={(e) => { setMonth(e.target.value); if (e.target.value) loadMonth(e.target.value); }} />
           {checklist?.alreadyLocked && <Badge tone="muted">مقفل مسبقاً</Badge>}
-          {checklist && !checklist.alreadyLocked && (open.length ? <Badge tone="warn">{open.length} بنداً يحتاج نظرة</Badge> : <Badge tone="ok">جاهز للإقفال</Badge>)}
+          {checklist && !checklist.alreadyLocked && (open.length ? <Badge tone="warn">{arCount(open.length, NEEDS)}</Badge> : <Badge tone="ok">جاهز للإقفال</Badge>)}
         </div>
         {!checklist && <div className="acc-empty">جارٍ الفحص…</div>}
         {checklist && (
@@ -102,7 +135,7 @@ const Closing = () => {
         title="إقفال السنة المالية"
         subtitle="قيد واحد في آخر يوم من السنة ينقل أرصدة كل حسابات الإيرادات والمصروفات ومسحوبات الشركاء إلى الأرباح المحتجزة، ثم تُقفل السنة. تقارير السنة المقفلة تبقى تعرض نتيجتها."
         actions={status && (status.closed
-          ? <Button color="error" variant="outlined" disabled={isBusy} onClick={() => setConfirm('reopen')}>إعادة فتح {year}</Button>
+          ? (isOwner ? <Button color="error" variant="outlined" disabled={isBusy} onClick={() => setConfirm('reopen')}>إعادة فتح {year}</Button> : <Badge tone="ok">مقفلة</Badge>)
           : <Button variant="contained" disabled={isBusy || !status.ended || !status.accounts} onClick={() => setConfirm('year')}>إقفال {year}</Button>)}
       >
         <div className="d-flex gap-2 align-items-center flex-wrap mb-3">
@@ -110,6 +143,7 @@ const Closing = () => {
           {status && <span className="acc-muted">من <Ltr>{status.start}</Ltr> إلى <Ltr>{status.end}</Ltr></span>}
           {status?.closed && <Badge tone="ok">مقفلة بالقيد <Ltr>{status.entry.number}</Ltr></Badge>}
           {status && !status.closed && !status.ended && <Badge tone="muted">لم تنتهِ بعد</Badge>}
+          {status && !status.closed && status.ended && !status.accounts && <Badge tone="muted">لا إيرادات ولا مصروفات في هذه السنة؛ لا شيء لإقفاله</Badge>}
         </div>
         {status && !status.closed && (
           <StatGrid>

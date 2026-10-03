@@ -3,7 +3,7 @@ import { Alert, Autocomplete, Button, Dialog, DialogActions, DialogContent, Dial
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
+import { amountLabel, CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, Badge, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 
@@ -86,7 +86,7 @@ export const Equity = () => {
             <TextField select label="الخزينة" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
-            <TextField type="number" label={`المبلغ (${cash?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} fullWidth className="mt-3" />
+            <TextField type="number" label={amountLabel(cash?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} fullWidth className="mt-3" />
             {cash?.currency && cash.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر اليوم)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} fullWidth className="mt-3" />}
             <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth className="mt-3" />
           </DialogContent>

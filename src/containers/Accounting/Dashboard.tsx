@@ -4,8 +4,9 @@ import { Alert, Button } from '@mui/material';
 import { acc, errorText, OFFICE_LABELS } from './accountingApi';
 import { AccountRef, Badge, DataTable, Money, PageHeader, Panel, Stat, StatGrid } from './ui';
 import { SubBoxesPanel } from './SubBoxes';
+import { arCount } from './shared';
 
-const CASH_KIND: Record<string, string> = { cash: 'خزينة', bank: 'بنك', ewallet: 'محفظة إلكترونية' };
+const CASH_KIND: Record<string, string> = { cash: 'خزينة', bank: 'بنك', ewallet: 'محفظة إلكترونية', current: 'حساب جاري' };
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Dashboard = () => {
   const [checks, setChecks] = useState<any>(null);
   const [error, setError] = useState('');
   const [isRunningSetup, setIsRunningSetup] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(false);
 
   const load = async () => {
     try {
@@ -88,7 +90,7 @@ const Dashboard = () => {
 
       {checks && (checks.errorCount > 0 || checks.warningCount > 0) && (
         <Alert severity={checks.errorCount ? 'error' : 'warning'} className="mb-3" action={<Button size="small" onClick={() => navigate('/accounting/exceptions')}>عرض</Button>}>
-          المطابقة اليومية (<bdi dir="ltr">{checks.day}</bdi>): {checks.errorCount} خطأ و{checks.warningCount} بند للمراجعة.
+          المطابقة اليومية (<bdi dir="ltr">{checks.day}</bdi>): {checks.errorCount ? arCount(checks.errorCount, ['خطأ واحد', 'خطآن', 'أخطاء', 'خطأً']) : 'لا أخطاء'}، و{checks.warningCount ? arCount(checks.warningCount, ['فحص واحد', 'فحصان', 'فحوص', 'فحصاً']) : 'لا شيء'} للمراجعة.
         </Alert>
       )}
 
@@ -111,10 +113,11 @@ const Dashboard = () => {
       </StatGrid>
       <SubBoxesPanel />
 
-      <Panel flush title="الخزائن والبنوك والمحافظ الإلكترونية" subtitle="الرصيد بعملة كل حساب، وقيمته بالدولار في الدفاتر، ومتوسط السعر الذي يُحمل به.">
+      <Panel flush title="الخزائن والبنوك والمحافظ الإلكترونية" subtitle="الرصيد بعملة كل حساب، وقيمته بالدولار في الدفاتر، ومتوسط السعر الذي يُحمل به."
+        actions={<Button size="small" onClick={() => setShowEmpty((v) => !v)}>{showEmpty ? 'إخفاء الحسابات الصفرية' : `إظهار الحسابات الصفرية (${(data?.cash || []).filter((r: any) => !r.foreign && !r.usd).length})`}</Button>}>
         <DataTable
           loading={!data}
-          rows={data?.cash || []}
+          rows={(data?.cash || []).filter((row: any) => showEmpty || row.foreign !== 0 || row.usd !== 0)}
           rowKey={(row: any) => row._id}
           onRowClick={(row: any) => navigate(`/accounting/accounts/${row._id}`)}
           rowTone={(row: any) => (row.isActive ? undefined : 'muted')}

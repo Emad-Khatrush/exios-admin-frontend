@@ -103,7 +103,9 @@ const Alipay = () => {
               dense maxHeight={420} rows={data.transfers} rowKey={(row: any) => String(row.orderId)}
               empty={{ title: 'لا حوالات معترف بها بعد' }}
               columns={[
-                { key: 'order', header: 'الطلب', render: (row: any) => <><Open to={`/accounting/customer-invoices/${row.orderId}`}><Ltr>{row.orderNumber}</Ltr></Open><Sub>{row.customer}</Sub></> },
+                { key: 'order', header: 'الطلب', render: (row: any) => (row.orderNumber
+                  ? <><Open to={`/accounting/customer-invoices/${row.orderId}`}><Ltr>{row.orderNumber}</Ltr></Open><Sub>{row.customer}</Sub></>
+                  : <><span className="acc-muted">تكلفة بلا طلب</span><Sub>من فاتورة مورد أو قيد على حساب تكلفة الحوالات</Sub></>) },
                 { key: 'revenue', header: 'الإيراد', numeric: true, render: (row: any) => <Money value={row.revenue} /> },
                 { key: 'cost', header: 'التكلفة', numeric: true, render: (row: any) => <Money value={row.cost} tone="plain" /> },
                 { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
