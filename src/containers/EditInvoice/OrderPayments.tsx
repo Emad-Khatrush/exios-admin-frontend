@@ -179,6 +179,9 @@ const OrderPayments = (props: Props) => {
   const otherTotals = totalDebts(elsewhere);
   const locked = order.invoiceConfirmed || order.requestedEditDetails;
   const walletEmpty = wallet.walletUsd <= 0 && wallet.walletLyd <= 0;
+  // A shipping-only order has no purchase invoice: its part is hidden (unless an old payment sits on it)
+  const invoicePayments = payments.filter((payment) => payment.category === 'invoice');
+  const hasInvoice = !!order.isPayment || invoicePayments.length > 0;
 
   const deletePayment = (payment: any) => setConfirm({
     title: 'Delete this payment?',
@@ -198,7 +201,7 @@ const OrderPayments = (props: Props) => {
   return (
     <div className="op-payments-grid">
       <section className="op-stats op-panel--wide">
-        <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." />
+        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." />}
         <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate} empty="No package has a weight and a price yet." />
         <div className="op-stat">
           <div className="op-stat__head"><span className="op-stat__title">Customer wallet</span></div>
@@ -220,7 +223,7 @@ const OrderPayments = (props: Props) => {
 
       <InvoiceChanges order={order} isAdmin={isAdmin} ask={setConfirm} onDecideChanges={props.onDecideChanges} />
 
-      <section className="op-panel">
+      {hasInvoice && <section className="op-panel">
         <header className="op-panel__head">
           <div>
             <h3 className="op-panel__title">Purchase invoice</h3>
@@ -250,8 +253,8 @@ const OrderPayments = (props: Props) => {
           ))}
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
-        <PaymentRows rows={payments.filter((payment) => payment.category === 'invoice')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} />
-      </section>
+        <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} />
+      </section>}
 
       <section className="op-panel">
         <header className="op-panel__head">
