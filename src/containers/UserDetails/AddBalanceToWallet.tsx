@@ -35,7 +35,7 @@ const AddBalanceToWallet = (props: Props) => {
     actionType: 'cash',
   });
   const [error, setError] = useState<string>();
-  // Cash dated on or before the count day was in the counted box: accounting does not add it again
+  // Cash dated before the count was in the counted box: accounting does not add it again
   const count = useCountDay();
   const beforeCount = ['cash', 'bank'].includes(form.actionType) && isBeforeCount(count, date);
   const [isLoading, setIsLoading] = useState<boolean>(false);
