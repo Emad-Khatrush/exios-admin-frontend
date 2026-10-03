@@ -823,3 +823,62 @@
 }
 .acc-months__label { font-size: 12px; font-weight: 600; }
 .acc-months__state { font-size: 11px; color: var(--muted); .is-closed & { color: var(--accent-ink); } }
+
+// ---------- A trip opened in the trips report ----------
+
+.dt-row--selected td { background: var(--accent-soft); }
+
+.acc-trip {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px;
+  margin-bottom: 16px;
+  scroll-margin-top: 80px;
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    h3 { margin: 0 0 6px; font-size: 19px; font-weight: 700; }
+  }
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  &__actions { display: flex; align-items: center; gap: 8px; }
+  &__grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+    gap: 14px;
+    &--one { grid-template-columns: minmax(0, 1fr); }
+  }
+  &__box {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    min-width: 0;
+    h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
+  }
+  &__costs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  &__cost-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+  &__bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
+    margin-top: 4px;
+    overflow: hidden;
+    span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  }
+}
+
+@media (max-width: 900px) {
+  .acc-trip__grid { grid-template-columns: minmax(0, 1fr); }
+}

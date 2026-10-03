@@ -24,7 +24,7 @@ type Props<T> = {
   empty?: { title: string; hint?: string; action?: ReactNode };
   // Cells for a totals row, by column key
   footer?: Record<string, ReactNode>;
-  rowTone?: (row: T) => 'group' | 'muted' | 'canceled' | undefined;
+  rowTone?: (row: T) => 'group' | 'muted' | 'canceled' | 'selected' | undefined;
   // Indentation (levels) of the first column, for trees
   indent?: (row: T) => number;
   caption?: ReactNode;

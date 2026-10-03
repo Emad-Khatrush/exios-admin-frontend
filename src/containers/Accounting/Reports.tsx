@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, MenuItem, Tab, Tabs, TextField } from '@mui/material';
@@ -293,43 +293,102 @@ const profitExport = (row: any) => ({ revenue: dollars(row.revenue), cost: dolla
 const COST_CATEGORY_LABELS: Record<string, string> = { shipping: 'شحن', customs: 'جمارك', clearance: 'تخليص', transport: 'نقل', other: 'أخرى', uncategorized: 'غير مصنف' };
 const OFFICE_NAMES: Record<string, string> = { tripoli: 'طرابلس', benghazi: 'بنغازي', misurata: 'مصراتة' };
 
-// One trip opened from the report (spec v8): its cost by kind; for an air or sea trip, the cost and
-// selling price per KG by delivery office with the domestic transport, and its profit before and
-// after that transport; for a domestic trip, the extra cost per KG and the transport fees charged
-const TripDetail = ({ trip }: { trip: any }) => {
-  const categories = Object.entries(trip.byCategory || {}).filter(([, value]) => value);
-  const unit = trip.unit === 'CBM' ? 'CBM' : 'الكيلو';
+// One trip opened from the report (spec v8), shown above the list: what it earned and cost, its cost
+// by kind with each kind's share, and for an air or sea trip the figures per delivery office with
+// the domestic transport (for a domestic trip: the extra cost per unit and the fees charged)
+const TripDetail = ({ trip, onClose }: { trip: any; onClose: () => void }) => {
+  const categories = (Object.entries(trip.byCategory || {}) as [string, number][]).filter(([, value]) => value).sort((a, b) => b[1] - a[1]);
+  const categoryTotal = categories.reduce((sum, [, value]) => sum + value, 0);
+  const unit = trip.unit === 'CBM' ? 'CBM' : 'كغ';
+  const domestic = trip.shippingType === 'domestic';
+  const offices = domestic ? [] : (trip.offices || []);
+  const perUnitProfit = trip.revenuePerUnit !== null && trip.costPerUnit !== null && trip.revenuePerUnit !== undefined ? trip.revenuePerUnit - trip.costPerUnit : null;
   return (
-    <Panel title={<>تفاصيل الرحلة {trip.voyage}</>} subtitle={trip.volumetricPackages ? `${trip.volumetricPackages} طرد محتسب بالوزن الحجمي` : undefined}>
+    <section className="acc-trip">
+      <header className="acc-trip__head">
+        <div>
+          <h3>{trip.voyage}</h3>
+          <div className="acc-trip__meta">
+            <Badge tone="info">{SHIPPING_TYPES[trip.shippingType] || trip.shippingType}</Badge>
+            <StatusBadge status={trip.status} />
+            <Ltr>{dayOf(trip.date)}</Ltr>
+            {trip.office && <span>{OFFICE_NAMES[trip.office] || trip.office}</span>}
+            <span>{trip.packages} طرد{trip.weight ? <> · <Ltr>{Number(trip.weight).toLocaleString('en-US', { maximumFractionDigits: 3 })}</Ltr> {unit}</> : null}</span>
+            {trip.volumetricPackages > 0 && <span>{trip.volumetricPackages} بالوزن الحجمي</span>}
+          </div>
+        </div>
+        <div className="acc-trip__actions">
+          <Open to={`/inventory/${trip.tripId}/edit`}>فتح الرحلة</Open>
+          <Button size="small" onClick={onClose}>إغلاق</Button>
+        </div>
+      </header>
+
       <StatGrid>
-        {categories.map(([key, value]) => <Stat key={key} label={`تكلفة ${COST_CATEGORY_LABELS[key] || key}`} value={<Money value={value as number} />} />)}
-        {trip.shippingType === 'domestic' ? (
+        {domestic ? (
           <>
-            <Stat label={`تكلفة ${unit} الإضافية`} value={trip.extraCostPerUnit === null ? '—' : <Money value={trip.extraCostPerUnit} />} />
-            <Stat label="رسوم النقل المفوترة" value={<Money value={trip.feesBilled} />} hint={<>المعترف بها <Money value={trip.feesRecognized} /></>} />
+            <Stat label="تكلفة الرحلة الداخلية" value={<Money value={trip.totalCost} />} hint={trip.costInProgress ? <>منها قيد التنفيذ <Money value={trip.costInProgress} tone="plain" /></> : undefined} />
+            <Stat label={`التكلفة الإضافية لكل ${unit}`} value={trip.extraCostPerUnit === null ? '—' : <Money value={trip.extraCostPerUnit} />} />
+            <Stat label="رسوم النقل المفوترة" value={<Money value={trip.feesBilled} />} hint={<>المعترف بها <Money value={trip.feesRecognized} tone="plain" /></>} />
             <Stat label="الرسوم ناقص التكلفة" value={<Money value={trip.feesBilled - trip.totalCost} />} tone={trip.feesBilled - trip.totalCost < 0 ? 'danger' : 'accent'} />
           </>
         ) : (
           <>
-            <Stat label="الربح قبل النقل الداخلي" value={<Money value={trip.profitBeforeDomestic} />} />
-            <Stat label="الربح بعد النقل الداخلي" value={<Money value={trip.profitAfterDomestic} />} tone={trip.profitAfterDomestic < 0 ? 'danger' : 'accent'} hint={<>النقل الداخلي <Money value={trip.domesticCost} /></>} />
+            <Stat label="إجمالي الإيراد" value={<Money value={trip.totalRevenue} />} hint={<>معترف به <Money value={trip.revenue} tone="plain" /> · مؤجل <Money value={trip.deferred} tone="plain" /></>} />
+            <Stat
+              label="إجمالي التكلفة" value={<Money value={trip.totalCost} />}
+              hint={trip.freeShippingCost > 0 ? <>منها شحن مجاني <Money value={trip.freeShippingCost} tone="plain" /></> : trip.costInProgress ? <>قيد التنفيذ <Money value={trip.costInProgress} tone="plain" /></> : undefined}
+            />
+            <Stat label="الصافي قبل النقل الداخلي" value={<Money value={trip.profitBeforeDomestic} />} tone={trip.profitBeforeDomestic < 0 ? 'danger' : undefined} />
+            <Stat
+              label="الصافي بعد النقل الداخلي" value={<Money value={trip.profitAfterDomestic} />} tone={trip.profitAfterDomestic < 0 ? 'danger' : 'accent'}
+              hint={trip.domesticCost ? <>النقل الداخلي <Money value={trip.domesticCost} tone="plain" /></> : 'لا نقل داخلي'}
+            />
+            <Stat
+              label={`لكل ${unit}`} value={trip.costPerUnit === null ? '—' : <>تكلفة <Money value={trip.costPerUnit} /></>}
+              hint={trip.revenuePerUnit === null ? undefined : <>بيع <Money value={trip.revenuePerUnit} tone="plain" />{perUnitProfit !== null && <> · ربح <Money value={perUnitProfit} tone="plain" /></>}</>}
+            />
           </>
         )}
       </StatGrid>
-      {trip.shippingType !== 'domestic' && (trip.offices || []).length > 0 && (
-        <DataTable
-          dense rows={trip.offices} rowKey={(row: any) => row.office}
-          columns={[
-            { key: 'office', header: 'مكتب التسليم', render: (row: any) => <>{OFFICE_NAMES[row.office] || row.office}<Sub>{row.packages} طرد · {row.weight} {trip.unit || ''}</Sub></> },
-            { key: 'costPerUnit', header: `تكلفة ${unit} (الرحلة والجمرك)`, numeric: true, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
-            { key: 'fullCostPerUnit', header: `تكلفة ${unit} الكاملة`, numeric: true, render: (row: any) => (row.fullCostPerUnit === null ? null : <Money value={row.fullCostPerUnit} />) },
-            { key: 'sellPerUnit', header: `بيع ${unit}`, numeric: true, render: (row: any) => (row.sellPerUnit === null ? null : <Money value={row.sellPerUnit} />) },
-            { key: 'domesticCost', header: 'النقل الداخلي', numeric: true, render: (row: any) => <Money value={row.domesticCost} hideZero tone="plain" /> },
-            { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
-          ]}
-        />
-      )}
-    </Panel>
+
+      <div className={`acc-trip__grid${offices.length ? '' : ' acc-trip__grid--one'}`}>
+        <div className="acc-trip__box">
+          <h4>التكلفة حسب النوع</h4>
+          {categories.length === 0 ? <p className="acc-muted">لا فواتير تكلفة على هذه الرحلة بعد.</p> : (
+            <ul className="acc-trip__costs">
+              {categories.map(([key, value]) => {
+                const share = categoryTotal ? Math.round((value / categoryTotal) * 100) : 0;
+                return (
+                  <li key={key}>
+                    <div className="acc-trip__cost-row"><span>{COST_CATEGORY_LABELS[key] || key}</span><span><Money value={value} /> <span className="acc-muted">{share}%</span></span></div>
+                    <div className="acc-trip__bar"><span style={{ width: `${share}%` }} /></div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {offices.length > 0 && (
+          <div className="acc-trip__box">
+            <h4>حسب مكتب التسليم</h4>
+            <DataTable
+              dense rows={offices} rowKey={(row: any) => row.office}
+              columns={[
+                { key: 'office', header: 'المكتب', render: (row: any) => <><strong>{OFFICE_NAMES[row.office] || row.office}</strong><Sub>{row.packages} طرد · <Ltr>{row.weight}</Ltr> {unit}</Sub></> },
+                {
+                  key: 'costPerUnit', header: `تكلفة ${unit}`, numeric: true,
+                  render: (row: any) => (row.costPerUnit === null ? null : <><Money value={row.costPerUnit} tone="plain" />{row.domesticCost > 0 && row.fullCostPerUnit !== null && <Sub>مع النقل <Money value={row.fullCostPerUnit} tone="plain" /></Sub>}</>),
+                },
+                { key: 'sellPerUnit', header: `بيع ${unit}`, numeric: true, render: (row: any) => (row.sellPerUnit === null ? null : <Money value={row.sellPerUnit} tone="plain" />) },
+                { key: 'domesticCost', header: 'النقل الداخلي', numeric: true, render: (row: any) => <Money value={row.domesticCost} hideZero tone="plain" /> },
+                { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 
@@ -337,6 +396,12 @@ const Trips = () => {
   const [filters, setFilters] = useState({ status: '', shippingType: '', search: '' });
   const [opened, setOpened] = useState<any>(null);
   const { data, error, isLoading, load } = useReport('reports/trips');
+  // The details open above the list, and the page scrolls to them
+  const detailRef = useRef<HTMLDivElement>(null);
+  const open = (row: any) => {
+    setOpened(row);
+    if (row) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
   return (
     <Panel
       flush title="ربحية الرحلات"
@@ -363,9 +428,11 @@ const Trips = () => {
         </FilterBar>
       </div>
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+      <div ref={detailRef} className="px-3">{opened && <TripDetail trip={opened} onClose={() => setOpened(null)} />}</div>
       <DataTable
         dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => row.tripId} maxHeight="70vh" empty={{ title: 'لا توجد رحلات' }}
-        onRowClick={(row: any) => setOpened(opened?.tripId === row.tripId ? null : row)}
+        onRowClick={(row: any) => open(opened?.tripId === row.tripId ? null : row)}
+        rowTone={(row: any) => (row.tripId === opened?.tripId ? 'selected' : undefined)}
         columns={[
           {
             key: 'trip', header: 'الرحلة', sortValue: (row: any) => row.voyage, render: (row: any) => (
@@ -391,7 +458,6 @@ const Trips = () => {
           totalRevenue: <Money value={data.totals.totalRevenue} strong />, totalCost: <Money value={data.totals.totalCost} strong />, net: <Money value={data.totals.net} strong />,
         } : undefined}
       />
-      {opened && <div className="p-3"><TripDetail trip={opened} /></div>}
     </Panel>
   );
 };
