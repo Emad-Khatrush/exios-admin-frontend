@@ -94,17 +94,20 @@ export const Checkpoints = ({ steps, isDone, onToggle, disabled }: {
   steps: PackageStep[], isDone: (name: string) => boolean, onToggle: (name: string) => void, disabled?: boolean
 }) => (
   <ol className={`of-track of-track--${steps.length}`}>
-    {steps.map(({ name, label, hint }, index) => {
+    {steps.map(({ name, label, hint, locked }, index) => {
       const done = isDone(name);
+      const button = (
+        <button type="button" disabled={disabled || !!locked} aria-pressed={done} onClick={() => onToggle(name)} title={locked ? undefined : done ? `Untick: ${label}` : `Mark as done: ${label}`}>
+          <span className="of-track__mark">{done ? <BsCheck2 /> : index + 1}</span>
+          <span className="of-track__text">
+            <span className="of-track__label">{label}</span>
+            <span className="of-track__hint">{hint}</span>
+          </span>
+        </button>
+      );
       return (
-        <li key={name} className={done ? 'is-done' : ''}>
-          <button type="button" disabled={disabled} aria-pressed={done} onClick={() => onToggle(name)} title={done ? `Untick: ${label}` : `Mark as done: ${label}`}>
-            <span className="of-track__mark">{done ? <BsCheck2 /> : index + 1}</span>
-            <span className="of-track__text">
-              <span className="of-track__label">{label}</span>
-              <span className="of-track__hint">{hint}</span>
-            </span>
-          </button>
+        <li key={name} className={`${done ? 'is-done' : ''}${locked ? ' is-locked' : ''}`}>
+          {locked ? <Tooltip arrow title={<span dir="rtl">{done ? locked.done : locked.open}</span>}><span className="of-track__locked">{button}</span></Tooltip> : button}
         </li>
       );
     })}

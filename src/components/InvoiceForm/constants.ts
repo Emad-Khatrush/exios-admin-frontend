@@ -27,14 +27,22 @@ export const SHIPMENT_METHODS: [string, string][] = [['air', 'By air'], ['sea', 
 // A package shipped by air is weighed in KG, one shipped by sea is measured in CBM
 export const unitForMethod = (method?: string) => (method === 'air' ? 'KG' : method === 'sea' ? 'CBM' : '');
 
-export type PackageStep = { name: string, label: string, hint: string };
+// locked: never ticked by hand; what to do instead, before and after it is done
+export type PackageStep = { name: string, label: string, hint: string, locked?: { open: string, done: string } };
 
 // Order of the four package checkpoints, as staff tick them
 export const PACKAGE_STEPS: PackageStep[] = [
   { name: 'paid', label: 'Paid', hint: 'Customer paid' },
   { name: 'arrived', label: 'Origin warehouse', hint: 'Reached our warehouse abroad' },
   { name: 'arrivedLibya', label: 'Arrived in Libya', hint: 'Reached our Libya warehouse' },
-  { name: 'received', label: 'Received', hint: 'Handed to the customer' },
+  {
+    name: 'received', label: 'Received', hint: 'Handed to the customer',
+    // Closed only when the customer pays and takes it; undone only by cancelling that delivery
+    locked: {
+      open: 'يُسكَّر عند التسليم فقط: من صفحة العميل ← Ready to deliver ← اختر الطرد وسجّل الدفع ثم Mark as delivered. الطرد بشحن مجاني يُسلَّم بلا دفعة.',
+      done: 'سُلِّم للعميل مع فاتورة تسليم. لإرجاعه: ألغِ فاتورة التسليم من صفحة الفواتير (Invoices)، فيرجع الطرد غير مستلم وترجع الدفعة للمحفظة.',
+    },
+  },
 ];
 
 export type OrderKind = 'shipment' | 'payment' | 'both';

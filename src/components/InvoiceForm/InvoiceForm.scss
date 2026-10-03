@@ -484,3 +484,17 @@ $danger-soft: #fdecea;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
+
+// A step that is never ticked by hand (Received): shown as it is, the tooltip says what to do
+.of-track__locked {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  cursor: help;
+}
+// A disabled button swallows hover: it lets it through to the wrapper that holds the tooltip
+.of-track li.is-locked button:disabled {
+  pointer-events: none;
+  opacity: 1;
+  width: 100%;
+}
