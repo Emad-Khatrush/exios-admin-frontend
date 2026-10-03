@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { EVENT_LABELS, acc, errorText, newKey, sys, todayLibya } from './accountingApi';
-import { amountLabel, userLabel, SHIPPING_TYPES } from './shared';
+import { CancelDialog, amountLabel, userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
 import { useAccountingAccess } from './useAccountingAccess';
 import { AlipaySendPanel } from './AlipaySend';
@@ -234,6 +234,8 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
   const [form, setForm] = useState({ accountId: '', amount: '', usdValue: '', walletUsd: '', day: todayLibya(), note: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // A refund entered by mistake is cancelled: the money in and the wallet credit are both undone
+  const [canceling, setCanceling] = useState<any>(null);
   const idempotencyKey = useRef(newKey());
   const load = useCallback(() => {
     sys.get(`acc/orders/${orderId}/refunds`).then((res: any) => setRows(res.data.results || [])).catch(() => {});
@@ -274,7 +276,15 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             { key: 'usd', header: 'قيمته', numeric: true, render: (row: any) => <Money value={row.usd} /> },
             { key: 'wallet', header: 'للمحفظة', numeric: true, render: (row: any) => <Money value={row.walletUsd} /> },
             { key: 'status', header: '', render: (row: any) => <StatusBadge status={row.status} /> },
+            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <Button size="small" color="error" onClick={() => setCanceling(row)}>إلغاء</Button> : null) },
           ]}
+        />
+      )}
+      {canceling && (
+        <CancelDialog
+          open onClose={() => setCanceling(null)} onDone={() => { load(); onSaved(); }}
+          model="AccountingCustomerRefund" id={canceling._id} title={`الريفاند ${canceling.number}`}
+          askConfirm={canceling.walletUsd > 0 ? 'إن صرف العميل ما أُضيف لمحفظته تصبح محفظته سالبة؛ أوافق على ذلك' : undefined}
         />
       )}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
