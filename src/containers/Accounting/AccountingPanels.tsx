@@ -78,9 +78,27 @@ const BillsTable = ({ bills, empty }: { bills: any[]; empty: string }) => (
       empty={{ title: empty }}
       columns={[
         { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
-        { key: 'bill', header: 'الفاتورة', render: (row: any) => <><Open to={`/accounting/bills/${row.billId}`}><Ltr>{row.number}</Ltr></Open> {row.isCreditNote && <Badge tone="info">إشعار دائن</Badge>}<Sub>{row.vendor} · {row.description}</Sub></> },
+        {
+          key: 'bill', header: 'الفاتورة', render: (row: any) => (
+            <>
+              <Open to={`/accounting/bills/${row.billId}`}><Ltr>{row.number}</Ltr></Open> {row.isCreditNote && <Badge tone="info">إشعار دائن</Badge>}
+              <Sub>{row.vendor} · {row.description}</Sub>
+              {/* How it was paid: in what currency, at what rate, and what that changed on the cost */}
+              {(row.payments || []).map((p: any) => (
+                <Sub key={p.paymentId}>
+                  دُفعت <Ltr>{p.number}</Ltr> · <Ltr>{p.day}</Ltr> · {p.fromAdvance ? 'من الدفعة المقدمة' : <><span className="money">{p.amount} {p.currency}</span>{p.rate ? <> بسعر <Ltr>{p.rate}</Ltr></> : null}{p.account ? ` من ${p.account}` : ''}</>}
+                  {p.difference ? <> · فرق المدفوع على التكلفة <Money value={p.difference} /></> : null}
+                </Sub>
+              ))}
+            </>
+          ),
+        },
         { key: 'amount', header: 'بعملتها', numeric: true, hideOnMobile: true, render: (row: any) => (row.currency !== 'USD' ? <span className="money">{row.amount} {row.currency}</span> : null) },
-        { key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => <Money value={row.usd} strong /> },
+        {
+          key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => (row.difference
+            ? <><Money value={row.cost} strong /><Sub>الفاتورة <Money value={row.usd} /> + فرق الدفع <Money value={row.difference} /></Sub></>
+            : <Money value={row.usd} strong />),
+        },
         { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
       ]}
     />
