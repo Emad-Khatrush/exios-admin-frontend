@@ -1,5 +1,6 @@
 import { Debt } from "../../models";
 
+import BulkDebtPayDialog from "./BulkDebtPayDialog";
 import DebtHistory from "./DebtHistory";
 import DebtorInfo from "./DebtorInfo";
 import { formatAmount, toDebtList } from "./wrapper-util";
@@ -18,6 +19,7 @@ const DebtDetails = (props: Props) => {
 
   // Open debts show what is still owed, everything else shows what was actually paid
   const totals = sumByCurrency(debts, isOwed ? 'amount' : 'paid');
+  const openCount = debts.filter((d) => d.status === 'open' && Number(d.amount) > 0).length;
 
   return (
     <article className="debtor-card">
@@ -39,6 +41,14 @@ const DebtDetails = (props: Props) => {
           {totals.LYD <= 0 && totals.USD <= 0 && <span>0</span>}
         </span>
       </div>
+
+      {openCount > 1 &&
+        <div className="debt-actions" style={{ marginBottom: 8 }}>
+          <button className="debts-btn is-primary is-small" onClick={() => props.setDialog({ customComponentTag: BulkDebtPayDialog, isOpen: true, item: debts, onSaved: props.fetchData })}>
+            Pay several debts ({openCount})
+          </button>
+        </div>
+      }
 
       <div className="debtor-debts">
         {debts.map((currentDebt: Debt) => (

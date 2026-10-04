@@ -64,6 +64,39 @@ const getUrgency = (order: any): Urgency => {
   return 'onTime';
 };
 
+// A package nobody has claimed: the placeholder customer A000, or none at all
+const isUnknown = (order: any) => !order?.user?.customerId || order.user.customerId === 'A000';
+
+// The filters of the warehouse list (owner's request 2026-10-04), besides the office tabs
+type Filters = { customer: string; state: string; method: string; days: string; extra: string };
+const NO_FILTERS: Filters = { customer: '', state: '', method: '', days: '', extra: '' };
+const FILTER_FIELDS: { key: keyof Filters; label: string; options: [string, string][] }[] = [
+  { key: 'customer', label: 'العميل', options: [['', 'الكل'], ['unknown', 'بضائع مجهولة (A000)'], ['known', 'لعملاء معروفين']] },
+  { key: 'state', label: 'الحالة', options: [['', 'الكل'], ['overdue', 'متأخر'], ['dueSoon', 'يستحق قريبًا'], ['unpaid', 'رسوم الشحن غير مدفوعة'], ['paid', 'رسوم الشحن مدفوعة'], ['noArrival', 'لم يُسجل وصوله']] },
+  { key: 'method', label: 'الشحن', options: [['', 'الكل'], ['air', 'جوي'], ['sea', 'بحري']] },
+  { key: 'days', label: 'في المخزن', options: [['', 'أي مدة'], ['30', 'أكثر من 30 يومًا'], ['60', 'أكثر من 60 يومًا'], ['90', 'أكثر من 90 يومًا']] },
+  { key: 'extra', label: 'أخرى', options: [['', '-'], ['noImages', 'بدون صور'], ['volumetric', 'وزن حجمي'], ['noWeight', 'بدون وزن'], ['noLocation', 'بدون مكان تخزين']] },
+];
+
+const matchesFilters = (order: any, filters: Filters) => {
+  if (filters.customer === 'unknown' && !isUnknown(order)) return false;
+  if (filters.customer === 'known' && isUnknown(order)) return false;
+  const days = daysSinceArrival(order);
+  if (filters.state === 'overdue' && getUrgency(order) !== 'overdue') return false;
+  if (filters.state === 'dueSoon' && getUrgency(order) !== 'dueSoon') return false;
+  if (filters.state === 'unpaid' && !isFeeUnpaid(order)) return false;
+  if (filters.state === 'paid' && isFeeUnpaid(order)) return false;
+  if (filters.state === 'noArrival' && days !== null) return false;
+  if (filters.method && order?.shipment?.method !== filters.method) return false;
+  if (filters.days && (days === null || days <= Number(filters.days))) return false;
+  const pkg = order?.paymentList?.deliveredPackages || {};
+  if (filters.extra === 'noImages' && (order?.images || []).length > 0) return false;
+  if (filters.extra === 'volumetric' && !pkg.volumetric?.enabled) return false;
+  if (filters.extra === 'noWeight' && pkg.weight?.total) return false;
+  if (filters.extra === 'noLocation' && pkg.locationPlace) return false;
+  return true;
+};
+
 const breadcrumbs = [
   <Link underline="hover" key="1" color="inherit" href="/">الرئيسية</Link>,
   <Typography key="2" color="#28323C">المخزن</Typography>,
@@ -80,6 +113,7 @@ const WarehouseInventory = () => {
   const [error, setError] = useState('');
 
   const [searchValue, setSearchValue] = useState('');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -128,13 +162,15 @@ const WarehouseInventory = () => {
     setSelected(new Set());
     setPage(1);
     setSearchValue('');
+    setFilters(NO_FILTERS);
     loadOffice(target);
   };
 
   const filteredOrders = useMemo(() => {
     const q = searchValue.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((order) => [
+    const filtered = orders.filter((order) => matchesFilters(order, filters));
+    if (!q) return filtered;
+    return filtered.filter((order) => [
       fullName(order),
       order?.orderId,
       order?.user?.customerId,
@@ -142,7 +178,9 @@ const WarehouseInventory = () => {
       order?.paymentList?.deliveredPackages?.trackingNumber,
       order?.paymentList?.deliveredPackages?.receiptNo,
     ].some((value) => value && String(value).toLowerCase().includes(q)));
-  }, [orders, searchValue]);
+  }, [orders, searchValue, filters]);
+  const filtersOn = Object.values(filters).some(Boolean);
+  const unknownCount = useMemo(() => orders.filter(isUnknown).length, [orders]);
 
   const stats = useMemo(() => {
     let totalKG = 0, totalCBM = 0, overdue = 0, dueSoon = 0;
@@ -280,6 +318,11 @@ const WarehouseInventory = () => {
             <span className="warehouse__stat-value">{stats.overdue}</span>
             <span className="warehouse__stat-label">متأخر</span>
           </div>
+          <button type="button" className="warehouse__stat" style={{ cursor: 'pointer', border: 'none', textAlign: 'inherit' }}
+            onClick={() => { setFilters({ ...NO_FILTERS, customer: 'unknown' }); setPage(1); }} title="عرض البضائع المجهولة">
+            <span className="warehouse__stat-value">{unknownCount}</span>
+            <span className="warehouse__stat-label">مجهولة</span>
+          </button>
         </div>
 
         <div className="warehouse__toolbar" dir="ltr">
@@ -289,6 +332,24 @@ const WarehouseInventory = () => {
             icon={<Search size={15} strokeWidth={2} />}
             onChange={(event: any) => { setSearchValue(event.target.value); setPage(1); }}
           />
+        </div>
+
+        <div className="warehouse__filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '8px 0 12px' }}>
+          {FILTER_FIELDS.map((field) => (
+            <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              {field.label}
+              <select value={filters[field.key]} onChange={(e) => { setFilters({ ...filters, [field.key]: e.target.value }); setPage(1); }}
+                style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid #d0d5dd', background: filters[field.key] ? '#eef4ff' : '#fff' }}>
+                {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          ))}
+          {filtersOn && (
+            <>
+              <span style={{ fontSize: 13, color: '#475467' }}>{filteredOrders.length} من {orders.length}</span>
+              <button type="button" className="wh-btn" onClick={() => { setFilters(NO_FILTERS); setPage(1); }}>مسح الفلاتر</button>
+            </>
+          )}
         </div>
 
         {selected.size > 0 &&
@@ -417,8 +478,8 @@ const WarehouseInventory = () => {
               {!isLoading && filteredOrders.length === 0 &&
                 <div className="warehouse__empty">
                   <Package size={28} strokeWidth={1.5} />
-                  <p className="m-0 fw-semibold">{searchValue ? 'لا توجد طرود مطابقة لبحثك' : 'هذا المخزن فارغ'}</p>
-                  <p className="m-0">{searchValue ? 'جرّب اسمًا أو رقم طلب أو تتبع أو إيصال مختلف.' : 'الطرود التي تُنقل إلى هنا ستظهر في هذه القائمة.'}</p>
+                  <p className="m-0 fw-semibold">{searchValue || filtersOn ? 'لا توجد طرود مطابقة' : 'هذا المخزن فارغ'}</p>
+                  <p className="m-0">{searchValue || filtersOn ? 'جرّب بحثًا آخر أو امسح الفلاتر.' : 'الطرود التي تُنقل إلى هنا ستظهر في هذه القائمة.'}</p>
                 </div>
               }
             </div>

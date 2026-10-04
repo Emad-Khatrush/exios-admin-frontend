@@ -5,6 +5,8 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { amountLabel, CancelDialog, today } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, Badge, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
+import { useReactToPrint } from 'react-to-print';
+import { currentRound, HandoverReceipt, SettlementStatement } from './CustodyPapers';
 
 // Custody (عهدة): money given to a staff member to spend for the company, settled by the expenses
 // they pay from it (the Expenses screen, "from my custody") or returned. Loan (سلفة): money lent
@@ -44,6 +46,17 @@ const Employees = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({ search: '', onlyHolding: false, salaryMonth: '', salaryEmployee: '' });
   const key = useRef(newKey());
+  // The paper being printed: a handover receipt or a settlement (owner's request 2026-10-04)
+  const [paper, setPaper] = useState<any>(null);
+  const paperRef = useRef<HTMLDivElement>(null);
+  const printPaper = useReactToPrint({ contentRef: paperRef, documentTitle: paper ? `${paper.type}-${paper.employee}` : 'custody', pageStyle: '@page { size: A4 portrait; margin: 0; } html, body { margin: 0; }' });
+  // Printed once React has rendered the paper into the hidden container
+  const [printRequested, setPrintRequested] = useState(false);
+  useEffect(() => {
+    if (!printRequested || !paper) return;
+    printPaper?.();
+    setPrintRequested(false);
+  }, [printRequested, paper, printPaper]);
 
   const cashAccounts = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
 
@@ -209,6 +222,16 @@ const Employees = () => {
                 <div className="acc-stat"><div className="acc-stat__label">{report.kind === 'custody' ? 'صُرف أو أُرجع' : 'خُصم أو أُرجع'}</div><div className="acc-stat__value"><Balances value={report.data.used} /></div></div>
                 <div className="acc-stat acc-stat--accent"><div className="acc-stat__label">الرصيد</div><div className="acc-stat__value"><Balances value={report.data.balance} /></div></div>
               </div>
+              <div className="d-flex gap-2 flex-wrap my-2">
+                {CURRENCIES.filter((c) => currentRound(report.data.movements, c).length > 0).map((c) => {
+                  const closed = Math.abs(held(report.data.balance, c)) < 0.005;
+                  return (
+                    <Button key={c} size="small" variant="outlined" onClick={() => { setPrintRequested(true); setPaper({ type: 'settlement', kind: report.kind, employee: name(report.employee), currency: c, rows: currentRound(report.data.movements, c) }); }}>
+                      {closed ? 'طباعة تسوية وإقفال' : 'طباعة كشف'} {KIND_TEXT[report.kind as Kind].one} {c}
+                    </Button>
+                  );
+                })}
+              </div>
               <DataTable
                 dense rows={report.data.movements} rowKey={(row: any) => `${row.entryId}-${row.currency}`}
                 rowTone={(row: any) => (row.canceled ? 'canceled' : undefined)}
@@ -216,9 +239,11 @@ const Employees = () => {
                 columns={[
                   { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
                   { key: 'kind', header: 'النوع', render: (row: any) => <Badge tone={MOVEMENT_TEXT[row.kind]?.tone || 'muted'}>{MOVEMENT_TEXT[row.kind]?.label || row.kind}</Badge> },
-                  { key: 'description', header: 'البيان', render: (row: any) => row.description },
+                  { key: 'description', header: 'البيان', render: (row: any) => <>{row.detail || row.description}{row.reference && <Sub><Ltr>{row.reference}</Ltr>{row.receipts ? ` · ${row.receipts} إيصال` : ''}</Sub>}</> },
                   { key: 'cash', header: 'من/إلى الخزينة', numeric: true, render: (row: any) => (row.cash ? <><Amount value={row.cash.amount} currency={row.cash.currency} /><Sub>{row.cash.name}</Sub></> : <span className="acc-muted">-</span>) },
                   { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <><Amount value={row.amount} currency={row.currency} />{row.currency !== 'USD' && <Sub><Money value={row.usd} /></Sub>}</> },
+                  { key: 'print', header: '', align: 'end', render: (row: any) => (row.kind === 'given' && !row.canceled
+                    ? <Button size="small" onClick={() => { setPrintRequested(true); setPaper({ type: 'receipt', kind: report.kind, employee: name(report.employee), movement: row }); }}>إيصال التسليم</Button> : null) },
                 ]}
               />
             </>
@@ -226,6 +251,14 @@ const Employees = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setReport(null)}>إغلاق</Button></DialogActions>
       </Dialog>
+
+      {/* Rendered out of sight for printing only */}
+      <div style={{ display: 'none' }}>
+        <div ref={paperRef}>
+          {paper?.type === 'receipt' && <HandoverReceipt kind={paper.kind} employee={paper.employee} movement={paper.movement} />}
+          {paper?.type === 'settlement' && <SettlementStatement kind={paper.kind} employee={paper.employee} currency={paper.currency} rows={paper.rows} />}
+        </div>
+      </div>
 
       <Dialog open={!!salary} onClose={() => setSalary(null)} maxWidth="xs" fullWidth>
         <DialogTitle>راتب {salary?.employee.firstName} {salary?.employee.lastName}</DialogTitle>

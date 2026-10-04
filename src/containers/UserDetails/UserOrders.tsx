@@ -19,7 +19,7 @@ import {
   Avatar,
   InputAdornment,
 } from '@mui/material';
-import { Boxes, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
+import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
@@ -150,6 +150,15 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const tabType = tabs.find(tab => tab.value === newFilter)?.tabType || 'active';
     fetchOrders(tabType);
   };
+
+  // Each flight's packages open on demand (owner's request 2026-10-04): closed by default, so a
+  // customer with many flights is easy to read; selecting a flight works while it is closed
+  const [openFlights, setOpenFlights] = useState<Set<string>>(new Set());
+  const toggleFlight = (id: string) => setOpenFlights((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const groupedFlights = useMemo(() => {
     const map = new Map();
@@ -333,6 +342,12 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           ))}
         </div>
 
+        {groupedFlights.length > 1 && !isOrdersLoading && (
+          <button type="button" className="co-btn-ghost" onClick={() => setOpenFlights(openFlights.size ? new Set() : new Set(groupedFlights.map((g: any) => g.id)))}>
+            {openFlights.size ? 'Close all' : 'Open all'}
+          </button>
+        )}
+
         {canSelect && selectablePackages.length > 0 && !isOrdersLoading && (
           <label className="co-check">
             <input type="checkbox" checked={allSelected} onChange={handleSelectAll} />
@@ -364,7 +379,10 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           {groupedFlights.map((group: any) => (
             <section key={group.id} className="co-flight">
               <header className="co-flight-header">
-                <div className="co-flight-title">
+                <div className="co-flight-title" role="button" tabIndex={0} style={{ cursor: 'pointer' }} aria-expanded={openFlights.has(group.id)}
+                  onClick={(e) => { if (!(e.target as HTMLElement).closest('a')) toggleFlight(group.id); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFlight(group.id); } }}>
+                  <ChevronDown size={18} strokeWidth={2} style={{ transition: 'transform .15s', transform: openFlights.has(group.id) ? 'none' : 'rotate(-90deg)', flexShrink: 0 }} />
                   <span className="co-flight-icon">
                     {group.flight ? <Plane size={18} strokeWidth={2} /> : <PackageIcon size={18} strokeWidth={2} />}
                   </span>
@@ -379,6 +397,13 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     ) : (
                       <span className="co-flight-name">Packages without a flight</span>
                     )}
+                    <small style={{ display: 'block' }}>
+                      {group.packages.length} {group.packages.length === 1 ? 'package' : 'packages'}
+                      {(() => {
+                        const chosen = group.packages.filter((pkg: any) => isPackageSelected(pkg._id)).length;
+                        return chosen ? ` · ${chosen} selected` : '';
+                      })()}
+                    </small>
                   </div>
                 </div>
 
@@ -390,7 +415,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                 )}
               </header>
 
-              <div className="co-packages">
+              {openFlights.has(group.id) && <div className="co-packages">
                 {group.packages.map((pkg: any) => {
                   const measureValue = pkg?.deliveredPackages?.weight?.total || 0;
                   const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
@@ -453,7 +478,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
             </section>
           ))}
 

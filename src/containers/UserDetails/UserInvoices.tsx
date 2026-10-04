@@ -39,6 +39,10 @@ type Props = {
   onInvoiceCanceled?: () => void
 }
 
+const packageIdOf = (pkg: any) => String(pkg.packageId || pkg.trackingNumber || '');
+// The packages of an invoice not cancelled yet
+const openPackages = (invoice?: Invoice | null) => (invoice?.list || []).filter((pkg: any) => !pkg.canceledAt);
+
 const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -48,6 +52,8 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [cancelResult, setCancelResult] = useState<any>(null);
+  // The packages to cancel (owner's request 2026-10-04): one shipment among several, or all of them
+  const [cancelIds, setCancelIds] = useState<string[]>([]);
   const canCancel = useSelector((state: any) => {
     const roles = state.session.account?.roles;
     return !!(roles?.isAdmin || roles?.isAccountant);
@@ -56,6 +62,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
 
   const openCancel = (invoice: Invoice) => {
     setInvoiceToCancel(invoice);
+    setCancelIds(openPackages(invoice).map(packageIdOf));
     setCancelError('');
     setCancelResult(null);
   };
@@ -71,7 +78,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
     try {
       setIsCanceling(true);
       setCancelError('');
-      const response = await api.post(`invoices/${invoiceToCancel._id}/cancel`, {});
+      const response = await api.post(`invoices/${invoiceToCancel._id}/cancel`, { packageIds: cancelIds });
       setCancelResult(response.data.results);
       fetchInvoices();
       onInvoiceCanceled?.();
@@ -167,6 +174,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                     </p>
                   </div>
                   {invoice.isCanceled && <span className="invoice-canceled-tag">Cancelled</span>}
+                  {!invoice.isCanceled && invoice.list.some((pkg: any) => pkg.canceledAt) && <span className="invoice-canceled-tag">Partly cancelled</span>}
                 </div>
 
                 <div className="invoice-card__figures">
@@ -178,10 +186,14 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                     <span className="invoice-card__label">Paid from wallet</span>
                     <span className="invoice-card__value">{formatMoney(invoice.amountUSD || 0, 'USD')}</span>
                     {hasLYD && <span className="invoice-card__value">{formatMoney(invoice.amountLYD || 0, 'LYD')}</span>}
-                    {hasLYD && <span className="invoice-card__hint">Rate {invoice.rate}</span>}
                   </div>
                 </div>
 
+                {!invoice.isCanceled && (invoice.cancellation?.refundedUSD || invoice.cancellation?.refundedLYD) ?
+                  <p className="invoice-canceled-note">
+                    Cancelled packages refunded {formatMoney(invoice.cancellation?.refundedUSD || 0, 'USD')} and {formatMoney(invoice.cancellation?.refundedLYD || 0, 'LYD')} to the wallet.
+                  </p> : null
+                }
                 {invoice.isCanceled &&
                   <p className="invoice-canceled-note">
                     Cancelled{invoice.canceledAt ? ` on ${moment(invoice.canceledAt).format('DD/MM/YYYY HH:mm')}` : ''}
@@ -194,8 +206,8 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                   <p className="invoice-card__label">{invoice.list.length} {invoice.list.length === 1 ? 'package' : 'packages'}</p>
                   <ul>
                     {invoice.list.map((pkg: any, pkgIndex: number) => (
-                      <li key={pkg.packageId || pkgIndex}>
-                        <span className="invoice-card__tracking">{pkg.trackingNumber || 'N/A'}</span>
+                      <li key={pkg.packageId || pkgIndex} style={pkg.canceledAt ? { opacity: 0.55, textDecoration: 'line-through' } : undefined}>
+                        <span className="invoice-card__tracking">{pkg.trackingNumber || 'N/A'}{pkg.canceledAt && !invoice.isCanceled ? ' (cancelled)' : ''}</span>
                         <span className="invoice-card__pkg-meta">
                           {pkg?.weight?.total ?? 0} {pkg?.weight?.measureUnit || ''}
                           {pkg.boxesCount && pkg.boxesCount !== '-' ? `, ${pkg.boxesCount} boxes` : ''}
@@ -216,7 +228,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                   {canCancel && !invoice.isCanceled &&
                     <button type="button" className="invoice-btn invoice-btn--danger" onClick={() => openCancel(invoice)}>
                       <Ban size={15} strokeWidth={2} />
-                      Cancel invoice
+                      {invoice.list.some((pkg: any) => pkg.canceledAt) ? 'Cancel packages' : 'Cancel invoice'}
                     </button>
                   }
                 </div>
@@ -228,7 +240,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
 
         <Dialog open={!!invoiceToCancel} onClose={closeCancel} maxWidth="xs" fullWidth>
           <DialogTitle sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
-            {cancelResult ? 'Invoice cancelled' : `Cancel invoice #0${invoiceToCancel?.referenceId}?`}
+            {cancelResult ? (cancelResult.whole ? 'Invoice cancelled' : 'Packages cancelled') : `Cancel invoice #0${invoiceToCancel?.referenceId}`}
           </DialogTitle>
           <DialogContent>
             {!cancelResult ? (
@@ -236,20 +248,29 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                 <dl className="cashflow-confirm">
                   <dt>Customer paid</dt>
                   <dd>{formatMoney(invoiceToCancel?.amountUSD || 0, 'USD')}, {formatMoney(invoiceToCancel?.amountLYD || 0, 'LYD')}</dd>
-                  <dt>Packages</dt>
-                  <dd>{invoiceToCancel?.list?.length || 0}</dd>
+                  <dt>To cancel</dt>
+                  <dd>{cancelIds.length} of {openPackages(invoiceToCancel).length} packages</dd>
                 </dl>
-                <p className="cashflow-confirm__hint">For each tracking number:</p>
+                <p className="cashflow-confirm__hint">Choose the packages to cancel. Only what was paid for them goes back to the wallet:</p>
+                <div className="invoice-cancel-pick">
+                  {openPackages(invoiceToCancel).map((pkg: any) => {
+                    const id = packageIdOf(pkg);
+                    return (
+                      <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                        <input type="checkbox" checked={cancelIds.includes(id)}
+                          onChange={() => setCancelIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))} />
+                        <span style={{ flex: 1 }}>{pkg.trackingNumber || 'N/A'}</span>
+                        <span>{formatMoney(pkg.cost || 0, invoiceToCancel?.currency || 'USD')}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="cashflow-confirm__hint">For each package cancelled:</p>
                 <ul className="cashflow-confirm__hint invoice-cancel-steps">
                   <li>The wallet payment is cancelled and the amount goes back to the customer's wallet.</li>
                   <li>The package goes back to Libya on, Received off.</li>
                   <li>The order goes back to وصلت البضائع, ready for pickup again.</li>
                 </ul>
-                <div className="invoice-cancel-tracking">
-                  {invoiceToCancel?.list?.map((pkg: any) => (
-                    <span key={pkg.packageId || pkg.trackingNumber} className="cashflow-chip cashflow-chip--muted">{pkg.trackingNumber || 'N/A'}</span>
-                  ))}
-                </div>
               </>
             ) : (
               <>
@@ -278,8 +299,8 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
             ) : (
               <>
                 <Button disabled={isCanceling} onClick={closeCancel}>Keep invoice</Button>
-                <Button disabled={isCanceling} color="error" variant="contained" disableElevation onClick={cancelInvoice}>
-                  {isCanceling ? 'Cancelling…' : 'Cancel invoice'}
+                <Button disabled={isCanceling || !cancelIds.length} color="error" variant="contained" disableElevation onClick={cancelInvoice}>
+                  {isCanceling ? 'Cancelling…' : cancelIds.length === openPackages(invoiceToCancel).length ? 'Cancel the whole invoice' : `Cancel ${cancelIds.length} ${cancelIds.length === 1 ? 'package' : 'packages'}`}
                 </Button>
               </>
             )}

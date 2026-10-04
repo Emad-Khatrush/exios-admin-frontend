@@ -71,7 +71,6 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
             {money(invoice.amountUSD || 0)} USD
             {(invoice.amountLYD || 0) > 0 && <span className="invoice-doc__plus"> + {money(invoice.amountLYD || 0)} LYD</span>}
           </p>
-          {(invoice.amountLYD || 0) > 0 && <p className="invoice-doc__muted">Exchange rate {invoice.rate}</p>}
         </div>
       </section>
 
@@ -89,10 +88,10 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
           </thead>
           <tbody>
             {list.map((item: any, index: number) => (
-              <tr key={item.packageId || index}>
+              <tr key={item.packageId || index} style={item.canceledAt && !invoice.isCanceled ? { textDecoration: 'line-through', opacity: 0.55 } : undefined}>
                 <td className="invoice-doc__muted">{index + 1}</td>
                 <td className="invoice-doc__mono">{item.orderId || '-'}</td>
-                <td className="invoice-doc__mono">{item.trackingNumber || 'N/A'}</td>
+                <td className="invoice-doc__mono">{item.trackingNumber || 'N/A'}{item.canceledAt && !invoice.isCanceled ? ' · ملغى' : ''}</td>
                 <td className="is-num">{item.weight?.total ?? '-'} {item.weight?.measureUnit || ''}</td>
                 <td className="is-num">{item.boxesCount || '-'}</td>
                 <td className="is-num invoice-doc__strong">{money(item.cost)} {invoice.currency}</td>
