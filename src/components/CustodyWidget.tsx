@@ -41,17 +41,27 @@ export const MyCustodyWidget = () => {
         {data.custody.movements.slice(0, 8).map((m) => (
           <div key={`${m.entryId}-${m.currency}`} className="d-flex justify-content-between small mb-1" style={{ opacity: m.canceled ? 0.5 : 1 }}>
             <span><span dir="ltr">{m.day}</span> · {KIND[m.kind] || m.kind} · {m.description}</span>
-            <span dir="ltr">{amount(m.amount, m.currency)}</span>
+            <span dir="ltr">{amount(m.amount, m.currency)}{m.cash && m.cash.currency !== m.currency && <span className="text-muted"> ({amount(m.cash.amount, m.cash.currency)})</span>}</span>
           </div>
         ))}
         {holds(data.custody.balance) && <p className="small text-muted mt-2">تصرف من عهدتك بنفس عملتها من شاشة <Link to="/expenses">المصاريف</Link> ← «My custody».</p>}
-        {holds(data.loan.balance) && (
+        {data.loan.movements.length > 0 && (
           <>
             <hr />
-            <div className="d-flex justify-content-between">
+            <div className="d-flex justify-content-between mb-2">
               <span>سلفة عليّ</span>
               <strong dir="ltr">{held(data.loan.balance)}</strong>
             </div>
+            <div className="d-flex justify-content-between mb-2 text-muted small">
+              <span>أخذت <span dir="ltr">{held(data.loan.given)}</span></span>
+              <span>سدّدت <span dir="ltr">{held(data.loan.used)}</span></span>
+            </div>
+            {data.loan.movements.slice(0, 5).map((m) => (
+              <div key={`${m.entryId}-${m.currency}`} className="d-flex justify-content-between small mb-1" style={{ opacity: m.canceled ? 0.5 : 1 }}>
+                <span><span dir="ltr">{m.day}</span> · {KIND[m.kind] || m.kind}</span>
+                <span dir="ltr">{amount(m.amount, m.currency)}{m.cash && m.cash.currency !== m.currency && <span className="text-muted"> ({amount(m.cash.amount, m.cash.currency)})</span>}</span>
+              </div>
+            ))}
           </>
         )}
       </div>

@@ -217,6 +217,7 @@ const Employees = () => {
                   { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
                   { key: 'kind', header: 'النوع', render: (row: any) => <Badge tone={MOVEMENT_TEXT[row.kind]?.tone || 'muted'}>{MOVEMENT_TEXT[row.kind]?.label || row.kind}</Badge> },
                   { key: 'description', header: 'البيان', render: (row: any) => row.description },
+                  { key: 'cash', header: 'من/إلى الخزينة', numeric: true, render: (row: any) => (row.cash ? <><Amount value={row.cash.amount} currency={row.cash.currency} /><Sub>{row.cash.name}</Sub></> : <span className="acc-muted">-</span>) },
                   { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <><Amount value={row.amount} currency={row.currency} />{row.currency !== 'USD' && <Sub><Money value={row.usd} /></Sub>}</> },
                 ]}
               />
