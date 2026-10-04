@@ -96,7 +96,9 @@ const InvoiceForm = (props: Props) => {
   const isConfirmed = !!props.invoice?.invoiceConfirmed;
   const itemsLocked = isCanceled || isConfirmed;
   const canChangeDate = !!roles.isAdmin && !itemsLocked;
-  const canSeeCosts = (roles.isAccountant || roles.isAdmin) && !!props.onAddPurchaseItem;
+  // Supplier costs are entered as bills from the order's Accounting section (owner's request
+  // 2026-10-04): the old section shows only on an order that already has costs typed in it
+  const canSeeCosts = (roles.isAccountant || roles.isAdmin) && !!props.onAddPurchaseItem && (props.purchaseItems || []).length > 0;
   const hasShipping = kind !== 'payment';
   const hasLinks = kind !== 'shipment';
   const steps = getOrderSteps({ ...(invoice || {}), isPayment: hasLinks, isShipment: hasShipping } as any);
