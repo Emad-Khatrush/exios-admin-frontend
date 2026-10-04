@@ -229,7 +229,7 @@ export const PaymentForm = () => {
   const { accounts } = useAccountingData();
   const { vendors } = useVendors();
   const [vendorId, setVendorId] = useState(params.get('vendorId') || '');
-  const [form, setForm] = useState<any>({ day: today(), fromAccountId: '', amount: '', rate: '', note: '', fromAdvance: false, employee: null });
+  const [form, setForm] = useState<any>({ day: today(), fromAccountId: '', amount: '', rate: '', note: '', fromAdvance: false, employee: null, differenceTo: 'cost' });
   const [openBills, setOpenBills] = useState<any[]>([]);
   const [advance, setAdvance] = useState(0);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
@@ -252,6 +252,9 @@ export const PaymentForm = () => {
   }, [vendorId]);
 
   const allocatedUsd = Object.values(allocations).reduce((sum, value) => sum + Math.round((Number(value) || 0) * 100), 0);
+  // What the payment is worth in dollars when it can be known here (a dollar box, or a typed rate)
+  const paidUsd = !(Number(form.amount) > 0) ? null : (from?.currency || 'USD') === 'USD' ? Math.round(Number(form.amount) * 100) : Number(form.rate) > 0 ? Math.round((Number(form.amount) / Number(form.rate)) * 100) : null;
+  const difference = paidUsd === null ? null : paidUsd - allocatedUsd;
 
   const save = async () => {
     try {
@@ -262,6 +265,7 @@ export const PaymentForm = () => {
         fromAccountId: form.fromAdvance ? undefined : form.fromAccountId,
         employeeId: from?.requires?.includes('employee') ? form.employee?._id : undefined,
         amount: form.fromAdvance ? undefined : Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
+        differenceTo: form.fromAdvance ? undefined : form.differenceTo,
         allocations: Object.entries(allocations).filter(([, v]) => Number(v) > 0).map(([billId, v]) => ({ billId, amountUsd: Math.round(Number(v) * 100) })),
         idempotencyKey: idempotencyKey.current,
       });
@@ -274,7 +278,7 @@ export const PaymentForm = () => {
 
   return (
     <>
-      <PageHeader title="دفعة لمورد" subtitle="اكتب ما خرج من الخزينة بعملتها، ثم وزّعه على الفواتير بالدولار. الفاتورة المدفوعة بعملتها تُغلق بالكامل حتى لو تغيّر السعر، والفرق يُسجَّل ربح/خسارة صرف." />
+      <PageHeader title="دفعة لمورد" subtitle="اكتب ما خرج من الخزينة بعملتها وسعره، ثم وزّعه على الفواتير بالدولار. الفرق بين المدفوع والموزَّع يذهب افتراضياً على تكلفة الفواتير، فتصبح التكلفة ما دُفع فعلاً." />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       <Panel title="الدفعة">
         <div className="acc-form-grid">
@@ -298,6 +302,15 @@ export const PaymentForm = () => {
             {from?.requires?.includes('employee') && <RemotePicker endpoint="lookup/users" label="الموظف صاحب العهدة" value={form.employee} getLabel={userLabel} onChange={(employee) => setForm({ ...form, employee })} />}
           </>}
         </div>
+        {!form.fromAdvance && allocatedUsd > 0 && (
+          <div className="mt-3">
+            <TextField select size="small" label="الفرق بين المدفوع والموزَّع" value={form.differenceTo} onChange={(e) => setForm({ ...form, differenceTo: e.target.value })} style={{ minWidth: 320 }}
+              helperText={difference !== null ? <>المدفوع <Money value={paidUsd} /> والموزَّع <Money value={allocatedUsd} />: الفرق <Money value={difference} /></> : 'يُحسب الفرق بسعر الدفعة (أو سعر يومها إن تُرك فارغاً)'}>
+              <MenuItem value="cost">على تكلفة الفواتير: التكلفة = ما دُفع فعلاً</MenuItem>
+              <MenuItem value="advance">الزائد دفعة مقدمة للمورد، والناقص فرق صرف</MenuItem>
+            </TextField>
+          </div>
+        )}
         {advance > 0 && <FormControlLabel className="mt-2" control={<Checkbox checked={form.fromAdvance} onChange={(e) => setForm({ ...form, fromAdvance: e.target.checked })} />} label={<>استخدام الدفعة المقدمة لدى المورد (<Money value={advance} />)</>} />}
       </Panel>
 
