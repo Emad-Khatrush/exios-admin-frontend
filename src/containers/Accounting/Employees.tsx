@@ -8,8 +8,19 @@ import { AccountRef, Amount, Badge, DataTable, FilterBar, Ltr, Money, PageHeader
 
 // Custody (عهدة): money given to a staff member to spend for the company, settled by the expenses
 // they pay from it (the Expenses screen, "from my custody") or returned. Loan (سلفة): money lent
-// to them, taken back from their salary or returned. Kept apart, each in USD per employee.
+// to them, taken back from their salary or returned. Kept apart, per employee, each in its own
+// currency: what is given in dinars is settled in dinars, so no exchange difference appears.
 type Kind = 'custody' | 'loan';
+type Held = Record<string, number>;
+const CURRENCIES = ['USD', 'LYD'];
+const held = (value: Held | undefined, currency: string) => Number(value?.[currency] || 0);
+const holds = (value: Held | undefined) => CURRENCIES.some((c) => Math.abs(held(value, c)) > 0.0001);
+// "250 USD · 760 LYD", or a dash
+const Balances = ({ value, strong }: { value?: Held; strong?: boolean }) => {
+  const shown = CURRENCIES.filter((c) => Math.abs(held(value, c)) > 0.0001);
+  if (!shown.length) return <span className="acc-muted">-</span>;
+  return <span className={strong ? 'fw-semibold' : undefined}>{shown.map((c, i) => <span key={c}>{i > 0 && ' · '}<Amount value={held(value, c)} currency={c} /></span>)}</span>;
+};
 const KIND_TEXT: Record<Kind, { title: string; one: string; hint: string }> = {
   custody: { title: 'العهد', one: 'عهدة', hint: 'مبلغ يصرفه الموظف على مصاريف الشركة (من شاشة المصاريف ← «من عهدتي») ويُرجع الباقي.' },
   loan: { title: 'السلف', one: 'سلفة', hint: 'مبلغ مُقرض للموظف، يُخصم من راتبه أو يرجعه.' },
@@ -22,7 +33,8 @@ const MOVEMENT_TEXT: Record<string, { label: string; tone: 'ok' | 'warn' | 'info
 const Employees = () => {
   const { accounts, offices } = useAccountingData();
   const [employees, setEmployees] = useState<any[]>([]);
-  const [accountIds, setAccountIds] = useState<Record<Kind, string | null>>({ custody: null, loan: null });
+  // The custody and loan account of each currency: { custody: { USD: id, LYD: id }, loan: ... }
+  const [accountIds, setAccountIds] = useState<Record<Kind, Record<string, string>>>({ custody: {}, loan: {} });
   const [salaries, setSalaries] = useState<any[]>([]);
   const [move, setMove] = useState<any>(null);
   const [report, setReport] = useState<any>(null);
@@ -38,7 +50,7 @@ const Employees = () => {
   const load = async () => {
     const [e, s] = await Promise.all([acc.get('employees'), acc.get('salaries')]);
     setEmployees(e.data.results);
-    setAccountIds({ custody: e.data.custodyAccountId, loan: e.data.loanAccountId });
+    setAccountIds({ custody: e.data.accounts?.custody || {}, loan: e.data.accounts?.loan || {} });
     setSalaries(s.data.results);
     setIsLoading(false);
   };
@@ -75,25 +87,29 @@ const Employees = () => {
   const salaryCash = salary && cashAccounts.find((a) => a._id === salary.paidFromAccountId);
   const moveCash = move && cashAccounts.find((a) => a._id === move.cashId);
   const name = (row: any) => `${row.firstName || ''} ${row.lastName || ''}`.trim();
-  const visible = (kind: Kind) => employees.filter((row) => (!filters.onlyHolding || row[kind] !== 0)
+  const visible = (kind: Kind) => employees.filter((row) => (!filters.onlyHolding || holds(row[kind]))
     && (!filters.search || name(row).toLowerCase().includes(filters.search.toLowerCase()) || String(row.customerId || '').toLowerCase().includes(filters.search.toLowerCase())));
   const shownSalaries = salaries.filter((row) => (!filters.salaryMonth || row.month === filters.salaryMonth) && (!filters.salaryEmployee || String(row.employeeId?._id) === filters.salaryEmployee));
-  const total = (kind: Kind) => employees.reduce((sum, row) => sum + (row[kind] || 0), 0);
+  const total = (kind: Kind) => Object.fromEntries(CURRENCIES.map((c) => [c, employees.reduce((sum, row) => sum + held(row[kind], c), 0)]));
+  // The boxes money can go out of or back into: those in a currency that has a custody/loan account;
+  // a return only into a currency the employee holds
+  const moveBoxes = (kind: Kind, employee: any, direction: string) => cashAccounts.filter((a) => accountIds[kind][a.currency || 'USD']
+    && (direction === 'give' || held(employee[kind], a.currency || 'USD') > 0));
 
   const section = (kind: Kind) => (
-    <Panel flush title={<>{KIND_TEXT[kind].title} <Sub>الإجمالي <Money value={total(kind)} /></Sub></>} subtitle={KIND_TEXT[kind].hint}>
+    <Panel flush title={<>{KIND_TEXT[kind].title} <Sub>الإجمالي <Balances value={total(kind)} /></Sub></>} subtitle={KIND_TEXT[kind].hint}>
       <DataTable
         dense loading={isLoading} rows={visible(kind)} rowKey={(row: any) => row._id}
         empty={{ title: filters.onlyHolding ? `لا أحد عنده ${KIND_TEXT[kind].one}` : 'لا يوجد موظفون' }}
         columns={[
           { key: 'name', header: 'الموظف', sortValue: (row: any) => row.firstName, render: (row: any) => <>{name(row)}{row.customerId && <Sub><Ltr>{row.customerId}</Ltr></Sub>}</> },
-          { key: 'balance', header: kind === 'custody' ? 'في عهدته' : 'عليه سلفة', numeric: true, sortValue: (row: any) => row[kind], render: (row: any) => <Money value={row[kind]} strong={row[kind] !== 0} hideZero /> },
+          { key: 'balance', header: kind === 'custody' ? 'في عهدته' : 'عليه سلفة', numeric: true, sortValue: (row: any) => held(row[kind], 'USD') * 10 + held(row[kind], 'LYD'), render: (row: any) => <Balances value={row[kind]} strong /> },
           {
             key: 'actions', header: '', align: 'end', render: (row: any) => (
               <span className="d-inline-flex gap-1 flex-wrap justify-content-end">
                 <Button size="small" onClick={() => openReport(row, kind)}>التقرير</Button>
-                <Button size="small" disabled={!accountIds[kind]} onClick={() => setMove({ employee: row, kind, direction: 'give', day: today(), cashId: '', amount: '', usd: '' })}>تسليم {KIND_TEXT[kind].one}</Button>
-                <Button size="small" disabled={row[kind] <= 0} onClick={() => setMove({ employee: row, kind, direction: 'return', day: today(), cashId: '', amount: '', usd: '' })}>إرجاع</Button>
+                <Button size="small" disabled={!Object.keys(accountIds[kind]).length} onClick={() => setMove({ employee: row, kind, direction: 'give', day: today(), cashId: '', amount: '' })}>تسليم {KIND_TEXT[kind].one}</Button>
+                <Button size="small" disabled={!CURRENCIES.some((c) => held(row[kind], c) > 0)} onClick={() => setMove({ employee: row, kind, direction: 'return', day: today(), cashId: '', amount: '' })}>إرجاع</Button>
                 {kind === 'loan' && <Button size="small" variant="outlined" onClick={() => setSalary({ employee: row, month: today().slice(0, 7), day: today(), office: '', paidFromAccountId: '', grossAmount: '', advanceDeduction: '', rate: '' })}>صرف راتب</Button>}
               </span>
             ),
@@ -105,7 +121,7 @@ const Employees = () => {
 
   return (
     <>
-      <PageHeader title="الموظفون والرواتب" subtitle="العهدة تُصرف على مصاريف الشركة أو تُرجع. السلفة تُخصم من الراتب أو تُرجع. كل منهما محفوظ بالدولار لكل موظف." />
+      <PageHeader title="الموظفون والرواتب" subtitle="العهدة تُصرف على مصاريف الشركة أو تُرجع. السلفة تُخصم من الراتب أو تُرجع. كل منهما محفوظ لكل موظف بعملته: ما أُعطي بالدينار يُقفل بالدينار، بلا فرق صرف." />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
 
       <FilterBar>
@@ -155,30 +171,27 @@ const Employees = () => {
         <DialogTitle>{move?.direction === 'give' ? `تسليم ${KIND_TEXT[move?.kind as Kind]?.one} إلى` : `إرجاع ${KIND_TEXT[move?.kind as Kind]?.one} من`} {move?.employee.firstName}</DialogTitle>
         {move && (
           <DialogContent>
-            <p className="acc-muted">{move.direction === 'give' ? KIND_TEXT[move.kind as Kind].hint : <>الرصيد الحالي <Money value={move.employee[move.kind]} /></>}</p>
+            <p className="acc-muted">{move.direction === 'give' ? KIND_TEXT[move.kind as Kind].hint : <>الرصيد الحالي <Balances value={move.employee[move.kind]} /></>}</p>
+            <p className="acc-muted">يُعطى ويُرجع بنفس العملة: الدولار من خزينة دولار والدينار من خزينة دينار.</p>
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={move.day} onChange={(e) => setMove({ ...move, day: e.target.value })} className="mt-2" />
             <TextField select label={move.direction === 'give' ? 'دُفع من' : 'أُرجع إلى'} value={move.cashId} onChange={(e) => setMove({ ...move, cashId: e.target.value })} fullWidth className="mt-3">
-              {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+              {moveBoxes(move.kind, move.employee, move.direction).map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
-            <TextField type="number" label={amountLabel(moveCash?.currency)} value={move.amount} onChange={(e) => setMove({ ...move, amount: e.target.value })} fullWidth className="mt-3" />
-            {move.direction === 'return' && (moveCash?.currency || 'USD') !== 'USD' && (
-              <TextField type="number" label="يُخصم من الرصيد (بالدولار)" value={move.usd} onChange={(e) => setMove({ ...move, usd: e.target.value })} fullWidth className="mt-3"
-                helperText="الرصيد محفوظ بالدولار؛ الفرق يُسجَّل ربح/خسارة صرف" />
-            )}
+            <TextField type="number" label={amountLabel(moveCash?.currency)} value={move.amount} onChange={(e) => setMove({ ...move, amount: e.target.value })} fullWidth className="mt-3"
+              helperText={move.direction === 'return' && moveCash ? <>عليه <Amount value={held(move.employee[move.kind], moveCash.currency || 'USD')} currency={moveCash.currency || 'USD'} /></> : undefined} />
           </DialogContent>
         )}
         <DialogActions>
           <Button onClick={() => setMove(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={!move?.cashId || !(Number(move?.amount) > 0) || !accountIds[move?.kind as Kind]} onClick={() => {
+          <Button variant="contained" disabled={!moveCash || !(Number(move?.amount) > 0)} onClick={() => {
             const give = move.direction === 'give';
-            const holder = accountIds[move.kind as Kind] as string;
-            // Returned into a non-USD box: the balance (kept in USD) loses the typed USD amount
-            const usdOut = !give && Number(move.usd) > 0 ? Number(move.usd) : Number(move.amount);
+            // The employee's account in the box's currency: the same amount both ways
+            const holder = accountIds[move.kind as Kind][moveCash.currency || 'USD'];
             const one = KIND_TEXT[move.kind as Kind].one;
             submit('transfers', {
               day: move.day, employeeId: move.employee._id,
               fromAccountId: give ? move.cashId : holder, toAccountId: give ? holder : move.cashId,
-              fromAmount: give ? Number(move.amount) : usdOut, toAmount: Number(move.amount),
+              fromAmount: Number(move.amount), toAmount: Number(move.amount),
               note: give ? `${one} ${move.employee.firstName}` : `إرجاع ${one} ${move.employee.firstName}`,
             }, () => setMove(null));
           }}>ترحيل</Button>
@@ -192,19 +205,19 @@ const Employees = () => {
           {report?.data && (
             <>
               <div className="acc-stats">
-                <div className="acc-stat"><div className="acc-stat__label">سُلِّم</div><div className="acc-stat__value"><Money value={report.data.given} /></div></div>
-                <div className="acc-stat"><div className="acc-stat__label">{report.kind === 'custody' ? 'صُرف أو أُرجع' : 'خُصم أو أُرجع'}</div><div className="acc-stat__value"><Money value={report.data.used} /></div></div>
-                <div className="acc-stat acc-stat--accent"><div className="acc-stat__label">الرصيد</div><div className="acc-stat__value"><Money value={report.data.balance} /></div></div>
+                <div className="acc-stat"><div className="acc-stat__label">سُلِّم</div><div className="acc-stat__value"><Balances value={report.data.given} /></div></div>
+                <div className="acc-stat"><div className="acc-stat__label">{report.kind === 'custody' ? 'صُرف أو أُرجع' : 'خُصم أو أُرجع'}</div><div className="acc-stat__value"><Balances value={report.data.used} /></div></div>
+                <div className="acc-stat acc-stat--accent"><div className="acc-stat__label">الرصيد</div><div className="acc-stat__value"><Balances value={report.data.balance} /></div></div>
               </div>
               <DataTable
-                dense rows={report.data.movements} rowKey={(row: any) => String(row.entryId)}
+                dense rows={report.data.movements} rowKey={(row: any) => `${row.entryId}-${row.currency}`}
                 rowTone={(row: any) => (row.canceled ? 'canceled' : undefined)}
                 empty={{ title: 'لا حركات' }}
                 columns={[
                   { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
                   { key: 'kind', header: 'النوع', render: (row: any) => <Badge tone={MOVEMENT_TEXT[row.kind]?.tone || 'muted'}>{MOVEMENT_TEXT[row.kind]?.label || row.kind}</Badge> },
                   { key: 'description', header: 'البيان', render: (row: any) => row.description },
-                  { key: 'usd', header: 'المبلغ', numeric: true, render: (row: any) => <Money value={row.usd} /> },
+                  { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <><Amount value={row.amount} currency={row.currency} />{row.currency !== 'USD' && <Sub><Money value={row.usd} /></Sub>}</> },
                 ]}
               />
             </>
@@ -229,7 +242,7 @@ const Employees = () => {
             </TextField>
             <TextField type="number" label={`الراتب الإجمالي (${salaryCash?.currency || ''})`} value={salary.grossAmount} onChange={(e) => setSalary({ ...salary, grossAmount: e.target.value })} fullWidth className="mt-3" />
             <TextField type="number" label="خصم من السلفة" value={salary.advanceDeduction} onChange={(e) => setSalary({ ...salary, advanceDeduction: e.target.value })} fullWidth className="mt-3"
-              helperText={<>عليه سلفة <Money value={salary.employee.loan} /> (العهدة لا تُخصم من الراتب)</>} />
+              helperText={<>عليه سلفة <Balances value={salary.employee.loan} />. يُخصم من السلفة بعملة الخزينة فقط (العهدة لا تُخصم من الراتب)</>} />
             {salaryCash?.currency && salaryCash.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={salary.rate} onChange={(e) => setSalary({ ...salary, rate: e.target.value })} fullWidth className="mt-3" />}
           </DialogContent>
         )}

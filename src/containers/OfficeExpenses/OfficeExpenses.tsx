@@ -33,8 +33,8 @@ type Options = {
   offices: { code: string; name: string }[];
   types: { _id: string; name: string }[];
   currencies: string[];
-  // The custody this staff member holds, in USD cents: expenses may be paid from it
-  custody?: number;
+  // The custody this staff member holds in each currency: expenses may be paid from it, in its currency
+  custody?: Record<string, number>;
 };
 
 const blank = (currency = '') => ({ expenseTypeId: '', amount: '', currency, day: todayLibya(), note: '', payFrom: 'box' as 'box' | 'custody' });
@@ -43,6 +43,7 @@ const formatAmount = (value: number) => Number(value || 0).toLocaleString('en-US
 
 const OfficeExpenses = () => {
   const [options, setOptions] = useState<Options | null>(null);
+  const custodyCurrencies = Object.keys(options?.custody || {}).filter((code) => (options?.custody?.[code] || 0) > 0);
   const [office, setOffice] = useState<string>('');
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,11 +201,17 @@ const OfficeExpenses = () => {
               {(options?.types || []).map((type) => <MenuItem key={type._id} value={type._id}>{type.name}</MenuItem>)}
             </TextField>
 
-            {((options?.custody || 0) > 0 || form.payFrom === 'custody') && (
-              <TextField select fullWidth size="small" label="Paid from" value={form.payFrom} disabled={!!editing} onChange={(e) => setForm({ ...form, payFrom: e.target.value as 'box' | 'custody' })}
-                helperText={form.payFrom === 'custody' ? "Taken from the custody you hold. Another currency is counted in dollars at the day's rate." : undefined}>
+            {(custodyCurrencies.length > 0 || form.payFrom === 'custody') && (
+              <TextField select fullWidth size="small" label="Paid from" value={form.payFrom} disabled={!!editing}
+                onChange={(e) => {
+                  const payFrom = e.target.value as 'box' | 'custody';
+                  // From custody: only a currency the custody is held in
+                  const currency = payFrom === 'custody' && !custodyCurrencies.includes(form.currency) ? custodyCurrencies[0] || form.currency : form.currency;
+                  setForm({ ...form, payFrom, currency });
+                }}
+                helperText={form.payFrom === 'custody' ? 'Taken from the custody you hold, in the same currency.' : undefined}>
                 <MenuItem value="box">Office cash box</MenuItem>
-                <MenuItem value="custody">My custody (${formatAmount((options?.custody || 0) / 100)})</MenuItem>
+                <MenuItem value="custody">My custody ({custodyCurrencies.map((code) => `${formatAmount(options?.custody?.[code] || 0)} ${code}`).join(' · ') || '0'})</MenuItem>
               </TextField>
             )}
 
@@ -216,7 +223,7 @@ const OfficeExpenses = () => {
                 inputProps={{ inputMode: 'decimal', step: 'any', min: 0 }}
               />
               <TextField select size="small" label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="oe-currency">
-                {(options?.currencies || []).concat(form.payFrom === 'custody' && !(options?.currencies || []).includes('USD') ? ['USD'] : []).map((code) => <MenuItem key={code} value={code}>{code}</MenuItem>)}
+                {(form.payFrom === 'custody' ? custodyCurrencies.concat(editing && !custodyCurrencies.includes(form.currency) ? [form.currency] : []) : options?.currencies || []).map((code) => <MenuItem key={code} value={code}>{code}</MenuItem>)}
               </TextField>
             </div>
 
