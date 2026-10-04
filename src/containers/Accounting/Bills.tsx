@@ -10,11 +10,20 @@ import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Pane
 const PAGE_SIZE = 50;
 export const TARGET_LABELS: Record<string, string> = { trip: 'تكلفة رحلة', order: 'تكلفة طلب شراء', expense: 'مصروف', asset: 'أصل ثابت', prepaid: 'مصروف مقدم', customs: 'تخليص جمركي لطرد' };
 
+// A posted bill's status by what is still owed on it (owner's request 2026-10-04): paid once paid,
+// partly paid, or plain "posted" while nothing is paid. Drafts and cancelled bills keep theirs.
+export const BillStatus = ({ bill, open, paymentStatus }: { bill: any; open?: number; paymentStatus?: string }) => {
+  if (bill.status !== 'posted' || bill.isCreditNote || !paymentStatus) return <StatusBadge status={bill.status} />;
+  if (paymentStatus === 'paid') return <Badge tone="ok">مدفوعة</Badge>;
+  if (paymentStatus === 'partial') return <><Badge tone="warn">مدفوعة جزئياً</Badge><Sub>باقي <Money value={open || 0} tone="plain" /></Sub></>;
+  return <><Badge tone="info">مُرحَّلة</Badge><Sub>غير مدفوعة</Sub></>;
+};
+
 export const BillsList = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { vendors } = useVendors();
-  const [filters, setFilters] = useState({ vendorId: '', status: '', from: '', to: '', search: '', tripId: params.get('tripId') || '' });
+  const [filters, setFilters] = useState({ vendorId: '', status: '', payment: '', target: '', from: '', to: '', search: '', tripId: params.get('tripId') || '' });
   const [data, setData] = useState<any>({ results: [], total: 0, page: 1 });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -80,6 +89,16 @@ export const BillsList = () => {
               <MenuItem value="posted">مُرحَّلة</MenuItem>
               <MenuItem value="canceled">ملغاة</MenuItem>
             </TextField>
+            <TextField select label="الدفع" value={filters.payment} onChange={(e) => setFilters({ ...filters, payment: e.target.value })} style={{ minWidth: 140 }}>
+              <MenuItem value="">الكل</MenuItem>
+              <MenuItem value="unpaid">غير مدفوعة</MenuItem>
+              <MenuItem value="partial">مدفوعة جزئياً</MenuItem>
+              <MenuItem value="paid">مدفوعة</MenuItem>
+            </TextField>
+            <TextField select label="مُحمَّلة على" value={filters.target} onChange={(e) => setFilters({ ...filters, target: e.target.value })} style={{ minWidth: 150 }}>
+              <MenuItem value="">الكل</MenuItem>
+              {Object.entries(TARGET_LABELS).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+            </TextField>
             <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
             <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             <TextField placeholder="رقم الفاتورة أو الوصف" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load(1)} />
@@ -118,7 +137,7 @@ export const BillsList = () => {
             },
             { key: 'total', header: 'المبلغ', numeric: true, render: (row: any) => <Amount value={row.total ?? row.lines.reduce((s: number, l: any) => s + l.amount, 0)} currency={row.currency} /> },
             { key: 'usd', header: 'بالدولار', numeric: true, hideOnMobile: true, render: (row: any) => <Money value={row.totalUsd} hideZero strong />, sortValue: (row: any) => row.totalUsd || 0 },
-            { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
+            { key: 'status', header: 'الحالة', render: (row: any) => <BillStatus bill={row} open={row.open} paymentStatus={row.paymentStatus} /> },
           ]}
         />
         {pages > 1 && (
@@ -152,13 +171,13 @@ export const BillDetail = () => {
   };
 
   if (!data) return error ? <Alert severity="error">{error}</Alert> : <div className="acc-empty">جارٍ التحميل…</div>;
-  const { bill, payments, creditNotes, entries, open, trips, orders } = data;
+  const { bill, payments, creditNotes, entries, open, paymentStatus, trips, orders } = data;
   const nameOf = (list: any[], value: string, field: string) => list.find((item: any) => item._id === value)?.[field] || value;
 
   return (
     <>
       <PageHeader
-        title={<>{bill.isCreditNote ? 'إشعار دائن' : 'فاتورة'} <Ltr>{bill.number || '(مسودة)'}</Ltr> <StatusBadge status={bill.status} /></>}
+        title={<>{bill.isCreditNote ? 'إشعار دائن' : 'فاتورة'} <Ltr>{bill.number || '(مسودة)'}</Ltr> <BillStatus bill={bill} open={open} paymentStatus={paymentStatus} /></>}
         subtitle={<>
           {bill.vendorId?.name} · <Ltr>{bill.day}</Ltr>{bill.vendorRef && <> · رقم فاتورة المورد <Ltr>{bill.vendorRef}</Ltr></>}
           {' · '}<Ltr>{bill.currency}</Ltr>{bill.rate ? <> بسعر <Ltr>{bill.rate}</Ltr></> : null}

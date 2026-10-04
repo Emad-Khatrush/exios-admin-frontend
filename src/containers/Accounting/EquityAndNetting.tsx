@@ -6,6 +6,18 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { amountLabel, CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, Badge, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
+import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+
+const EQUITY_FILTERS: ListFilterValue = { type: '', status: '', from: '', to: '', search: '' };
+const NETTING_FILTERS: ListFilterValue = { status: '', from: '', to: '', search: '' };
+
+const StatusField = ({ value, onChange }: { value: ListFilterValue; onChange: (value: ListFilterValue) => void }) => (
+  <TextField size="small" select label="الحالة" value={value.status} onChange={(ev) => onChange({ ...value, status: ev.target.value })} style={{ minWidth: 130 }}>
+    <MenuItem value="">غير الملغاة</MenuItem>
+    <MenuItem value="all">الكل مع الملغاة</MenuItem>
+    <MenuItem value="canceled">ملغاة</MenuItem>
+  </TextField>
+);
 
 const EQUITY_TYPES: Record<string, { label: string; tone: 'ok' | 'warn' | 'info' | 'muted' }> = {
   capital_in: { label: 'إيداع رأس مال', tone: 'ok' },
@@ -25,7 +37,9 @@ export const Equity = () => {
   const cashAccounts = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
   const cash = form && cashAccounts.find((a) => a._id === form.accountId);
 
-  const load = () => acc.get('equity').then((res: any) => setItems(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
+  const [filters, setFilters] = useState<ListFilterValue>(EQUITY_FILTERS);
+  const load = (current: ListFilterValue = filters) => acc.get('equity', { ...queryOf(current), limit: 200 }).then((res: any) => setItems(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const save = async () => {
@@ -41,7 +55,7 @@ export const Equity = () => {
   };
 
   const bulk = useBulk<any>({
-    rows: items, rowKey: (row) => row._id, rowLabel: (row) => row.number, onDone: load,
+    rows: items, rowKey: (row) => row._id, rowLabel: (row) => row.number, onDone: () => load(),
     actions: [cancelAction('AccountingEquityTransaction', 'إلغاء العمليات', 'يعود أثرها على الخزينة ورأس المال أو القرض.')],
   });
 
@@ -54,6 +68,15 @@ export const Equity = () => {
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <Panel flush>
+        <div className="px-3">
+          <ListFilters value={filters} onChange={setFilters} onApply={load} blank={EQUITY_FILTERS}>
+            <TextField size="small" select label="النوع" value={filters.type} onChange={(ev) => setFilters({ ...filters, type: ev.target.value })} style={{ minWidth: 160 }}>
+              <MenuItem value="">الكل</MenuItem>
+              {Object.entries(EQUITY_TYPES).map(([value, t]) => <MenuItem key={value} value={value}>{t.label}</MenuItem>)}
+            </TextField>
+            <StatusField value={filters} onChange={setFilters} />
+          </ListFilters>
+        </div>
         {bulk.bar}
         <DataTable
           selection={bulk.selection}
@@ -96,7 +119,7 @@ export const Equity = () => {
           <Button variant="contained" disabled={!form?.partyName || !form?.accountId || !(Number(form?.amount) > 0)} onClick={save}>ترحيل</Button>
         </DialogActions>
       </Dialog>
-      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingEquityTransaction" id={cancel._id} title={cancel.number} />}
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingEquityTransaction" id={cancel._id} title={cancel.number} />}
     </>
   );
 };
@@ -112,7 +135,9 @@ export const Netting = () => {
   const [isLoading, setIsLoading] = useState(true);
   const key = useRef(newKey());
 
-  const load = () => acc.get('nettings').then((res: any) => setItems(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
+  const [filters, setFilters] = useState<ListFilterValue>(NETTING_FILTERS);
+  const load = (current: ListFilterValue = filters) => acc.get('nettings', { ...queryOf(current), limit: 200 }).then((res: any) => setItems(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (!form?.vendorId) return;
@@ -140,7 +165,7 @@ export const Netting = () => {
   };
 
   const bulk = useBulk<any>({
-    rows: items, rowKey: (row) => row._id, rowLabel: (row) => row.number, onDone: load,
+    rows: items, rowKey: (row) => row._id, rowLabel: (row) => row.number, onDone: () => load(),
     actions: [cancelAction('AccountingNetting', 'إلغاء المقاصات', 'تعود الذمتان مفتوحتين. المقاصة التي تجعل محفظة العميل سالبة تُرفض؛ ألغِها منفردة مع التأكيد.')],
   });
 
@@ -153,6 +178,11 @@ export const Netting = () => {
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <Panel flush>
+        <div className="px-3">
+          <ListFilters value={filters} onChange={setFilters} onApply={load} blank={NETTING_FILTERS}>
+            <StatusField value={filters} onChange={setFilters} />
+          </ListFilters>
+        </div>
         {bulk.bar}
         <DataTable
           selection={bulk.selection}
@@ -213,7 +243,7 @@ export const Netting = () => {
         </DialogActions>
       </Dialog>
       {cancel && (
-        <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingNetting" id={cancel._id} title={`المقاصة ${cancel.number}`}
+        <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingNetting" id={cancel._id} title={`المقاصة ${cancel.number}`}
           askConfirm={cancel.mode === 'payable_to_wallet' ? 'استرجاع المبلغ حتى لو أصبحت المحفظة سالبة' : undefined} />
       )}
     </>

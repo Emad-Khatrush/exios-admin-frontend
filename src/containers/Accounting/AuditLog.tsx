@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Dialog, DialogContent, DialogTitle } from '@mui/material';
+import { Alert, Button, Dialog, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import moment from 'moment';
 import { acc, errorText } from './accountingApi';
 import { DataTable, Ltr, PageHeader, Panel } from './ui';
+import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+
+const AUDIT_FILTERS: ListFilterValue = { action: '', from: '', to: '' };
+// The kinds of change, by the start of their action name
+const ACTION_GROUPS: [string, string][] = [
+  ['bill.', 'فواتير الموردين'], ['payment.', 'الدفعات'], ['transfer.', 'التحويلات'], ['cashcount.', 'الجرد'], ['entry.', 'القيود'],
+  ['document.', 'المستندات'], ['alipay.', 'Alipay'], ['bank.', 'كشوف البنوك'], ['exception.', 'الاستثناءات'], ['backup.', 'النسخ الاحتياطي'], ['setup.', 'الإعداد'],
+];
 
 const PAGE_SIZE = 50;
 
@@ -25,16 +33,18 @@ const AuditLog = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = async (page = 1) => {
+  const [filters, setFilters] = useState<ListFilterValue>(AUDIT_FILTERS);
+  const load = async (page = 1, current: ListFilterValue = filters) => {
     try {
       setIsLoading(true);
-      setData((await acc.get('audit', { page, limit: PAGE_SIZE })).data);
+      setData((await acc.get('audit', { page, limit: PAGE_SIZE, ...queryOf(current) })).data);
     } catch (err) {
       setError(errorText(err));
     }
     setIsLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(1); }, []);
   const pages = Math.max(Math.ceil(data.total / PAGE_SIZE), 1);
 
@@ -43,6 +53,14 @@ const AuditLog = () => {
       <PageHeader title="سجل التدقيق" subtitle="كل تغيير في قسم المحاسبة: من قام به، ومتى، والقيم قبل وبعد. اضغط على أي سطر للتفاصيل." />
       {error && <Alert severity="error">{error}</Alert>}
       <Panel flush>
+        <div className="px-3">
+          <ListFilters value={filters} onChange={setFilters} onApply={(value) => load(1, value)} blank={AUDIT_FILTERS} searchLabel={null}>
+            <TextField size="small" select label="نوع التغيير" value={filters.action} onChange={(ev) => setFilters({ ...filters, action: ev.target.value })} style={{ minWidth: 170 }}>
+              <MenuItem value="">الكل</MenuItem>
+              {ACTION_GROUPS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+            </TextField>
+          </ListFilters>
+        </div>
         <DataTable
           loading={isLoading}
           rows={data.results}

@@ -6,6 +6,9 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { amountLabel, today } from './shared';
 import { Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
+import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+
+const RECENT_FILTERS: ListFilterValue = { status: '', from: '', to: '', search: '' };
 
 // Rent, electricity, fuel...: a one-line bill to the "cash expenses" vendor, paid on the spot
 const QuickExpenses = () => {
@@ -28,11 +31,13 @@ const QuickExpenses = () => {
   const beforeCount = isBeforeCount(count, form.day);
   const type = types.find((t) => t._id === form.typeId);
 
-  const loadRecent = () => acc.get('bills', { quick: 'true', limit: 30 }).then((res: any) => setRecent(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
+  const [filters, setFilters] = useState<ListFilterValue>(RECENT_FILTERS);
+  const loadRecent = (current: ListFilterValue = filters) => acc.get('bills', { quick: 'true', limit: 100, ...queryOf(current) }).then((res: any) => setRecent(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
   useEffect(() => {
     acc.get('expense-types', { active: 'true' }).then((res: any) => setTypes(res.data.results)).catch(() => {});
     acc.get('vendors').then((res: any) => setCashVendor(res.data.results.find((v: any) => v.seedKey === 'cash_expenses'))).catch(() => {});
     loadRecent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const save = async () => {
@@ -85,7 +90,16 @@ const QuickExpenses = () => {
         </div>
       </Panel>
 
-      <Panel flush title="آخر المصروفات السريعة">
+      <Panel flush title="المصروفات السريعة">
+        <div className="px-3">
+          <ListFilters value={filters} onChange={setFilters} onApply={loadRecent} blank={RECENT_FILTERS} searchLabel="الوصف أو رقم الفاتورة">
+            <TextField size="small" select label="الحالة" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} style={{ minWidth: 130 }}>
+              <MenuItem value="">غير الملغاة</MenuItem>
+              <MenuItem value="all">الكل مع الملغاة</MenuItem>
+              <MenuItem value="canceled">ملغاة</MenuItem>
+            </TextField>
+          </ListFilters>
+        </div>
         <DataTable
           loading={isLoading}
           rows={recent}

@@ -7,20 +7,27 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
+import { ListFilters, queryOf } from './ListFilters';
+
+const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: '', to: '', search: '' };
 
 export const PaymentsList = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<any>({ results: [] });
   const [cancel, setCancel] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const load = () => acc.get('payments').then((res: any) => setData(res.data)).catch(() => {}).finally(() => setIsLoading(false));
+  const { vendors } = useVendors();
+  const { accounts } = useAccountingData();
+  const [filters, setFilters] = useState<any>(PAYMENT_FILTERS);
+  const load = (current = filters) => acc.get('payments', { ...queryOf(current), limit: 200 }).then((res: any) => setData(res.data)).catch(() => {}).finally(() => setIsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const bulk = useBulk<any>({
     rows: data.results,
     rowKey: (row) => row._id,
     rowLabel: (row) => row.number,
-    onDone: load,
+    onDone: () => load(),
     actions: [{
       key: 'cancel', label: 'إلغاء الدفعات', done: 'أُلغيت', danger: true, needsReason: true,
       applies: (row) => row.status === 'posted' && !row.autoFromBillId,
@@ -42,6 +49,23 @@ export const PaymentsList = () => {
         )}
       />
       <Panel flush>
+        <div className="px-3">
+          <ListFilters value={filters} onChange={setFilters} onApply={load} blank={PAYMENT_FILTERS}>
+            <TextField size="small" select label="المورد" value={filters.vendorId} onChange={(e) => setFilters({ ...filters, vendorId: e.target.value })} style={{ minWidth: 180 }}>
+              <MenuItem value="">كل الموردين</MenuItem>
+              {vendors.map((v: any) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
+            </TextField>
+            <TextField size="small" select label="دُفعت من" value={filters.accountId} onChange={(e) => setFilters({ ...filters, accountId: e.target.value })} style={{ minWidth: 180 }}>
+              <MenuItem value="">كل الحسابات</MenuItem>
+              {accounts.filter((a) => a.isCash && !a.isGroup).map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+            </TextField>
+            <TextField size="small" select label="الحالة" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} style={{ minWidth: 130 }}>
+              <MenuItem value="">غير الملغاة</MenuItem>
+              <MenuItem value="all">الكل مع الملغاة</MenuItem>
+              <MenuItem value="canceled">ملغاة</MenuItem>
+            </TextField>
+          </ListFilters>
+        </div>
         {bulk.bar}
         <DataTable
           selection={bulk.selection}
@@ -64,7 +88,7 @@ export const PaymentsList = () => {
           ]}
         />
       </Panel>
-      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingSupplierPayment" id={cancel._id} title={`الدفعة ${cancel.number}`} />}
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingSupplierPayment" id={cancel._id} title={`الدفعة ${cancel.number}`} />}
       <ReceiptsList />
     </>
   );
@@ -75,15 +99,27 @@ const ReceiptsList = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
   const [cancel, setCancel] = useState<any>(null);
-  const load = () => acc.get('receipts').then((res: any) => setRows(res.data.results)).catch(() => {});
+  const { vendors } = useVendors();
+  const blank = { vendorId: '', from: '', to: '', search: '' };
+  const [filters, setFilters] = useState<any>(blank);
+  const load = (current = filters) => acc.get('receipts', { ...queryOf(current), limit: 200 }).then((res: any) => setRows(res.data.results)).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
   return (
     <Panel flush title="الاستلام من الموردين" subtitle="مبالغ أعادها مورد أو أودعها لنا (مثل 50 يواناً في Alipay): تُسدِّد ما عليه لنا من إشعار دائن، والباقي يُخصم من دفعتنا المقدمة لديه أو يبقى رصيداً له."
       actions={<Button size="small" startIcon={<Plus size={14} />} onClick={() => navigate('/accounting/receipts/new')}>استلام جديد</Button>}>
+      <div className="px-3">
+        <ListFilters value={filters} onChange={setFilters} onApply={load} blank={blank}>
+          <TextField size="small" select label="المورد" value={filters.vendorId} onChange={(e) => setFilters({ ...filters, vendorId: e.target.value })} style={{ minWidth: 180 }}>
+            <MenuItem value="">كل الموردين</MenuItem>
+            {vendors.map((v: any) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
+          </TextField>
+        </ListFilters>
+      </div>
       <DataTable
         dense rows={rows} rowKey={(row: any) => row._id}
         rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
-        empty={{ title: 'لا استلامات بعد' }}
+        empty={{ title: 'لا استلامات' }}
         columns={[
           { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
           { key: 'vendor', header: 'المورد', render: (row: any) => <>{row.vendorId?.name}<Sub><Ltr>{row.number}</Ltr>{row.allocations?.length ? ` · على ${row.allocations.map((a: any) => a.billId?.number).join('، ')}` : ''}</Sub></> },
@@ -93,7 +129,7 @@ const ReceiptsList = () => {
           { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <Button size="small" color="error" onClick={() => setCancel(row)}>إلغاء</Button> : null) },
         ]}
       />
-      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingSupplierReceipt" id={cancel._id} title={`الاستلام ${cancel.number}`} />}
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingSupplierReceipt" id={cancel._id} title={`الاستلام ${cancel.number}`} />}
     </Panel>
   );
 };

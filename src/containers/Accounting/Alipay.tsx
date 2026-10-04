@@ -6,6 +6,9 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, RemotePicker, orderLabel, today, useVendors } from './shared';
 import { AlipaySendPanel } from './AlipaySend';
 import { Amount, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
+import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+
+const ALIPAY_FILTERS: ListFilterValue = { from: '', to: '', broker: '' };
 
 // The Alipay section (spec 19.5): yuan bought from brokers, yuan waiting to arrive, the Alipay
 // accounts at their average rate, and the profit of the orders marked as Alipay transfers.
@@ -20,7 +23,10 @@ const Alipay = () => {
   const [cancel, setCancel] = useState<any>(null);
   const [sending, setSending] = useState(false);
   const [sendOrder, setSendOrder] = useState<any>(null);
-  const load = () => acc.get('alipay').then((res: any) => setData(res.data)).catch((err: any) => setError(errorText(err)));
+  // The period (purchases, transfers and months in it) and a broker for the purchases list
+  const [filters, setFilters] = useState<ListFilterValue>(ALIPAY_FILTERS);
+  const load = (current: ListFilterValue = filters) => acc.get('alipay', queryOf({ from: current.from, to: current.to })).then((res: any) => setData(res.data)).catch((err: any) => setError(errorText(err)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const totals = useMemo(() => (data?.months || []).find((m: any) => m.month === today().slice(0, 7)), [data]);
@@ -35,6 +41,12 @@ const Alipay = () => {
         actions={<div className="d-flex gap-2"><Button variant="outlined" onClick={() => setSending(true)}>إرسال حوالة</Button><Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setBuying(true)}>شراء يوان</Button></div>}
       />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      <ListFilters value={filters} onChange={setFilters} onApply={load} blank={ALIPAY_FILTERS} searchLabel={null}>
+        <TextField size="small" select label="الوسيط" value={filters.broker} onChange={(e) => setFilters({ ...filters, broker: e.target.value })} style={{ minWidth: 170 }}>
+          <MenuItem value="">كل الوسطاء</MenuItem>
+          {(data?.brokers || []).map((b: any) => <MenuItem key={String(b.vendorId)} value={String(b.vendorId)}>{b.name}</MenuItem>)}
+        </TextField>
+      </ListFilters>
       {data && (
         <>
           <StatGrid>
@@ -62,7 +74,7 @@ const Alipay = () => {
 
           <Panel flush title="عمليات شراء اليوان" subtitle="السعر = اليوان ÷ الدولار المدفوع.">
             <DataTable
-              dense maxHeight={420} rows={data.purchases} rowKey={(row: any) => row._id}
+              dense maxHeight={420} rows={data.purchases.filter((p: any) => !filters.broker || String(p.vendorId?._id || p.vendorId) === filters.broker)} rowKey={(row: any) => row._id}
               empty={{ title: 'لا عمليات بعد' }}
               columns={[
                 { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
@@ -133,14 +145,14 @@ const Alipay = () => {
         <DialogTitle>إرسال حوالة لطلب</DialogTitle>
         <DialogContent>
           <RemotePicker endpoint="lookup/orders" label="رقم الطلب (معلَّم حوالة Alipay)" value={sendOrder} getLabel={orderLabel} onChange={setSendOrder} />
-          {sendOrder && <div className="mt-3"><AlipaySendPanel key={sendOrder._id} orderId={sendOrder._id} from="accounting" onSent={load} /></div>}
+          {sendOrder && <div className="mt-3"><AlipaySendPanel key={sendOrder._id} orderId={sendOrder._id} from="accounting" onSent={() => load()} /></div>}
           {sendOrder && <p className="acc-muted mt-2">إن لم يظهر نموذج الدفع فالطلب غير معلَّم «حوالة Alipay».</p>}
         </DialogContent>
         <DialogActions><Button onClick={() => { setSending(false); setSendOrder(null); }}>إغلاق</Button></DialogActions>
       </Dialog>
       {buying && <BuyDialog onClose={() => setBuying(false)} onDone={() => { setBuying(false); load(); }} />}
       {arriving && <ArrivalDialog purchase={arriving} onClose={() => setArriving(null)} onDone={() => { setArriving(null); load(); }} />}
-      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={load} model="AccountingYuanPurchase" id={cancel._id} title={`شراء اليوان ${cancel.number}`} />}
+      {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingYuanPurchase" id={cancel._id} title={`شراء اليوان ${cancel.number}`} />}
     </>
   );
 };

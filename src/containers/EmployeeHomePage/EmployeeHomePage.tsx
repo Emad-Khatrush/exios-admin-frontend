@@ -9,6 +9,7 @@ import { defaultColumns, generateDataToListType } from "./generateData";
 import Card from "../../components/Card/Card";
 import { connect } from "react-redux";
 import WalletsWidget from "../../components/WalletsWidget";
+import { MyCustodyWidget, StaffCustodyWidget } from "../../components/CustodyWidget";
 
 type State = {
   HomeData: HomeData | null
@@ -74,6 +75,16 @@ class EmployeeHomePage extends React.Component<Props, State> {
               account={this.props.session.account}
             />
           </div>
+
+          {/* Custody: each staff member's own; everyone's for the admin and the accountant */}
+          <div className="col-md-6">
+            <MyCustodyWidget />
+          </div>
+          {(this.props.session.account?.roles?.isAdmin || this.props.session.account?.roles?.isAccountant) && (
+            <div className="col-md-6">
+              <StaffCustodyWidget />
+            </div>
+          )}
 
           <div className="col-md-6">
             <WalletsWidget 

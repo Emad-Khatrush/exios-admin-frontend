@@ -7,6 +7,10 @@ import { CancelDialog, RemotePicker, today, userLabel } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { SubBoxesPanel } from './SubBoxes';
+import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+
+const TRANSFER_FILTERS: ListFilterValue = { accountId: '', status: '', from: '', to: '', search: '' };
+const COUNT_FILTERS: ListFilterValue = { accountId: '', from: '', to: '' };
 
 const Treasury = () => {
   const { accounts, reload } = useAccountingData();
@@ -24,12 +28,15 @@ const Treasury = () => {
   const cashAccounts = moneyAccounts.filter((a) => a.isCash);
   const byId = (id: string) => moneyAccounts.find((a) => a._id === id);
 
-  const load = async () => {
-    const [t, c] = await Promise.all([acc.get('transfers'), acc.get('cash-counts')]);
+  const [transferFilters, setTransferFilters] = useState<ListFilterValue>(TRANSFER_FILTERS);
+  const [countFilters, setCountFilters] = useState<ListFilterValue>(COUNT_FILTERS);
+  const load = async (tf: ListFilterValue = transferFilters, cf: ListFilterValue = countFilters) => {
+    const [t, c] = await Promise.all([acc.get('transfers', { ...queryOf(tf), limit: 200 }), acc.get('cash-counts', { ...queryOf(cf), limit: 200 })]);
     setTransfers(t.data.results);
     setCounts(c.data.results);
     setIsLoading(false);
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load().catch(() => setIsLoading(false)); }, []);
 
   useEffect(() => {
@@ -77,9 +84,22 @@ const Treasury = () => {
         </>}
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
-      <SubBoxesPanel canHandOver onChanged={load} />
+      <SubBoxesPanel canHandOver onChanged={() => load()} />
 
       <Panel flush title="التحويلات وصرف العملات" subtitle="شراء عملة يحفظ تكلفتها الحقيقية؛ مثلاً 71,000 يوان مقابل 10,000$ تُحمل بسعر 7.1.">
+        <div className="px-3">
+          <ListFilters value={transferFilters} onChange={setTransferFilters} onApply={(value) => load(value, countFilters)} blank={TRANSFER_FILTERS}>
+            <TextField size="small" select label="الحساب" value={transferFilters.accountId} onChange={(e) => setTransferFilters({ ...transferFilters, accountId: e.target.value })} style={{ minWidth: 200 }}>
+              <MenuItem value="">كل الحسابات</MenuItem>
+              {moneyAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+            </TextField>
+            <TextField size="small" select label="الحالة" value={transferFilters.status} onChange={(e) => setTransferFilters({ ...transferFilters, status: e.target.value })} style={{ minWidth: 130 }}>
+              <MenuItem value="">غير الملغاة</MenuItem>
+              <MenuItem value="all">الكل مع الملغاة</MenuItem>
+              <MenuItem value="canceled">ملغاة</MenuItem>
+            </TextField>
+          </ListFilters>
+        </div>
         {transferBulk.bar}
         <DataTable
           selection={transferBulk.selection}
@@ -101,6 +121,14 @@ const Treasury = () => {
       </Panel>
 
       <Panel flush title="جرد الخزائن" subtitle="اكتب المبلغ الموجود فعلاً؛ الفرق عن الدفاتر يُسجَّل عجزاً أو زيادة.">
+        <div className="px-3">
+          <ListFilters value={countFilters} onChange={setCountFilters} onApply={(value) => load(transferFilters, value)} blank={COUNT_FILTERS} searchLabel={null}>
+            <TextField size="small" select label="الحساب" value={countFilters.accountId} onChange={(e) => setCountFilters({ ...countFilters, accountId: e.target.value })} style={{ minWidth: 200 }}>
+              <MenuItem value="">كل الحسابات</MenuItem>
+              {moneyAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+            </TextField>
+          </ListFilters>
+        </div>
         {countBulk.bar}
         <DataTable
           selection={countBulk.selection}
