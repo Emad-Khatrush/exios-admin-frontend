@@ -4,11 +4,13 @@ import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 import api from '../../api';
 import Goals from './Goals';
+import { clearGoalsCache } from './useGoalsDashboard';
 import EmployeeGoals from './EmployeeGoals';
 import { buildInsights, countryRows, GoalScore, GoalsDashboard, historyStats, paceOf } from './goalsData';
 
 jest.mock('../../api', () => ({ __esModule: true, default: { get: jest.fn(), update: jest.fn() } }));
 const mockedApi = api as unknown as { get: jest.Mock, update: jest.Mock };
+beforeEach(() => { clearGoalsCache(); mockedApi.get.mockReset(); });
 
 const score = (target: number, actual: number, incentiveLYD = 0): GoalScore => ({
   target, actual, remaining: Math.max(0, target - actual), progress: target ? actual / target : null, incentiveLYD, hit: target > 0 && actual >= target,
@@ -116,7 +118,22 @@ test('the share of China is shown against the other countries, with no country f
   mockedApi.get.mockResolvedValue({ data: dashboard() });
   render(<Goals />);
   await screen.findByText('حصة الصين');
-  expect(mockedApi.get).toHaveBeenLastCalledWith('goals/dashboard', { period: 'week' });
+  expect(mockedApi.get).toHaveBeenCalledWith('goals/dashboard', { period: 'week' });
   expect(screen.queryByRole('button', { name: 'كل الدول' })).not.toBeInTheDocument();
   expect(screen.getByText('دول أخرى')).toBeInTheDocument();
+});
+
+test('switching weekly and monthly shows the copy already loaded, and the other view is loaded ahead', async () => {
+  mockedApi.get.mockImplementation((url: string, params: any) => Promise.resolve({ data: { ...dashboard(), period: params.period, ...(params.period === 'month' ? { from: '2026-10-01', to: '2026-10-31' } : {}) } }));
+  render(<Goals />);
+  await screen.findByRole('heading', { name: '4 - 10 أكتوبر 2026' });
+  // The monthly view was fetched in the background after the weekly one
+  await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith('goals/dashboard', { period: 'month' }));
+  const calls = mockedApi.get.mock.calls.length;
+
+  fireEvent.click(screen.getByRole('tab', { name: 'شهري' }));
+  expect(await screen.findByRole('heading', { name: 'أكتوبر 2026' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'أسبوعي' }));
+  expect(await screen.findByRole('heading', { name: '4 - 10 أكتوبر 2026' })).toBeInTheDocument();
+  expect(mockedApi.get.mock.calls.length).toBe(calls);
 });
