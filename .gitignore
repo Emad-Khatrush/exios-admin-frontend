@@ -12,6 +12,9 @@
 
 # production
 /build
+/build-qa
+firebase-debug.log*
+/.firebase/
 
 # misc
 .DS_Store

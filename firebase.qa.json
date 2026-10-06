@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "exios-admin-qa",
+    "public": "build-qa",
+    "ignore": ["firebase.qa.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{"source": "**", "destination": "/index.html"}]
+  }
+}

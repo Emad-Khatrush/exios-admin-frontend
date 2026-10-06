@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, TextField, Tooltip } from '@mui/material';
 import { ArrowLeftRight, EyeOff, RotateCcw, Trash2, Upload } from 'lucide-react';
 import api from '../../api';
@@ -56,7 +57,7 @@ const BankReconciliation = () => {
   const { accounts, offices } = useAccountingData();
   const banks = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
   // Opens on the account last worked on (kept on this device only)
-  const [accountId, setAccountId] = useState(() => { try { return localStorage.getItem('acc-bank-account') || ''; } catch { return ''; } });
+  const [accountId, setAccountId] = useState(() => { const requested = new URLSearchParams(window.location.search).get('accountId'); if (requested) return requested; try { return localStorage.getItem('acc-bank-account') || ''; } catch { return ''; } });
   useEffect(() => { try { if (accountId) localStorage.setItem('acc-bank-account', accountId); } catch { /* storage may be blocked */ } }, [accountId]);
   // A remembered account that no longer exists is dropped
   useEffect(() => { if (accountId && banks.length && !banks.some((a) => a._id === accountId)) setAccountId(''); }, [banks, accountId]);
@@ -148,13 +149,14 @@ const BankReconciliation = () => {
     if (!current) return current;
     const set = new Set(current[key]);
     if (set.has(index)) set.delete(index); else set.add(index);
-    return { ...current, [key]: set };
+    return { ...current, [key]: set, ...(key === 'flip' && { choices: { ...current.choices, [index]: {} } }) };
   });
 
   // The rows are classified again whenever what would be imported changes (signs, columns)
-  const signature = preview ? JSON.stringify(edited(preview).map((r) => [r.day, r.amount, r.description])) : '';
+  const signature = preview ? JSON.stringify(edited(preview).map((r) => [r.day, r.amount, r.description, r.originalAmount, r.originalCurrency, r.movementKind, r.settlementUsd])) : '';
   useEffect(() => {
     if (!preview || !accountId || !preview.rows.length) { setClasses(null); return undefined; }
+    setClasses(null);
     let stale = false;
     const timer = window.setTimeout(() => {
       acc.post('bank/classify', { accountId, rows: edited(preview) })
@@ -331,6 +333,7 @@ const BankReconciliation = () => {
               <input hidden type="file" accept=".xlsx,.xls,.csv,.pdf" onChange={(e) => { openFile(e.target.files?.[0]); e.target.value = ''; }} />
             </Button>
             <Button variant="outlined" onClick={() => run(() => acc.post('bank/auto-match', { accountId }), (d) => `طُوبق ${d.matched} سطراً.`)}>مطابقة تلقائية</Button>
+            <Button component={RouterLink} to="/accounting/purchase-reconciliation" variant="outlined">متابعة المشتريات وتسوية القديم</Button>
             <TextField select label="عرض" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ minWidth: 150 }}>
               <MenuItem value="">كل السطور</MenuItem>
               <MenuItem value="unmatched">غير مطابق</MenuItem>
@@ -487,7 +490,7 @@ const BankReconciliation = () => {
         {preview && (
           <DialogContent dividers>
             {preview.creditCard && <Alert severity="warning" className="mb-3">هذا كشف بطاقة ائتمان: المشتريات فيه موجبة والسداد سالب، فعُكست الإشارات لتصبح المشتريات صادرة (سالبة) وسداد البطاقة وارداً (موجباً). اختر في الحساب أعلاه حساب البطاقة نفسها.</Alert>}
-            <FormControlLabel className="mb-2" control={<Checkbox size="small" checked={preview.flipAll} onChange={(e) => setPreview({ ...preview, flipAll: e.target.checked })} />} label="عكس إشارة كل السطور (كشوف بطاقات الائتمان)" />
+            <FormControlLabel className="mb-2" control={<Checkbox size="small" checked={preview.flipAll} onChange={(e) => { setPurchaseReview(null); setPreview({ ...preview, flipAll: e.target.checked, choices: {} }); }} />} label="عكس إشارة كل السطور (كشوف بطاقات الائتمان)" />
             {preview.kind === 'pdf' && <Alert severity="info" className="mb-3">قُرئ الكشف من ملف PDF. راجع الإشارات: الوارد موجب والصادر سالب. غيّر إشارة أي سطر بزر السهم، واستبعد ما ليس حركة.</Alert>}
             {preview.kind === 'sheet' && (
               <div className="acc-bank-map">
@@ -565,7 +568,7 @@ const BankReconciliation = () => {
                     return (
                       <>
                         {item.isRefund && <Sub><Badge tone="info">Refund — استرداد</Badge>{item.vendorName && <Sub>المورد: {item.vendorName}</Sub>}<Sub>يُحفظ غير مرحّل حتى اعتماد الفاتورة أو الريفاند الأصلي.</Sub></Sub>}
-                        {(row.amount < 0 || item.isRefund) && <Button size="small" onClick={() => setPurchaseReview({ line: row, paid: Math.abs(row.amount), index: row.index, refund: !!item.isRefund })}>{choice.purchaseSelection ? 'تغيير المطابقة' : item.isRefund ? 'ربط استرداد المشتريات' : 'مراجعة واعتماد'}</Button>}
+                        {(row.amount < 0 || (row.amount > 0 && item.isRefund)) && <Button size="small" onClick={() => setPurchaseReview({ line: row, paid: Math.abs(row.amount), index: row.index, refund: row.amount > 0 && !!item.isRefund })}>{choice.purchaseSelection ? 'تغيير المطابقة' : row.amount > 0 && item.isRefund ? 'ربط استرداد المشتريات' : 'مراجعة واعتماد'}</Button>}
                         {choice.purchaseSelection && <Alert severity="success" className="my-2">
                           مطابقة مختارة: <Ltr>{choice.purchaseSelection.number}</Ltr> · <Ltr>{choice.purchaseSelection.amount} {choice.purchaseSelection.currency}</Ltr>
                           {choice.purchaseSelection.orders.map((order: any, i: number) => <div key={`${order._id}-${i}`}>الطلبية: <Ltr>{order.number}</Ltr></div>)}
@@ -831,6 +834,11 @@ const BankReconciliation = () => {
           const selection = { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId, orderId: selected.orderId, itemId: selected.itemId, confirmDifference: !!options.confirmDifference };
           if (purchaseReview.index !== undefined) {
             const index = purchaseReview.index;
+            const currentRow = preview && edited(preview).find(row => row.index === index);
+            if (!currentRow || currentRow.amount !== purchaseReview.line.amount || (options.refund ? currentRow.amount <= 0 : currentRow.amount >= 0)) {
+              // eslint-disable-next-line no-throw-literal
+              throw { response: { data: { message: 'تغير اتجاه سطر الكشف أو مبلغه؛ أعد فتح المراجعة واختر المسار الصحيح.' } } };
+            }
             setPreview(current => current ? { ...current, choices: { ...current.choices, [index]: { byHand: true, purchaseMatch: selection, purchaseSelection: selected, notDuplicate: current.choices[index]?.notDuplicate } } } : current);
           } else {
             await acc.post(`bank/lines/${purchaseReview.line._id}/purchase-match`, selection);

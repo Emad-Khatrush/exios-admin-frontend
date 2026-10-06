@@ -52,7 +52,7 @@ const ShippingLabelDialog = ({ open, order, onClose, onError }: Props) => {
 
         <div className="op-label" id={LABEL_ID}>
           <div><img src="/images/exios-logo.png" alt="Exios" width={160} height={90} /></div>
-          <div><QRCode value={`http://exios-admin-frontend.web.app/shouldAllowToAccessApp?id=${order?._id}`} /></div>
+          <div><QRCode value={`${window.location.origin}/shouldAllowToAccessApp?id=${order?._id}`} /></div>
           <div>
             <p><strong>Customer ID:</strong> {customerId}</p>
             <p><strong>Shipment Method:</strong> {method}</p>

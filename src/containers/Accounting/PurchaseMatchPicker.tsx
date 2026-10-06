@@ -40,6 +40,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
     const timer = window.setTimeout(() => {
       setBusy(true);
       acc.get(refund ? 'bank/refunds' : 'bank/purchases', { accountId, lineId: line._id || undefined, paid, description: line.description,
+        statementAmount: line.amount, movementKind: line.movementKind, day: line.day,
         originalAmount: line.originalAmount, originalCurrency: line.originalCurrency, suggestedBillId, suggestedItemId, ...filters, page })
         .then((res: any) => { if (!stale) {
           setData(res.data); setOriginal(res.data.original); setError('');
@@ -53,7 +54,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
         .finally(() => { if (!stale) setBusy(false); });
     }, 250);
     return () => { stale = true; window.clearTimeout(timer); };
-  }, [open, accountId, line?._id, line?.day, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, refund]);
+  }, [open, accountId, line?._id, line?.day, line?.amount, line?.movementKind, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, refund]);
   useEffect(() => { onBusyChange?.(submitting); return () => onBusyChange?.(false); }, [submitting, onBusyChange]);
   useEffect(() => { contentRef.current?.closest('.MuiDialogContent-root')?.scrollTo({ top: 0 }); }, [browsing]);
   // The bank page mounts this picker before any row is selected. Keep all hooks
@@ -63,23 +64,40 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   const sameCurrency = !original?.known || !selected || (refund && selected.kind === 'existing_refund' && !selected.nativeKnown) || original.currency === selected.currency;
   const bankRefundUsd = currency === 'USD' ? Number(paid) : Number(line.settlementUsd) || (line.originalCurrency === 'USD' ? Number(line.originalAmount) : 0);
   const valuationDifference = refund && selected?.kind === 'existing_refund' && bankRefundUsd > 0 ? Math.round((bankRefundUsd - Number(selected.valuationUsd || selected.amount)) * 100) / 100 : 0;
-  const amountDifferent = !refund && selected && original?.currency === selected.currency && original.amount > 0 && Math.abs(selected.amount - original.amount) > 0.0005;
+  const selectedRefundLine = selected?.refundLines?.find((l: any) => l._id === billLineId) || (selected?.refundLines?.length === 1 ? selected.refundLines[0] : null);
+  const amountComparable = selected && original?.known && original.currency === selected.currency && original.amount > 0 && !(refund && selected.kind === 'existing_refund' && !selected.nativeKnown);
+  const amountDifferent = amountComparable && Math.abs(selected.amount - original.amount) > 0.0005;
+  const partialRefund = refund && selected?.kind !== 'existing_refund' && amountDifferent && original.amount < selected.amount;
+  const refundAmount = original?.known ? Number(original.amount) : Number(refundOriginalAmount);
+  const refundTooLarge = refund && selected && selected.kind !== 'existing_refund' && refundAmount > 0
+    && (refundAmount > Number(selected.refundableAmount) + 0.0005 || (selectedRefundLine && refundAmount > Number(selectedRefundLine.amount) + 0.0005));
+  const directionWrong = refund ? (line.amount !== undefined && Number(line.amount) <= 0) || line.movementKind === 'card_payment' : line.amount !== undefined && Number(line.amount) >= 0;
+  const futureRefundBill = refund && selected?.kind !== 'existing_refund' && selected?.day > line.day;
+  const recordedBankMismatch = refund && selected?.kind === 'existing_refund' && (selected.bankCurrency !== currency || Math.abs(Number(selected.bankAmount) - Number(paid)) > 0.0005);
+  const blocked = directionWrong || !sameCurrency || selected?.merchantMismatch || refundTooLarge || futureRefundBill || recordedBankMismatch || selected?.canMatch === false;
   const dateDifferent = (!refund || selected?.kind === 'existing_refund') && selected && line?.day && Math.abs((Date.parse(selected.day) - Date.parse(line.day)) / 86400000) > 7;
-  const needsConfirmation = !!(amountDifferent || dateDifferent);
+  const needsConfirmation = !!((!refund && amountDifferent) || (partialRefund && !refundTooLarge) || dateDifferent
+    || (selected && !selected.merchantMatch && !selected.merchantMismatch));
   const daysApart = selected && line?.day ? Math.abs((Date.parse(selected.day) - Date.parse(line.day)) / 86400000) : 0;
   const reasons = selected ? [
     ...(original?.known && sameCurrency ? ['عملة الشراء الأصلية مطابقة'] : []),
-    ...(original?.known && sameCurrency && !amountDifferent ? ['المبلغ الأصلي مطابق'] : []),
+    ...(amountComparable && !amountDifferent ? ['المبلغ الأصلي مطابق'] : []),
+    ...(refund && selected.kind === 'existing_refund' && !recordedBankMismatch ? ['المبلغ المستلم بعملة البنك مطابق'] : []),
     ...(daysApart === 0 ? ['التاريخ مطابق'] : daysApart <= 7 ? [`فرق التاريخ ${daysApart} يوم ضمن فترة البحث`] : []),
-    ...(selected.source === 'order' ? ['الفاتورة مرتبطة بطلبية'] : ['فاتورة مورد مباشرة']),
+    ...(selected.merchantMatch ? ['المورد مطابق لتاجر الكشف'] : []),
   ] : [];
   const warnings = [
+    ...(directionWrong ? [refund ? 'هذه حركة خارجة من البنك وليست استرداداً وارداً، أو أنها سداد بطاقة. لا يمكن اعتمادها كريفاند.' : 'هذه حركة واردة وليست سداد مشتريات.'] : []),
+    ...(selected?.merchantMismatch ? [`المورد المختار مختلف عن تاجر الكشف (${selected.statementVendorName || 'المورد المعروف'}). لا يمكن اعتماد الربط.`] : []),
     ...(!sameCurrency ? ['عملة الفاتورة تختلف عن العملة الأصلية في الكشف؛ اختر المطابقة الصحيحة.'] : []),
-    ...(amountDifferent ? [`فرق المبلغ الأصلي: ${(selected.amount - original.amount).toFixed(3)} ${selected.currency}. يحتاج تأكيدك.`] : []),
+    ...(amountDifferent ? [partialRefund ? `استرداد جزئي بقيمة ${original.amount} ${original.currency} من فاتورة قيمتها ${selected.amount} ${selected.currency}؛ هذا ليس تطابقاً كاملاً للمبلغ.` : `المبلغ غير مطابق: الكشف ${original.amount} ${original.currency} والفاتورة ${selected.amount} ${selected.currency}.`] : []),
+    ...(refundTooLarge ? ['مبلغ الاسترداد أكبر من المتبقي في الفاتورة أو البند المختار. اختر الفاتورة الصحيحة.'] : []),
+    ...(futureRefundBill ? ['تاريخ الفاتورة بعد الاسترداد؛ الاختيار غير صالح.'] : []),
+    ...(recordedBankMismatch ? ['مبلغ الريفاند المسجل أو حساب عملته لا يطابق المبلغ المستلم في الكشف.'] : []),
+    ...(selected && !selected.merchantMatch && !selected.merchantMismatch ? ['هوية المورد لم تُثبت من نص الكشف؛ تشابه المبلغ والتاريخ وحده لا يثبت أنها نفس العملية.'] : []),
     ...(dateDifferent ? [`فرق التاريخ ${daysApart} يوم؛ يحتاج تأكيدك.`] : []),
     ...(selected && !original?.known ? ['عملة الشراء ومبلغها غير موضحين في الكشف؛ راجع الفاتورة المختارة قبل الاعتماد.'] : []),
   ];
-  const selectedRefundLine = selected?.refundLines?.find((l: any) => l._id === billLineId) || (selected?.refundLines?.length === 1 ? selected.refundLines[0] : null);
   const content = <div ref={contentRef}>
       {error && <Alert severity="error" className="my-2">{error}</Alert>}
       {!browsing && <BankReviewComparison line={line} currency={currency} paid={paid} bankName={bankName} original={original}
@@ -99,7 +117,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
           {refund && selected.kind !== 'existing_refund' && !original?.known && <TextField type="number" fullWidth className="mt-2" label={`مبلغ الاسترداد الأصلي (${selected.currency})`} value={refundOriginalAmount} onChange={e => setRefundOriginalAmount(e.target.value)} />}
           {refund && selectedRefundLine?.target === 'order' && <TextField type="number" fullWidth className="mt-2" label="يُضاف لمحفظة العميل بالدولار" value={walletUsd} onChange={e => setWalletUsd(e.target.value)} helperText="صفر لحفظ استرداد البنك فقط. تستطيع إضافة مبلغ العميل لاحقاً من نفس الريفاند داخل الطلبية." />}
           {valuationDifference !== 0 && <Alert severity="warning" className="mt-3">عند الاعتماد، سيُصحح تقييم البنك من <Ltr>{selected.valuationUsd} USD</Ltr> إلى <Ltr>{bankRefundUsd} USD</Ltr> بقيد تسوية فرق <Ltr>{valuationDifference} USD</Ltr>. مبلغ الليرة لا يتكرر. مبلغ العميل يبقى <Ltr>{selected.walletUsd} USD</Ltr>؛ الفرق بين المسترد من المورد والمضاف للمحفظة <Ltr>{(Math.round((bankRefundUsd - Number(selected.walletUsd)) * 100) / 100)} USD</Ltr>.</Alert>}
-          <Alert severity="info" className="mt-3">{refund ? selected.kind === 'existing_refund' ? 'ستُربط الحركة بالريفاند الموجود. أي فرق في مقابل الدولار المكتوب في الكشف يُسجل كتسوية لتقييم البنك وتكلفة الطلبية؛ مبلغ محفظة العميل محفوظ.' : selectedRefundLine?.target === 'order' ? 'سيظهر هذا الاسترداد في قسم الريفاند الموجود بالطلبية. يُسجل استلام البنك وخفض التكلفة مرة واحدة.' : 'سيُسجل إشعار دائن واستلام من المورد على الفاتورة الأصلية، مع خفض تكلفة المشتريات.' : selected.kind === 'order_item' ? 'سيُسجَّل بند الشراء على الطلبية ويُسدد من سطر الكشف.' : selected.status === 'paid' ? 'ستُطابق حركة السداد الموجودة دون إنشاء دفعة جديدة.' : 'سيُسجَّل السداد على الفاتورة الأصلية؛ لا تُنشأ تكلفة أخرى.'}</Alert>
+          {!blocked && <Alert severity="info" className="mt-3">{refund ? selected.kind === 'existing_refund' ? 'ستُربط الحركة بالريفاند الموجود. أي فرق في مقابل الدولار المكتوب في الكشف يُسجل كتسوية لتقييم البنك وتكلفة الطلبية؛ مبلغ محفظة العميل محفوظ.' : selectedRefundLine?.target === 'order' ? 'سيظهر هذا الاسترداد في قسم الريفاند الموجود بالطلبية. يُسجل استلام البنك وخفض التكلفة مرة واحدة.' : 'سيُسجل إشعار دائن واستلام من المورد على الفاتورة الأصلية، مع خفض تكلفة المشتريات.' : selected.kind === 'order_item' ? 'سيُسجَّل بند الشراء على الطلبية ويُسدد من سطر الكشف.' : selected.status === 'paid' ? 'ستُطابق حركة السداد الموجودة دون إنشاء دفعة جديدة.' : 'سيُسجَّل السداد على الفاتورة الأصلية؛ لا تُنشأ تكلفة أخرى.'}</Alert>}
         </> : <Alert severity="info">{busy ? 'جارٍ تجهيز الاقتراح...' : 'افتح قائمة المشتريات لاختيار الفاتورة أو بند الشراء.'}</Alert>}
         {!browsing && <Button disabled={submitting} className="mt-2" onClick={() => setBrowsing(true)}>تغيير الفاتورة أو الطلبية</Button>}
       </BankReviewComparison>}
@@ -127,13 +145,13 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
         { key: 'source', header: 'المصدر', render: (row: any) => row.source === 'order' ? 'مشتريات طلبية' : 'فاتورة مورد مباشرة' },
         { key: 'purchase', header: 'الفاتورة / الطلبية', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.orders.map((order: any, i: number) => <Sub key={`${order._id}-${i}`}><Open to={`/invoice/${order._id}/edit`}><Ltr>{order.number}</Ltr></Open></Sub>)}<Sub>{row.vendorName} · {row.description}</Sub>{row.merchantMatch && <Sub>المورد مطابق لاسم التاجر في الكشف؛ تأكد من الطلبية والمبلغ قبل الاعتماد.</Sub>}</> },
         { key: 'amount', header: 'المبلغ الأصلي', render: (row: any) => <Ltr>{row.amount} {row.currency}</Ltr> },
-        { key: 'status', header: 'الحالة', render: (row: any) => <>{states[row.status]}{row.openUsd != null && <Sub>المتبقي: <Ltr>{row.openUsd} USD</Ltr></Sub>}{row.status === 'paid' && !row.canMatch && <Sub>لا يوجد قيد سداد متاح للمطابقة على هذا البنك.</Sub>}</> },
+        { key: 'status', header: 'الحالة', render: (row: any) => <>{states[row.status]}{row.matchProblems?.map((problem: string) => <Sub key={problem}>{problem}</Sub>)}{row.openUsd != null && <Sub>المتبقي: <Ltr>{row.openUsd} USD</Ltr></Sub>}{row.status === 'paid' && !row.canMatch && <Sub>لا يوجد قيد سداد متاح للمطابقة على هذا البنك.</Sub>}</> },
       ]} />
       {data && <div className="d-flex align-items-center justify-content-between mt-2"><Sub>{data.total} نتيجة</Sub><Pagination count={Math.max(1, Math.ceil(data.total / data.pageSize))} page={page} onChange={(_, next) => { setPage(next); initialChoice.current = false; }} /></div>}</>}
-      {!browsing && selected && needsConfirmation && <FormControlLabel control={<Checkbox checked={confirmDifference} onChange={e => setConfirmDifference(e.target.checked)} />} label="راجعت اختلاف المبلغ أو التاريخ وأؤكد أنها نفس العملية" />}
+      {!browsing && selected && needsConfirmation && <FormControlLabel control={<Checkbox checked={confirmDifference} onChange={e => setConfirmDifference(e.target.checked)} />} label="راجعت بيانات العملية والاختلافات وأؤكد أنها نفس العملية" />}
       {!selected && !busy && !browsing && <Alert severity="info">اختر الفاتورة أو بند المشتريات لإكمال المطابقة.</Alert>}
   </div>;
-  const actions = <><Button disabled={submitting} onClick={onClose}>إلغاء</Button>{!browsing && <Button variant="contained" disabled={busy || submitting || !selected || !sameCurrency || (needsConfirmation && !confirmDifference) || (refund && selected?.kind !== 'existing_refund' && (!selectedRefundLine || (!original?.known && !(Number(refundOriginalAmount) > 0))))} onClick={async () => {
+  const actions = <><Button disabled={submitting} onClick={onClose}>إلغاء</Button>{!browsing && <Button variant="contained" disabled={busy || submitting || !selected || blocked || (needsConfirmation && !confirmDifference) || (refund && selected?.kind !== 'existing_refund' && (!selectedRefundLine || (!original?.known && !(Number(refundOriginalAmount) > 0))))} onClick={async () => {
       setSubmitting(true); setError('');
       try { await onConfirm(selected, { confirmDifference, refund, billLineId: selectedRefundLine?._id, walletUsd: Number(walletUsd), refundOriginalAmount: Number(refundOriginalAmount) }); } catch (err: any) { setError(errorText(err)); } finally { setSubmitting(false); }
     }}>{submitting ? 'جارٍ الاعتماد...' : refund ? 'موافقة واعتماد الاسترداد' : 'موافقة وتسجيل السداد'}</Button>}</>;

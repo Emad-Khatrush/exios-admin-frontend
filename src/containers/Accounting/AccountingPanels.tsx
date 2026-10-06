@@ -273,7 +273,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
     if (!open || existingRefundId || !form.accountId || !(Number(form.amount) > 0 || Number(form.usdValue) > 0)) {
       setPendingMatches([]); setPendingBankLineId(''); setPendingBusy(false); return undefined;
     }
-    let stale = false; setPendingBusy(true);
+    let stale = false; setPendingBusy(true); setPendingMatches([]);
     const timer = window.setTimeout(() => {
       sys.get(`acc/orders/${orderId}/pending-refunds`, { accountId: form.accountId, amount: form.amount, usdValue: form.usdValue, day: form.day })
         .then((res: any) => { if (!stale) {
@@ -281,7 +281,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
           setPendingBankLineId(current => results.some((row: any) => row._id === current) ? current : '');
         } }).catch((err: any) => { if (!stale) { setPendingMatches([]); setPendingBankLineId(''); setError(errorText(err)); } })
         .finally(() => { if (!stale) setPendingBusy(false); });
-    }, 300);
+    }, 200);
     return () => { stale = true; window.clearTimeout(timer); };
   }, [open, existingRefundId, form.accountId, form.amount, form.usdValue, form.day, orderId]);
   // Valued at the day's rate in the books; what matters here is what goes to the wallet
@@ -338,23 +338,27 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
           }}><MenuItem value="">استرداد جديد لم يُسجل في الكشف أو الطلبية</MenuItem>{rows.filter((r: any) => r.status === 'posted' && !r.walletUsd).map((r: any) => <MenuItem key={r._id} value={r._id}>{r.number} · {r.amount} {r.currency} · {r.day}</MenuItem>)}</TextField>
           {existingRefundId && <Alert severity="info" className="mb-2">استلام البنك وتخفيض تكلفة الطلبية مسجلان بالفعل. سيضاف مبلغ العميل لمحفظته فقط دون تكرار حركة البنك أو تخفيض التكلفة.</Alert>}
           {!existingRefundId && pendingMatches.length > 0 && <Alert severity="warning" className="mb-2">
-            وجدنا استردادات مرحّلة قيد التحديد بنفس البنك والمبلغ أو مقابل الدولار. راجع السطر واختر المسترد لهذه الطلبية؛ سيُستخدم تاريخ الكشف ومبلغه، ولن يتكرر استلام البنك.
+            وجدنا استردادات في الكشف غير مرتبطة بطلبية، مرحّلة أو غير مرحّلة، بالمبلغ نفسه أو بنفس الجزء الصحيح مع اختلاف الكسور. راجع التفاصيل واختر الاسترداد؛ يُعتمد مبلغ الكشف وتاريخه. غير المرحّل سيُرحّل عند التأكيد، والمرحّل لن تتكرر حركة البنك فيه. مبلغ محفظة العميل يبقى كما أدخلته.
             {pendingMatches.map((row: any) => <div key={row._id} className="mt-2">
-              <Ltr>{row.day} · {row.amount} {row.currency} · {row.usdValue} USD</Ltr><Sub>{row.description}</Sub>
+              <Ltr>{row.day} · {row.amount} {row.currency}{Number(row.usdValue) > 0 ? ` · ${row.usdValue} USD` : ''}</Ltr><Sub>{row.description}</Sub>
+              <Badge tone={row.unposted ? 'warn' : 'info'}>{row.unposted ? 'غير مرحّل — سيُرحّل ويُربط عند التأكيد' : 'مرحّل — ربط دون تكرار استلام البنك'}</Badge>
+              <Sub>{row.nativeMatch ? 'المبلغ بعملة الحساب مطابق بالكامل' : row.dollarMatch ? 'مقابل الدولار مطابق بالكامل' : row.nativeIntegerMatch ? 'الجزء الصحيح بعملة الحساب مطابق؛ الكسور مختلفة' : 'الجزء الصحيح بالدولار مطابق؛ الكسور مختلفة'}</Sub>
+              {row.amountDifference !== null && row.amountDifference !== 0 && <Sub>فرق مبلغ الكشف عن المدخل: <Ltr>{Number(row.amountDifference).toFixed(3)} {row.currency}</Ltr></Sub>}
+              {row.usdDifference !== null && row.usdDifference !== 0 && <Sub>فرق مقابل الدولار عن المدخل: <Ltr>{Number(row.usdDifference).toFixed(2)} USD</Ltr></Sub>}
               <Button size="small" variant={pendingBankLineId === row._id ? 'contained' : 'outlined'} onClick={() => {
-                setPendingBankLineId(row._id); setForm({ ...form, amount: String(row.amount), usdValue: String(row.usdValue), day: row.day });
+                setPendingBankLineId(row._id); setForm({ ...form, amount: String(row.amount), usdValue: Number(row.usdValue) > 0 ? String(row.usdValue) : '', day: row.day });
               }}>{pendingBankLineId === row._id ? 'مختار — سيتم ربطه بهذه الطلبية' : 'اختيار هذا الاسترداد للربط'}</Button>
             </div>)}
           </Alert>}
           <div className="acc-form-grid">
-            <TextField select disabled={!!existingRefundId} label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+            <TextField select disabled={!!existingRefundId} label="دخل المال في" value={form.accountId} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, accountId: e.target.value }); }}>
               {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
             </TextField>
-            <TextField disabled={!!existingRefundId} type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-            {account?.currency !== 'USD' && <TextField disabled={!!existingRefundId} type="number" label="القيمة الفعلية بالدولار (إن ذكرها البنك)" value={form.usdValue} onChange={e => setForm({ ...form, usdValue: e.target.value })} helperText="اختياري؛ استخدم مقابل الدولار المطبوع في الكشف، وإلا يُستخدم تقييم المنظومة." />}
+            <TextField disabled={!!existingRefundId} type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, amount: e.target.value }); }} />
+            {account?.currency !== 'USD' && <TextField disabled={!!existingRefundId} type="number" label="القيمة الفعلية بالدولار (إن ذكرها البنك)" value={form.usdValue} onChange={e => { setPendingBankLineId(''); setForm({ ...form, usdValue: e.target.value }); }} helperText="اختياري؛ استخدم مقابل الدولار المطبوع في الكشف، وإلا يُستخدم تقييم المنظومة." />}
             <TextField type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
               helperText={account?.currency === 'USD' && usd > 0 ? <>مثلاً <Ltr>{Math.max(usd - 1, 0).toFixed(2)}</Ltr> (هامش حماية 1$)</> : 'ما يُضاف لمحفظة العميل بالدولار'} />
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, day: e.target.value }); }} />
             <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </div>
         </DialogContent>

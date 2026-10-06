@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BillExcelImport from './BillExcelImport';
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
@@ -73,7 +74,7 @@ export const BillsList = () => {
       <PageHeader
         title="فواتير الموردين"
         subtitle="كل تكلفة تدخل من هنا: شركات الشحن، موردو طلبات الشراء، الخدمات، والأصول."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/bills/new')}>فاتورة جديدة</Button>}
+        actions={<div className="d-flex flex-wrap gap-2"><BillExcelImport kind="bills" onDone={() => load(1)} /><Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/bills/new')}>فاتورة جديدة</Button></div>}
       />
       <Panel flush>
         <div className="px-3">
@@ -122,6 +123,7 @@ export const BillsList = () => {
               key: 'number', header: 'الفاتورة', render: (row: any) => (
                 <>
                   <Ltr>{row.number || 'مسودة'}</Ltr> {row.isCreditNote && <Badge tone="info">إشعار دائن</Badge>}
+                  {row.importReference && <Sub>استيراد Excel · <Ltr>{row.importReference}</Ltr></Sub>}
                   <Sub>{row.lines[0]?.description}{row.lines.length > 1 ? ` و${row.lines.length - 1} سطر آخر` : ''}</Sub>
                 </>
               ),
@@ -180,6 +182,7 @@ export const BillDetail = () => {
         title={<>{bill.isCreditNote ? 'إشعار دائن' : 'فاتورة'} <Ltr>{bill.number || '(مسودة)'}</Ltr> <BillStatus bill={bill} open={open} paymentStatus={paymentStatus} /></>}
         subtitle={<>
           {bill.vendorId?.name} · <Ltr>{bill.day}</Ltr>{bill.vendorRef && <> · رقم فاتورة المورد <Ltr>{bill.vendorRef}</Ltr></>}
+          {bill.importReference && <> · استيراد Excel <Ltr>{bill.importReference}</Ltr></>}
           {' · '}<Ltr>{bill.currency}</Ltr>{bill.rate ? <> بسعر <Ltr>{bill.rate}</Ltr></> : null}
           {bill.createdBy && ` · بواسطة ${bill.createdBy.firstName} ${bill.createdBy.lastName}`}
         </>}

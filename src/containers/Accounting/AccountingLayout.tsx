@@ -55,14 +55,20 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
     ],
   },
   {
+    label: 'المراجعة والتسويات',
+    links: [
+      { to: '/accounting/purchase-reconciliation', label: 'متابعة مشتريات الطلبيات', icon: ListChecks, perms: ['treasury', 'reports'] },
+      { to: '/accounting/exceptions', label: 'المطابقة والاستثناءات', icon: ShieldCheck, perms: ['reports'] },
+      { to: '/accounting/suspense', label: 'تسوية المعلّق', icon: ListChecks, perms: ['suspense'] },
+    ],
+  },
+  {
     label: 'الدفاتر والتقارير',
     links: [
       { to: '/accounting/reports', label: 'التقارير', icon: ChartColumn, perms: ['reports'] },
-      { to: '/accounting/exceptions', label: 'المطابقة والاستثناءات', icon: ShieldCheck, perms: ['reports'] },
       { to: '/accounting/entries', label: 'القيود', icon: BookOpen, perms: ['entries', 'entries_view'] },
       { to: '/accounting/accounts', label: 'شجرة الحسابات', icon: ListTree, perms: ['setup', 'reports', 'treasury'] },
       { to: '/accounting/trial-balance', label: 'ميزان المراجعة', icon: Scale, perms: ['reports'] },
-      { to: '/accounting/suspense', label: 'تسوية المعلّق', icon: ListChecks, perms: ['suspense'] },
       { to: '/accounting/rates', label: 'الأسعار اليومية', icon: CalendarClock, perms: ['rates', 'setup'] },
     ],
   },

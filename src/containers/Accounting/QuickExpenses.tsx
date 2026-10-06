@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import BillExcelImport from './BillExcelImport';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, MenuItem, TextField } from '@mui/material';
 import { OFFICE_LABELS, acc, errorText, newKey } from './accountingApi';
@@ -61,6 +62,7 @@ const QuickExpenses = () => {
   return (
     <>
       <PageHeader title="مصروفات سريعة" subtitle="للمصروفات التشغيلية المدفوعة فوراً (إيجار، كهرباء، وقود...). فواتير الموردين الآجلة تُسجَّل من «فواتير الموردين»." />
+      <div className="d-flex justify-content-end mb-3"><BillExcelImport kind="expenses" onDone={() => loadRecent()} /></div>
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <Panel title="مصروف جديد">
         <div className="acc-form-grid">

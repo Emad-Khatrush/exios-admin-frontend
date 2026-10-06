@@ -106,7 +106,7 @@ const ShippingMarkDialog = ({ user }: { user: any }) => {
               <Divider />
 
               <Box display="flex" justifyContent="center">
-                <QRCode value={`http://exios-admin-frontend.web.app/shouldAllowToAccessApp?id=${user?._id}`} size={160} />
+                <QRCode value={`${window.location.origin}/shouldAllowToAccessApp?id=${user?._id}`} size={160} />
               </Box>
 
               <Divider />

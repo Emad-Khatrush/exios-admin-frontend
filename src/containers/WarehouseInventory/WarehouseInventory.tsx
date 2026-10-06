@@ -5,10 +5,10 @@ import moment from 'moment-timezone';
 import {
   AlertTriangle, Building2, CalendarClock, CheckCircle2, ClipboardCheck, Image as ImageIcon,
   MapPin, MessageCircle, Package, PackagePlus, Phone, Search, ShieldAlert, SquareArrowOutUpRight,
-  Trash2, Truck, Warehouse
+  SlidersHorizontal, Trash2, Truck, Warehouse, X, RotateCcw
 } from 'lucide-react';
 import api from '../../api';
-import TextInput from '../../components/TextInput/TextInput';
+import { useOffices } from '../../utils/useOffices';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import ActivityDialog from '../../components/TransferOrdersList/ActivityDialog';
 import { calculateMinTotalPrice } from '../../utils/methods';
@@ -68,8 +68,10 @@ const getUrgency = (order: any): Urgency => {
 const isUnknown = (order: any) => !order?.user?.customerId || order.user.customerId === 'A000';
 
 // The filters of the warehouse list (owner's request 2026-10-04), besides the office tabs
-type Filters = { customer: string; state: string; method: string; days: string; extra: string };
-const NO_FILTERS: Filters = { customer: '', state: '', method: '', days: '', extra: '' };
+type Filters = { customer: string; state: string; method: string; days: string; extra: string; office: string };
+const NO_FILTERS: Filters = { customer: '', state: '', method: '', days: '', extra: '', office: '' };
+const compactOffice = (value: string) => String(value || '').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]+/gu, '').toLowerCase();
+const displayOffice = (value: string) => String(value || '').trim().replace(/\s+/gu, ' ');
 const FILTER_FIELDS: { key: keyof Filters; label: string; options: [string, string][] }[] = [
   { key: 'customer', label: 'العميل', options: [['', 'الكل'], ['unknown', 'بضائع مجهولة (A000)'], ['known', 'لعملاء معروفين']] },
   { key: 'state', label: 'الحالة', options: [['', 'الكل'], ['overdue', 'متأخر'], ['dueSoon', 'يستحق قريبًا'], ['unpaid', 'رسوم الشحن غير مدفوعة'], ['paid', 'رسوم الشحن مدفوعة'], ['noArrival', 'لم يُسجل وصوله']] },
@@ -104,6 +106,7 @@ const breadcrumbs = [
 
 const WarehouseInventory = () => {
   const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const registeredOffices = useOffices();
 
   const [office, setOffice] = useState<Office>('tripoli');
   const [inventory, setInventory] = useState<any>(null);
@@ -166,9 +169,36 @@ const WarehouseInventory = () => {
     loadOffice(target);
   };
 
+  const officeAliases = useMemo(() => {
+    const aliases = new Map<string, { key: string; label: string }>();
+    registeredOffices.forEach(item => {
+      const label = displayOffice(item.name || item.nameEn || item.code);
+      const entry = { key: compactOffice(label), label };
+      [item.code, item.name, item.nameEn].filter(Boolean).forEach(value => aliases.set(compactOffice(value || ''), entry));
+    });
+    return aliases;
+  }, [registeredOffices]);
+  const orderOffice = useCallback((order: any) => {
+    const raw = typeof order?.placedAt === 'string' ? order.placedAt : '';
+    const key = compactOffice(raw);
+    return officeAliases.get(key) || { key: key || '__unspecified__', label: displayOffice(raw) || 'بدون مكتب مسجل' };
+  }, [officeAliases]);
+  const inventoryOffices = useMemo(() => {
+    const grouped = new Map<string, { key: string; label: string; count: number }>();
+    orders.forEach(order => {
+      const entry = orderOffice(order);
+      const existing = grouped.get(entry.key);
+      grouped.set(entry.key, { ...entry, label: existing?.label || entry.label, count: (existing?.count || 0) + 1 });
+    });
+    return Array.from(grouped.values()).sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+  }, [orders, orderOffice]);
+  const filterFields = useMemo(() => [
+    { key: 'office' as keyof Filters, label: 'مكتب الطلبية', options: [['', 'جميع المكاتب'], ...inventoryOffices.map(item => [item.key, `${item.label} (${item.count})`])] },
+    ...FILTER_FIELDS,
+  ], [inventoryOffices]);
   const filteredOrders = useMemo(() => {
     const q = searchValue.trim().toLowerCase();
-    const filtered = orders.filter((order) => matchesFilters(order, filters));
+    const filtered = orders.filter((order) => matchesFilters(order, filters) && (!filters.office || orderOffice(order).key === filters.office));
     if (!q) return filtered;
     return filtered.filter((order) => [
       fullName(order),
@@ -178,8 +208,11 @@ const WarehouseInventory = () => {
       order?.paymentList?.deliveredPackages?.trackingNumber,
       order?.paymentList?.deliveredPackages?.receiptNo,
     ].some((value) => value && String(value).toLowerCase().includes(q)));
-  }, [orders, searchValue, filters]);
+  }, [orders, searchValue, filters, orderOffice]);
   const filtersOn = Object.values(filters).some(Boolean);
+  const activeFilters = filterFields.filter(field => filters[field.key]).map(field => ({
+    key: field.key, label: field.label, value: field.options.find(([value]) => value === filters[field.key])?.[1] || filters[field.key],
+  }));
   const unknownCount = useMemo(() => orders.filter(isUnknown).length, [orders]);
 
   const stats = useMemo(() => {
@@ -325,32 +358,27 @@ const WarehouseInventory = () => {
           </button>
         </div>
 
-        <div className="warehouse__toolbar" dir="ltr">
-          <TextInput
-            key={office}
-            placeholder="ابحث بالاسم، رقم الطلب، رقم التتبع، الإيصال أو الهاتف"
-            icon={<Search size={15} strokeWidth={2} />}
-            onChange={(event: any) => { setSearchValue(event.target.value); setPage(1); }}
-          />
-        </div>
-
-        <div className="warehouse__filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '8px 0 12px' }}>
-          {FILTER_FIELDS.map((field) => (
-            <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-              {field.label}
-              <select value={filters[field.key]} onChange={(e) => { setFilters({ ...filters, [field.key]: e.target.value }); setPage(1); }}
-                style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid #d0d5dd', background: filters[field.key] ? '#eef4ff' : '#fff' }}>
+        <section className="warehouse__filters" aria-labelledby="warehouse-filter-title">
+          <div className="warehouse__filter-heading">
+            <div><SlidersHorizontal size={17} /><h2 id="warehouse-filter-title">تصفية الجرد</h2><span className="warehouse__filter-total" role="status">{filteredOrders.length} من {orders.length} طرد</span></div>
+            <button type="button" className="warehouse__filter-reset" disabled={!filtersOn && !searchValue} onClick={() => { setFilters(NO_FILTERS); setSearchValue(''); setPage(1); }}><RotateCcw size={14} />إعادة ضبط</button>
+          </div>
+          <label className="warehouse__filter-search">
+            <Search size={19} aria-hidden="true" />
+            <input aria-label="البحث في الجرد" placeholder="ابحث بالاسم، رقم الطلب، التتبع، الإيصال أو الهاتف…" value={searchValue} onChange={e => { setSearchValue(e.target.value); setPage(1); }} />
+          </label>
+          <div className="warehouse__filter-grid">
+            {filterFields.map(field => <label key={field.key} className={`warehouse__filter-field${filters[field.key] ? ' is-active' : ''}`}>
+              <span>{field.key === 'office' && <Building2 size={13} />}{field.label}</span>
+              <select disabled={isLoading} value={filters[field.key]} onChange={e => { setFilters(current => ({ ...current, [field.key]: e.target.value })); setPage(1); }}>
                 {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
-            </label>
-          ))}
-          {filtersOn && (
-            <>
-              <span style={{ fontSize: 13, color: '#475467' }}>{filteredOrders.length} من {orders.length}</span>
-              <button type="button" className="wh-btn" onClick={() => { setFilters(NO_FILTERS); setPage(1); }}>مسح الفلاتر</button>
-            </>
-          )}
-        </div>
+            </label>)}
+          </div>
+          {activeFilters.length > 0 && <div className="warehouse__filter-chips" aria-label="الفلاتر المفعلة">
+            {activeFilters.map(field => <button key={field.key} type="button" aria-label={`إزالة فلتر ${field.label}`} onClick={() => { setFilters(current => ({ ...current, [field.key]: '' })); setPage(1); }}><span>{field.label}: <strong>{field.value}</strong></span><X size={13} /></button>)}
+          </div>}
+        </section>
 
         {selected.size > 0 &&
           <div className="warehouse__selection-bar">
@@ -419,6 +447,7 @@ const WarehouseInventory = () => {
                           <SquareArrowOutUpRight size={11} strokeWidth={2} />
                         </a>
                         <div className="warehouse__meta">
+                          <span><Building2 size={11} strokeWidth={2} /> {orderOffice(order).label}</span>
                           {order?.orderId && <span>طلب {order.orderId}</span>}
                           {pkg.trackingNumber && <span>تتبع {pkg.trackingNumber}</span>}
                           {order?.user?.phone && <span><Phone size={11} strokeWidth={2} /> {order.user.phone}</span>}

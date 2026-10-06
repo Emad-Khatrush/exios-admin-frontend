@@ -165,7 +165,7 @@ export class MyTasks extends Component<MyProps, State> {
         والحالة: ${labels[task.label]}
         التعليق الجديد: '${commentInput}'
         يرجى دخول على التاسك لعرض التعليق واكتمال التاسك في اسرع وقت
-        https://exios-admin-frontend.web.app/mytasks?id=${task._id}
+        ${window.location.origin}/mytasks?id=${task._id}
         شكرا لكم
       `
       await this.sendWhatsupMessage(message, 'add-comment');
@@ -185,7 +185,7 @@ export class MyTasks extends Component<MyProps, State> {
       عنوان التاسك '${task.title}'
       والحالة: ${labels[task.label]}
       يرجى دخول للتاسك وبدا في حل المشكلة
-      https://exios-admin-frontend.web.app/mytasks?id=${task._id}
+      ${window.location.origin}/mytasks?id=${task._id}
       شكرا لكم
     `;
 

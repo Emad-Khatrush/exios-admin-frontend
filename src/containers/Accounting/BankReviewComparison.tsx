@@ -37,7 +37,7 @@ export default function BankReviewComparison({ line, currency, paid, bankName, o
       </Paper>
     </Box>
     {!!reasons.length && <Box sx={{ mt: 2, p: 2, bgcolor: '#f0f8f5', borderRadius: 2 }}>
-      <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>سبب الاقتراح والمطابقة</Typography>
+      <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>معايير المقارنة — لا تعني اعتماد المطابقة</Typography>
       <Stack direction="row" flexWrap="wrap" gap={1}>{reasons.map((reason: string, i: number) => <Chip key={i} size="small" label={reason} sx={{ bgcolor: '#fff', color: '#14634f' }} />)}</Stack>
     </Box>}
     {!!warnings.length && <Box sx={{ mt: 1.5, p: 2, bgcolor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 2 }}>
