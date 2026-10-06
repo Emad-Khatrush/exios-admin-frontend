@@ -18,6 +18,12 @@ export const SHIPPING_TYPE_OPTIONS: ChoiceOption[] = [
   { value: 'domestic', label: 'شحن داخلي' },
 ];
 
+// Sea trips only, so sales goals can tell shared freight (by CBM) from full containers (by count)
+export const SEA_TYPE_OPTIONS: ChoiceOption[] = [
+  { value: 'lcl', label: 'LCL - شحن مشترك' },
+  { value: 'fcl', label: 'FCL - شحن حاوية كاملة لعميل' },
+];
+
 export const OFFICE_OPTIONS: ChoiceOption[] = [
   { value: 'tripoli', label: 'Tripoli' },
   { value: 'benghazi', label: 'Benghazi' },

@@ -36,7 +36,8 @@ import Marketing from './containers/Marketing/Marketing';
 import Analytics from './containers/Analytics/Analytics';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
-const EmployeeHomePage = React.lazy(() => import('./containers/EmployeeHomePage/EmployeeHomePage'));
+const EmployeeHomePage = React.lazy(() => import('./containers/Goals/EmployeeGoals'));
+const Goals = React.lazy(() => import('./containers/Goals/Goals'));
 const AddInvoice = React.lazy(() => import('./containers/AddInvoice/AddInvoice'));
 const UnsureOrder = React.lazy(() => import('./containers/UnsureOrder/UnsureOrder'));
 const Invoices = React.lazy(() => import('./containers/Invoices/Invoices'));
@@ -142,6 +143,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/deleted-payments' element={<DeletedStatements />} />
       <Route path='/marketing' element={<Marketing />} />
       <Route path='/analytics' element={<Analytics />} />
+      <Route path='/goals' element={<Goals />} />
     </>
   }
 }

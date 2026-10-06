@@ -9,7 +9,7 @@ import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_AUTO_HINT, READY_DATE_LABEL, SHIPPING_TYPE_OPTIONS } from "./InventoryFields";
+import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_AUTO_HINT, READY_DATE_LABEL, SEA_TYPE_OPTIONS, SHIPPING_TYPE_OPTIONS } from "./InventoryFields";
 
 import './InventoryForm.scss';
 
@@ -185,6 +185,17 @@ const AddInventory = () => {
               onChange={onChangeHandler}
               required
             />
+
+            {form.shippingType === 'sea' && (
+              <ChoiceGroup
+                name="seaType"
+                label="نوع الشحن البحري"
+                options={SEA_TYPE_OPTIONS}
+                value={form.seaType}
+                onChange={onChangeHandler}
+                required
+              />
+            )}
 
             <ChoiceGroup
               name="inventoryPlace"

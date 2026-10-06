@@ -25,6 +25,7 @@ import {
   optionLabel,
   READY_DATE_HINT,
   READY_DATE_LABEL,
+  SEA_TYPE_OPTIONS,
   SHIPPING_TYPE_OPTIONS,
   STATUS_OPTIONS,
 } from "./InventoryFields";
@@ -246,6 +247,7 @@ const EditInventory = () => {
             {[
               optionLabel(COUNTRY_OPTIONS, inventory?.shippedCountry),
               optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType),
+              inventory?.shippingType === 'sea' && inventory?.seaType ? inventory.seaType.toUpperCase() : '',
               optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace),
             ].filter(Boolean).join(', ')}
           </p>
@@ -301,6 +303,12 @@ const EditInventory = () => {
                 <dt>Shipping type</dt>
                 <dd>{optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType) || <span className="is-empty">Not set</span>}</dd>
               </div>
+              {inventory?.shippingType === 'sea' && (
+                <div>
+                  <dt>نوع الشحن البحري</dt>
+                  <dd>{optionLabel(SEA_TYPE_OPTIONS, inventory?.seaType) || <span className="is-empty">Not set</span>}</dd>
+                </div>
+              )}
               <div>
                 <dt>Inventory office</dt>
                 <dd>{optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace) || <span className="is-empty">Not set</span>}</dd>
@@ -397,6 +405,18 @@ const EditInventory = () => {
                 disabled={!isAdmin}
                 required
               />
+
+              {valueOf('shippingType') === 'sea' && (
+                <ChoiceGroup
+                  name="seaType"
+                  label="نوع الشحن البحري"
+                  options={SEA_TYPE_OPTIONS}
+                  value={valueOf('seaType')}
+                  disabled={!isAdmin}
+                  onChange={onChangeHandler}
+                  required
+                />
+              )}
 
               <ChoiceGroup
                 name="inventoryPlace"
