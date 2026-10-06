@@ -184,11 +184,12 @@ const Migration = () => {
       {committed && (
         <Alert severity="success" className="mb-3">
           اعتُمد الترحيل التاريخي بتاريخ <Ltr>{overview.migrationDate}</Ltr>. الترحيل الحي {overview.liveEnabled ? 'مفعّل' : 'متوقف'}، ولا يمكن تشغيل الترحيل التاريخي مرة أخرى.
+          {overview.operationalStartDate && <div className="mt-2">تاريخ الجرد: <Ltr>{overview.openingCountDay}</Ltr> · بداية الحركات المؤثرة في الأرصدة بعد الجرد: <Ltr>{overview.operationalStartDate}</Ltr>.</div>}
         </Alert>
       )}
 
       <StatGrid>
-        <Stat label="أقدم سجل" value={<Ltr>{dayText(overview?.oldest)}</Ltr>} hint="بداية التاريخ المحاسبي" tone="accent" />
+        <Stat label="أقدم سجل" value={<Ltr>{dayText(overview?.oldest)}</Ltr>} hint="التاريخ الأصلي للبيانات؛ تُستخدم لبناء الديون والأرصدة السابقة للجرد" tone="accent" />
         <Stat label="حركات المحافظ" value={overview?.counts?.statements ?? '-'} hint={`${overview?.counts?.cashPayments ?? 0} دفعة نقدية على الطلبات`} />
         <Stat label="الطلبات" value={overview?.counts?.orders ?? '-'} hint={`${overview?.counts?.debts ?? 0} دين`} />
         <Stat label="الرحلات" value={overview?.counts?.trips ?? '-'} hint={`${overview?.counts?.expenses ?? 0} مصروف و${overview?.counts?.incomes ?? 0} إيراد من الشاشات القديمة`} />

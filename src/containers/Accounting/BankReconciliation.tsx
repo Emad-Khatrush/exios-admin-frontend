@@ -8,6 +8,9 @@ import { useBulk } from './bulk';
 import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 import { Mapping, ROLES, StatementRow, detect, readSheet, rowsFrom } from './bankImport';
 import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
+import PurchaseMatchPicker from './PurchaseMatchPicker';
+import BankReviewComparison, { ReviewField } from './BankReviewComparison';
+import BankLineDetails from './BankLineDetails';
 
 type Preview = {
   fileName: string
@@ -27,10 +30,12 @@ type Preview = {
 }
 
 // `link`: the purchase cost typed on an order that this line paid (kept while its account is unchanged)
-type Choice = { accountId?: string, office?: string, notDuplicate?: boolean, byHand?: boolean, link?: any, vendorName?: string, ignore?: boolean }
+type Choice = { accountId?: string, office?: string, notDuplicate?: boolean, byHand?: boolean, link?: any, vendorName?: string, ignore?: boolean, billId?: string, billAccepted?: boolean, confirmNewBill?: boolean, purchaseMatch?: any, purchaseSelection?: any }
+
+const billLabel = (bill: any) => `${bill.number} · ${bill.orders?.map((o: any) => o.number).filter(Boolean).join('، ') || bill.vendorName || ''} · ${bill.amount} ${bill.currency} · ${bill.day}`;
 
 // Where a suggestion came from, in words
-const sourceText = (item: any) => (item.source === 'order' ? 'مربوط بطلبية' : item.source === 'rule' ? `قاعدة: ${item.keyword}` : 'مثل آخر مرة');
+const sourceText = (item: any) => (item.source === 'bill' ? 'سداد فاتورة مورد موجودة' : item.source === 'order' ? 'مربوط بطلبية' : item.source === 'rule' ? `قاعدة: ${item.keyword}` : 'مثل آخر مرة');
 
 // Every row with the sign it will be imported with (skipped rows included, for the table)
 const edited = (preview: Preview) => preview.rows
@@ -61,7 +66,9 @@ const BankReconciliation = () => {
   const [filter, setFilter] = useState('unmatched');
   const [message, setMessage] = useState<any>(null);
   const [entryFor, setEntryFor] = useState<any>(null);
-  const [matchFor, setMatchFor] = useState<any>(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [purchaseReview, setPurchaseReview] = useState<any>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   // What the server says about each row of the file: imported before, in the books, or new and
   // where it would go
@@ -79,12 +86,6 @@ const BankReconciliation = () => {
     if (!accountId) return;
     try {
       setIsLoading(true);
-      // Entries typed since the statement was imported (a customer's wallet deposit on this bank)
-      // are matched to their lines before the lines are shown
-      if (!filter || filter === 'unmatched') {
-        const auto = await acc.post('bank/auto-match', { accountId }).catch(() => null);
-        if (auto?.data?.matched) setMessage({ type: 'success', text: `طُوبق ${auto.data.matched} سطراً مع قيود أُدخلت بعد الاستيراد (مثل إيداعات محافظ العملاء).` });
-      }
       const [lines, hints, ruleList] = await Promise.all([
         acc.get('bank/lines', { accountId, lineStatus: filter || undefined }),
         acc.get('bank/suggestions', { accountId }),
@@ -165,8 +166,11 @@ const BankReconciliation = () => {
             if (!current) return current;
             const choices = { ...current.choices };
             res.data.results.forEach((item: any, index: number) => {
-              if (choices[index]?.byHand) return;
-              choices[index] = item.status === 'new' && item.account ? { accountId: item.account._id, office: item.office || undefined, link: item.link || undefined, vendorName: item.vendorName || undefined } : {};
+              if (choices[index]?.byHand) {
+                choices[index] = { ...choices[index], billAccepted: false, purchaseMatch: undefined, purchaseSelection: undefined };
+                return;
+              }
+              choices[index] = item.status === 'new' && item.account ? { accountId: item.account._id, office: item.office || undefined, link: item.link || undefined, vendorName: item.vendorName || undefined, billId: item.billId || undefined } : {};
             });
             return { ...current, choices };
           });
@@ -180,12 +184,12 @@ const BankReconciliation = () => {
   // Choosing an account for a row also fills the rows with the same text that have none yet
   const choose = (index: number, accountIdChosen: string) => setPreview((current) => {
     if (!current) return current;
-    const choices = { ...current.choices, [index]: { ...current.choices[index], accountId: accountIdChosen || undefined, byHand: true, link: undefined } };
+    const choices = { ...current.choices, [index]: { ...current.choices[index], accountId: accountIdChosen || undefined, byHand: true, link: undefined, billId: undefined, billAccepted: false, purchaseMatch: undefined, purchaseSelection: undefined } };
     const key = keywordOf(current.rows[index].description).toLowerCase();
     if (accountIdChosen && key) {
       current.rows.forEach((row, other) => {
         const status = classes?.[other]?.status;
-        if (other !== index && !choices[other]?.accountId && ['new', undefined].includes(status) && keywordOf(row.description).toLowerCase() === key) {
+        if (other !== index && !choices[other]?.accountId && !choices[other]?.purchaseMatch && ['new', undefined].includes(status) && keywordOf(row.description).toLowerCase() === key) {
           choices[other] = { ...choices[other], accountId: accountIdChosen, byHand: true, link: undefined };
         }
       });
@@ -201,7 +205,9 @@ const BankReconciliation = () => {
   const willPost = (index: number) => {
     const status = classes?.[index]?.status;
     const choice = preview?.choices[index];
-    return !!choice?.accountId && !choice.ignore && (status === 'new' || (status === 'maybeDuplicate' && choice.notDuplicate));
+    if (classes?.[index]?.isRefund && !choice?.purchaseMatch) return false;
+    if (classes?.[index]?.billCandidates?.length && !choice?.purchaseMatch && !choice?.confirmNewBill && !(choice?.billAccepted && choice?.billId)) return false;
+    return !!(choice?.accountId || choice?.purchaseMatch || (choice?.billAccepted && choice?.billId)) && !choice?.ignore && (status === 'new' || (status === 'maybeDuplicate' && choice?.notDuplicate));
   };
 
   const importPreview = async () => {
@@ -211,8 +217,10 @@ const BankReconciliation = () => {
         day: row.day, description: row.description, reference: row.reference, amount: row.amount, balanceAfter: row.balanceAfter,
         // Dollars sold for lira: what the other account received
         counterAmount: (row as any).counterAmount, counterCurrency: (row as any).counterCurrency,
+        originalAmount: row.originalAmount, originalCurrency: row.originalCurrency, settlementUsd: row.settlementUsd, exchangeRate: row.exchangeRate,
+        movementKind: row.movementKind,
         ...(choice.ignore ? { ignore: true } : {}),
-        ...(willPost(row.index) ? { counterAccountId: choice.accountId, office: choice.office || account?.office || undefined, confirmNotDuplicate: !!choice.notDuplicate, link: choice.link || undefined, vendorName: choice.vendorName || undefined } : {}),
+        ...(willPost(row.index) ? { purchaseMatch: choice.purchaseMatch, counterAccountId: choice.billAccepted ? undefined : choice.accountId, office: choice.office || account?.office || undefined, confirmNotDuplicate: !!choice.notDuplicate, link: choice.billAccepted ? undefined : choice.link || undefined, vendorName: choice.vendorName || undefined, billId: choice.billAccepted ? choice.billId : undefined, confirmNewBill: !!choice.confirmNewBill } : {}),
       };
     });
     if (!rows.length) return setMessage({ type: 'error', text: 'لا سطور للاستيراد.' });
@@ -238,8 +246,8 @@ const BankReconciliation = () => {
     actions: [
       {
         key: 'post', label: 'ترحيل على الحساب المقترح', done: 'رُحِّل',
-        applies: (row) => row.lineStatus === 'unmatched' && !!suggested[row._id]?.account && !suggested[row._id]?.duplicates?.length,
-        run: (row) => postLine(row, { counterAccountId: suggested[row._id].account._id, office: suggested[row._id].office || account?.office || undefined, link: suggested[row._id].link || undefined, vendorName: suggested[row._id].vendorName || undefined }),
+        applies: (row) => row.lineStatus === 'unmatched' && !!suggested[row._id]?.account && !suggested[row._id]?.requiresConfirmation && !suggested[row._id]?.duplicates?.length,
+        run: (row) => postLine(row, { counterAccountId: suggested[row._id].account._id, office: suggested[row._id].office || account?.office || undefined, link: suggested[row._id].link || undefined, vendorName: suggested[row._id].vendorName || undefined, billId: suggested[row._id].billId || undefined }),
         confirm: (count) => `سيُرحَّل ${count} سطراً كلٌ على حسابه المقترح. السطور التي قد تكون مسجلة في الدفاتر لا تُرحَّل.`,
       },
       {
@@ -255,20 +263,36 @@ const BankReconciliation = () => {
     ],
   });
 
-  const openEntry = (row: any) => {
-    const hint = suggested[row._id];
+  const openEntry = (row: any, hints = suggested, source = data) => {
+    const hint = hints[row._id];
+    const previous = new Set(row.historyEntryIds || []);
+    const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id))
+      .sort((a: any, b: any) => Math.abs(Date.parse(a.day) - Date.parse(row.day)) - Math.abs(Date.parse(b.day) - Date.parse(row.day)) || String(a._id).localeCompare(String(b._id)));
     setEntryFor({
-      line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '',
-      remember: !hint?.account, keyword: keywordOf(row.description), confirmNotDuplicate: false,
+      mode: possible.length ? 'ledger' : row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.amount < 0 && (hint?.billCandidates?.length || hint?.link) ? 'purchase' : 'new',
+      selected: possible.length ? [possible[0]._id] : [],
+      changeLedger: !possible.length,
+      line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '', billId: hint?.suggestedBillId || hint?.billId || '', billAccepted: false, confirmNewBill: false,
+      remember: false, keyword: keywordOf(row.description), confirmNotDuplicate: !!row.postingAttempt,
     });
   };
 
   const saveEntry = async () => {
+    if (reviewSaving) return;
     const { line, target, trip, order, partner, ...input } = entryFor;
     // A trip, an order or a customer's debt (lines of a partner's current account, spec 19.4)
     const routed = target === 'trip' ? { target, tripId: trip?._id } : target === 'order' ? { target, orderId: order?._id } : target === 'debt' ? { target, partnerId: partner?._id } : {};
-    const ok = await run(() => postLine(line, { ...input, ...routed, office: input.office || undefined }), () => 'أُنشئ القيد.');
+    if (suggested[line._id]?.billCandidates?.length && !input.confirmNewBill && !(input.billAccepted && input.billId && !target)) {
+      setMessage({ type: 'warning', text: 'راجع الفاتورة المقترحة ووافق على المطابقة، أو أكد أن هذه عملية جديدة.' });
+      return;
+    }
+    setReviewSaving(true);
+    try {
+    const ok = await run(() => postLine(line, { ...input, ...routed,
+      billId: input.billAccepted ? input.billId : undefined,
+      ...(input.billAccepted && { counterAccountId: undefined, link: undefined }), office: input.office || undefined }), () => input.billAccepted ? 'سُجّل السداد على الفاتورة الأصلية دون إنشاء فاتورة جديدة.' : 'أُنشئ القيد.');
     if (ok) setEntryFor(null);
+    } finally { setReviewSaving(false); }
   };
 
   const money = (value: number) => <Money value={value} currency={currency} decimals={decimals} />;
@@ -276,12 +300,21 @@ const BankReconciliation = () => {
   const included = previewRows;
   const totalIn = previewRows.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0);
   const totalOut = previewRows.filter((r) => r.amount < 0).reduce((s, r) => s - r.amount, 0);
+  const previewDays = previewRows.map(r => r.day).sort();
+  const cardRefunds = previewRows.filter(r => r.amount > 0 && r.movementKind === 'purchase_refund').reduce((sum, r) => sum + r.amount, 0);
+  const cardPayments = previewRows.filter(r => r.amount > 0 && r.movementKind === 'card_payment').reduce((sum, r) => sum + r.amount, 0);
   const unmatchedCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched').length;
-  const readyCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && suggested[l._id]?.account && !suggested[l._id]?.duplicates?.length).length;
+  const readyCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && suggested[l._id]?.account && !suggested[l._id]?.requiresConfirmation && !suggested[l._id]?.duplicates?.length).length;
   const doubtCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && suggested[l._id]?.duplicates?.length).length;
 
   return (
     <>
+      {detailsId && <BankLineDetails key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} onChanged={load} onReview={async (line) => {
+        try {
+          const [hints, lines] = await Promise.all([acc.get('bank/suggestions', { accountId }), acc.get('bank/lines', { accountId })]);
+          setSuggested(hints.data); setDetailsId(null); openEntry(line, hints.data, lines.data);
+        } catch (err) { setMessage({ type: 'error', text: errorText(err) }); }
+      }} />}
       <PageHeader
         title="كشوف البنوك و Alipay"
         subtitle="ارفع كشف الحساب Excel أو PDF. ما هو مسجل في الدفاتر يُطابق تلقائياً، والباقي يُرحَّل إلى حسابه. السطر المستورد من قبل لا يُستورد مرتين، والسطر الذي أدخلته يدوياً لا يُسجَّل مرة ثانية."
@@ -347,33 +380,48 @@ const BankReconciliation = () => {
                   return (
                     <>
                       {row.description}{row.reference && <span className="acc-muted"> · <Ltr>{row.reference}</Ltr></span>}
+                      {(row.movementKind === 'purchase_refund' || hint?.isRefund) && <Sub><Badge tone="info">Refund — استرداد</Badge>{hint?.vendorName && <Sub>المورد: {hint.vendorName}</Sub>}{hint?.refundAccount && <Sub>حساب التكلفة المقترح: {hint.refundAccount.code} · {hint.refundAccount.name}</Sub>}{row.lineStatus === 'unmatched' && <Sub>لم يُرحّل بعد؛ اختر الفاتورة أو الريفاند الأصلي لاعتماد الربط.</Sub>}</Sub>}
+                      {row.customerRefundId?.number && <Sub>ريفاند الطلبية: <Ltr>{row.customerRefundId.number}</Ltr> · لمحفظة العميل: <Ltr>{row.customerRefundId.walletUsd / 100} USD</Ltr></Sub>}
+                      {row.pendingRefund && <Sub><Badge tone="warn">استرداد مرحّل قيد التحديد</Badge>يُربط لاحقاً من تبويب الريفاند داخل الطلبية؛ البنك استلم المبلغ بالفعل.</Sub>}
                       {row.matchedEntryIds?.length > 0 && <Sub>مطابق مع <Ltr>{row.matchedEntryIds.map((e: any) => e.number).join('، ')}</Ltr></Sub>}
                       {row.entryId && <Sub>القيد <Ltr>{row.entryId.number}</Ltr></Sub>}
+                      {row.billId?.number && <Sub>الفاتورة <Open to={`/accounting/bills/${row.billId._id}`}><Ltr>{row.billId.number}</Ltr></Open></Sub>}
+                      {row.orderId && <Sub>الطلبية <Open to={`/invoice/${row.orderId._id || row.orderId}/edit`}><Ltr>{row.orderId.orderId || row.orderId}</Ltr></Open></Sub>}
+                      {row.matchedOriginalAmount > 0 && <Sub>المشتريات المختارة: <Ltr>{row.matchedOriginalAmount} {row.matchedOriginalCurrency}</Ltr>{row.matchDifferenceConfirmed && ' · اختلاف مؤكد بعد المراجعة'}</Sub>}
+                      {row.originalAmount > 0 && <Sub>الأصل: <Ltr>{row.originalAmount} {row.originalCurrency}</Ltr></Sub>}
+                      {row.crossRate > 0 && <Sub>السعر المباشر: <Ltr>{Number(row.crossRate).toFixed(6)} {row.rateQuoteCurrency}/{row.rateBaseCurrency}</Ltr></Sub>}
+                      {row.settlementUsd > 0 && <Sub>مقابل الدولار في الكشف: <Ltr>{row.settlementUsd} USD</Ltr></Sub>}
                       {row.lineStatus === 'unmatched' && hint?.duplicates?.length > 0 && (
                         <Sub>
                           <Badge tone="warn">قد يكون مسجلاً</Badge>{' '}
-                          {hint.duplicates.slice(0, 2).map((d: any) => (
-                            <Button key={d._id} size="small" onClick={() => run(() => acc.post(`bank/lines/${row._id}/match`, { entryIds: [d._id] }), () => `طُوبق مع ${d.number}.`)}>
-                              مطابقة مع <Ltr>{d.number}</Ltr> ({d.day})
-                            </Button>
-                          ))}
+                          {hint.duplicates.slice(0, 2).map((d: any) => <Ltr key={d._id}>{d.number} · </Ltr>)}
                         </Sub>
                       )}
                       {row.lineStatus === 'unmatched' && hint?.account && (
                         <Sub>يذهب إلى <b>{hint.account.code} · {hint.account.name}</b> <Badge tone={hint.source === 'history' ? 'info' : 'accent'}>{sourceText(hint)}</Badge>{hint.link && <> <Open to={`/invoice/${hint.link.orderId}/edit`}>طلبية <Ltr>{hint.link.orderNumber}</Ltr></Open></>}</Sub>
                       )}
+                      {row.lineStatus === 'unmatched' && hint?.billCandidates?.length > 0 && <>
+                        <Sub>مقترح: {billLabel(hint.billCandidates.find((b: any) => b._id === hint.suggestedBillId) || hint.billCandidates[0])}</Sub>
+                        {hint.billCandidates.length > 1 && <Sub>يوجد {hint.billCandidates.length} فواتير محتملة؛ اختر الصحيحة قبل القبول.</Sub>}
+                      </>}
                     </>
                   );
                 },
               },
               { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Money value={row.amount} currency={currency} decimals={decimals} tone={row.amount < 0 ? 'credit' : 'debit'} strong />, sortValue: (row: any) => row.amount },
               { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.lineStatus} /> },
+              { key: 'postedAccounts', header: 'الحسابات المسجل فيها', render: (row: any) => {
+                const entries = [row.entryId, ...(row.matchedEntryIds || [])].filter(Boolean);
+                const actual = new Map<string, any>();
+                entries.forEach((entry: any) => (entry.lines || []).forEach((line: any) => { if (line.accountId?._id) actual.set(line.accountId._id, line.accountId); }));
+                return actual.size ? <>{Array.from(actual.values()).map((a: any) => <Sub key={a._id}><Ltr>{a.code}</Ltr> · {a.name}</Sub>)}</> : <Sub>لا يوجد ترحيل مرتبط</Sub>;
+              } },
               {
                 key: 'actions', header: '', align: 'end', render: (row: any) => (
                   <span className="d-inline-flex gap-1 flex-wrap justify-content-end">
+                    <Button size="small" onClick={() => setDetailsId(row._id)}>التفاصيل والتعديل</Button>
                     {row.lineStatus === 'unmatched' && <>
-                      <Button size="small" variant="outlined" onClick={() => openEntry(row)}>ترحيل</Button>
-                      <Button size="small" onClick={() => setMatchFor({ line: row, selected: [] })}>مطابقة</Button>
+                      <Button size="small" variant="outlined" onClick={() => openEntry(row)}>مراجعة واعتماد</Button>
                       <Button size="small" onClick={() => run(() => acc.post(`bank/lines/${row._id}/ignore`), () => 'تم تجاهل السطر.')}>تجاهل</Button>
                     </>}
                     {['matched', 'ignored'].includes(row.lineStatus) && <Button size="small" onClick={() => run(() => acc.post(`bank/lines/${row._id}/unignore`), () => 'أُعيد السطر لغير مطابق.')}>تراجع</Button>}
@@ -384,10 +432,6 @@ const BankReconciliation = () => {
                         }}><Trash2 size={15} /></IconButton>
                       </Tooltip>
                     )}
-                    {row.lineStatus === 'created_entry' && <Button size="small" color="error" onClick={() => {
-                      const reason = window.prompt('سبب إلغاء القيد؟');
-                      if (reason) run(() => acc.post(`bank/lines/${row._id}/cancel-entry`, { reason }), () => 'أُلغي القيد.');
-                    }}>إلغاء القيد</Button>}
                   </span>
                 ),
               },
@@ -460,13 +504,17 @@ const BankReconciliation = () => {
               </div>
             )}
             <StatGrid>
-              <Stat label="سطور" value={previewRows.length} hint={previewRows.length ? <Ltr>{previewRows[0].day} → {previewRows[previewRows.length - 1].day}</Ltr> : 'لا شيء بعد: راجع الأعمدة'} />
+              <Stat label="سطور" value={previewRows.length} hint={previewRows.length ? <Ltr>{previewDays[0]} → {previewDays[previewDays.length - 1]}</Ltr> : 'لا شيء بعد: راجع الأعمدة'} />
               <Stat label="وارد / صادر" value={<Money value={Math.round(totalIn * 10 ** decimals)} currency={currency} decimals={decimals} />} hint={<>صادر <Money value={Math.round(totalOut * 10 ** decimals)} currency={currency} decimals={decimals} tone="plain" /></>} />
               <Stat label="يُرحَّل الآن" value={classes ? included.filter((r) => willPost(r.index)).length : '…'} tone="accent" hint="جديد وله حساب" />
               <Stat label="بلا حساب" value={classes ? included.filter((r) => ['new', 'maybeDuplicate'].includes(classes[r.index]?.status) && !willPost(r.index)).length : '…'} tone="warn" hint="يُستورد ويبقى لتصنيفه لاحقاً" />
               <Stat label="محذوف / مُتجاهَل" value={`${preview.skip.size} / ${included.filter((r) => preview.choices[r.index]?.ignore).length}`} hint="لا يُستورد / يُستورد بلا ترحيل" />
               <Stat label="مسجل / مستورد" value={classes ? `${included.filter((r) => classes[r.index]?.status === 'match').length} / ${included.filter((r) => classes[r.index]?.status === 'imported').length}` : '…'} hint="يُطابق تلقائياً / يُتجاهل" />
             </StatGrid>
+            {preview.creditCard && preview.flipAll && <Alert severity="info" className="mb-3">
+              الوارد يجمع سداد البطاقة والاستردادات. الصادر هو المصروفات قبل خصم الاسترداد.
+              <div>سداد البطاقة: <Money value={Math.round(cardPayments * 10 ** decimals)} currency={currency} decimals={decimals} tone="plain" /> · الاستردادات: <Money value={Math.round(cardRefunds * 10 ** decimals)} currency={currency} decimals={decimals} tone="plain" /> · صافي المصروفات بعد الاسترداد: <Money value={Math.round((totalOut - cardRefunds) * 10 ** decimals)} currency={currency} decimals={decimals} tone="plain" /></div>
+            </Alert>}
             <DataTable
               dense
               maxHeight={420}
@@ -512,21 +560,42 @@ const BankReconciliation = () => {
                     if (preview.skip.has(row.index) || preview.choices[row.index]?.ignore) return <span className="acc-sub">{preview.skip.has(row.index) ? '—' : 'يُستورد ولا يُرحَّل'}</span>;
                     if (!item || !['new', 'maybeDuplicate'].includes(item.status)) return <span className="acc-sub">{item?.status === 'match' ? 'يُطابق مع القيد' : item?.status === 'imported' ? 'لا شيء' : ''}</span>;
                     const choice = preview.choices[row.index] || {};
+                    const selectedBillId = choice.billId || item.suggestedBillId || '';
+                    const selectedBill = item.billCandidates?.find((bill: any) => bill._id === selectedBillId);
                     return (
                       <>
-                        <Autocomplete
+                        {item.isRefund && <Sub><Badge tone="info">Refund — استرداد</Badge>{item.vendorName && <Sub>المورد: {item.vendorName}</Sub>}<Sub>يُحفظ غير مرحّل حتى اعتماد الفاتورة أو الريفاند الأصلي.</Sub></Sub>}
+                        {(row.amount < 0 || item.isRefund) && <Button size="small" onClick={() => setPurchaseReview({ line: row, paid: Math.abs(row.amount), index: row.index, refund: !!item.isRefund })}>{choice.purchaseSelection ? 'تغيير المطابقة' : item.isRefund ? 'ربط استرداد المشتريات' : 'مراجعة واعتماد'}</Button>}
+                        {choice.purchaseSelection && <Alert severity="success" className="my-2">
+                          مطابقة مختارة: <Ltr>{choice.purchaseSelection.number}</Ltr> · <Ltr>{choice.purchaseSelection.amount} {choice.purchaseSelection.currency}</Ltr>
+                          {choice.purchaseSelection.orders.map((order: any, i: number) => <div key={`${order._id}-${i}`}>الطلبية: <Ltr>{order.number}</Ltr></div>)}
+                          <Button size="small" onClick={() => setPreview(current => current ? { ...current, choices: { ...current.choices, [row.index]: { ...current.choices[row.index], purchaseMatch: undefined, purchaseSelection: undefined } } } : current)}>إلغاء الاختيار</Button>
+                        </Alert>}
+                        {!choice.purchaseSelection && (!item.billCandidates?.length || choice.confirmNewBill) && <Autocomplete
                           size="small" options={detailAccounts} value={detailAccounts.find((a) => a._id === choice.accountId) || null}
                           getOptionLabel={(a: any) => accountLabel(a)} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
                           onChange={(_, a: any) => choose(row.index, a?._id || '')}
                           renderInput={(params) => <TextField {...params} placeholder="اختر الحساب" />}
-                        />
+                        />}
                         {!choice.accountId && row.amount * (preview.flip.has(row.index) ? -1 : 1) * (preview.flipAll ? -1 : 1) > 0 && (
                           <Sub>وارد بلا حساب: يُستورد ويُطابق تلقائياً مع إيداع محفظة العميل عند إدخاله على هذا البنك</Sub>
                         )}
                         {choice.link ? (
                           <Sub><Badge tone="ok">مربوط بطلبية</Badge> <Open to={`/invoice/${choice.link.orderId}/edit`}><Ltr>{choice.link.orderNumber}</Ltr></Open> · {choice.link.itemDescription}</Sub>
                         ) : !choice.byHand && item.source && item.source !== 'order' && <Sub>{sourceText(item)}</Sub>}
-                        {choice.vendorName && <Sub>فاتورة بالدولار للمورد <b>{choice.vendorName === '@bank' ? account?.name : choice.vendorName}</b> ودفعها من البنك</Sub>}
+                        {!!item.billCandidates?.length && !choice.purchaseMatch && <>
+                          {selectedBill && <Sub>مقترح: {billLabel(selectedBill)}</Sub>}
+                          <FormControlLabel control={<Checkbox size="small" checked={!!choice.confirmNewBill}
+                            onChange={e => setPreview(current => current ? { ...current, choices: { ...current.choices, [row.index]: { ...current.choices[row.index], confirmNewBill: e.target.checked, billAccepted: false, byHand: true } } } : current)} />}
+                            label="هذه عملية جديدة ولا تخص الفواتير المقترحة" />
+                          {!choice.billAccepted && !choice.confirmNewBill && <Sub>سيُحفظ السطر دون سداد حتى توافق على المطابقة.</Sub>}
+                        </>}
+                        {choice.vendorName && <Sub>{choice.billId ? 'سداد الفاتورة الأصلية للمورد' : `فاتورة بـ${row.originalCurrency || currency} للمورد`} <b>{choice.vendorName === '@bank' ? account?.name : choice.vendorName}</b> ودفعها من البنك</Sub>}
+                        {row.originalAmount && row.originalCurrency && <Sub>
+                          الأصل: <Ltr>{row.originalAmount} {row.originalCurrency}</Ltr> · السداد: <Ltr>{Math.abs(row.amount)} {currency}</Ltr>
+                          <br />السعر المباشر: <Ltr>{(Math.abs(row.amount) / row.originalAmount).toFixed(6)} {currency}/{row.originalCurrency}</Ltr>
+                          {row.settlementUsd && <><br />مقابل البنك: <Ltr>{row.settlementUsd} USD</Ltr> · السعر: <Ltr>{(Math.abs(row.amount) / row.settlementUsd).toFixed(6)} {currency}/USD</Ltr></>}
+                        </Sub>}
                       </>
                     );
                   },
@@ -558,14 +627,67 @@ const BankReconciliation = () => {
       </Dialog>
 
       {/* ---- Posting one line ---- */}
-      <Dialog open={!!entryFor} onClose={() => setEntryFor(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>ترحيل سطر الكشف</DialogTitle>
+      <Dialog open={!!entryFor} onClose={() => { if (!reviewSaving) setEntryFor(null); }} maxWidth="lg" fullWidth>
+        <DialogTitle>مراجعة سطر الكشف واعتماده</DialogTitle>
         {entryFor && (
           <DialogContent>
-            <p className="acc-muted">
-              {entryFor.line.amount < 0 ? 'مبلغ خرج من البنك: يُحمَّل على الحساب أدناه.' : 'مبلغ دخل البنك: يُسجَّل في الحساب أدناه.'}{' '}
-              <Money value={entryFor.line.amount} currency={currency} decimals={decimals} strong /> · <Ltr>{entryFor.line.day}</Ltr>
-            </p>
+            <TextField select disabled={reviewSaving} size="small" fullWidth className="mb-3" label="طريقة الاعتماد" value={entryFor.mode} onChange={e => setEntryFor({ ...entryFor, mode: e.target.value })}>
+              {entryFor.line.amount < 0 && <MenuItem value="purchase">سداد مشتريات / تكلفة طلب على الفاتورة الأصلية</MenuItem>}
+              {entryFor.line.amount > 0 && <MenuItem value="refund">استرداد مشتريات / ربط ريفاند الطلبية</MenuItem>}
+              {entryFor.line.amount > 0 && entryFor.line.movementKind !== 'card_payment' && <MenuItem value="pending_refund">ترحيل استرداد قيد التحديد — الطلبية غير معروفة</MenuItem>}
+              <MenuItem value="ledger">مطابقة مع قيد مسجل سابقًا</MenuItem>
+              <MenuItem value="new">ترحيل عملية جديدة</MenuItem>
+            </TextField>
+            {entryFor.mode === 'pending_refund' && <>
+              <Alert severity="info">سيُسجل استلام البنك مقابل حساب 219100 «استردادات موردين قيد التحديد». عند تحديد الطلبية، اختر هذا المبلغ من نموذج الريفاند لتسوية المعلّق وإضافة مبلغ العميل دون استلام البنك مرة ثانية.</Alert>
+              {entryFor.error && <Alert severity="error" className="mt-2">{entryFor.error}</Alert>}
+              <Button className="mt-3" variant="contained" disabled={reviewSaving} onClick={async () => {
+                setReviewSaving(true);
+                try {
+                  await acc.post(`bank/lines/${entryFor.line._id}/entry`, { pendingRefund: true });
+                  setEntryFor(null); await load();
+                } catch (err) { setEntryFor({ ...entryFor, error: errorText(err) }); }
+                finally { setReviewSaving(false); }
+              }}>ترحيل إلى الاستردادات قيد التحديد</Button>
+            </>}
+            {entryFor.mode === 'refund' && <PurchaseMatchPicker embedded open refund accountId={accountId} line={entryFor.line}
+              paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency} bankName={account?.name} onBusyChange={setReviewSaving}
+              onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
+                await acc.post(`bank/lines/${entryFor.line._id}/refund-match`, { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId });
+                setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمد الاسترداد وربط بالعملية الأصلية دون تكرار.' }); await load();
+              }} />}
+            {entryFor.mode === 'purchase' && <PurchaseMatchPicker embedded open accountId={accountId} line={entryFor.line}
+              paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency}
+              bankName={account?.name}
+              suggestedBillId={entryFor.billId || suggested[entryFor.line._id]?.billCandidates?.[0]?._id}
+              suggestedItemId={suggested[entryFor.line._id]?.link?.itemId} onBusyChange={setReviewSaving}
+              onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
+                await acc.post(`bank/lines/${entryFor.line._id}/purchase-match`, { kind: selected.kind, billId: selected.billId,
+                  orderId: selected.orderId, itemId: selected.itemId, confirmDifference: !!options.confirmDifference });
+                setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمدت المطابقة وسُجّل السداد دون تكرار التكلفة.' }); await load();
+              }} />}
+            {entryFor.mode === 'ledger' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
+              leftTitle="القيد المقترح من الدفاتر"
+              reasons={['نفس حساب البنك وعملته', ...((data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).reduce((sum: number, m: any) => sum + m.amount, 0) === entryFor.line.amount ? ['مبلغ القيد يساوي مبلغ الكشف'] : []),
+                ...((data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).every((m: any) => m.day === entryFor.line.day) && entryFor.selected.length ? ['التاريخ مطابق'] : [])]}
+              warnings={suggested[entryFor.line._id]?.duplicates?.length > 1 ? ['يوجد أكثر من قيد محتمل بنفس المبلغ؛ راجع رقم القيد والبيان قبل الموافقة.'] : []}>
+              {(data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).map((m: any) => <div key={m._id} className="mb-3">
+                <ReviewField label="رقم القيد"><Open to={`/accounting/entries/${m._id}`}><Ltr>{m.number}</Ltr></Open></ReviewField>
+                <ReviewField label="التاريخ"><Ltr>{m.day}</Ltr></ReviewField>
+                <ReviewField label="حركة البنك">{money(m.amount)}</ReviewField>
+                <div className="acc-sub" dir="auto">{m.description}</div>
+              </div>)}
+              <Button disabled={reviewSaving} onClick={() => setEntryFor({ ...entryFor, changeLedger: !entryFor.changeLedger })}>{entryFor.changeLedger ? 'إخفاء قائمة القيود' : 'تغيير القيد'}</Button>
+              {entryFor.changeLedger && (data?.unmatchedMovements || []).map((m: any) => <label key={m._id} className="d-flex align-items-center gap-2">
+                <Checkbox checked={entryFor.selected.includes(m._id)} onChange={e => setEntryFor({ ...entryFor, selected: e.target.checked ? [...entryFor.selected, m._id] : entryFor.selected.filter((id: string) => id !== m._id) })} />
+                <span><Ltr>{m.day} · {m.number}</Ltr> · {money(m.amount)} · {m.description}</span>
+              </label>)}
+              {!entryFor.selected.length && <Alert severity="info" className="mt-2">اختر القيد الموجود؛ لا يُنشأ قيد جديد عند المطابقة.</Alert>}
+              <div className="acc-sub mt-3">ستُربط حركة الكشف بهذا القيد؛ أرصدة الحسابات لا تتغير.</div>
+            </BankReviewComparison>}
+            {entryFor.mode === 'new' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
+              leftTitle="تفاصيل العملية التي ستُرحّل" reasons={suggested[entryFor.line._id]?.account && entryFor.counterAccountId === suggested[entryFor.line._id].account._id ? [sourceText(suggested[entryFor.line._id])] : []}>
+            {entryFor.line.amount > 0 && (suggested[entryFor.line._id]?.isRefund || entryFor.line.movementKind === 'purchase_refund') && <Alert severity="warning" className="mb-2">الكشف يشير إلى استرداد مشتريات. اختر مسار الاسترداد لربطه بالطلبية.<FormControlLabel control={<Checkbox checked={!!entryFor.confirmNotRefund} onChange={e => setEntryFor({ ...entryFor, confirmNotRefund: e.target.checked })} />} label="راجعت المستند وأؤكد أن هذه العملية ليست استرداد مشتريات" /></Alert>}
             {suggested[entryFor.line._id]?.duplicates?.length > 0 && (
               <Alert severity="warning" className="mb-3">
                 في الدفاتر قيد بنفس المبلغ قريب من هذا التاريخ ({suggested[entryFor.line._id].duplicates.map((d: any) => d.number).join('، ')}). إن كان هو نفسه فطابقه بدل الترحيل.
@@ -573,7 +695,8 @@ const BankReconciliation = () => {
               </Alert>
             )}
             {entryFor.line.amount < 0 && (
-              <TextField select size="small" fullWidth className="mb-3" label="يُوجَّه إلى" value={entryFor.target || ''} onChange={(e) => setEntryFor({ ...entryFor, target: e.target.value })}
+              <TextField select size="small" fullWidth className="mb-3" label="يُوجَّه إلى" value={entryFor.target || ''} onChange={(e) => setEntryFor({ ...entryFor, target: e.target.value, billAccepted: false,
+                mode: e.target.value === 'order' && !entryFor.confirmNewBill && (suggested[entryFor.line._id]?.billCandidates?.length || suggested[entryFor.line._id]?.link) ? 'purchase' : 'new' })}
                 helperText={entryFor.target === 'trip' ? 'فاتورة مورد على الرحلة مدفوعة من هذا الحساب (شحن دفعه أسواق مثلاً).'
                   : entryFor.target === 'order' ? 'فاتورة مورد على الطلب مدفوعة من هذا الحساب (مشتريات أو ضرائب دفعها الشريك).'
                   : entryFor.target === 'debt' ? 'دين على العميل في المنظومة، مصدره هذا الحساب.' : undefined}>
@@ -593,6 +716,16 @@ const BankReconciliation = () => {
               renderInput={(p) => <TextField {...p} label="الحساب المقابل (رسوم، إيجار، مورد، أو حساب بنك)" />} />
             )}
             {entryFor.link && <Alert severity="success" className="mt-2">مربوط بمشتريات الطلبية <Open to={`/invoice/${entryFor.link.orderId}/edit`}><Ltr>{entryFor.link.orderNumber}</Ltr></Open>: {entryFor.link.itemDescription} ({entryFor.link.amount} {entryFor.link.currency}). تُسجَّل تكلفةً على الطلبية.{entryFor.link.near && ' المطابقة تقريبية بالدولار (فرق حتى 2%)؛ تأكد أنها نفس الشراء.'}</Alert>}
+            {!!suggested[entryFor.line._id]?.billCandidates?.length && <>
+              <Alert severity="info" className="mt-3">
+                توجد فاتورة مقترحة. إذا كانت نفس المشتريات، اعتمد سداد الفاتورة الأصلية لتجنب تكرار التكلفة.
+                <Button className="d-block" onClick={() => {
+                  setEntryFor({ ...entryFor, mode: 'purchase' });
+                }}>مراجعة واختيار المشتريات</Button>
+              </Alert>
+              <FormControlLabel control={<Checkbox size="small" checked={!!entryFor.confirmNewBill}
+                onChange={e => setEntryFor({ ...entryFor, confirmNewBill: e.target.checked, billAccepted: false })} />} label="هذه عملية جديدة ولا تخص الفواتير المقترحة" />
+            </>}
             <div className="acc-form-grid mt-3">
               <TextField select size="small" label="المكتب" value={entryFor.office} onChange={(e) => setEntryFor({ ...entryFor, office: e.target.value })}>
                 <MenuItem value="">حسب البنك</MenuItem>
@@ -603,19 +736,30 @@ const BankReconciliation = () => {
             {entryFor.line.amount < 0 && (entryFor.link || ['trip', 'order'].includes(entryFor.target) || (!entryFor.target && detailAccounts.find((a) => a._id === entryFor.counterAccountId)?.type === 'expense')) && (
               <TextField size="small" fullWidth className="mt-3" label="المورد" value={entryFor.vendorName === '@bank' ? account?.name || '' : entryFor.vendorName}
                 onChange={(e) => setEntryFor({ ...entryFor, vendorName: e.target.value })}
-                helperText="المشتريات والمصروفات تُسجَّل فاتورة بالدولار لهذا المورد ودفعة من البنك بعملته، والسعر = المدفوع ÷ الدولار. فارغ = اسم التاجر في السطر." />
+                helperText="تُحفظ الفاتورة بعملة الشراء الأصلية والسداد بعملة البنك. السعر المباشر = المبلغ المدفوع ÷ المبلغ الأصلي. يُحفظ مقابل الدولار فقط عندما يذكره الكشف. فارغ = اسم التاجر في السطر." />
             )}
             {!entryFor.target && <FormControlLabel className="mt-2" control={<Checkbox size="small" checked={entryFor.remember} onChange={(e) => setEntryFor({ ...entryFor, remember: e.target.checked })} />} label="تذكّر: كل سطر يحتوي الكلمة التالية يُرحَّل لهذا الحساب" />}
             {entryFor.remember && <TextField size="small" fullWidth label="الكلمة المفتاحية" value={entryFor.keyword} onChange={(e) => setEntryFor({ ...entryFor, keyword: e.target.value })} helperText="مثلاً: commission أو عمولة. تُطبق على الكشوف القادمة." />}
+            </BankReviewComparison>}
           </DialogContent>
         )}
-        <DialogActions>
-          <Button onClick={() => setEntryFor(null)}>إلغاء</Button>
+        {entryFor?.mode === 'new' && <DialogActions>
+          <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
           <Button variant="contained" onClick={saveEntry}
-            disabled={(entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !entryFor?.counterAccountId) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
-            ترحيل
+            disabled={reviewSaving || (suggested[entryFor?.line?._id]?.billCandidates?.length > 0 && !entryFor?.confirmNewBill && !(entryFor?.billAccepted && entryFor?.billId && !entryFor?.target)) || (entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !(entryFor?.counterAccountId || (entryFor?.billAccepted && entryFor?.billId))) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
+            {entryFor?.billAccepted ? 'قبول المطابقة وتسجيل السداد' : 'ترحيل'}
           </Button>
-        </DialogActions>
+        </DialogActions>}
+        {entryFor?.mode === 'ledger' && <DialogActions>
+          <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
+          <Button variant="contained" disabled={reviewSaving || !entryFor.selected.length || (data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).reduce((sum: number, m: any) => sum + m.amount, 0) !== entryFor.line.amount} onClick={async () => {
+            if (reviewSaving) return;
+            setReviewSaving(true);
+            try {
+              if (await run(() => acc.post(`bank/lines/${entryFor.line._id}/match`, { entryIds: entryFor.selected }), () => 'تمت المطابقة دون إنشاء قيد جديد.')) setEntryFor(null);
+            } finally { setReviewSaving(false); }
+          }}>موافقة على المطابقة</Button>
+        </DialogActions>}
       </Dialog>
 
       {/* ---- Several lines for one purchase ---- */}
@@ -679,27 +823,23 @@ const BankReconciliation = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!matchFor} onClose={() => setMatchFor(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>مطابقة سطر بتاريخ {matchFor?.line.day}</DialogTitle>
-        {matchFor && data && (
-          <DialogContent>
-            <p className="acc-muted">اختر حركات الدفاتر التي يتكون منها هذا السطر؛ مجموعها يجب أن يساوي <Money value={matchFor.line.amount} currency={currency} decimals={decimals} strong />.</p>
-            {data.unmatchedMovements.map((m: any) => (
-              <label key={m._id} className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
-                <Checkbox checked={matchFor.selected.includes(m._id)} onChange={(e) => setMatchFor({ ...matchFor, selected: e.target.checked ? [...matchFor.selected, m._id] : matchFor.selected.filter((id: string) => id !== m._id) })} />
-                <span><Ltr>{m.day}</Ltr> · <Ltr>{m.number}</Ltr> · {money(m.amount)} · {m.description}</span>
-              </label>
-            ))}
-            <div className="mt-2">المختار: {money(data.unmatchedMovements.filter((m: any) => matchFor.selected.includes(m._id)).reduce((s: number, m: any) => s + m.amount, 0))}</div>
-          </DialogContent>
-        )}
-        <DialogActions>
-          <Button onClick={() => setMatchFor(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={!matchFor?.selected.length} onClick={async () => {
-            if (await run(() => acc.post(`bank/lines/${matchFor.line._id}/match`, { entryIds: matchFor.selected }), () => 'تمت المطابقة.')) setMatchFor(null);
-          }}>مطابقة</Button>
-        </DialogActions>
-      </Dialog>
+      <PurchaseMatchPicker open={!!purchaseReview} accountId={accountId} line={purchaseReview?.line} paid={purchaseReview?.paid} currency={currency}
+        refund={!!purchaseReview?.refund}
+        suggestedBillId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.suggestedBillId : undefined}
+        suggestedItemId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.link?.itemId : undefined}
+        onClose={() => setPurchaseReview(null)} onConfirm={async (selected: any, options: any) => {
+          const selection = { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId, orderId: selected.orderId, itemId: selected.itemId, confirmDifference: !!options.confirmDifference };
+          if (purchaseReview.index !== undefined) {
+            const index = purchaseReview.index;
+            setPreview(current => current ? { ...current, choices: { ...current.choices, [index]: { byHand: true, purchaseMatch: selection, purchaseSelection: selected, notDuplicate: current.choices[index]?.notDuplicate } } } : current);
+          } else {
+            await acc.post(`bank/lines/${purchaseReview.line._id}/purchase-match`, selection);
+            setMessage({ type: 'success', text: 'تمت المطابقة مع المشتريات المختارة وحُفظ ارتباط الفاتورة والطلبية.' });
+            await load();
+          }
+          setPurchaseReview(null);
+        }} />
+
     </>
   );
 };

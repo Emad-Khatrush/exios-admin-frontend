@@ -57,7 +57,9 @@ const BulkDebtPayDialog = (props: Props) => {
 
   const problems: string[] = [];
   if (!plan.length) problems.push('Choose at least one debt.');
-  if (!(Number(rate) > 0)) problems.push('Enter the rate.');
+  const needsConversion = plan.some((row) => row.currency !== row.debt.currency);
+  if (needsConversion && !(Number(rate) > 0)) problems.push('Enter a positive exchange rate.');
+  if (rate !== '' && (!Number.isFinite(Number(rate)) || Number(rate) < 0)) problems.push('Enter a valid non-negative rate.');
   if (needed.USD > totalUsd + 0.001) problems.push(`The USD wallet has ${formatAmount(totalUsd)}, ${formatAmount(needed.USD)} is needed.`);
   if (needed.LYD > totalLyd + 0.001) problems.push(`The LYD wallet has ${formatAmount(totalLyd)}, ${formatAmount(needed.LYD)} is needed.`);
 
@@ -71,7 +73,7 @@ const BulkDebtPayDialog = (props: Props) => {
       if (paid.includes(row.debt._id)) continue;
       const formData = new FormData();
       formData.append('createdAt', new Date().toISOString());
-      formData.append('rate', String(rate));
+      formData.append('rate', rate || '0');
       formData.append('amount', String(row.amount));
       formData.append('currency', row.currency);
       const debtType = (row.debt as any).debtType;
@@ -130,6 +132,7 @@ const BulkDebtPayDialog = (props: Props) => {
           </div>
           <div className="col-sm-5">
             <TextField fullWidth type="number" label="Rate" value={rate} disabled={isSaving} onChange={(e) => setRate(e.target.value)}
+              required={needsConversion} helperText={needsConversion ? 'Enter a positive exchange rate.' : 'No currency conversion needed; 0 is allowed.'}
               inputProps={{ inputMode: 'decimal', step: 0.01 }} onWheel={(event: any) => event.target.blur()} />
           </div>
         </div>

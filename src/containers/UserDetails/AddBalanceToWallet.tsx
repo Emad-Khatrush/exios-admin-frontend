@@ -28,7 +28,6 @@ const AddBalanceToWallet = (props: Props) => {
   // Only the offices and banks with a box in the chosen currency (no dinars into a dollar-only office)
   const offices = useDepositPlaces(currency) || [];
   const [office, setOffice] = useState<string>('');
-  const [, setActionType] = useState<string>('cash');
   const [date, setDate] = useState(new Date());
   const [form, setForm] = useState<any>({
     createdAt: date,
@@ -264,10 +263,10 @@ const AddBalanceToWallet = (props: Props) => {
               <Select
                 labelId="action-type-label"
                 id="actionType"
+                value={form.actionType}
                 label="نوع العملية"
                 name="actionType"
                 onChange={(event: any) => {
-                  setActionType(event.target.value);
                   return onChangeHandler(event);
                 }}
               >

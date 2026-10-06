@@ -5,6 +5,8 @@ import { CancelDialog, amountLabel, userLabel, SHIPPING_TYPES } from './shared';
 import { AccountingTheme } from './ui/AccountingTheme';
 import { useAccountingAccess } from './useAccountingAccess';
 import { AlipaySendPanel } from './AlipaySend';
+import OrderCostBreakdown from './OrderCostBreakdown';
+import AccountingFold from './AccountingFold';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
@@ -246,6 +248,10 @@ const PreviousCustomerLines = ({ orderId, onMoved }: { orderId: string; onMoved:
 // A refund from the supplier on a purchase invoice (spec 19.6): the money that came in (in its
 // account's currency, with its real dollar value from the bank) and what is added to the wallet
 const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: () => void }) => {
+  const [pendingMatches, setPendingMatches] = useState<any[]>([]);
+  const [pendingBankLineId, setPendingBankLineId] = useState('');
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const [existingRefundId, setExistingRefundId] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -263,15 +269,31 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
     sys.get('acc/money-accounts').then((res: any) => setAccounts(res.data.results || [])).catch(() => {});
   }, [load]);
   const account = accounts.find((a) => a._id === form.accountId);
+  useEffect(() => {
+    if (!open || existingRefundId || !form.accountId || !(Number(form.amount) > 0 || Number(form.usdValue) > 0)) {
+      setPendingMatches([]); setPendingBankLineId(''); setPendingBusy(false); return undefined;
+    }
+    let stale = false; setPendingBusy(true);
+    const timer = window.setTimeout(() => {
+      sys.get(`acc/orders/${orderId}/pending-refunds`, { accountId: form.accountId, amount: form.amount, usdValue: form.usdValue, day: form.day })
+        .then((res: any) => { if (!stale) {
+          const results = res.data.results || []; setPendingMatches(results);
+          setPendingBankLineId(current => results.some((row: any) => row._id === current) ? current : '');
+        } }).catch((err: any) => { if (!stale) { setPendingMatches([]); setPendingBankLineId(''); setError(errorText(err)); } })
+        .finally(() => { if (!stale) setPendingBusy(false); });
+    }, 300);
+    return () => { stale = true; window.clearTimeout(timer); };
+  }, [open, existingRefundId, form.accountId, form.amount, form.usdValue, form.day, orderId]);
   // Valued at the day's rate in the books; what matters here is what goes to the wallet
   const usd = account?.currency === 'USD' ? Number(form.amount) : Number(form.walletUsd) + 1;
   const save = async () => {
     try {
       setBusy(true);
       setError('');
-      await sys.post(`acc/orders/${orderId}/refunds`, { ...form, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined, walletUsd: Number(form.walletUsd) || 0, idempotencyKey: idempotencyKey.current });
+      await sys.post(`acc/orders/${orderId}/refunds`, { ...form, existingRefundId: existingRefundId || undefined, pendingBankLineId: pendingBankLineId || undefined, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined, walletUsd: Number(form.walletUsd) || 0, idempotencyKey: idempotencyKey.current });
       idempotencyKey.current = newKey();
       setOpen(false);
+      setExistingRefundId('');
       setForm({ accountId: '', amount: '', usdValue: '', walletUsd: '', day: todayLibya(), note: '' });
       load();
       onSaved();
@@ -294,7 +316,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             { key: 'usd', header: 'قيمته', numeric: true, render: (row: any) => <Money value={row.usd} /> },
             { key: 'wallet', header: 'للمحفظة', numeric: true, render: (row: any) => <Money value={row.walletUsd} /> },
             { key: 'status', header: '', render: (row: any) => <StatusBadge status={row.status} /> },
-            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <Button size="small" color="error" onClick={() => setCanceling(row)}>إلغاء</Button> : null) },
+            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <>{!row.walletUsd && <Button size="small" onClick={() => { setExistingRefundId(row._id); setForm({ accountId: row.accountId?._id || row.accountId, amount: String(row.amount), usdValue: String(row.usd / 100), walletUsd: '', day: todayLibya(), note: row.note || '' }); setOpen(true); }}>إضافة مبلغ العميل لنفس الريفاند</Button>}<Button size="small" color="error" onClick={() => setCanceling(row)}>إلغاء</Button></> : null) },
           ]}
         />
       )}
@@ -309,11 +331,27 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
         <DialogTitle>ريفاند من المورد على هذا الطلب</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+          <TextField select fullWidth className="mb-2" label="تسجيل استرداد جديد أو استخدام ريفاند موجود" value={existingRefundId} onChange={e => {
+            const id = e.target.value; setExistingRefundId(id);
+            const selected = rows.find((r: any) => r._id === id);
+            if (selected) setForm({ accountId: selected.accountId?._id || selected.accountId, amount: String(selected.amount), usdValue: String(selected.usd / 100), walletUsd: '', day: todayLibya(), note: selected.note || '' });
+          }}><MenuItem value="">استرداد جديد لم يُسجل في الكشف أو الطلبية</MenuItem>{rows.filter((r: any) => r.status === 'posted' && !r.walletUsd).map((r: any) => <MenuItem key={r._id} value={r._id}>{r.number} · {r.amount} {r.currency} · {r.day}</MenuItem>)}</TextField>
+          {existingRefundId && <Alert severity="info" className="mb-2">استلام البنك وتخفيض تكلفة الطلبية مسجلان بالفعل. سيضاف مبلغ العميل لمحفظته فقط دون تكرار حركة البنك أو تخفيض التكلفة.</Alert>}
+          {!existingRefundId && pendingMatches.length > 0 && <Alert severity="warning" className="mb-2">
+            وجدنا استردادات مرحّلة قيد التحديد بنفس البنك والمبلغ أو مقابل الدولار. راجع السطر واختر المسترد لهذه الطلبية؛ سيُستخدم تاريخ الكشف ومبلغه، ولن يتكرر استلام البنك.
+            {pendingMatches.map((row: any) => <div key={row._id} className="mt-2">
+              <Ltr>{row.day} · {row.amount} {row.currency} · {row.usdValue} USD</Ltr><Sub>{row.description}</Sub>
+              <Button size="small" variant={pendingBankLineId === row._id ? 'contained' : 'outlined'} onClick={() => {
+                setPendingBankLineId(row._id); setForm({ ...form, amount: String(row.amount), usdValue: String(row.usdValue), day: row.day });
+              }}>{pendingBankLineId === row._id ? 'مختار — سيتم ربطه بهذه الطلبية' : 'اختيار هذا الاسترداد للربط'}</Button>
+            </div>)}
+          </Alert>}
           <div className="acc-form-grid">
-            <TextField select label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+            <TextField select disabled={!!existingRefundId} label="دخل المال في" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
               {accounts.map((a: any) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
             </TextField>
-            <TextField type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <TextField disabled={!!existingRefundId} type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            {account?.currency !== 'USD' && <TextField disabled={!!existingRefundId} type="number" label="القيمة الفعلية بالدولار (إن ذكرها البنك)" value={form.usdValue} onChange={e => setForm({ ...form, usdValue: e.target.value })} helperText="اختياري؛ استخدم مقابل الدولار المطبوع في الكشف، وإلا يُستخدم تقييم المنظومة." />}
             <TextField type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
               helperText={account?.currency === 'USD' && usd > 0 ? <>مثلاً <Ltr>{Math.max(usd - 1, 0).toFixed(2)}</Ltr> (هامش حماية 1$)</> : 'ما يُضاف لمحفظة العميل بالدولار'} />
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
@@ -322,7 +360,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>إلغاء</Button>
-          <Button variant="contained" disabled={busy || !form.accountId || !(Number(form.amount) > 0)} onClick={save}>تسجيل</Button>
+          <Button variant="contained" disabled={busy || pendingBusy || (!existingRefundId && pendingMatches.length > 0 && !pendingBankLineId) || !form.accountId || !(Number(form.amount) > 0)} onClick={save}>{pendingBankLineId ? 'اعتماد الربط وإضافة مبلغ العميل' : 'تسجيل'}</Button>
         </DialogActions>
       </Dialog>
     </Panel>
@@ -452,7 +490,19 @@ const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () =>
   );
 };
 
-export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?: string, orderNumber?: string, isPayment?: boolean }) => {
+export const OrderCosts = ({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) => {
+  const { canSee, data, error, reload } = useSummary(`summary/order/${orderId}`);
+  return <Frame title="إضافة التكاليف" error={error} loading={false}>
+    <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={reload} />
+    {canSee && data && <BillsTable bills={data.bills} empty="لا فواتير موردين مسجلة على هذه الطلبية" />}
+  </Frame>;
+};
+
+export const OrderRefunds = ({ orderId }: { orderId: string }) => <Frame title="الريفاند / الاستردادات" error="" loading={false}>
+  <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />
+</Frame>;
+
+export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActions = false }: { orderId?: string, orderNumber?: string, isPayment?: boolean, separateActions?: boolean }) => {
   const { access, canSee, data, error, reload } = useSummary(orderId ? `summary/order/${orderId}` : null);
   const [writeOff, setWriteOff] = useState<any>(null);
   if (!orderId || access.loading) return null;
@@ -460,9 +510,9 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
   if (!canSee) {
     return (
       <Frame title="المحاسبة" error="" loading={false}>
-        <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={() => {}} />
+        {!separateActions && <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={() => {}} />}
         <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
-        {isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
+        {!separateActions && isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
         <AbandonedPanel orderId={orderId} onChanged={() => {}} />
         {isPayment && <AlipaySendPanel orderId={orderId} />}
       </Frame>
@@ -472,9 +522,9 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
   const empty = data && !data.claims.length && !data.entries.length;
   return (
     <Frame title="المحاسبة" error={error} loading={!data}>
-      {data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
+      {!separateActions && data && <QuickOrderBill orderId={orderId} orderNumber={data.order.orderId} onSaved={reload} />}
       <PreviousCustomerLines orderId={orderId} onMoved={reload} />
-      {(isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
+      {!separateActions && (isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
       <AbandonedPanel orderId={orderId} onChanged={reload} />
       {(isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
       {empty && <NoEntries />}
@@ -508,9 +558,16 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment }: { orderId?:
           </Panel>
           {writeOff && <WriteOffDialog claim={writeOff} onClose={() => setWriteOff(null)} onDone={() => { setWriteOff(null); reload(); }} />}
           <BillsTable bills={data.bills} empty="لا تكلفة مورد مسجلة على هذا الطلب" />
-          <EntriesTable entries={data.entries} />
         </>
       )}
+      {data && <>
+        <AccountingFold title="مركز تكلفة الطلبية" summary={<Money value={data.costExplanation?.total ?? (totals.cost + totals.costInProgress)} />}>
+          <OrderCostBreakdown data={data.costExplanation} />
+        </AccountingFold>
+        <AccountingFold title="القيود المحاسبية" summary={`${data.entries.length} قيد`}>
+          <EntriesTable entries={data.entries} />
+        </AccountingFold>
+      </>}
     </Frame>
   );
 };

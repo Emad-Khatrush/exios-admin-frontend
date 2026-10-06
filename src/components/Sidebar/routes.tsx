@@ -1,6 +1,6 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale } from 'react-icons/fa';
-import { FiPackage, FiSettings } from 'react-icons/fi';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale } from 'react-icons/fa';
+import { FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
 

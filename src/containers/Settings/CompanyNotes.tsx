@@ -51,23 +51,22 @@ const CompanyNotes = () => {
   const [formError, setFormError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchNotes();
-  }, []);
-
   const showAlert = (message: string, type: 'success' | 'error' = 'success') => setAlert({ open: true, message, type });
 
-  const fetchNotes = async () => {
+  useEffect(() => {
+    const fetchNotes = async () => {
     try {
       setLoading(true);
       const res = await api.get('companyNotes');
       setNotes(res.data);
     } catch (err) {
-      showAlert('Failed to fetch company notes', 'error');
+      setAlert({ open: true, message: 'Failed to fetch company notes', type: 'error' });
     } finally {
       setLoading(false);
     }
-  };
+    };
+    fetchNotes();
+  }, []);
 
   // Keep pinned first, then most recently updated, like the API does.
   const upsertNote = (note: CompanyNote) => {

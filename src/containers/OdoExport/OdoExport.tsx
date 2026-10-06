@@ -564,7 +564,9 @@ const ExportCard = ({
 
 // --- Component ---
 const OdoExport = (): JSX.Element => {
-  const [clientFilters, setClientFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
+  const [clientFilters, setClientFilters] = useState<DateFilter>({
+    startDate: '', endDate: '',
+  });
   const [loadingClients, setLoadingClients] = useState(false);
   const [shipmentFilters, setShipmentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });
   const [paymentFilters, setPaymentFilters] = useState<DateFilter>({ startDate: '', endDate: '' });

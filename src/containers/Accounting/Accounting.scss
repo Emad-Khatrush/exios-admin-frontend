@@ -882,3 +882,26 @@
 @media (max-width: 900px) {
   .acc-trip__grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.acc-fold {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+  &__summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    cursor: pointer;
+    list-style: none;
+    &::-webkit-details-marker { display: none; }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  }
+  &__toggle { margin-inline-start: auto; color: var(--muted); font-size: 13px; }
+  &__toggle span { display: inline-block; transition: transform 150ms; }
+  &[open] > summary .acc-fold__toggle span { transform: rotate(180deg); }
+  &__body { padding: 0 16px 16px; }
+  &__body > .acc-panel { margin-bottom: 0; }
+}

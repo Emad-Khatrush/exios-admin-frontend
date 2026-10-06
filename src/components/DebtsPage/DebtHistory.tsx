@@ -134,9 +134,9 @@ const DebtHistory = (props: Props) => {
           </button>
         }
         {debt.status === 'waitingApproval' && isAdmin &&
-          <button className='debts-btn is-primary is-small' onClick={() => setConfirmOpen(true)}>
+          <button className='debts-btn is-primary is-small' onClick={() => setConfirmOpen(true)} disabled={Number(debt.amount) !== 0}>
             <ShieldCheck size={15} strokeWidth={2} />
-            Confirm debt
+            Confirm settlement
           </button>
         }
         {isAdmin &&
@@ -349,7 +349,7 @@ const DebtHistory = (props: Props) => {
       >
         <DialogTitle>
           <span className='debt-dialog-title'>
-            <strong>Confirm this debt?</strong>
+            <strong>Confirm this settlement?</strong>
             <span>{debt.owner?.firstName} {debt.owner?.lastName} ({debt.owner?.customerId})</span>
           </span>
         </DialogTitle>
@@ -365,13 +365,13 @@ const DebtHistory = (props: Props) => {
             </div>
           </div>
           <p style={{ fontSize: '0.85rem', color: '#5b6673', margin: 0 }}>
-            Once confirmed, the debt moves to the open list and payments can be recorded against it.
+            Confirm that this debt has been fully paid. It will move to the closed list.
           </p>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <button className='debts-btn is-ghost' onClick={() => setConfirmOpen(false)} disabled={isConfirming}>Cancel</button>
           <button className='debts-btn is-primary' onClick={confirmDebt} disabled={isConfirming}>
-            {isConfirming ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirm debt'}
+            {isConfirming ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirm settlement'}
           </button>
         </DialogActions>
       </Dialog>

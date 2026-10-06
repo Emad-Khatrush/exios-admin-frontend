@@ -16,7 +16,7 @@ import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplat
 import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog';
 import EditInvoiceItems from '../../components/EditInvoiceItems/EditInvoiceItems';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
-import { OrderAccounting } from '../Accounting/AccountingPanels';
+import { OrderAccounting, OrderCosts, OrderRefunds } from '../Accounting/AccountingPanels';
 import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
@@ -33,7 +33,7 @@ import './orderPage.scss';
 // Other screens import these from here
 export { countries, orderActions, removeBr } from './orderConstants';
 
-type TabKey = 'details' | 'payments' | 'accounting';
+type TabKey = 'details' | 'payments' | 'accounting' | 'refund' | 'costs';
 type WalletCategory = 'invoice' | 'receivedGoods';
 
 type Props = {
@@ -516,7 +516,9 @@ export class EditInvoice extends Component<Props, State> {
           <Tabs value={tab} onChange={(_, value) => this.setState({ tab: value })} variant="scrollable" scrollButtons="auto">
             <Tab value="details" label="Order details" />
             <Tab value="payments" label={`Payments (${payments.length})`} />
-            {(isAdmin || account?.roles.isAccountant) && <Tab value="accounting" label="Accounting" />}
+            {(isAdmin || account?.roles.isAccountant) && <Tab value="accounting" label="المحاسبة" />}
+            {(isAdmin || account?.roles.isAccountant) && order.isPayment && <Tab value="refund" label="الريفاند / الاستردادات" />}
+            {(isAdmin || account?.roles.isAccountant) && <Tab value="costs" label="إضافة التكاليف" />}
           </Tabs>
         </div>
 
@@ -579,7 +581,9 @@ export class EditInvoice extends Component<Props, State> {
           />
         )}
 
-        {tab === 'accounting' && <OrderAccounting orderId={order._id} orderNumber={order.orderId} isPayment={!!order.isPayment} />}
+        {tab === 'accounting' && <OrderAccounting orderId={order._id} orderNumber={order.orderId} isPayment={!!order.isPayment} separateActions />}
+        {tab === 'refund' && order.isPayment && <OrderRefunds orderId={order._id} />}
+        {tab === 'costs' && <OrderCosts orderId={order._id} orderNumber={order.orderId} />}
 
         <Backdrop sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000 }} open={isBusy}>
           <CircularProgress color="inherit" />

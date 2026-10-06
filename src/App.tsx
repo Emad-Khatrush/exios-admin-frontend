@@ -221,6 +221,11 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/analytics' element={<Analytics />} />
       {accountingRoutes}
     </>
+  } else if (roles?.isAccountant) {
+    return <>
+      <Route path='/' element={<Navigate to='/accounting' replace />} />
+      {accountingRoutes}
+    </>
   }
 }
 

@@ -6,7 +6,9 @@ import * as XLSX from 'xlsx';
 // screen. Numbers may be written 1,234.56 or (Turkish) 1.234,56; dates 30/09/2026, 30.09.2026,
 // 2026-09-30 or 2026年9月30日.
 
-export type StatementRow = { day: string, description: string, reference: string, amount: number, balanceAfter: number | null };
+export type StatementRow = { day: string, description: string, reference: string, amount: number, balanceAfter: number | null,
+  movementKind?: 'purchase' | 'purchase_refund' | 'card_payment',
+  originalAmount?: number, originalCurrency?: string, settlementUsd?: number, exchangeRate?: number, counterAmount?: number, counterCurrency?: string };
 export type ColumnRole = 'date' | 'description' | 'reference' | 'amount' | 'in' | 'out' | 'direction' | 'balance';
 export type Mapping = Partial<Record<ColumnRole, number>>;
 

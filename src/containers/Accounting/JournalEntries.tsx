@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
+import { useAccountingAccess } from './useAccountingAccess';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { Badge, DataTable, FilterBar, ForeignTotals, Ltr, Money, PageHeader, Panel, ShowCanceled, Sub } from './ui';
 
 const PAGE_SIZE = 50;
 
 const JournalEntries = () => {
+  const access = useAccountingAccess();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [filters, setFilters] = useState({ from: '', to: '', journalId: '', eventType: '', search: '', accountId: params.get('accountId') || '', showCanceled: '' });
@@ -44,7 +46,7 @@ const JournalEntries = () => {
       <PageHeader
         title="القيود"
         subtitle="القيود لا تُعدَّل ولا تُحذف. الخطأ يُصحَّح بإلغاء القيد (قيد عكسي) ثم تسجيل قيد جديد."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/entries/new')}>قيد يدوي</Button>}
+        actions={access.can('entries') ? <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/entries/new')}>قيد يدوي</Button> : undefined}
       />
       <Panel flush>
         <div className="px-3">

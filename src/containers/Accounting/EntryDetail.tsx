@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { EVENT_LABELS, OFFICE_LABELS, acc, errorText } from './accountingApi';
+import { useAccountingAccess } from './useAccountingAccess';
 import { AccountRef, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Sub } from './ui';
 
 // Internal references with no page of their own
 const DIMENSIONS: [string, string][] = [['employeeId', 'الموظف'], ['assetId', 'الأصل']];
 
 const EntryDetail = () => {
+  const access = useAccountingAccess();
   const { id } = useParams();
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
@@ -66,7 +68,7 @@ const EntryDetail = () => {
           {entry.isHistorical && <Badge tone="info">تاريخي</Badge>}
           {cashNet !== 0 && <Button variant="outlined" component="a" href={`/accounting/vouchers/${entry._id}`} target="_blank" rel="noreferrer">{cashNet > 0 ? 'سند قبض' : 'سند صرف'} ↗</Button>}
           {source?.url && <Button variant="outlined" component="a" href={source.url} target="_blank" rel="noreferrer">فتح {source.label} ↗</Button>}
-          {canCancel && <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)}>إلغاء القيد</Button>}
+          {canCancel && access.can('entries') && access.can('cancel') && <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)}>إلغاء القيد</Button>}
         </>}
       />
       {error && <Alert severity="error" className="mb-2">{error}</Alert>}

@@ -242,7 +242,8 @@ const CreateDebtHistoryDialog = (props: Props) => {
               type={'number'}
               inputProps={{ inputMode: 'decimal', step: .01 }}
               onWheel={(event: any) => event.target.blur()}
-              required={true}
+              required={form.currency !== props.item?.currency}
+              helperText={form.currency === props.item?.currency ? 'No currency conversion needed; 0 is allowed.' : 'Enter a positive exchange rate.'}
               label={'Rate'}
               onChange={onChangeHandler}
             />

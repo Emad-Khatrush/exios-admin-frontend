@@ -59,7 +59,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
     links: [
       { to: '/accounting/reports', label: 'التقارير', icon: ChartColumn, perms: ['reports'] },
       { to: '/accounting/exceptions', label: 'المطابقة والاستثناءات', icon: ShieldCheck, perms: ['reports'] },
-      { to: '/accounting/entries', label: 'القيود', icon: BookOpen, perms: ['entries'] },
+      { to: '/accounting/entries', label: 'القيود', icon: BookOpen, perms: ['entries', 'entries_view'] },
       { to: '/accounting/accounts', label: 'شجرة الحسابات', icon: ListTree, perms: ['setup', 'reports', 'treasury'] },
       { to: '/accounting/trial-balance', label: 'ميزان المراجعة', icon: Scale, perms: ['reports'] },
       { to: '/accounting/suspense', label: 'تسوية المعلّق', icon: ListChecks, perms: ['suspense'] },
@@ -83,9 +83,10 @@ const LINKS = NAV.flatMap((group) => group.links);
 
 // Pages reached from inside others, not from the menu
 const EXTRA: NavItem[] = [
-  { to: '/accounting/entries/', label: '', icon: null, perms: ['entries', 'reports'] },
+  { to: '/accounting/entries/new', label: '', icon: null, perms: ['entries'] },
+  { to: '/accounting/entries/', label: '', icon: null, perms: ['entries', 'entries_view', 'reports'] },
   { to: '/accounting/accounts/', label: '', icon: null, perms: ['reports', 'treasury'] },
-  { to: '/accounting/vouchers', label: '', icon: null, perms: ['entries', 'treasury', 'payments', 'purchases'] },
+  { to: '/accounting/vouchers', label: '', icon: null, perms: ['entries', 'entries_view', 'treasury', 'payments', 'purchases'] },
 ];
 
 // The menu item a path belongs to: the longest one it starts with
