@@ -1,45 +1,32 @@
 .qa-banner {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 1600;
+  // Normal flow avoids offsets on the root, sticky navigation and dialogs.
+  // The notice scrolls away while navigation stays at the top.
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  min-height: 56px;
-  padding: 10px 24px;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-height: 28px;
+  padding: 4px 12px;
   box-sizing: border-box;
-  color: #713f12;
-  background: #fff3c4;
-  border-bottom: 2px solid #d99c16;
-  box-shadow: 0 2px 8px #713f1212;
+  color: #78551b;
+  background: #fff8e7;
+  border-bottom: 1px solid #efdfb9;
   font-family: 'IBM Plex Sans Arabic', sans-serif;
-  line-height: 1.7;
-  font-size: 14px;
+  line-height: 18px;
+  font-size: 11px;
+  text-align: center;
 
   &__badge {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 4px;
     flex-shrink: 0;
-    background: #713f12;
-    color: #fff8df;
-    padding: 4px 12px;
-    border-radius: 6px;
     white-space: nowrap;
   }
 
-  @media (max-width: 640px) {
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 12px;
-    font-size: 12px;
-    text-align: center;
-  }
-}
+  &__message { color: #806b43; }
 
-body.exios-qa {
-  #root { padding-top: var(--qa-banner-height, 64px); box-sizing: border-box; }
-  .navbar { top: var(--qa-banner-height, 64px); }
-  .MuiDialog-root { top: var(--qa-banner-height, 64px); }
+  @media print { display: none; }
 }
