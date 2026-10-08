@@ -77,6 +77,8 @@ export const EVENT_LABELS: Record<string, string> = {
   DEBT_WRITEOFF: 'شطب دين',
   BILL: 'فاتورة مورد',
   VENDOR_PAYMENT: 'دفعة لمورد',
+  BILL_COST_LINK: 'ربط تكلفة مسجلة بالطلبية',
+  ALIPAY_REVALUATION: 'تسوية تلقائية لتكلفة حوالة Alipay',
   TRANSFER: 'تحويل خزينة',
   CASHCOUNT: 'جرد خزينة',
   OPENING_CASH: 'رصيد افتتاحي',

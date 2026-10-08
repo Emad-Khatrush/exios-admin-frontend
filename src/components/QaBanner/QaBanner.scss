@@ -1,0 +1,45 @@
+.qa-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 10px 24px;
+  box-sizing: border-box;
+  color: #713f12;
+  background: #fff3c4;
+  border-bottom: 2px solid #d99c16;
+  box-shadow: 0 2px 8px #713f1212;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  line-height: 1.7;
+  font-size: 14px;
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    background: #713f12;
+    color: #fff8df;
+    padding: 4px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    font-size: 12px;
+    text-align: center;
+  }
+}
+
+body.exios-qa {
+  #root { padding-top: var(--qa-banner-height, 64px); box-sizing: border-box; }
+  .navbar { top: var(--qa-banner-height, 64px); }
+  .MuiDialog-root { top: var(--qa-banner-height, 64px); }
+}

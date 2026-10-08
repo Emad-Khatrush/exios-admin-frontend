@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, TextField } from '@mui/material';
+import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Tab, Tabs, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
@@ -18,6 +18,10 @@ const cny = (minor: number) => <Amount value={minor / 100} currency="CNY" />;
 const Alipay = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
+  const [accountId, setAccountId] = useState(() => new URLSearchParams(window.location.search).get('accountId') || '');
+  const [ledger, setLedger] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const request = useRef(0);
   const [buying, setBuying] = useState(false);
   const [arriving, setArriving] = useState<any>(null);
   const [cancel, setCancel] = useState<any>(null);
@@ -25,9 +29,43 @@ const Alipay = () => {
   const [sendOrder, setSendOrder] = useState<any>(null);
   // The period (purchases, transfers and months in it) and a broker for the purchases list
   const [filters, setFilters] = useState<ListFilterValue>(ALIPAY_FILTERS);
-  const load = (current: ListFilterValue = filters) => acc.get('alipay', queryOf({ from: current.from, to: current.to })).then((res: any) => setData(res.data)).catch((err: any) => setError(errorText(err)));
+  const load = async (current: ListFilterValue = filters, selected = accountId) => {
+    const version = ++request.current;
+    setLoading(true);
+    setError('');
+    try {
+      const period = queryOf({ from: current.from, to: current.to });
+      const initial = !selected ? await acc.get('alipay', period) : null;
+      if (!selected) selected = initial?.data.accounts[0]?._id || '';
+      const [response, movements] = selected ? await Promise.all([
+        acc.get('alipay', { ...period, accountId: selected }),
+        acc.get(`reports/account-ledger/${selected}`, period),
+      ]) : [initial!, null];
+      if (version !== request.current) return;
+      setAccountId(selected);
+      setData(response.data);
+      setLedger(movements?.data || null);
+    } catch (err) {
+      if (version !== request.current) return;
+      setData(null);
+      setLedger(null);
+      setError(errorText(err));
+    } finally {
+      if (version === request.current) setLoading(false);
+    }
+  };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return () => { request.current += 1; }; }, []);
+  const selectedAccount = data?.accounts.find((a: any) => a._id === accountId);
+  const selectAccount = (id: string) => {
+    setAccountId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('accountId', id);
+    window.history.replaceState(window.history.state, '', url);
+    const nextFilters = { ...filters, broker: '' };
+    setFilters(nextFilters);
+    load(nextFilters, id);
+  };
 
   const totals = useMemo(() => (data?.months || []).find((m: any) => m.month === today().slice(0, 7)), [data]);
   // Per order the revenue and its cost meet; a month can hold the cost of an order whose revenue
@@ -37,25 +75,44 @@ const Alipay = () => {
     <>
       <PageHeader
         title="Alipay"
-        subtitle="شراء اليوان من الوسطاء وأرصدة حسابات Alipay بمتوسط سعرها، والحوالات لعملاء الصين بربح كل منها. الحوالة نفسها فاتورة شراء معلَّمة «حوالة Alipay» تُسجَّل من المنظومة."
-        actions={<div className="d-flex gap-2"><Button variant="outlined" onClick={() => setSending(true)}>إرسال حوالة</Button><Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setBuying(true)}>شراء يوان</Button></div>}
+        subtitle="متابعة مستقلة لكل حساب: الرصيد والحركات وشراء اليوان والحوالات والاستردادات، مع اختيار الحساب تلقائيًا عند إنشاء العمليات."
+        actions={<div className="d-flex gap-2"><Button href={`/accounting/bank${accountId ? `?accountId=${accountId}` : ''}`} variant="outlined">استيراد ومطابقة كشف Alipay</Button><Button variant="outlined" disabled={loading || !accountId} onClick={() => setSending(true)}>إرسال حوالة</Button><Button variant="contained" disabled={loading || !accountId} startIcon={<Plus size={16} />} onClick={() => setBuying(true)}>شراء يوان</Button></div>}
       />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
-      <ListFilters value={filters} onChange={setFilters} onApply={load} blank={ALIPAY_FILTERS} searchLabel={null}>
+      {data?.accounts.length > 0 && <Panel title="حسابات Alipay" subtitle="اختر حسابًا لعرض رصيده ومشترياته وحركاته بشكل مستقل.">
+        <Tabs sx={{ '& .MuiTab-root': { minWidth: 180, textTransform: 'none', alignItems: 'flex-start', borderRadius: 2 }, '& .Mui-selected': { backgroundColor: 'action.selected' } }} value={accountId} onChange={(_, id) => selectAccount(id)} variant="scrollable" scrollButtons="auto" aria-label="حسابات Alipay">
+          {data.accounts.map((a: any) => <Tab key={a._id} value={a._id} label={<span>{a.name}<Sub><Ltr>{a.code}</Ltr> · {cny(a.cny)}</Sub></span>} />)}
+        </Tabs>
+      </Panel>}
+      {data && !data.accounts.length && <Alert severity="info" className="mb-3">لا توجد حسابات Alipay. أضف حسابًا نقديًا بعملة CNY من شجرة الحسابات.</Alert>}
+      {loading && <Alert severity="info" className="mb-3">جارٍ تحميل بيانات الحساب…</Alert>}
+      <ListFilters value={filters} onChange={setFilters} onApply={(value) => load(value)} blank={ALIPAY_FILTERS} searchLabel={null}>
         <TextField size="small" select label="الوسيط" value={filters.broker} onChange={(e) => setFilters({ ...filters, broker: e.target.value })} style={{ minWidth: 170 }}>
           <MenuItem value="">كل الوسطاء</MenuItem>
           {(data?.brokers || []).map((b: any) => <MenuItem key={String(b.vendorId)} value={String(b.vendorId)}>{b.name}</MenuItem>)}
         </TextField>
       </ListFilters>
-      {data && (
+      {data && !loading && (
         <>
           <StatGrid>
-            {data.accounts.map((a: any) => (
-              <Stat key={a._id} label={a.name} value={cny(a.cny)} hint={<>قيمته <Money value={a.usd} /> · متوسط السعر {rateText(a.rate)}</>} />
-            ))}
-            <Stat label="أرباح كل الحوالات" value={<Money value={overall.profit} />} hint={<>إيراد <Money value={overall.revenue} /> · تكلفة <Money value={overall.cost} /></>} tone="accent" />
-            <Stat label="أرباح الحوالات هذا الشهر" value={<Money value={totals?.profit || 0} />} hint={<>إيراد <Money value={totals?.revenue || 0} /> · تكلفة <Money value={totals?.cost || 0} />. التكلفة في شهر إرسال اليوان، والإيراد في شهر السداد</>} />
+            {selectedAccount && <Stat label={`الرصيد الحالي · ${selectedAccount.name}`} value={cny(selectedAccount.cny)} hint={<>قيمته <Money value={selectedAccount.usd} /> · متوسط السعر {rateText(selectedAccount.rate)}</>} tone="accent" />}
+            <Stat label="رصيد بداية الفترة" value={cny(ledger?.opening.foreign || 0)} hint="حسب الفترة المحددة" />
+            <Stat label={ledger?.truncated ? 'الرصيد بعد الحركات المعروضة' : 'رصيد نهاية الفترة'} value={cny(ledger?.closing.foreign || 0)} hint={ledger?.truncated ? 'ضيّق الفترة لعرض الرصيد الختامي الكامل' : 'حسب الحركات المسجلة في الدفاتر'} />
+            <Stat label="بانتظار الوصول لهذا الحساب" value={data.pending.length} />
           </StatGrid>
+          {ledger && <Panel flush title={`حركات الحساب · ${selectedAccount?.name || ''}`} subtitle="الإيداعات والمشتريات والحوالات والاستردادات والتحويلات الخاصة بهذا الحساب. اضغط رقم القيد لعرض تفاصيله.">
+            {ledger.truncated && <Alert severity="warning">تُعرض أول 5000 حركة؛ ضيّق الفترة لعرض بقية الحركات.</Alert>}
+            <DataTable dense maxHeight={420} rows={ledger.movements} rowKey={(row: any, index: number) => `${row._id}-${index}`}
+              empty={{ title: 'لا توجد حركات لهذا الحساب في الفترة' }} columns={[
+                { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
+                { key: 'description', header: 'البيان / القيد', render: (row: any) => <>{row.line.label || row.description}<Sub><Open to={`/accounting/entries/${row._id}`}><Ltr>{row.number}</Ltr></Open></Sub></> },
+                { key: 'in', header: 'وارد (CNY)', numeric: true, render: (row: any) => row.line.amountCurrency > 0 ? cny(row.line.amountCurrency) : '—' },
+                { key: 'out', header: 'صادر (CNY)', numeric: true, render: (row: any) => row.line.amountCurrency < 0 ? cny(-row.line.amountCurrency) : '—' },
+                { key: 'rate', header: 'سعر الصرف', numeric: true, render: (row: any) => rateText(row.line.rate) },
+                { key: 'balance', header: 'الرصيد (CNY)', numeric: true, render: (row: any) => cny(row.balanceForeign) },
+              ]} />
+          </Panel>}
+
 
           {data.pending.length > 0 && (
             <Panel flush title={`بانتظار الوصول (${data.pending.length})`} subtitle={`دُفع للوسيط ولم يصل اليوان بعد. ما تأخر أكثر من ${data.pendingDays} أيام يظهر في الاستثناءات.`}>
@@ -101,19 +158,25 @@ const Alipay = () => {
                 ]}
               />
             </Panel>
-            <Panel flush title="الأشهر">
+            <Panel flush title="مشتريات الحساب حسب الشهر">
               <DataTable
-                dense rows={data.months} rowKey={(row: any) => row.month}
+                dense rows={data.months.filter((m: any) => m.boughtUsd || m.boughtCny)} rowKey={(row: any) => row.month}
                 columns={[
                   { key: 'month', header: 'الشهر', render: (row: any) => <Ltr>{row.month}</Ltr> },
                   { key: 'bought', header: 'شراء يوان', numeric: true, render: (row: any) => <Money value={row.boughtUsd} tone="plain" /> },
-                  { key: 'revenue', header: 'إيراد الحوالات', numeric: true, render: (row: any) => <Money value={row.revenue} /> },
-                  { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
+                  { key: 'cny', header: 'اليوان', numeric: true, render: (row: any) => <Amount value={row.boughtCny} currency="CNY" /> },
                 ]}
               />
             </Panel>
           </div>
 
+          <details className="mb-3">
+            <summary style={{ cursor: 'pointer', padding: 16 }}>ملخص أرباح الحوالات العام · جميع الحسابات</summary>
+            <Alert severity="info" className="mb-3">هذا الملخص على مستوى الطلبية ويشمل جميع الحسابات. ربح الطلبية لا يُوزّع بين الحسابات عند الدفع من أكثر من حساب.</Alert>
+            <StatGrid>
+              <Stat label="أرباح الحوالات في الفترة · جميع الحسابات" value={<Money value={overall.profit} />} hint={<>إيراد <Money value={overall.revenue} /> · تكلفة <Money value={overall.cost} /></>} />
+              <Stat label="أرباح هذا الشهر · جميع الحسابات" value={<Money value={totals?.profit || 0} />} />
+            </StatGrid>
           <Panel flush title="الحوالات (الطلبات المعلَّمة حوالة Alipay)" subtitle="الإيراد والتكلفة بعد الاعتراف (عند السداد الكامل).">
             <DataTable
               dense maxHeight={420} rows={data.transfers} rowKey={(row: any) => String(row.orderId)}
@@ -139,30 +202,31 @@ const Alipay = () => {
               ]}
             />
           </Panel>
+          </details>
         </>
       )}
       <Dialog open={sending} onClose={() => { setSending(false); setSendOrder(null); }} maxWidth="sm" fullWidth>
         <DialogTitle>إرسال حوالة لطلب</DialogTitle>
         <DialogContent>
           <RemotePicker endpoint="lookup/orders" label="رقم الطلب (معلَّم حوالة Alipay)" value={sendOrder} getLabel={orderLabel} onChange={setSendOrder} />
-          {sendOrder && <div className="mt-3"><AlipaySendPanel key={sendOrder._id} orderId={sendOrder._id} from="accounting" onSent={() => load()} /></div>}
+          {sendOrder && <div className="mt-3"><AlipaySendPanel key={sendOrder._id} orderId={sendOrder._id} defaultAccountId={accountId} from="accounting" onSent={() => load()} /></div>}
           {sendOrder && <p className="acc-muted mt-2">إن لم يظهر نموذج الدفع فالطلب غير معلَّم «حوالة Alipay».</p>}
         </DialogContent>
         <DialogActions><Button onClick={() => { setSending(false); setSendOrder(null); }}>إغلاق</Button></DialogActions>
       </Dialog>
-      {buying && <BuyDialog onClose={() => setBuying(false)} onDone={() => { setBuying(false); load(); }} />}
+      {buying && <BuyDialog defaultAccountId={accountId} onClose={() => setBuying(false)} onDone={() => { setBuying(false); load(); }} />}
       {arriving && <ArrivalDialog purchase={arriving} onClose={() => setArriving(null)} onDone={() => { setArriving(null); load(); }} />}
       {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingYuanPurchase" id={cancel._id} title={`شراء اليوان ${cancel.number}`} />}
     </>
   );
 };
 
-const BuyDialog = ({ onClose, onDone }: { onClose: () => void; onDone: () => void }) => {
+const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: string; onClose: () => void; onDone: () => void }) => {
   const { accounts } = useAccountingData();
   const { vendors } = useVendors();
   const payAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && a.isCash && a.currency !== 'CNY'), [accounts]);
   const alipays = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && a.isCash && a.currency === 'CNY'), [accounts]);
-  const [form, setForm] = useState<any>({ vendor: null, day: today(), fromAccountId: '', amount: '', toAccountId: '', cny: '', arrived: true, rate: '' });
+  const [form, setForm] = useState<any>({ vendor: null, day: today(), fromAccountId: '', amount: '', toAccountId: defaultAccountId, cny: '', arrived: true, rate: '', transactionReference: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const idempotencyKey = useRef(newKey());
@@ -175,6 +239,7 @@ const BuyDialog = ({ onClose, onDone }: { onClose: () => void; onDone: () => voi
       await acc.post('yuan-purchases', {
         vendorId: form.vendor?._id, day: form.day, fromAccountId: form.fromAccountId, amount: Number(form.amount), rate: Number(form.rate) || undefined,
         toAccountId: form.toAccountId, arrived: form.arrived, [form.arrived ? 'cnyReceived' : 'cnyExpected']: Number(form.cny), idempotencyKey: idempotencyKey.current,
+        transactionReference: form.transactionReference,
       });
       onDone();
     } catch (err) {
@@ -204,6 +269,7 @@ const BuyDialog = ({ onClose, onDone }: { onClose: () => void; onDone: () => voi
             helperText={usdGuess && Number(form.cny) > 0 ? <>السعر <Ltr>{(Number(form.cny) / usdGuess).toFixed(4)}</Ltr></> : undefined} />
         </div>
         <FormControlLabel className="mt-2" control={<Checkbox checked={form.arrived} onChange={(e) => setForm({ ...form, arrived: e.target.checked })} />} label="وصل اليوان" />
+        {form.arrived && <TextField fullWidth label="رقم عملية وصول اليوان في Alipay (اختياري)" value={form.transactionReference} onChange={e => setForm({ ...form, transactionReference: e.target.value })} helperText="رقم العملية الكامل يربط وصول اليوان بالكشف دون إيداع ثانٍ" />}
         {!form.arrived && <p className="acc-muted">تُحفظ «مدفوعة، بانتظار الوصول»؛ أكّد الوصول بالكمية الفعلية عندما يصل.</p>}
       </DialogContent>
       <DialogActions>
@@ -215,12 +281,12 @@ const BuyDialog = ({ onClose, onDone }: { onClose: () => void; onDone: () => voi
 };
 
 const ArrivalDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: () => void; onDone: () => void }) => {
-  const [form, setForm] = useState({ cny: String(purchase.cnyExpected || ''), day: today() });
+  const [form, setForm] = useState({ cny: String(purchase.cnyExpected || ''), day: today(), transactionReference: '' });
   const [error, setError] = useState('');
   const save = async () => {
     try {
       setError('');
-      await acc.post(`yuan-purchases/${purchase._id}/complete`, { cnyReceived: Number(form.cny), day: form.day });
+      await acc.post(`yuan-purchases/${purchase._id}/complete`, { cnyReceived: Number(form.cny), day: form.day, transactionReference: form.transactionReference });
       onDone();
     } catch (err) {
       setError(errorText(err));
@@ -235,6 +301,7 @@ const ArrivalDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: 
         <div className="acc-form-grid">
           <TextField type="number" label="اليوان الواصل" value={form.cny} onChange={(e) => setForm({ ...form, cny: e.target.value })} />
           <TextField type="date" label="تاريخ الوصول" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <TextField label="رقم عملية Alipay (اختياري)" value={form.transactionReference} onChange={e => setForm({ ...form, transactionReference: e.target.value })} helperText="انسخ الرقم كاملًا للمطابقة مع الكشف" />
         </div>
       </DialogContent>
       <DialogActions>

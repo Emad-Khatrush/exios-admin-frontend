@@ -32,6 +32,8 @@ const BillForm = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [newVendor, setNewVendor] = useState<any>(null);
   const idempotencyKey = useRef(newKey());
+  const [duplicateReview, setDuplicateReview] = useState<any>(null);
+  const [duplicateReason, setDuplicateReason] = useState('');
 
   const expenseAccounts = useMemo(() => accounts.filter((a) => a.type === 'expense' && !a.isGroup && a.isActive), [accounts]);
   const assetAccounts = useMemo(() => accounts.filter((a) => a.type === 'asset' && !a.isGroup && a.isActive && !a.isCash && a.code.startsWith('15')), [accounts]);
@@ -114,22 +116,27 @@ const BillForm = () => {
     })),
   });
 
-  const save = async (asDraft: boolean) => {
+  const save = async (asDraft: boolean, decision?: any) => {
     try {
       setIsSaving(true);
       setError('');
+      const input = { ...body(), ...(decision || {}) };
+      if (!decision) {
+        const preview = (await acc.post('bills/duplicate-preview', { ...input, excludeId: id })).data;
+        if (preview.results.length) { setDuplicateReview({ ...preview, input, asDraft }); setDuplicateReason(''); return; }
+      }
       let saved;
       if (id) {
-        await acc.patch(`bills/${id}`, body());
+        await acc.patch(`bills/${id}`, input);
         saved = asDraft ? { _id: id } : (await acc.post(`bills/${id}/post`)).data;
       } else {
-        saved = (await acc.post('bills', { ...body(), asDraft })).data;
+        saved = (await acc.post('bills', { ...input, asDraft })).data;
       }
       navigate(`/accounting/bills/${saved._id}`);
     } catch (err) {
       setError(errorText(err));
     }
-    setIsSaving(false);
+    finally { setIsSaving(false); }
   };
 
   const addVendor = async () => {
@@ -156,6 +163,25 @@ const BillForm = () => {
         subtitle="كل سطر يُحمَّل على رحلة أو طلب شراء أو مصروف أو أصل ثابت أو مصروف مقدم. تكاليف الرحلات والطلبات تبقى «قيد التنفيذ» حتى يُعترف بإيرادها."
       />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      <Dialog open={!!duplicateReview} onClose={() => !isSaving && setDuplicateReview(null)} fullWidth maxWidth="md" dir="rtl">
+        <DialogTitle>راجع التكلفة الموجودة قبل إنشاء فاتورة أخرى</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" className="mb-3">تشابه البيانات لا يثبت التكرار. إذا كانت نفس العملية، استخدم الفاتورة المسجلة؛ لا تسجل تكلفة أو سداداً جديداً.</Alert>
+          {(duplicateReview?.results || []).map((row: any) => <Panel key={row.key} title={`${row.number} · ${row.amount} ${row.currency}`}>
+            <p>{row.reason} · {row.day}</p><Button onClick={() => navigate(row.url)}>فتح العملية المسجلة</Button>
+            {row.billId && duplicateReview.input.lines.length === 1 && duplicateReview.input.lines[0].orderId && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={async () => {
+              setIsSaving(true); try {
+                await acc.post(`bills/${row.billId}/link-order`, { orderId: duplicateReview.input.lines[0].orderId, reason: duplicateReason });
+                navigate(`/accounting/bills/${row.billId}`);
+              } catch (err) { setError(errorText(err)); } finally { setIsSaving(false); }
+            }}>ربط الفاتورة الموجودة بالطلبية دون تكلفة جديدة</Button>}
+          </Panel>)}
+          <TextField label="سبب الربط أو سبب أنها عملية شراء مستقلة" multiline minRows={2} fullWidth value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} />
+        </DialogContent>
+        <DialogActions><Button disabled={isSaving} onClick={() => setDuplicateReview(null)}>العودة للتعديل</Button>
+          {duplicateReview?.canConfirmIndependent && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={() => save(duplicateReview.asDraft, { duplicateDecision: 'independent', duplicateReason, duplicateFingerprint: duplicateReview.fingerprint })}>تأكيد أنها عملية مستقلة وحفظ</Button>}
+        </DialogActions>
+      </Dialog>
 
       <Panel title="بيانات الفاتورة">
         <div className="acc-form-grid">

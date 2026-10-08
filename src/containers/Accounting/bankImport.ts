@@ -7,6 +7,10 @@ import * as XLSX from 'xlsx';
 // 2026-09-30 or 2026年9月30日.
 
 export type StatementRow = { day: string, description: string, reference: string, amount: number, balanceAfter: number | null,
+  statementCurrency?: string,
+  sourceProvider?: 'alipay', sourceCurrency?: 'CNY', sourceTransactionId?: string, merchantOrderId?: string,
+  counterparty?: string, paymentMethod?: string, transactionStatus?: string, sourceTime?: string,
+  walletImpact?: 'balance' | 'unknown' | 'confirmed', sourceReviewReason?: string,
   movementKind?: 'purchase' | 'purchase_refund' | 'card_payment',
   originalAmount?: number, originalCurrency?: string, settlementUsd?: number, exchangeRate?: number, counterAmount?: number, counterCurrency?: string };
 export type ColumnRole = 'date' | 'description' | 'reference' | 'amount' | 'in' | 'out' | 'direction' | 'balance';
@@ -114,7 +118,8 @@ export const readSheet = async (file: File) => {
     if (text.includes('�')) {
       try { text = new TextDecoder('gbk').decode(buffer); } catch { /* the browser has no GBK decoder */ }
     }
-    workbook = XLSX.read(text, { type: 'string', cellDates: true });
+    // Transaction IDs can exceed 30 digits. Never let CSV type inference round them.
+    workbook = XLSX.read(text, { type: 'string', raw: true, cellDates: false });
   } else {
     workbook = XLSX.read(buffer, { cellDates: true });
   }
@@ -147,6 +152,49 @@ export const detect = (cells: any[][]): { headerRow: number, mapping: Mapping } 
   return { headerRow: 0, mapping: {} };
 };
 
+export type AlipayExcludedRow = { day: string, reference: string, description: string, reason: string };
+
+// Alipay exports transactions, not a running wallet balance. In particular a refund may be
+// labelled 不计收支, and a bank-card purchase must not also reduce the Alipay wallet.
+export const alipayRows = (cells: any[][], headerRow: number): { rows: StatementRow[], excluded: AlipayExcludedRow[] } | null => {
+  const headers = (cells[headerRow] || []).map(value => String(value).trim());
+  if (!['交易时间', '交易对方', '收/支', '收/付款方式', '交易状态', '交易订单号'].every(name => headers.includes(name))) return null;
+  const rows: StatementRow[] = [];
+  const excluded: AlipayExcludedRow[] = [];
+  for (const cellsRow of cells.slice(headerRow + 1)) {
+    const get = (name: string) => String(cellsRow[headers.indexOf(name)] ?? '').trim();
+    const sourceTime = get('交易时间');
+    const day = toDay(sourceTime);
+    if (!day) continue;
+    const reference = get('交易订单号');
+    const counterparty = get('交易对方');
+    const product = get('商品说明');
+    const category = get('交易分类');
+    const paymentMethod = get('收/付款方式');
+    const transactionStatus = get('交易状态');
+    const description = [counterparty, product, category, get('备注')].filter(Boolean).join(' · ');
+    const exclude = (reason: string) => excluded.push({ day, reference, description, reason });
+    if (!['交易成功', '支付成功', '退款成功'].includes(transactionStatus)) { exclude(`عملية غير مكتملة: ${transactionStatus || 'الحالة غير مذكورة'}`); continue; }
+    if (!reference || /[eE][+-]?\d+$/.test(reference)) throw new Error(`رقم عملية Alipay غير صالح بتاريخ ${day}؛ ارفع ملف CSV الأصلي`);
+    const amountText = get('金额').replace(/[,¥￥\s]/g, '');
+    if (!/^\d+(?:\.\d{1,2})?$/.test(amountText) || !(Number(amountText) > 0)) throw new Error(`مبلغ Alipay غير صالح للعملية ${reference}`);
+    const refund = transactionStatus === '退款成功' || category === '退款' || /退款/.test(product);
+    const direction = get('收/支');
+    // A reversal explicitly marked as expense is ambiguous; never silently turn it into income.
+    if (refund && direction === '支出') { exclude('استرداد بإشارة صادر؛ راجع المستند قبل إدخاله'); continue; }
+    if (!refund && !['收入', '支出'].includes(direction)) { exclude('حركة لا تُحتسب واردًا أو صادرًا؛ اتجاه حركة الرصيد يحتاج مراجعة'); continue; }
+    const balance = /^账户余额(?:[（(].*[）)])?$/.test(paymentMethod);
+    if (paymentMethod && !balance) { exclude(`الدفع عبر ${paymentMethod} وليس رصيد Alipay؛ طابقها على حساب الدفع الفعلي`); continue; }
+    rows.push({ day, description, reference, amount: Number(amountText) * (refund || direction === '收入' ? 1 : -1), balanceAfter: null,
+      sourceProvider: 'alipay', sourceCurrency: 'CNY', sourceTransactionId: reference, merchantOrderId: get('商家订单号') || get('商户订单号'),
+      counterparty, paymentMethod, transactionStatus, sourceTime, walletImpact: balance ? 'balance' : 'unknown',
+      ...(balance ? {} : { sourceReviewReason: 'طريقة الاستلام غير مذكورة؛ تأكد أن المبلغ دخل رصيد Alipay قبل المطابقة أو الترحيل' }),
+      ...(refund ? { movementKind: 'purchase_refund' as const, originalAmount: Number(amountText), originalCurrency: 'CNY' } : {}),
+    });
+  }
+  return { rows, excluded };
+};
+
 export const rowsFrom = (cells: any[][], headerRow: number, mapping: Mapping): StatementRow[] => cells.slice(headerRow + 1).map((row) => {
   const cell = (role: ColumnRole) => (mapping[role] === undefined ? undefined : row[mapping[role]!]);
   let amount: number | null;
@@ -158,11 +206,24 @@ export const rowsFrom = (cells: any[][], headerRow: number, mapping: Mapping): S
   } else {
     amount = (Math.abs(toNumber(cell('in')) || 0) - Math.abs(toNumber(cell('out')) || 0)) || null;
   }
+  const description = String(cell('description') ?? '').trim();
+  const sourceCurrency = String(cells[headerRow]?.[mapping.amount ?? mapping.in ?? mapping.out ?? -1] || '').match(/\b(TRY|USD|EUR)\b/i)?.[1].toUpperCase();
+  const sale = description.match(/([\d.,]+)\s*TRY\s*Kar[sş]ılığı\s*([\d.,]+)\s*(USD|EUR)\s*Sat[iı][sş],?\s*Kur:\s*([\d.,]+)/i);
+  const exchange: Partial<StatementRow> = {};
+  if (sale && amount) {
+    const lira = toNumber(sale[1]), foreign = toNumber(sale[2]), rate = toNumber(sale[4]);
+    if (lira && foreign && rate && Math.abs(lira - foreign * rate) <= 1) {
+      if (sourceCurrency === 'TRY' && amount > 0 && Math.abs(amount - lira) < 0.005) Object.assign(exchange, { counterAmount: foreign, counterCurrency: sale[3].toUpperCase(), exchangeRate: rate });
+      if (sourceCurrency === sale[3].toUpperCase() && amount < 0 && Math.abs(-amount - foreign) < 0.005) Object.assign(exchange, { counterAmount: lira, counterCurrency: 'TRY', exchangeRate: rate });
+    }
+  }
   return {
     day: toDay(cell('date')),
-    description: String(cell('description') ?? '').trim(),
+    description,
     reference: String(cell('reference') ?? '').trim(),
     amount: amount || 0,
     balanceAfter: toNumber(cell('balance')),
+    ...(sourceCurrency && { statementCurrency: sourceCurrency }),
+    ...exchange,
   };
 }).filter((row) => row.day && row.amount);

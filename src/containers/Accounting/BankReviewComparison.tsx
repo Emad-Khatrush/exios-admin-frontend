@@ -19,6 +19,14 @@ export default function BankReviewComparison({ line, currency, paid, bankName, o
         {bankName && <ReviewField label="الحساب">{bankName}</ReviewField>}
         <ReviewField label="التاريخ"><Ltr>{line?.day}</Ltr></ReviewField>
         {line?.reference && <ReviewField label="المرجع"><Ltr>{line.reference}</Ltr></ReviewField>}
+        {line?.sourceProvider === 'alipay' && <>
+          {line.counterparty && <ReviewField label="الطرف في Alipay">{line.counterparty}</ReviewField>}
+          {line.merchantOrderId && <ReviewField label="رقم طلب التاجر"><Ltr>{line.merchantOrderId}</Ltr></ReviewField>}
+          <ReviewField label="طريقة الدفع / الاستلام">{line.paymentMethod?.startsWith('账户余额') ? 'رصيد Alipay' : line.paymentMethod || 'غير مذكورة؛ تحتاج تأكيد وصولها للرصيد'}</ReviewField>
+          <ReviewField label="حالة العملية في الكشف">{({ '交易成功': 'عملية ناجحة', '支付成功': 'دفع ناجح', '退款成功': 'استرداد ناجح' } as Record<string, string>)[line.transactionStatus] || line.transactionStatus}</ReviewField>
+          {line.sourceTime && <ReviewField label="وقت العملية كما ورد في الكشف"><Ltr>{line.sourceTime}</Ltr></ReviewField>}
+          {line.walletImpact === 'unknown' && <Typography color="error" variant="body2">أكد وصول المبلغ إلى رصيد Alipay من تفاصيل السطر قبل الاعتماد.</Typography>}
+        </>}
         {native && <ReviewField label="عملة الشراء الأصلية"><Ltr>{native.amount} {native.currency}</Ltr></ReviewField>}
         {native?.amount > 0 && paid > 0 && <ReviewField label="سعر التصريف">{native.currency === currency ? 'نفس العملة؛ بدون تصريف' : <Ltr>1 {native.currency} = {(paid / native.amount).toFixed(6)} {currency}</Ltr>}</ReviewField>}
         {line?.counterAmount > 0 && line.counterCurrency && line.counterCurrency !== currency && native?.currency !== line.counterCurrency && paid > 0 && <>

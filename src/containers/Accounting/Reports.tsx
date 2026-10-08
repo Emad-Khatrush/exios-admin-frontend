@@ -14,9 +14,10 @@ const dollars = (cents: number | null | undefined) => Math.round(cents || 0) / 1
 const minor = (value: number | null | undefined, currency: string) => (value || 0) / 10 ** (CURRENCY_DECIMALS[currency] ?? 2);
 const dayOf = (value: any) => (value ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tripoli' }).format(new Date(value)) : '');
 
-const exportSheet = (name: string, rows: Record<string, any>[]) => {
+const exportSheet = (name: string, rows: Record<string, any>[], reviewStatus?: any) => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'Report');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{ 'حالة الحسابات': reviewStatus?.status === 'approved' ? 'معتمدة وفق المراجعة المسجلة' : 'مؤقتة — تحتاج مراجعة', 'من': reviewStatus?.period?.from || '', 'إلى': reviewStatus?.period?.to || '', 'بنود تحتاج معالجة': reviewStatus?.blocking ?? '' }]), 'Review');
   XLSX.writeFile(workbook, `${name}-${todayLibya()}.xlsx`);
 };
 
@@ -73,6 +74,13 @@ function useReport(path: string, initial: any = {}) {
 const thisYear = () => ({ from: `${year()}-01-01`, to: todayLibya() });
 const ledgerLink = (accountId: string, period: Period) => `/accounting/accounts/${accountId}?${new URLSearchParams(Object.entries(period).filter(([, v]) => v) as any)}`;
 
+const ReviewNotice = ({ data }: { data: any }) => data?.reviewStatus ? <Alert severity={data.reviewStatus.status === 'approved' ? 'success' : 'warning'} className="mx-3 mb-2">
+  {data.reviewStatus.status === 'approved' ? 'حسابات الفترة معتمدة وفق المراجعة المسجلة' : 'تقرير مؤقت — يحتاج مراجعة واعتماد الحسابات'}
+  {data.reviewStatus.blocking > 0 && ' · بنود تحتاج معالجة: ' + data.reviewStatus.blocking}
+  {data.reviewStatus.checkUnavailable && ' · تعذّر فحص اكتمال المراجعة'}
+  <Open to={'/accounting/review?' + new URLSearchParams(Object.entries(data.reviewStatus.period || {}).filter(([k,v]) => ['from','to'].includes(k) && !!v) as any)}>فتح قائمة المراجعة</Open>
+</Alert> : null;
+
 // ---------- Income statement ----------
 
 const IncomeStatement = () => {
@@ -105,7 +113,7 @@ const IncomeStatement = () => {
     account: r.kind === 'row' ? `${r.code} ${r.name}` : r.title,
     ...Object.fromEntries(cols.map((c) => [c.label, dollars(r.values?.[c.key])])),
     ...(many ? { total: dollars(r.total) } : {}),
-  })));
+  })), data?.reviewStatus);
 
   return (
     <Panel flush title="قائمة الدخل" subtitle="الإيرادات المعترف بها ناقص تكلفتها والمصروفات. قيد إقفال السنة لا يدخل هنا، فتبقى نتيجة السنة المقفلة ظاهرة." actions={<Actions onExport={exportRows} />}>
@@ -121,6 +129,7 @@ const IncomeStatement = () => {
           <MenuItem value="office">حسب المكتب</MenuItem>
         </TextField>
       </PeriodBar>
+      <ReviewNotice data={data} />
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       {data && (
         <div className="px-3 pb-2">
@@ -180,7 +189,7 @@ const BalanceSheet = () => {
   const exportRows = () => exportSheet('balance-sheet', [
     ...data.assets.rows.map((r: any) => ({ section: 'الأصول', account: `${r.code} ${r.name}`, usd: dollars(r.amount) })),
     ...liabilities.map((r: any) => ({ section: 'الالتزامات وحقوق الملكية', account: r.title || `${r.code} ${r.name}`, usd: dollars(r.amount) })),
-  ]);
+  ], data?.reviewStatus);
 
   return (
     <>
@@ -193,7 +202,8 @@ const BalanceSheet = () => {
           <TextField type="date" label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
           <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
         </FilterBar>
-        {error && <Alert severity="error">{error}</Alert>}
+        <ReviewNotice data={data} />
+      {error && <Alert severity="error">{error}</Alert>}
         {data && (
           <StatGrid>
             <Stat label="إجمالي الأصول" value={<Money value={data.assets.total} />} tone="accent" />
@@ -223,9 +233,10 @@ const CashFlow = () => {
       <Panel
         flush title="قائمة التدفقات النقدية"
         subtitle="كل ما دخل وخرج من الخزائن والبنوك والمحافظ الإلكترونية، مصنفاً حسب الحساب المقابل: تشغيلي، استثماري (أصول)، تمويلي (رأس مال، مسحوبات، قروض)."
-        actions={<Actions onExport={() => exportSheet('cash-flow', rows.map((r: any) => ({ item: r.title || `${r.code} ${r.name}`, usd: dollars(r.amount) })))} />}
+        actions={<Actions onExport={() => exportSheet('cash-flow', rows.map((r: any) => ({ item: r.title || `${r.code} ${r.name}`, usd: dollars(r.amount) })), flow.data?.reviewStatus)} />}
       >
         <PeriodBar value={period} onChange={setPeriod} onApply={(next) => apply(next)} />
+        <ReviewNotice data={flow.data} />
         {flow.error && <Alert severity="error" className="mx-3 mb-2">{flow.error}</Alert>}
         {flow.data && (
           <div className="px-3 pb-2">
@@ -252,7 +263,7 @@ const CashFlow = () => {
         actions={<Actions onExport={() => exportSheet('cash-boxes', (boxes.data?.results || []).map((r: any) => ({
           account: `${r.code} ${r.name}`, currency: r.currency, opening: minor(r.openingForeign, r.currency), in: minor(r.inForeign, r.currency), out: minor(r.outForeign, r.currency),
           closing: minor(r.closingForeign, r.currency), closingUsd: dollars(r.closingUsd), rate: r.carryingRate,
-        })))} />}
+        })), boxes.data?.reviewStatus)} />}
       >
         <DataTable
           dense loading={boxes.isLoading} rows={boxes.data?.results || []} rowKey={(row: any) => row.accountId}
@@ -410,7 +421,7 @@ const Trips = () => {
         trip: r.voyage, type: r.shippingType, status: r.status, packages: r.packages, recognizedPackages: r.recognizedPackages, weight: r.weight, unit: r.unit || '',
         revenueRecognized: dollars(r.revenue), deferred: dollars(r.deferred), totalRevenue: dollars(r.totalRevenue), totalCost: dollars(r.totalCost), net: dollars(r.net),
         costPerUnit: r.costPerUnit === null ? '' : dollars(r.costPerUnit), revenuePerUnit: r.revenuePerUnit === null ? '' : dollars(r.revenuePerUnit),
-      })))} />}
+      })), data?.reviewStatus)} />}
     >
       <div className="px-3 acc-noprint">
         <FilterBar>
@@ -427,6 +438,7 @@ const Trips = () => {
           <Button variant="contained" onClick={() => load(filters)}>عرض</Button>
         </FilterBar>
       </div>
+      <ReviewNotice data={data} />
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       <div ref={detailRef} className="px-3">{opened && <TripDetail trip={opened} onClose={() => setOpened(null)} />}</div>
       <DataTable
@@ -470,7 +482,7 @@ const Purchases = () => {
     <Panel
       flush title="ربحية فواتير الشراء"
       subtitle="قيمة الفاتورة المباعة للعميل ناقص فواتير الموردين المسجلة على الطلب. الربح يظهر بعد سداد العميل كامل الفاتورة."
-      actions={<Actions onExport={() => exportSheet('purchases', (data?.results || []).map((r: any) => ({ order: r.orderNumber, customer: r.customer, date: dayOf(r.date), ...profitExport(r), open: dollars(r.open) })))} />}
+      actions={<Actions onExport={() => exportSheet('purchases', (data?.results || []).map((r: any) => ({ order: r.orderNumber, customer: r.customer, date: dayOf(r.date), ...profitExport(r), open: dollars(r.open) })), data?.reviewStatus)} />}
     >
       <div className="px-3 acc-noprint">
         <FilterBar>
@@ -482,6 +494,7 @@ const Purchases = () => {
           <Button variant="contained" onClick={() => load({ search, withoutCost })}>عرض</Button>
         </FilterBar>
       </div>
+      <ReviewNotice data={data} />
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       <DataTable
         dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => row.orderId} maxHeight="70vh" empty={{ title: 'لا توجد فواتير شراء في الدفاتر' }}
@@ -524,7 +537,7 @@ const Receivables = ({ openStatement }: { openStatement: (customer: any) => void
     <>
       <Panel
         flush title="أعمار ديون العملاء" subtitle="ما على كل عميل، موزعاً حسب عمر المطالبة من يوم تسجيلها. اضغط عميلاً لفتح كشف حسابه."
-        actions={<Actions onExport={() => exportSheet('receivables-aging', (data?.customers || []).map((r: any) => ({ customer: name(r.customer), claims: r.claims, ...bucketExport(r) })))} />}
+        actions={<Actions onExport={() => exportSheet('receivables-aging', (data?.customers || []).map((r: any) => ({ customer: name(r.customer), claims: r.claims, ...bucketExport(r) })), data?.reviewStatus)} />}
       >
         <div className="px-3 acc-noprint">
           <FilterBar>
@@ -532,7 +545,8 @@ const Receivables = ({ openStatement }: { openStatement: (customer: any) => void
             <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
           </FilterBar>
         </div>
-        {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+        <ReviewNotice data={data} />
+      {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
         {data && (
           <div className="px-3 pb-2">
             <StatGrid>
@@ -558,7 +572,7 @@ const Receivables = ({ openStatement }: { openStatement: (customer: any) => void
 
       <Panel
         flush title="المطالبات المفتوحة" subtitle={data && data.claimsCount > data.claims.length ? `تُعرض أكبر ${data.claims.length} من ${data.claimsCount}.` : undefined}
-        actions={<Actions onExport={() => exportSheet('open-claims', claims.map((c: any) => ({ customer: name(c.customer), order: c.orderNumber, kind: CLAIM_KIND[c.kind], tracking: c.tracking, delivered: c.delivered ? 'نعم' : '', since: c.since, days: c.age, open: dollars(c.open) })))} />}
+        actions={<Actions onExport={() => exportSheet('open-claims', claims.map((c: any) => ({ customer: name(c.customer), order: c.orderNumber, kind: CLAIM_KIND[c.kind], tracking: c.tracking, delivered: c.delivered ? 'نعم' : '', since: c.since, days: c.age, open: dollars(c.open) })), data?.reviewStatus)} />}
       >
         <div className="px-3 acc-noprint">
           <FilterBar>
@@ -624,13 +638,14 @@ const CustomerStatement = ({ initial }: { initial: any }) => {
       actions={data && <Actions onExport={() => exportSheet('customer-statement', data.movements.map((m: any) => ({
         date: m.day, entry: m.number, description: m.description, account: ACCOUNT_LABEL[m.account], debit: dollars(m.debit), credit: dollars(m.credit),
         currencyAmount: m.foreign ? minor(m.foreign, m.currency) : '', currency: m.foreign ? m.currency : '', owed: dollars(m.owed), walletUsd: dollars(m.walletUsd), walletLyd: minor(m.walletLyd, 'LYD'),
-      })))} />}
+      })), data?.reviewStatus)} />}
     >
       <PeriodBar value={period} onChange={setPeriod} onApply={(next) => load(next)}>
         <div style={{ minWidth: 260 }}><RemotePicker endpoint="lookup/users" label="العميل" value={customer} getLabel={userLabel} onChange={(next) => { setCustomer(next); setData(null); load(period, next); }} /></div>
         {customer?._id && <Open to={`/user/${customer._id}`}>صفحة العميل</Open>}
         <ShowCanceled checked={showCanceled} onChange={(value) => { setShowCanceled(value); load(period, customer, value); }} />
       </PeriodBar>
+      <ReviewNotice data={data} />
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
       {!customer && <div className="acc-empty">اختر عميلاً لعرض كشفه.</div>}
       {data && (
@@ -672,7 +687,7 @@ const Payables = () => {
     <>
       <Panel
         flush title="أعمار ذمم الموردين" subtitle="ما تدين به الشركة لكل مورد، حسب عمر الفاتورة. السالب دفعة مقدمة لدى المورد."
-        actions={<Actions onExport={() => exportSheet('payables-aging', (data?.vendors || []).map((r: any) => ({ vendor: r.vendor, bills: r.bills, ...bucketExport(r) })))} />}
+        actions={<Actions onExport={() => exportSheet('payables-aging', (data?.vendors || []).map((r: any) => ({ vendor: r.vendor, bills: r.bills, ...bucketExport(r) })), data?.reviewStatus)} />}
       >
         <div className="px-3 acc-noprint">
           <FilterBar>
@@ -680,7 +695,8 @@ const Payables = () => {
             <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
           </FilterBar>
         </div>
-        {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+        <ReviewNotice data={data} />
+      {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
         <DataTable
           dense loading={isLoading} rows={data?.vendors || []} rowKey={(row: any) => String(row.vendorId)}
           onRowClick={(row: any) => row.vendorId && navigate(`/accounting/vendors/${row.vendorId}`)} empty={{ title: 'لا مستحقات للموردين' }}
@@ -716,10 +732,11 @@ const Fx = () => {
     <>
       <Panel
         flush title="فروقات الصرف" subtitle="ربح أو خسارة تحققت عند خروج عملة من خزينة أو محفظة بسعر يختلف عن متوسط سعر دخولها. الموجب ربح."
-        actions={<Actions onExport={() => exportSheet('fx', (data?.byMonth || []).map((r: any) => ({ month: r.month, entries: r.count, usd: dollars(r.amount) })))} />}
+        actions={<Actions onExport={() => exportSheet('fx', (data?.byMonth || []).map((r: any) => ({ month: r.month, entries: r.count, usd: dollars(r.amount) })), data?.reviewStatus)} />}
       >
         <PeriodBar value={period} onChange={setPeriod} onApply={(next) => load(next || period)} />
-        {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
+        <ReviewNotice data={data} />
+      {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
         {data && <div className="px-3 pb-2"><StatGrid><Stat label="صافي فروقات الصرف" value={<Money value={data.total} />} tone={data.total < 0 ? 'danger' : 'accent'} hint={data.total < 0 ? 'خسارة' : 'ربح'} /></StatGrid></div>}
         <DataTable
           dense loading={isLoading} rows={data?.byEvent || []} rowKey={(row: any) => row.eventType} empty={{ title: 'لا فروقات صرف في هذه الفترة' }}

@@ -6,6 +6,7 @@ import PrivateRoute from './routes/PrivateRoute';
 import Login from './containers/Login/Login';
 import AllowToAccessApp from './containers/AllowToAccessApp/AllowToAccessApp';
 import AuthChecker from './utils/AuthChecker';
+import QaBanner from './components/QaBanner/QaBanner';
 import { Session } from './models';
 
 import './App.scss';
@@ -63,6 +64,7 @@ import AccountingMigration from './containers/Accounting/Migration';
 import AccountingGuide from './containers/Accounting/Guide';
 import AccountingSuspense from './containers/Accounting/Suspense';
 import AccountingReports from './containers/Accounting/Reports';
+import ReviewQueue from './containers/Accounting/ReviewQueue';
 import AccountingExceptions from './containers/Accounting/Exceptions';
 import AccountingClosing from './containers/Accounting/Closing';
 import AccountingVoucher from './containers/Accounting/Voucher';
@@ -143,6 +145,7 @@ const accountingRoutes = (
     <Route path='guide' element={<AccountingGuide />} />
     <Route path='suspense' element={<AccountingSuspense />} />
     <Route path='reports' element={<AccountingReports />} />
+    <Route path='review' element={<ReviewQueue />} />
     <Route path='exceptions' element={<AccountingExceptions />} />
     <Route path='closing' element={<AccountingClosing />} />
     <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
@@ -245,6 +248,7 @@ class App extends React.Component<MyProps> {
 
     return (
         <Router>
+          <QaBanner />
           <AuthChecker />
           <Routes>
             <Route path='/shouldAllowToAccessApp' element={<AllowToAccessApp session={session} />} />

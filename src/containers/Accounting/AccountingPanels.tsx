@@ -97,8 +97,8 @@ const BillsTable = ({ bills, empty }: { bills: any[]; empty: string }) => (
         },
         { key: 'amount', header: 'بعملتها', numeric: true, hideOnMobile: true, render: (row: any) => (row.currency !== 'USD' ? <span className="money">{row.amount} {row.currency}</span> : null) },
         {
-          key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => (row.difference
-            ? <><Money value={row.cost} strong /><Sub>الفاتورة <Money value={row.usd} /> + فرق الدفع <Money value={row.difference} /></Sub></>
+          key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => (row.difference || row.alipayDifference
+            ? <><Money value={row.cost} strong /><Sub>الفاتورة <Money value={row.usd} /> {row.difference ? <> + فرق الدفع <Money value={row.difference} /></> : null}{row.alipayDifference ? <> + تسوية Alipay <Money value={row.alipayDifference} /></> : null}</Sub></>
             : <Money value={row.usd} strong />),
         },
         { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },

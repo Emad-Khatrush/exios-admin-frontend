@@ -138,7 +138,7 @@ export default function BillExcelImport({ kind, onDone }: { kind: 'bills' | 'exp
       for (let i = 0; i < chosen.length; i++) {
         const group = chosen[i];
         try {
-          const saved = (await acc.post('bills/import/commit', { kind, mode, rows: group.sourceRows, previewHash: group.previewHash })).data;
+          const saved = (await acc.post('bills/import/commit', { kind, mode, rows: group.sourceRows, previewHash: group.previewHash, duplicateDecision: group.duplicateDecision, duplicateReason: group.duplicateReason })).data;
           updated[updated.findIndex(g => g.reference === group.reference)] = { ...group, status: 'saved', savedId: saved._id, savedLabel: saved.duplicate ? 'موجودة سابقًا؛ لم تتكرر' : saved.status === 'draft' ? 'حُفظت مسودة' : 'رُحّلت مع قيودها وسدادها إن وجد' };
           successes++;
         } catch (error) { updated[updated.findIndex(g => g.reference === group.reference)] = { ...group, saveError: errorText(error) }; }
@@ -153,6 +153,8 @@ export default function BillExcelImport({ kind, onDone }: { kind: 'bills' | 'exp
   const ready = groups.filter((group: any) => group.status === 'ready');
   const shown = groups.filter((group: any) => filter === 'all' || group.status === filter);
   const picked = ready.filter((group: any) => selected.includes(group.reference));
+  const needsDuplicateReview = mode === 'post' && picked.some((g: any) => g.duplicateReview?.results?.length && (g.duplicateDecision !== 'independent' || String(g.duplicateReason || '').trim().length < 10));
+  const updateGroup = (reference: string, patch: any) => setPreview((value: any) => ({ ...value, groups: value.groups.map((g: any) => g.reference === reference ? { ...g, ...patch } : g) }));
   const totals = picked.reduce((result: Record<string, number>, group: any) => {
     const currency = group.currency; result[currency] = (result[currency] || 0) + group.total; return result;
   }, {});
@@ -186,13 +188,13 @@ export default function BillExcelImport({ kind, onDone }: { kind: 'bills' | 'exp
               <TableCell>{(group.details.length ? group.details : group.sourceRows).map((row: any) => <div key={row.rowNumber}>{TARGETS[row.target] || row.target || 'مصروف'}<small style={{ display: 'block' }}>{[row.order, row.trip, row.account, row.office, row.expenseType].filter(Boolean).join(' · ')}</small></div>)}</TableCell>
               <TableCell><div dir="ltr">{group.total?.toLocaleString('en-US', { maximumFractionDigits: 3 }) || group.sourceRows[0].amount} {group.currency || group.sourceRows[0].currency}</div>{group.rate && <small dir="ltr">1 USD = {group.rate} {group.currency}</small>}{group.valuationSource === 'carrying' && <div><small>متوسط تكلفة رصيد الحساب</small></div>}</TableCell>
               <TableCell>{group.paymentLabel || group.sourceRows[0].paymentAccount || 'آجلة'}</TableCell>
-              <TableCell><Chip size="small" label={group.savedLabel || labels[group.status]} color={colors[group.status] || 'default'} />{[...(group.errors || []), ...(group.warnings || []), group.saveError].filter(Boolean).map((error, i) => <div key={i} style={{ color: group.errors?.length || group.saveError ? '#b42318' : '#885400', maxWidth: 350 }}>{error}</div>)}{group.existingId || group.savedId ? <Button href={`/accounting/bills/${group.existingId || group.savedId}`} target="_blank">فتح الفاتورة</Button> : <Button disabled={busy} onClick={() => setEdit(group.sourceRows.map((row: any) => ({ ...row })))}>تعديل البيانات</Button>}</TableCell>
+              <TableCell><Chip size="small" label={group.savedLabel || labels[group.status]} color={colors[group.status] || 'default'} />{[...(group.errors || []), ...(group.warnings || []), group.saveError].filter(Boolean).map((error, i) => <div key={i} style={{ color: group.errors?.length || group.saveError ? '#b42318' : '#885400', maxWidth: 350 }}>{error}</div>)}{!!group.duplicateReview?.results?.length && <div>{group.duplicateReview.results.map((r: any) => <Button key={r.key} href={r.url} target="_blank">مراجعة {r.number}</Button>)}{group.duplicateReview.canConfirmIndependent && <><label><Checkbox checked={group.duplicateDecision === 'independent'} onChange={e => updateGroup(group.reference, { duplicateDecision: e.target.checked ? 'independent' : '' })} />هذه عملية مستقلة</label><TextField size="small" label="سبب استقلال العملية" value={group.duplicateReason || ''} onChange={e => updateGroup(group.reference, { duplicateReason: e.target.value })} /></>}</div>}{group.existingId || group.savedId ? <Button href={`/accounting/bills/${group.existingId || group.savedId}`} target="_blank">فتح الفاتورة</Button> : <Button disabled={busy} onClick={() => setEdit(group.sourceRows.map((row: any) => ({ ...row })))}>تعديل البيانات</Button>}</TableCell>
             </TableRow>)}
           </TableBody></Table></div>
           <div className="d-flex flex-wrap align-items-center gap-3 my-3">
             <TextField select label="بعد الموافقة" size="small" disabled={busy} value={mode} onChange={e => setMode(e.target.value)} style={{ minWidth: 220 }}><MenuItem value="draft">حفظ كمسودات للمراجعة</MenuItem><MenuItem value="post">ترحيل الفواتير والعمليات</MenuItem></TextField>
             <span>{picked.length} مختارة · {Object.entries(totals).map(([currency, total]) => `${Number(total).toLocaleString('en-US', { maximumFractionDigits: 3 })} ${currency}`).join(' + ')}</span>
-            <Button variant="contained" disabled={busy || !picked.length} onClick={() => setConfirm(true)}>موافقة على المختار</Button>
+            <Button variant="contained" disabled={busy || !picked.length || needsDuplicateReview} onClick={() => setConfirm(true)}>موافقة على المختار</Button>
           </div>
         </>}
       </DialogContent>

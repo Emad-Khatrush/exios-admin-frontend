@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Paper, TextField, Typography } from '@mui/material';
 import { acc, CURRENCY_DECIMALS, errorText, EVENT_LABELS, formatMinor, formatUsd } from './accountingApi';
 import { DataTable, Ltr, Open, StatusBadge, Sub } from './ui';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
@@ -68,6 +68,7 @@ export default function BankLineDetails({ id, onClose, onChanged, onReview }: Pr
               ['originalAmount', 'المبلغ الأصلي (اختياري)', 'number'], ['originalCurrency', 'العملة الأصلية مثل SAR أو USD', 'text'],
               ['counterAmount', 'المبلغ المستلم بالحساب المقابل للتحويل (اختياري)', 'number'], ['counterCurrency', 'عملة الحساب المقابل للتحويل', 'text'],
             ].map(([key, label, type]) => <TextField key={key} label={label} type={type} value={edit[key]} disabled={busy} InputLabelProps={{ shrink: true }} inputProps={type === 'number' ? { step: 'any' } : undefined} onChange={e => setEdit({ ...edit, [key]: key.includes('Currency') ? e.target.value.toUpperCase() : e.target.value })} />)}
+            {line.walletImpact === 'unknown' && <FormControlLabel control={<Checkbox checked={!!edit.confirmWalletImpact} disabled={busy} onChange={e => setEdit({ ...edit, confirmWalletImpact: e.target.checked })} />} label="تأكدت من مستند Alipay أن المبلغ دخل رصيد الحساب" />}
             <TextField label="سبب تعديل بيانات الكشف" value={edit.reason} disabled={busy} onChange={e => setEdit({ ...edit, reason: e.target.value })} />
           </Box>
           <Box mt={2} display="flex" gap={1}><Button disabled={busy || !edit.reason.trim()} variant="contained" onClick={saveSource}>حفظ بيانات الكشف</Button><Button disabled={busy} onClick={() => setEdit(null)}>إلغاء التعديل</Button></Box>
@@ -84,6 +85,7 @@ export default function BankLineDetails({ id, onClose, onChanged, onReview }: Pr
           {line.valuationSource && <ReviewField label="مصدر التقييم">{valuationLabels[line.valuationSource] || line.valuationSource}</ReviewField>}
           {line.crossRate > 0 && <ReviewField label="سعر التصريف المحفوظ"><Ltr>1 {line.rateBaseCurrency} = {Number(line.crossRate).toFixed(6)} {line.rateQuoteCurrency}</Ltr></ReviewField>}
           {line.matchedOriginalAmount > 0 && <ReviewField label="القيمة الأصلية في الفاتورة"><Ltr>{line.matchedOriginalAmount} {line.matchedOriginalCurrency}</Ltr></ReviewField>}
+          {line.historicalSettlementPaymentId && <Alert severity="info">تسوية سداد تاريخي: سُوّي مبلغ <Ltr>{formatUsd(line.historicalSettlementUsd)}</Ltr> من المعلّق مقابل خروج البنك. الفاتورة وتكلفة الرحلة الأصلية محفوظتان دون تكلفة أو دفعة مورد مكررة. يظهر السداد التاريخي وقيد التسوية أدناه.</Alert>}
           {line.matchDifferenceConfirmed && <Alert severity="warning">اعتمد المستخدم اختلاف القيمة أو التاريخ عند المطابقة.</Alert>}
           {line.importedValues && <Alert severity="info">عُدلت بيانات هذا السطر. الأصل المستورد: {line.importedValues.day} · {formatMinor(line.importedValues.amount, currency, decimals)} · {line.importedValues.description}{line.importedValues.originalAmount > 0 && ` · ${line.importedValues.originalAmount} ${line.importedValues.originalCurrency}`}. تفاصيل التغييرات محفوظة في سجل الإجراءات.</Alert>}
           {!data.entries.some((e: any) => e.role !== 'history') && <Alert severity="info">لم يُسجل قيد مرتبط حالياً بهذا السطر. الحساب المقترح في الجدول يحتاج موافقة.</Alert>}

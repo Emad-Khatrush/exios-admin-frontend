@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
+import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, TextField } from '@mui/material';
 import { ArrowLeftRight, ClipboardCheck } from 'lucide-react';
 import { CURRENCY_DECIMALS, acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
@@ -70,6 +70,10 @@ const Treasury = () => {
   const toAccount = transfer && byId(transfer.toAccountId);
   const toIsUsdValued = toAccount && !toAccount.currency;
   const needsEmployee = [fromAccount, toAccount].some((a) => a?.requires?.includes('employee'));
+  const feesFromAccount = transfer && byId(transfer.feesFromAccountId);
+  useEffect(() => {
+    if (needsEmployee) setTransfer((current: any) => current?.hasFees ? { ...current, hasFees: false, fees: '', feesFromAccountId: '' } : current);
+  }, [needsEmployee]);
   const countAccount = count && byId(count.accountId);
   const countDecimals = CURRENCY_DECIMALS[countAccount?.currency || 'USD'] ?? 2;
 
@@ -80,7 +84,7 @@ const Treasury = () => {
         subtitle="تحويل بين الخزائن والبنوك وAlipay وعهد الموظفين، وصرف العملات، وجرد الخزائن."
         actions={<>
           <Button variant="outlined" startIcon={<ClipboardCheck size={16} />} onClick={() => setCount({ day: today(), accountId: '', countedAmount: '', note: '' })}>جرد خزينة</Button>
-          <Button variant="contained" startIcon={<ArrowLeftRight size={16} />} onClick={() => setTransfer({ day: today(), fromAccountId: '', fromAmount: '', toAccountId: '', toAmount: '', fees: '', note: '', employee: null })}>تحويل جديد</Button>
+          <Button variant="contained" startIcon={<ArrowLeftRight size={16} />} onClick={() => setTransfer({ day: today(), fromAccountId: '', fromAmount: '', toAccountId: '', toAmount: '', hasFees: false, feesFromAccountId: '', fees: '', note: '', employee: null })}>تحويل جديد</Button>
         </>}
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
@@ -112,8 +116,9 @@ const Treasury = () => {
             { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
             { key: 'from', header: 'من', render: (row: any) => <AccountRef code={row.fromAccountId?.code} name={row.fromAccountId?.name} /> },
             { key: 'to', header: 'إلى', render: (row: any) => <><AccountRef code={row.toAccountId?.code} name={row.toAccountId?.name} />{row.employeeId && <Sub>{row.employeeId.firstName} {row.employeeId.lastName}</Sub>}</> },
-            { key: 'sent', header: 'المُرسل', numeric: true, render: (row: any) => <><Amount value={row.fromAmount} currency={row.fromAccountId?.currency || 'USD'} />{row.fees ? <Sub>+ رسوم <Amount value={row.fees} currency={row.fromAccountId?.currency || 'USD'} /></Sub> : null}</> },
+            { key: 'sent', header: 'المُرسل', numeric: true, render: (row: any) => <Amount value={row.fromAmount} currency={row.fromAccountId?.currency || 'USD'} /> },
             { key: 'received', header: 'المُستلم', numeric: true, render: (row: any) => <Amount value={row.toAmount} currency={row.toAccountId?.currency || 'USD'} /> },
+            { key: 'fees', header: 'رسوم التحويل', numeric: true, render: (row: any) => row.fees ? <><Amount value={row.fees} currency={row.feesCurrency || row.feesFromAccountId?.currency || row.fromAccountId?.currency || 'USD'} /><Sub>دُفعت من: {(row.feesFromAccountId || row.fromAccountId)?.name}</Sub></> : <span className="acc-muted">بلا رسوم</span> },
             { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
             { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <Button size="small" color="error" onClick={() => setCancel({ model: 'AccountingTreasuryTransfer', doc: row })}>إلغاء</Button> : null) },
           ]}
@@ -158,7 +163,7 @@ const Treasury = () => {
               <TextField select label="من" value={transfer.fromAccountId} onChange={(e) => setTransfer({ ...transfer, fromAccountId: e.target.value })} fullWidth>
                 {moneyAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
               </TextField>
-              <TextField type="number" label={`المُرسل (${fromAccount?.currency || 'USD'})`} value={transfer.fromAmount} onChange={(e) => setTransfer({ ...transfer, fromAmount: e.target.value })} style={{ width: 170 }} />
+              <TextField type="number" label={`المُرسل (${fromAccount?.currency || 'USD'})`} helperText="المبلغ دون رسوم التحويل" value={transfer.fromAmount} onChange={(e) => setTransfer({ ...transfer, fromAmount: e.target.value })} style={{ width: 170 }} />
             </div>
             <div className="d-flex gap-2 mt-3">
               <TextField select label="إلى" value={transfer.toAccountId} onChange={(e) => setTransfer({ ...transfer, toAccountId: e.target.value })} fullWidth>
@@ -168,15 +173,25 @@ const Treasury = () => {
                 helperText={toIsUsdValued ? 'يستلم القيمة بالدولار' : undefined} onChange={(e) => setTransfer({ ...transfer, toAmount: e.target.value })} style={{ width: 170 }} />
             </div>
             {needsEmployee && <div className="mt-3"><RemotePicker endpoint="lookup/users" label="الموظف" value={transfer.employee} getLabel={userLabel} onChange={(employee) => setTransfer({ ...transfer, employee })} /></div>}
-            <TextField type="number" label={`رسوم تُخصم من المُرسل (${fromAccount?.currency || 'USD'})`} value={transfer.fees} onChange={(e) => setTransfer({ ...transfer, fees: e.target.value })} fullWidth className="mt-3" />
+            <div className="mt-3">
+              <FormControlLabel control={<Checkbox checked={!!transfer.hasFees} disabled={needsEmployee} onChange={e => setTransfer({ ...transfer, hasFees: e.target.checked, fees: '', feesFromAccountId: e.target.checked ? transfer.fromAccountId : '' })} />} label="هل دفعت رسوم تحويل؟" />
+              {needsEmployee && <Sub>الرسوم لا تُضاف إلى عمليات إعطاء العهد والسلف أو إرجاعها.</Sub>}
+              {transfer.hasFees && <>
+                <TextField select required label="الخزينة التي دفعت منها الرسوم" value={transfer.feesFromAccountId} onChange={e => setTransfer({ ...transfer, feesFromAccountId: e.target.value, fees: '' })} fullWidth className="mt-2">
+                  {cashAccounts.map(a => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+                </TextField>
+                <TextField type="number" required label={`قيمة الرسوم (${feesFromAccount?.currency || 'USD'})`} value={transfer.fees} disabled={!feesFromAccount} inputProps={{ min: 0, step: 'any' }} onChange={e => setTransfer({ ...transfer, fees: e.target.value })} fullWidth className="mt-3" helperText="تُخصم من الخزينة المختارة وتُسجّل كمصروف رسوم تحويل، منفصلة عن أصل المبلغ." />
+              </>}
+            </div>
             <TextField label="ملاحظة" value={transfer.note} onChange={(e) => setTransfer({ ...transfer, note: e.target.value })} fullWidth className="mt-3" />
           </DialogContent>
         )}
         <DialogActions>
           <Button onClick={() => setTransfer(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={!transfer?.fromAccountId || !transfer?.toAccountId || !(Number(transfer?.fromAmount) > 0)} onClick={() => submit('transfers', {
+          <Button variant="contained" disabled={!transfer?.fromAccountId || !transfer?.toAccountId || !(Number(transfer?.fromAmount) > 0) || (transfer?.hasFees && (!transfer?.feesFromAccountId || !Number.isFinite(Number(transfer?.fees)) || !(Number(transfer?.fees) > 0)))} onClick={() => submit('transfers', {
             day: transfer.day, fromAccountId: transfer.fromAccountId, fromAmount: Number(transfer.fromAmount), toAccountId: transfer.toAccountId,
-            toAmount: Number(transfer.toAmount) || undefined, fees: Number(transfer.fees) || undefined, note: transfer.note || undefined, employeeId: transfer.employee?._id,
+            toAmount: Number(transfer.toAmount) || undefined, hasFees: !!transfer.hasFees, fees: transfer.hasFees ? Number(transfer.fees) : 0,
+            feesFromAccountId: transfer.hasFees ? transfer.feesFromAccountId : undefined, note: transfer.note || undefined, employeeId: transfer.employee?._id,
           }, () => setTransfer(null))}>ترحيل</Button>
         </DialogActions>
       </Dialog>

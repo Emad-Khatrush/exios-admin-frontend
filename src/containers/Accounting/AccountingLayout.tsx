@@ -57,6 +57,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
   {
     label: 'المراجعة والتسويات',
     links: [
+      { to: '/accounting/review', label: 'قائمة المراجعة المحاسبية', icon: ListChecks, perms: ['reports', 'treasury'] },
       { to: '/accounting/purchase-reconciliation', label: 'متابعة مشتريات الطلبيات', icon: ListChecks, perms: ['treasury', 'reports'] },
       { to: '/accounting/exceptions', label: 'المطابقة والاستثناءات', icon: ShieldCheck, perms: ['reports'] },
       { to: '/accounting/suspense', label: 'تسوية المعلّق', icon: ListChecks, perms: ['suspense'] },

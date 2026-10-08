@@ -4,6 +4,7 @@ import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, Sub } from '
 
 const labels: Record<string, string> = {
   bill: 'فاتورة مورد', credit_note: 'إشعار دائن من المورد', refund: 'Refund — استرداد مورد', refund_valuation: 'تسوية تقييم استرداد البنك',
+  alipay_valuation: 'تسوية تلقائية لتكلفة حوالة Alipay',
   wallet_refund: 'إرجاع لمحفظة العميل', payment_difference: 'فرق سداد فاتورة المورد',
   recognition: 'نقل بين تكلفة قيد التنفيذ والتكلفة المعترف بها', reversal: 'عكس / إلغاء عملية', other: 'عملية تؤثر في التكلفة',
 };

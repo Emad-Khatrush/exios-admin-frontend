@@ -39,7 +39,7 @@ const Closing = () => {
   const [year, setYear] = useState(String(Number(todayLibya().slice(0, 4)) - 1));
   const [status, setStatus] = useState<any>(null);
   const [message, setMessage] = useState<any>(null);
-  const [confirm, setConfirm] = useState<'month' | 'year' | 'reopen' | null>(null);
+  const [confirm, setConfirm] = useState<'month' | 'approve' | 'year' | 'reopen' | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [reason, setReason] = useState('');
   const [isBusy, setIsBusy] = useState(false);
@@ -61,6 +61,9 @@ const Closing = () => {
       if (action === 'month') {
         const res = await acc.post('close/month', { month });
         setMessage({ type: 'success', text: `أُقفل شهر ${month}. الدفاتر مقفلة حتى ${res.data.lockDate}.` });
+      } else if (action === 'approve') {
+        await acc.post('review/month/approve', { month });
+        setMessage({ type: 'success', text: `اعتمدت حسابات ${month} بعد مراجعة النواقص. أي تغير مؤثر يعيد التقرير إلى مؤقت.` });
       } else if (action === 'year') {
         const res = await acc.post('close/year', { year });
         setMessage({ type: 'success', text: `أُقفلت السنة ${year} بالقيد ${res.data.entry.number}.` });
@@ -86,8 +89,8 @@ const Closing = () => {
       {checklist?.lockDate && <Alert severity="info" className="mb-3">الدفاتر مقفلة الآن حتى <Ltr>{checklist.lockDate}</Ltr> (شاملاً). لتغيير التاريخ يدوياً: الإعدادات ← عام.</Alert>}
 
       <Panel
-        title="إقفال شهر"
-        subtitle="راجع القائمة ثم أقفل. البنود الحمراء تمنع الإقفال؛ الصفراء للعلم والقرار لك."
+        title="قفل إدخال الشهر"
+        subtitle="القفل يحمي الفترة من التعديل، ولا يعني أن الحسابات معتمدة. عالج البنود المتبقية قبل اعتماد الحسابات في القسم التالي."
         actions={<Button variant="contained" disabled={isBusy || !checklist?.canClose || checklist?.alreadyLocked} onClick={() => setConfirm('month')}>إقفال {month}</Button>}
       >
         {/* Which months are closed: everything up to the lock date. A click picks the month */}
@@ -131,6 +134,15 @@ const Closing = () => {
         )}
       </Panel>
 
+      <Panel title="اعتماد حسابات الشهر" subtitle="قفل الإدخال يحمي الفترة؛ اعتماد الحسابات يؤكد اكتمال فحوصها ومراجعتها. لا ينشئ قيوداً أو يغيّر الربح.">
+        <Alert severity={checklist?.reviewStatus?.status === 'approved' ? 'success' : 'warning'} className="mb-3">
+          {checklist?.reviewStatus?.status === 'approved' ? 'حسابات هذا الشهر معتمدة وفق المراجعة المسجلة.' : `حسابات الشهر مؤقتة. ${checklist?.reviewStatus?.blocking ?? '—'} بنداً ينتظر المعالجة.`}
+          {checklist?.reviewStatus?.changedSinceApproval && ' تغيرت البيانات منذ الاعتماد السابق؛ أعد مراجعتها.'}
+        </Alert>
+        <Button onClick={() => navigate(`/accounting/review?from=${month}-01&to=${monthEndOf(month)}`)}>فتح قائمة المراجعة</Button>
+        <Button variant="contained" disabled={isBusy || !checklist?.alreadyLocked || checklist?.reviewStatus?.blocking !== 0 || checklist?.reviewStatus?.status === 'approved'} onClick={() => setConfirm('approve')}>اعتماد حسابات {month}</Button>
+      </Panel>
+
       <Panel
         title="إقفال السنة المالية"
         subtitle="قيد واحد في آخر يوم من السنة ينقل أرصدة كل حسابات الإيرادات والمصروفات ومسحوبات الشركاء إلى الأرباح المحتجزة، ثم تُقفل السنة. تقارير السنة المقفلة تبقى تعرض نتيجتها."
@@ -156,8 +168,9 @@ const Closing = () => {
       </Panel>
 
       <Dialog open={!!confirm} onClose={() => setConfirm(null)} maxWidth="sm" fullWidth dir="rtl">
-        <DialogTitle>{confirm === 'month' ? `إقفال شهر ${month}` : confirm === 'year' ? `إقفال السنة ${year}` : `إعادة فتح السنة ${year}`}</DialogTitle>
+        <DialogTitle>{confirm === 'approve' ? `اعتماد حسابات ${month}` : confirm === 'month' ? `إقفال شهر ${month}` : confirm === 'year' ? `إقفال السنة ${year}` : `إعادة فتح السنة ${year}`}</DialogTitle>
         <DialogContent>
+          {confirm === 'approve' && <Alert severity="info">سيعاد فحص قائمة المراجعة وفحوص الإقفال قبل الاعتماد. التأجيل وحده لا يعالج نقص التكلفة أو فرق المطابقة.</Alert>}
           {confirm === 'month' && <p className="acc-muted">بعد الإقفال لا يُرحَّل ولا يُلغى شيء بتاريخ <Ltr>{checklist?.end}</Ltr> أو قبله. {open.length > 0 && `ما زال هناك ${open.length} بنداً غير مكتمل في القائمة.`}</p>}
           {confirm === 'year' && <p className="acc-muted">سيُنشأ قيد الإقفال بتاريخ <Ltr>{status?.end}</Ltr> وتُقفل الدفاتر حتى ذلك اليوم. التراجع ممكن فقط بإعادة فتح السنة مع ذكر السبب.</p>}
           {confirm === 'reopen' && (
@@ -166,7 +179,7 @@ const Closing = () => {
               <TextField label="سبب إعادة الفتح" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline minRows={2} required />
             </>
           )}
-          {confirm !== 'reopen' && <FormControlLabel control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />} label="راجعتُ الأرقام وأريد الإقفال" />}
+          {confirm !== 'reopen' && <FormControlLabel control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />} label={confirm === 'approve' ? 'راجعتُ البنود وأريد اعتماد الحسابات' : 'راجعتُ الأرقام وأريد الإقفال'} />}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setConfirm(null); setAgreed(false); }}>تراجع</Button>
