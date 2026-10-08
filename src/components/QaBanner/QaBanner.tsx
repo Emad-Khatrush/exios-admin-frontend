@@ -6,8 +6,8 @@ export const isQaEnvironment = () => process.env.REACT_APP_ENVIRONMENT === 'qa'
 
 export default function QaBanner() {
   if (!isQaEnvironment()) return null;
-  return <div className="qa-banner" role="note" aria-label="???? ??????? QA" dir="rtl">
-    <span className="qa-banner__badge"><FlaskConical size={13} aria-hidden="true" /><b>QA ? ??????? ???</b></span>
-    <span className="qa-banner__message">?????? ??????? ? ??? ?????? ?????</span>
+  return <div className="qa-banner" role="note" aria-label="نسخة تجريبية QA" dir="rtl">
+    <span className="qa-banner__badge"><FlaskConical size={13} aria-hidden="true" /><b>QA · للتجربة فقط</b></span>
+    <span className="qa-banner__message">بيانات تجريبية — غير معتمدة للعمل</span>
   </div>;
 }
