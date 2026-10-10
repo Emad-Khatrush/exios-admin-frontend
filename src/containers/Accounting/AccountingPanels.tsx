@@ -126,6 +126,9 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
   const [isSaving, setIsSaving] = useState(false);
   const key = useRef(newKey());
 
+  const [duplicateReview, setDuplicateReview] = useState<any>(null);
+  const [duplicateReason, setDuplicateReason] = useState('');
+
   const loadOptions = () => sys.get('acc/options').then((res: any) => {
     setVendors(res.data.vendors || []);
     setAccounts(res.data.accounts || []);
@@ -141,7 +144,7 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
   const typedNewVendor = !form.vendor && vendorText.trim().length > 1;
   const canSave = (form.vendor || typedNewVendor) && Number(form.amount) > 0 && !isSaving;
 
-  const save = async () => {
+  const save = async (decision?: any) => {
     try {
       setIsSaving(true);
       setMessage(null);
@@ -151,7 +154,9 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
         day: form.day, currency, rate: Number(form.rate) || undefined, idempotencyKey: key.current,
         payFromAccountId: form.payFrom || undefined,
         description: form.description.trim() || `مشتريات الطلب ${orderNumber}`, amount: Number(form.amount),
+        ...(decision || {}),
       });
+      setDuplicateReview(null);
       key.current = newKey();
       setMessage({ type: 'success', text: `سُجّلت الفاتورة ${res.data?.number || ''} على الطلب${form.payFrom ? ' ودُفعت' : ' (آجلة، تُدفع من دفعات الموردين)'}.` });
       setForm({ ...blankBill(), vendor: form.vendor || null, payFrom: form.payFrom, currency: form.currency });
@@ -160,12 +165,31 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
       onSaved();
     } catch (err) {
       setMessage({ type: 'error', text: errorText(err) });
+      const preview = (err as any)?.response?.data?.costDuplicatePreview;
+      if (preview) { setDuplicateReview(preview); setDuplicateReason(''); }
     }
     setIsSaving(false);
   };
 
   return (
     <Panel title="إضافة مشتريات لهذا الطلب" subtitle="ما دفعته للمورد عن هذا الطلب. يدخل تكلفةً على الطلب ويُحسب في ربحه عند سداد العميل.">
+      <Dialog open={!!duplicateReview} onClose={() => !isSaving && setDuplicateReview(null)} fullWidth maxWidth="md" dir="rtl">
+        <DialogTitle>راجع المشتريات الموجودة قبل تسجيل تكلفة أخرى</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" className="mb-3">قد تكون التكلفة مسجلة في مشتريات الطلبية القديمة حتى لو كانت قائمة فواتير الموردين فارغة. إذا كانت نفس العملية، لا تسجلها مرة ثانية.</Alert>
+          {(duplicateReview?.results || []).map((row: any) => <Panel key={row.key} title={`${row.number} · ${row.amount} ${row.currency}`}>
+            <p>{row.reason} · {row.day}</p>
+            {row.description && <p>{row.description}</p>}
+            <Open to={row.url}>{row.itemId ? 'فتح الطلبية ومراجعة المشتريات القديمة' : 'فتح الفاتورة الموجودة'}</Open>
+            {row.billId && <Sub>لربط الفاتورة الموجودة بالطلبية، افتح «فاتورة بعدة سطور أو مرفقات» وراجع المطابقة هناك.</Sub>}
+          </Panel>)}
+          {duplicateReview?.canConfirmIndependent && <TextField label="سبب أنها عملية شراء أخرى مستقلة" multiline minRows={2} fullWidth value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} />}
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={isSaving} onClick={() => setDuplicateReview(null)}>العودة للمراجعة</Button>
+          {duplicateReview?.canConfirmIndependent && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={() => save({ duplicateDecision: 'independent', duplicateReason: duplicateReason.trim(), duplicateFingerprint: duplicateReview.fingerprint })}>تأكيد أنها عملية مستقلة وتسجيلها</Button>}
+        </DialogActions>
+      </Dialog>
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <div className="acc-form-grid">
         <Autocomplete
@@ -192,7 +216,7 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
       </div>
       <div className="d-flex justify-content-end align-items-center gap-3 mt-3 flex-wrap">
         <Open to={`/accounting/bills/new?orderId=${orderId}&orderNumber=${encodeURIComponent(orderNumber)}`}>فاتورة بعدة سطور أو مرفقات</Open>
-        <Button variant="contained" disabled={!canSave} onClick={save}>{isSaving ? 'جارٍ الحفظ…' : 'تسجيل المشتريات'}</Button>
+        <Button variant="contained" disabled={!canSave} onClick={() => save()}>{isSaving ? 'جارٍ الحفظ…' : 'تسجيل المشتريات'}</Button>
       </div>
     </Panel>
   );
@@ -494,10 +518,18 @@ const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () =>
   );
 };
 
-export const OrderCosts = ({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) => {
+export const OrderCosts = ({ orderId, orderNumber, legacyPurchases = [] }: { orderId: string; orderNumber?: string; legacyPurchases?: any[] }) => {
   const { canSee, data, error, reload } = useSummary(`summary/order/${orderId}`);
   return <Frame title="إضافة التكاليف" error={error} loading={false}>
     <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={reload} />
+    {legacyPurchases.length > 0 && <Panel flush title="المشتريات المسجلة داخل الطلبية" subtitle="هذه بنود المشتريات القديمة، وتظهر مستقلة عن فواتير الموردين. راجعها قبل تسجيل تكلفة جديدة؛ وجود البند لا يعني وحده أنه رُحّل في الدفاتر.">
+      <DataTable rows={legacyPurchases} rowKey={(row: any, index: number) => row._id || String(index)} columns={[
+        { key: 'date', header: 'التاريخ', render: (row: any) => <Ltr>{row.date ? String(row.date).slice(0, 10) : '—'}</Ltr> },
+        { key: 'description', header: 'الوصف', render: (row: any) => row.description || '—' },
+        { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Ltr>{Number(row.unitPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {row.currency || 'USD'}</Ltr> },
+      ]} />
+      <div className="p-3"><Open to={`/invoice/${orderId}/edit`}>لمراجعة أو تعديل هذه البنود، افتح تفاصيل الطلبية ثم قسم Purchase costs</Open></div>
+    </Panel>}
     {canSee && data && <BillsTable bills={data.bills} empty="لا فواتير موردين مسجلة على هذه الطلبية" />}
   </Frame>;
 };

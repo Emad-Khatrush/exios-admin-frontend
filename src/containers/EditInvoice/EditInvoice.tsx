@@ -583,7 +583,7 @@ export class EditInvoice extends Component<Props, State> {
 
         {tab === 'accounting' && <OrderAccounting orderId={order._id} orderNumber={order.orderId} isPayment={!!order.isPayment} separateActions />}
         {tab === 'refund' && order.isPayment && <OrderRefunds orderId={order._id} />}
-        {tab === 'costs' && <OrderCosts orderId={order._id} orderNumber={order.orderId} />}
+        {tab === 'costs' && <OrderCosts orderId={order._id} orderNumber={order.orderId} legacyPurchases={order.purchaseItems || []} />}
 
         <Backdrop sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000 }} open={isBusy}>
           <CircularProgress color="inherit" />

@@ -14,6 +14,14 @@ const ALIPAY_FILTERS: ListFilterValue = { from: '', to: '', broker: '' };
 // accounts at their average rate, and the profit of the orders marked as Alipay transfers.
 const rateText = (rate: number | null) => (rate ? <Ltr>{rate.toFixed(4)}</Ltr> : '—');
 const cny = (minor: number) => <Amount value={minor / 100} currency="CNY" />;
+// CNY and USD are both stored in hundredths. Recover the carrying rate for
+// existing movements whose journal line did not include an explicit rate.
+const movementRate = (line: any): number | null => {
+  if (Number(line.rate) > 0) return Number(line.rate);
+  const foreign = Number(line.amountCurrency);
+  const usd = Number(line.debit || 0) - Number(line.credit || 0);
+  return Number.isFinite(foreign) && Number.isFinite(usd) && foreign * usd > 0 ? foreign / usd : null;
+};
 
 const Alipay = () => {
   const [data, setData] = useState<any>(null);
@@ -108,7 +116,7 @@ const Alipay = () => {
                 { key: 'description', header: 'البيان / القيد', render: (row: any) => <>{row.line.label || row.description}<Sub><Open to={`/accounting/entries/${row._id}`}><Ltr>{row.number}</Ltr></Open></Sub></> },
                 { key: 'in', header: 'وارد (CNY)', numeric: true, render: (row: any) => row.line.amountCurrency > 0 ? cny(row.line.amountCurrency) : '—' },
                 { key: 'out', header: 'صادر (CNY)', numeric: true, render: (row: any) => row.line.amountCurrency < 0 ? cny(-row.line.amountCurrency) : '—' },
-                { key: 'rate', header: 'سعر الصرف', numeric: true, render: (row: any) => rateText(row.line.rate) },
+                { key: 'rate', header: 'سعر الصرف', numeric: true, render: (row: any) => rateText(movementRate(row.line)) },
                 { key: 'balance', header: 'الرصيد (CNY)', numeric: true, render: (row: any) => cny(row.balanceForeign) },
               ]} />
           </Panel>}

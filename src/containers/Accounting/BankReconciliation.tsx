@@ -17,6 +17,8 @@ import { DepositPicker, TransferPicker, YuanPurchaseDialog } from './PartnerPick
 import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import StatementCoverage from './StatementCoverage';
 import BankMatchingSettings, { MatchingSettings, readMatchingSettings } from './BankMatchingSettings';
+import BankDuplicateSettlement from './BankDuplicateSettlement';
+import { batchTrialAvailable } from './BatchPaymentTrial';
 
 type Preview = {
   fileName: string
@@ -73,6 +75,7 @@ const BankReconciliation = () => {
   const [matchingProfiles, setMatchingProfiles] = useState<Record<string, MatchingSettings>>({});
   const matchingSettings = useMemo(() => matchingProfiles[accountId] || readMatchingSettings(accountId), [accountId, matchingProfiles]);
   const [settingsDraft, setSettingsDraft] = useState<MatchingSettings | null>(null);
+  const [settlingDuplicates, setSettlingDuplicates] = useState(false);
   const matchingEnabled = (engine: string) => matchingSettings.engines.includes(engine);
   const [suggested, setSuggested] = useState<Record<string, any>>({});
   // A partner's current account (Wasl): its wallet deposits proposed for incoming lines by amount
@@ -533,6 +536,7 @@ const BankReconciliation = () => {
         subtitle="ارفع كشف الحساب Excel أو PDF. ما هو مسجل في الدفاتر يُطابق تلقائياً، والباقي يُرحَّل إلى حسابه. السطر المستورد من قبل لا يُستورد مرتين، والسطر الذي أدخلته يدوياً لا يُسجَّل مرة ثانية."
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
+      {settlingDuplicates && accountId && <BankDuplicateSettlement key={accountId} accountId={accountId} onClose={() => setSettlingDuplicates(false)} onDone={text => { setSettlingDuplicates(false); setMessage({ type: 'success', text }); load(); }} />}
       {data?.bankTrialRunId && <Alert severity="info" className="mb-3">
         تجربة كشف ضمن التشغيل <Ltr>{data.bankTrialRunId}</Ltr>: الترحيل يؤثر على التقارير الآن. الإلغاء يزيل آثار التجربة ويُبقي السطور للمراجعة؛ الاعتماد يحفظ النتائج.
         <Button component={RouterLink} to="/accounting/migration" size="small">فتح الترحيل التاريخي</Button>
@@ -550,6 +554,7 @@ const BankReconciliation = () => {
             </Button>
             <Button variant="outlined" disabled={!matchingEnabled('ledger') || isLoading} onClick={() => run(() => acc.post('bank/auto-match', { accountId, matchingSettings }), (d) => `طُوبق ${d.matched} سطراً.`)}>مطابقة تلقائية</Button>
             <Button component={RouterLink} to="/accounting/purchase-reconciliation">متابعة المشتريات</Button>
+            {batchTrialAvailable && currency === 'USD' && <Button variant="outlined" color="warning" disabled={isLoading} onClick={() => setSettlingDuplicates(true)}>تسوية التكرار</Button>}
             </div>
             <Button className="acc-bank-toolbar__settings" variant="outlined" startIcon={<Settings2 size={17} />} onClick={() => setSettingsDraft({ ...matchingSettings, engines: [...matchingSettings.engines] })}>إعدادات المطابقة <span className="acc-bank-toolbar__count">{matchingSettings.engines.length}</span></Button>
           </>}
