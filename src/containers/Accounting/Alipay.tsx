@@ -122,7 +122,7 @@ const Alipay = () => {
                   { key: 'day', header: 'التاريخ', render: (row: any) => <><Ltr>{row.day}</Ltr>{row.late && <Badge tone="warn">متأخر</Badge>}</> },
                   { key: 'broker', header: 'الوسيط', render: (row: any) => <>{row.vendorId?.name}<Sub><Ltr>{row.number}</Ltr></Sub></> },
                   { key: 'usd', header: 'المدفوع', numeric: true, render: (row: any) => <Money value={row.usd} /> },
-                  { key: 'cny', header: 'المتوقع', numeric: true, render: (row: any) => <Amount value={row.cnyExpected} currency="CNY" /> },
+                  { key: 'cny', header: 'المتوقع', numeric: true, render: (row: any) => row.cnyExpected ? <Amount value={row.cnyExpected} currency="CNY" /> : <Sub>أدخل الكمية عند الوصول</Sub> },
                   { key: 'actions', header: '', align: 'end', render: (row: any) => <Button size="small" variant="outlined" onClick={() => setArriving(row)}>وصل</Button> },
                 ]}
               />
@@ -136,7 +136,7 @@ const Alipay = () => {
               columns={[
                 { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
                 { key: 'broker', header: 'الوسيط', render: (row: any) => <>{row.broker}<Sub><Ltr>{row.number}</Ltr> · {row.toAccountId?.name}</Sub></> },
-                { key: 'from', header: 'من', hideOnMobile: true, render: (row: any) => <>{row.fromAccountId?.name}<Sub><Amount value={row.amount} currency={row.currency} /></Sub></> },
+                { key: 'from', header: 'من', hideOnMobile: true, render: (row: any) => <>{row.fromAccountId?.name}<Sub><Amount value={row.amount} currency={row.currency} /></Sub>{row.fundedFromPaymentId && <Sub>جزء من الدفعة المجمعة <Ltr>{row.fundedFromPaymentId.number}</Ltr> · دون دفع إضافي</Sub>}</> },
                 { key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => <Money value={row.usd} /> },
                 { key: 'cny', header: 'اليوان', numeric: true, render: (row: any) => (row.arrived ? <Amount value={row.cnyReceived} currency="CNY" /> : <Badge tone="warn">بانتظار الوصول</Badge>) },
                 { key: 'rate', header: 'السعر', numeric: true, render: (row: any) => rateText(row.rate) },

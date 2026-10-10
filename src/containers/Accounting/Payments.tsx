@@ -8,6 +8,7 @@ import { CancelDialog, RemotePicker, today, userLabel, useVendors } from './shar
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, queryOf } from './ListFilters';
+import { batchTrialAvailable } from './BatchPaymentTrial';
 
 const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: '', to: '', search: '' };
 
@@ -43,6 +44,7 @@ export const PaymentsList = () => {
         subtitle="المبالغ المدفوعة للموردين موزعة على فواتيرهم. ما لا يُوزَّع يبقى دفعة مقدمة لدى المورد. ما يعيده مورد لنا في «الاستلام من الموردين» أسفل الصفحة."
         actions={(
           <>
+            {batchTrialAvailable && <Button variant="outlined" onClick={() => navigate('/accounting/payments/batch-trial')}>دفعة مجمعة — تجريبية</Button>}
             <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/receipts/new')}>استلام من مورد</Button>
             <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button>
           </>
@@ -76,7 +78,7 @@ export const PaymentsList = () => {
           empty={{ title: 'لا توجد دفعات بعد', action: <Button variant="outlined" onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button> }}
           columns={[
             { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
-            { key: 'vendor', header: 'المورد', render: (row: any) => <>{row.vendorId?.name}<Sub><Ltr>{row.number}</Ltr>{row.autoFromBillId ? ' · دفع فوري مع الفاتورة' : ''}</Sub></> },
+            { key: 'vendor', header: 'المورد', render: (row: any) => <>{row.vendorId?.name}<Sub><Ltr>{row.number}</Ltr>{row.autoFromBillId ? ' · دفع فوري مع الفاتورة' : ''}{row.batchTrial ? ` · دفعة مجمعة تجريبية · ${row.allocations.length} فاتورة` : ''}</Sub></> },
             { key: 'from', header: 'من', hideOnMobile: true, render: (row: any) => (row.fromAdvance ? 'الدفعة المقدمة' : row.fromAccountId ? <AccountRef code={row.fromAccountId.code} name={row.fromAccountId.name} /> : null) },
             {
               key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => (row.amount
