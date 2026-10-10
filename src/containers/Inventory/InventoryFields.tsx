@@ -18,6 +18,12 @@ export const SHIPPING_TYPE_OPTIONS: ChoiceOption[] = [
   { value: 'domestic', label: 'شحن داخلي' },
 ];
 
+export const SEA_LOAD_OPTIONS: ChoiceOption[] = [
+  { value: '', label: 'غير محدد' },
+  { value: 'FCL', label: 'FCL — حاوية كاملة' },
+  { value: 'LCL', label: 'LCL — شحن مجمّع' },
+];
+
 export const OFFICE_OPTIONS: ChoiceOption[] = [
   { value: 'tripoli', label: 'Tripoli' },
   { value: 'benghazi', label: 'Benghazi' },

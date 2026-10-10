@@ -905,3 +905,145 @@
   &__body { padding: 0 16px 16px; }
   &__body > .acc-panel { margin-bottom: 0; }
 }
+
+// What the system found for a statement line, on its own line under the text: a match (green),
+// only a classification for a new entry (neutral), or nothing (muted)
+.acc-suggest {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+  line-height: 1.5;
+
+  > span, &__row > span { flex: 1 1 auto; min-width: 0; }
+  &__row, > span:first-child:last-child { display: block; }
+  &__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  &__row + &__row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .MuiButton-root { flex: 0 0 auto; }
+
+  &--found { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); display: flex; flex-direction: column; gap: 6px; }
+  &--found > span + .MuiButton-root { align-self: flex-start; }
+  &--class { background: var(--surface); color: var(--ink); }
+  &--none { background: var(--soft); color: var(--muted); border-style: dashed; }
+}
+
+// Statement coverage: a month with a statement, or a gap
+.acc-cover { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; border-radius: var(--radius-sm); }
+.acc-cover--ok { color: var(--accent-ink); background: var(--accent-soft); }
+.acc-cover--gap { color: var(--muted); background: var(--soft); }
+.acc-bank-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  &__account { flex: 0 1 300px; min-width: 240px; }
+  &__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  &__settings.MuiButton-root {
+    margin-inline-start: auto;
+    flex-shrink: 0;
+    color: var(--muted);
+    border-color: var(--line);
+    background: var(--soft);
+    gap: 6px;
+  }
+  &__count { display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--surface, #fff); font-size: 11px; min-width: 22px; height: 22px; }
+  .MuiButton-root { min-height: 40px; white-space: nowrap; }
+}
+.acc-bank-filter-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 18px 0 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  strong { font-size: 13px; color: var(--ink); font-weight: 600; }
+}
+.acc-bank-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(170px, 1fr) minmax(185px, 1.1fr) minmax(125px, .7fr) minmax(145px, .85fr) minmax(145px, .85fr);
+  gap: 12px;
+  > .MuiFormControl-root { min-width: 0; width: 100%; }
+}
+.acc-bank-filter-note { margin-top: 10px; }
+.acc-bank-coverage {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface, #fff);
+  &__summary { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; }
+  &__summary::-webkit-details-marker { display: none; }
+  &__summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius); }
+  &__icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; color: var(--accent-ink); background: var(--accent-soft); flex-shrink: 0; }
+  &__title { display: flex; flex-direction: column; gap: 3px; strong { font-size: 13px; } > span { font-size: 11px; color: var(--muted); } }
+  &__status { font-size: 12px; color: var(--muted); margin-inline-start: 8px; }
+  &__toggle { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-ink); }
+  &[open] &__toggle svg { transform: rotate(180deg); }
+  &__body { border-top: 1px solid var(--line); padding: 16px; overflow-x: auto; }
+  &__intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; > .MuiFormControl-root { flex-shrink: 0; width: 190px; } }
+}
+@media (max-width: 1600px) {
+  .acc-bank-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .acc-bank-toolbar__account { flex: 1 1 100%; min-width: 0; }
+  .acc-bank-toolbar__actions { flex: 1 1 100%; }
+  .acc-bank-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acc-bank-filters__search { grid-column: 1 / -1; }
+  .acc-bank-coverage__summary { flex-wrap: wrap; gap: 8px; }
+  .acc-bank-coverage__status { order: 4; flex-basis: 100%; margin-inline-start: 0; }
+  .acc-bank-coverage__intro { flex-wrap: wrap; }
+}
+@media (max-width: 420px) { .acc-bank-filters { grid-template-columns: minmax(0, 1fr); } }
+.acc-link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: start; text-decoration: underline dotted; }
+
+.acc-settlement-dialog {
+  .MuiDialog-paper { border-radius: 18px; max-height: calc(100dvh - 48px); }
+  .MuiDialogContent-root { padding: 22px 24px; background: var(--canvas); }
+  .MuiAlert-root { margin-top: 12px; }
+  .MuiDialogTitle-root.acc-settlement-title { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; gap: 16px; > div > strong { font-size: 19px; font-weight: 700; } > .MuiButton-root { min-width: 36px; color: var(--muted); } }
+}
+.acc-settlement-navigation { display: flex; gap: 8px; padding: 0 24px 16px; }
+.acc-settlement-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 16px 24px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.acc-settlement-step {
+  display: flex; align-items: center; gap: 8px; text-align: start; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; cursor: pointer;
+  > span { display: flex; justify-content: center; align-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--soft); border: 1px solid var(--line); flex-shrink: 0; }
+  &.is-active { background: var(--accent-soft); border-color: #b8ded8; color: var(--accent-ink); font-weight: 600; > span { color: white; background: var(--accent); border-color: var(--accent); } }
+  &.is-complete > span { color: var(--accent-ink); background: var(--accent-soft); }
+  &:disabled { cursor: default; opacity: .65; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+.acc-settlement-section {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  h3 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  > .acc-sub { margin-bottom: 16px; }
+}
+.acc-settlement-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 14px; margin: 24px 0 16px; > .MuiFormControl-root { min-width: 0 !important; width: 100%; } }
+.acc-settlement-services { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; background: var(--soft); border-radius: 10px; > .MuiFormControl-root { min-width: 220px; } }
+.acc-settlement-line-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 16px; .MuiButton-root { border-radius: 8px; } }
+.acc-settlement-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 12px 0; .MuiFormControlLabel-root { margin-inline-start: 0; } }
+.acc-settlement-table { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; }
+.acc-settlement-selection { padding: 12px 14px; margin: 14px 0; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); }
+.acc-settlement-totals {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 16px 0;
+  > div { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); > strong { display: block; font-size: 19px; margin-top: 8px; } }
+  > .acc-settlement-totals__net { background: var(--accent-soft); border-color: #b8ded8; }
+}
+.acc-settlement-footer.MuiDialogActions-root {
+  display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 14px 24px; background: var(--surface);
+  > span { font-size: 12px; color: var(--muted); }
+  > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 800px) {
+  .acc-settlement-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acc-settlement-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acc-settlement-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); > .acc-settlement-totals__net { grid-column: 1 / -1; } }
+  .acc-settlement-footer.MuiDialogActions-root { flex-wrap: wrap; }
+}
+@media (max-width: 500px) {
+  .acc-settlement-dialog .MuiDialog-paper { margin: 8px; width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
+  .acc-settlement-dialog .MuiDialogContent-root { padding: 12px; }
+  .acc-settlement-dialog .MuiDialogTitle-root.acc-settlement-title { padding: 14px; > div > strong { font-size: 16px; } }
+  .acc-settlement-section { padding: 14px; }
+  .acc-settlement-fields { grid-template-columns: minmax(0, 1fr); }
+  .acc-settlement-steps { padding: 12px; gap: 4px; }
+  .acc-settlement-step { padding: 8px 4px; font-size: 12px; }
+  .acc-settlement-navigation { padding: 0 14px 12px; }
+  .acc-settlement-footer.MuiDialogActions-root { padding: 12px; > div { width: 100%; justify-content: flex-end; } }
+}

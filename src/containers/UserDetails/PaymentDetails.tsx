@@ -33,6 +33,8 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const canManage = canManageUser && !isOutflow;
   const date = moment(statement?.createdAt);
   const office = statement?.office;
+  // Money that went to an account (a partner's current account such as Wasl) shows that account, not the office
+  const accountName = statement?.accountId?.name;
   const walletEffect = `${isOutflow ? '+' : '−'}${formatMoney(statement?.amount, statement?.currency)}`;
 
   const deleteStatement = async () => {
@@ -60,9 +62,9 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         <div className="cashflow-row__main">
           <p className="cashflow-row__description" dir="rtl" dangerouslySetInnerHTML={{ __html: statement?.description }} />
           <div className="cashflow-row__meta">
-            <span className={`cashflow-chip cashflow-chip--office ${office ? '' : 'is-missing'}`}>
+            <span className={`cashflow-chip cashflow-chip--office ${office || accountName ? '' : 'is-missing'}`}>
               <Building2 size={12} strokeWidth={2} />
-              {office ? getOfficeLabel(office) : 'No office'}
+              {accountName || (office ? getOfficeLabel(office) : 'No office')}
             </span>
             {statement?.actionType && <span className="cashflow-chip">{statement.actionType}</span>}
             {isCredit &&

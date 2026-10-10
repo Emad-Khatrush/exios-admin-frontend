@@ -138,10 +138,6 @@ export default function BankLineDetails({ id, onClose, onChanged, onReview }: Pr
           <Typography fontWeight={700} mb={1}>سجل الإجراءات على السطر</Typography>
           {data.audit.map((a: any) => <Box key={a._id}><Sub>{timestamp(a.at)} · {actions[a.action] || a.action} · {person(a.userId)}{a.after?.reason && ` · السبب: ${a.after.reason}`}</Sub>{a.action === 'bank.lineEdit' && Object.entries(sourceLabels).filter(([key]) => (a.before?.[key] ?? '') !== (a.after?.[key] ?? '')).map(([key, label]) => <Sub key={key}>{label}: {['amount', 'balanceAfter'].includes(key) && a.before?.[key] != null ? formatMinor(a.before[key], currency, decimals) : a.before?.[key] ?? '—'} ← {['amount', 'balanceAfter'].includes(key) && a.after?.[key] != null ? formatMinor(a.after[key], currency, decimals) : a.after?.[key] ?? '—'}</Sub>)}</Box>)}
         </Paper>}
-        {correcting && <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
-          <Alert severity="warning" sx={{ mb: 2 }}>{line.lineStatus === 'created_entry' ? 'سيُعكس الترحيل الحالي مع حفظ القيود السابقة، ثم تفتح المراجعة لاختيار الحساب أو الفاتورة الصحيحة. الفاتورة الموجودة قبل الكشف تبقى محفوظة.' : 'سيُفك الربط بالقيد الحالي دون تغيير القيد نفسه، ثم تفتح المراجعة لاختيار المطابقة الصحيحة.'}</Alert>
-          <TextField fullWidth label="سبب التصحيح" value={reason} onChange={e => setReason(e.target.value)} disabled={busy} />
-        </Paper>}
       </>}
     </DialogContent>
     <DialogActions>
@@ -152,9 +148,27 @@ export default function BankLineDetails({ id, onClose, onChanged, onReview }: Pr
         if (line.lineStatus === 'ignored') { setBusy(true); try { const res = await acc.post(`bank/lines/${id}/unignore`); await onChanged(); onReview(res.data); } catch (err) { setError(errorText(err)); } finally { setBusy(false); } }
         else onReview(line);
       }}>اختيار الحساب والمطابقة</Button>}
-      {line && ['matched', 'created_entry'].includes(line.lineStatus) && (correcting
-        ? <Button color="warning" variant="contained" disabled={busy || !reason.trim()} onClick={correction}>{busy ? 'جارٍ التصحيح…' : 'تأكيد وفتح المراجعة'}</Button>
-        : <Button color="warning" variant="outlined" onClick={() => setCorrecting(true)}>تصحيح الحساب أو المطابقة</Button>)}
+      {line && ['matched', 'created_entry'].includes(line.lineStatus) && <Button color="warning" variant="outlined" onClick={() => { setReason(''); setCorrecting(true); }}>تصحيح الحساب أو المطابقة</Button>}
     </DialogActions>
+    {/* The correction in its own window: what will happen, the reason, then confirm */}
+    <Dialog open={correcting && !!line} onClose={busy ? undefined : () => setCorrecting(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>تصحيح الحساب أو المطابقة</DialogTitle>
+      {line && <DialogContent dividers>
+        <Typography mb={1}><Ltr>{line.day}</Ltr> · {line.description} · <b><Ltr>{formatMinor(line.amount, currency, decimals)}</Ltr></b></Typography>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <b>ما سيحدث:</b> {line.lineStatus === 'created_entry'
+            ? 'سيُعكس الترحيل الحالي بقيد عكسي مع حفظ القيود السابقة في السجل، ثم تفتح المراجعة لتختار الحساب أو الفاتورة الصحيحة. الفاتورة التي كانت موجودة قبل الكشف تبقى محفوظة.'
+            : line.groupPaymentIds?.length ? `سيُفك ربط السطر وتُلغى ${line.groupPaymentIds.length} دفعة سددها لفواتير الحوالات، فتعود الفواتير غير مسددة، ثم تفتح المراجعة لتختار المطابقة الصحيحة.`
+            : 'سيُفك ربط السطر بالقيد الحالي دون تغيير القيد نفسه، ثم تفتح المراجعة لتختار المطابقة الصحيحة.'}
+        </Alert>
+        <TextField fullWidth autoFocus label="سبب التصحيح (إلزامي)" value={reason} onChange={e => setReason(e.target.value)} disabled={busy}
+          helperText="مثلاً: رُحّل كمصروف جديد والصحيح سداد فاتورة الطلبية" />
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      </DialogContent>}
+      <DialogActions>
+        <Button disabled={busy} onClick={() => setCorrecting(false)}>إلغاء</Button>
+        <Button color="warning" variant="contained" disabled={busy || !reason.trim()} onClick={correction}>{busy ? 'جارٍ التصحيح…' : 'تأكيد وفتح المراجعة'}</Button>
+      </DialogActions>
+    </Dialog>
   </Dialog>;
 }

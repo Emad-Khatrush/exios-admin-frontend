@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputAdornment, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputAdornment, InputLabel, ListSubheader, MenuItem, Select, TextField } from '@mui/material';
 import api from '../../api';
+import { sys } from '../Accounting/accountingApi';
 import { formatMoney, getOfficeLabel, useDepositPlaces } from './statementUtils';
 
 type Props = {
@@ -25,6 +26,8 @@ const toForm = (statement: any) => ({
   note: statement?.note || '',
   office: statement?.office || '',
   actionType: statement?.actionType || '',
+  // The account the money went to (a partner's current account such as Wasl), else the office's box
+  accountId: statement?.accountId ? String(statement.accountId._id || statement.accountId) : '',
 });
 
 const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
@@ -35,6 +38,21 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   const places = useDepositPlaces(statement?.currency);
   // The office saved on the line stays listed even when it has no box in this currency any more
   const savedOffice = statement?.office && places && !places.some((p) => p.value === statement.office) ? statement.office : '';
+  // Accounts a deposit can go to, as in the deposit form: partners' current accounts (Wasl)
+  const [accounts, setAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    if (!open || !statement?.currency) return;
+    sys.get('acc/money-accounts', { currency: statement.currency })
+      .then((res: any) => setAccounts(res.data.results || []))
+      .catch(() => setAccounts([]));
+  }, [open, statement?.currency]);
+  const currentAccounts = accounts.filter((a) => a.kind === 'current' || a._id === form.accountId);
+  // The saved account is an option before the list arrives, so the select never holds a value it lacks
+  const savedAccount = statement?.accountId && !accounts.some((a) => a._id === toForm(statement).accountId)
+    ? { _id: toForm(statement).accountId, name: statement.accountId.name || 'حساب جارٍ' } : null;
+  const accountOptions = savedAccount ? [...currentAccounts, savedAccount] : currentAccounts;
+  const chosenAccount = accounts.find((a) => a._id === form.accountId);
+  const movedToAccount = !!form.accountId && form.accountId !== toForm(statement).accountId;
 
   useEffect(() => {
     if (open) {
@@ -61,6 +79,7 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
       setError('');
       await api.update(`user/${id}/statement/${statement._id}`, {
         ...form,
+        accountId: form.accountId || null,
         amount: newAmount,
         createdAt: new Date(form.createdAt),
       });
@@ -104,16 +123,32 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
             <Select
               labelId="edit-office-label"
               label="Office"
-              value={form.office}
-              onChange={(event) => setField('office', event.target.value)}
+              value={form.accountId ? `account:${form.accountId}` : form.office}
+              onChange={(event) => {
+                const value = String(event.target.value);
+                // A current account: the money is there; its office is only where it is recorded
+                if (value.startsWith('account:')) {
+                  const account = accounts.find((a) => `account:${a._id}` === value);
+                  return setForm((prev) => ({ ...prev, accountId: account?._id || '', office: account?.office || prev.office }));
+                }
+                return setForm((prev) => ({ ...prev, accountId: '', office: value }));
+              }}
             >
               <MenuItem value=""><em>No office</em></MenuItem>
-              {savedOffice && <MenuItem value={savedOffice} disabled>{getOfficeLabel(savedOffice)} (no {statement?.currency} box)</MenuItem>}
+              {savedOffice ? <MenuItem value={savedOffice} disabled>{getOfficeLabel(savedOffice)} (no {statement?.currency} box)</MenuItem> : null}
               {(places || []).map((office) => (
                 <MenuItem key={office.value} value={office.value}>{office.label}</MenuItem>
               ))}
+              {accountOptions.length > 0 ? <ListSubheader>حسابات جارية</ListSubheader> : null}
+              {accountOptions.map((account) => (
+                <MenuItem key={account._id} value={`account:${account._id}`}>{account.name}</MenuItem>
+              ))}
             </Select>
           </FormControl>
+          {movedToAccount && <Alert severity="info" className="cashflow-edit__wide" dir="rtl">
+            يُنقل الإيداع إلى «{chosenAccount?.name}»: يُعكس قيده القديم ويُسجّل على هذا الحساب بنفس التاريخ والمبلغ، ثم يُطابق مع سطر كشفه إن كان مستورداً. رصيد المحفظة لا يتغير.
+            {!['cash', 'bank'].includes(form.actionType) && ' نوع العملية يجب أن يكون cash أو bank.'}
+          </Alert>}
 
           <FormControl size="small" fullWidth>
             <InputLabel id="edit-action-label">Action type</InputLabel>

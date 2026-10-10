@@ -14,6 +14,7 @@ const RUN_STATUS: Record<string, { label: string; tone: any }> = {
   review: { label: 'بانتظار المراجعة', tone: 'warn' },
   failed: { label: 'فشل', tone: 'danger' },
   discarded: { label: 'أُلغي', tone: 'muted' },
+  discarding: { label: 'جارٍ الإلغاء', tone: 'info' },
   committing: { label: 'جارٍ الاعتماد', tone: 'info' },
   committed: { label: 'مُعتمد', tone: 'ok' },
 };
@@ -26,7 +27,7 @@ const SOURCES: Record<string, string> = {
   legacyExpense: 'مصروف قديم', legacyIncome: 'إيراد قديم', finalSync: 'مطابقة طلب', walletAdjust: 'تسوية محفظة', openingCash: 'رصيد افتتاحي',
   suspenseClose: 'إقفال المعلّق',
 };
-const ACTIVE = ['running', 'review', 'committing'];
+const ACTIVE = ['running', 'review', 'committing', 'discarding'];
 
 const pick = (row: any, names: string[]) => {
   const key = Object.keys(row).find((k) => names.includes(k.trim().toLowerCase()));
@@ -63,6 +64,8 @@ const Migration = () => {
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [costAccounts, setCostAccounts] = useState<any[]>([]);
   const [closeSuspense, setCloseSuspense] = useState(true);
+  // Purchase costs come from the account statements, not from the purchases typed on orders
+  const [purchaseCostsFromStatements, setPurchaseCostsFromStatements] = useState(true);
   const [countDay, setCountDay] = useState(todayLibya());
   const [confirm, setConfirm] = useState<'commit' | 'discard' | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -155,7 +158,7 @@ const Migration = () => {
 
   const start = () => act(async () => {
     const openingCounts = Object.entries(counts).filter(([, amount]) => amount !== '').map(([accountId, amount]) => ({ accountId, amount: Number(amount) }));
-    await acc.post('migration/runs', { costAccounts, openingCounts, countDay, closeSuspense });
+    await acc.post('migration/runs', { costAccounts, openingCounts, countDay, closeSuspense, purchaseCostsFromStatements });
   });
 
   const decide = () => {
@@ -264,6 +267,14 @@ const Migration = () => {
               مناسب إن كنت لا تعرف من أي خزينة أو مكتب دخلت وخرجت المبالغ القديمة. الخزائن تبدأ بما جردته اليوم، وكل ما لم يُعرف طرفه قبل اليوم يُقفل مرة واحدة مقابل الرصيد الافتتاحي،
               فتبدأ وحساب المعلّق صفر. الإيرادات والتكاليف وأرصدة العملاء التاريخية تُرحَّل كما هي. ألغِ هذا الخيار فقط إن أردت توجيه البنود القديمة بنداً بنداً من شاشة «تسوية المعلّق».
             </p>
+            <FormControlLabel
+              control={<Checkbox checked={purchaseCostsFromStatements} onChange={(e) => setPurchaseCostsFromStatements(e.target.checked)} />}
+              label="تكاليف الشراء من كشوف الحساب فقط"
+            />
+            <p className="acc-muted" style={{ maxWidth: '78ch' }}>
+              المشتريات المكتوبة على الطلبيات لا تصبح فواتير؛ تبقى على الطلبية لتقترح ربط سطر الكشف بها. التكلفة تُسجَّل مرة واحدة عند استيراد كشف البنك أو البطاقة أو Alipay أو الحساب الجاري، فلا تتكرر.
+              ارفع كشف كل حساب دفع للفترة كاملة (راجع «تغطية الكشوف» في مطابقة البنك). ما دُفع نقداً أو بلا كشف يُدخل يدوياً كفاتورة. تكاليف الرحلات القديمة لا تتأثر.
+            </p>
             <Button variant="contained" startIcon={<Play size={16} />} disabled={isBusy || !overview} onClick={start}>بدء التشغيل التجريبي</Button>
           </Panel>
         </>
@@ -277,9 +288,19 @@ const Migration = () => {
             <>
               {(run.status === 'review' || run.status === 'failed') && <Button color="error" variant="outlined" disabled={isBusy} onClick={() => setConfirm('discard')}>إلغاء التشغيل</Button>}
               {run.status === 'review' && <Button variant="contained" disabled={isBusy} onClick={() => setConfirm('commit')}>اعتماد الترحيل</Button>}
+              {run.status === 'review' && overview?.bankTrialAvailable && !run.bankTrialEnabled && (
+                <Button variant="outlined" disabled={isBusy} onClick={() => act(() => acc.post(`migration/runs/${run.runId}/bank-trial`), 'فُعّلت تجربة الكشوف. آثارها تُحفظ عند الاعتماد وتُزال عند إلغاء التشغيل.')}>تفعيل تجربة الكشوف</Button>
+              )}
             </>
           )}
         >
+          {run.status === 'review' && run.bankTrialEnabled && (
+            <Alert severity="info" className="mb-3" action={<Button onClick={() => navigate('/accounting/bank')}>فتح الكشوف</Button>}>
+              تجربة الكشوف مفعّلة على QA. يمكنك الاستيراد والمطابقة والترحيل ورؤية الأرصدة في التقارير دون إعادة الترحيل التاريخي.
+              عند الإلغاء تُستعاد التغييرات وتبقى سطور الكشف للمراجعة. لا تعدّل المستندات المرتبطة بالتجربة من مسارات أخرى حتى تعتمدها أو تلغيها.
+              تقرير الترحيل أدناه لقطة التشغيل الأصلي؛ راجع التقارير والأستاذ لرؤية أثر الكشوف الحالي.
+            </Alert>
+          )}
           {['running', 'committing'].includes(run.status) && (
             <>
               <div className="acc-muted mb-2">{PHASES[progress?.phase] || 'جارٍ التحضير'}{progress?.total ? <> · <Ltr>{progress.done} / {progress.total}</Ltr></> : null}</div>
@@ -611,7 +632,7 @@ const Migration = () => {
               <FormControlLabel control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />} label="راجعتُ التقرير وأوافق على اعتماده" />
             </>
           ) : (
-            <p className="acc-muted mb-0">سيُحذف كل ما كتبه هذا التشغيل (القيود، فواتير الموردين التاريخية، الأسعار المشتقة) وتعود الأرقام التسلسلية. بيانات المنظومة نفسها لا تتأثر.</p>
+            <p className="acc-muted mb-0">ستُحذف قيود التشغيل ومستنداته التاريخية، وتُزال آثار تجربة الكشوف وتُستعاد المستندات التي غيّرتها. تبقى سطور الكشف دون روابط للقيود المحذوفة. إذا تغير مستند خارج التجربة، يتوقف الإلغاء لحمايته ويعرض السبب.</p>
           )}
         </DialogContent>
         <DialogActions>

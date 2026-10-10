@@ -20,7 +20,7 @@ export type AccountingAccount = {
 };
 
 // Loads the lists most accounting screens need (chart, offices, currencies)
-export const useAccountingData = () => {
+export const useAccountingData = ({ referenceOnly = false }: { referenceOnly?: boolean } = {}) => {
   const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
   const [offices, setOffices] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
@@ -30,7 +30,7 @@ export const useAccountingData = () => {
     setIsLoading(true);
     try {
       const [accountsRes, officesRes, currenciesRes] = await Promise.all([
-        acc.get('accounts'),
+        acc.get('accounts', referenceOnly ? { referenceOnly: true } : undefined),
         acc.get('offices'),
         acc.get('currencies'),
       ]);
@@ -40,7 +40,7 @@ export const useAccountingData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [referenceOnly]);
 
   useEffect(() => { reload(); }, [reload]);
 

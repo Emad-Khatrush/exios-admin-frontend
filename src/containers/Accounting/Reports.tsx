@@ -1,5 +1,4 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, MenuItem, Tab, Tabs, TextField } from '@mui/material';
 import { Download, Printer } from 'lucide-react';
@@ -14,19 +13,30 @@ const dollars = (cents: number | null | undefined) => Math.round(cents || 0) / 1
 const minor = (value: number | null | undefined, currency: string) => (value || 0) / 10 ** (CURRENCY_DECIMALS[currency] ?? 2);
 const dayOf = (value: any) => (value ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tripoli' }).format(new Date(value)) : '');
 
-const exportSheet = (name: string, rows: Record<string, any>[], reviewStatus?: any) => {
+const exportSheet = async (name: string, rows: Record<string, any>[], reviewStatus?: any) => {
+  const XLSX = await import('xlsx');
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'Report');
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{ 'حالة الحسابات': reviewStatus?.status === 'approved' ? 'معتمدة وفق المراجعة المسجلة' : 'مؤقتة — تحتاج مراجعة', 'من': reviewStatus?.period?.from || '', 'إلى': reviewStatus?.period?.to || '', 'بنود تحتاج معالجة': reviewStatus?.blocking ?? '' }]), 'Review');
   XLSX.writeFile(workbook, `${name}-${todayLibya()}.xlsx`);
 };
 
-const Actions = ({ onExport }: { onExport: () => void }) => (
-  <span className="acc-noprint d-inline-flex gap-2">
-    <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={onExport}>Excel</Button>
+const Actions = ({ onExport }: { onExport: () => void | Promise<void> }) => {
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState('');
+  const download = async () => {
+    setExporting(true);
+    setError('');
+    try { await onExport(); }
+    catch { setError('تعذّر تجهيز الملف. حاول مرة أخرى.'); }
+    finally { setExporting(false); }
+  };
+  return <span className="acc-noprint d-inline-flex gap-2 align-items-center">
+    <Button size="small" variant="outlined" disabled={exporting} startIcon={<Download size={15} />} onClick={download}>{exporting ? 'جارٍ تجهيز الملف…' : 'Excel'}</Button>
     <Button size="small" variant="outlined" startIcon={<Printer size={15} />} onClick={() => window.print()}>طباعة / PDF</Button>
-  </span>
-);
+    {error && <span role="alert">{error}</span>}
+  </span>;
+};
 
 const year = () => todayLibya().slice(0, 4);
 const PRESETS: { label: string; range: () => { from: string; to: string } }[] = [
@@ -54,28 +64,41 @@ function useReport(path: string, initial: any = {}) {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const generation = useRef(0);
   const load = async (params: any = initial) => {
+    const request = ++generation.current;
     try {
       setIsLoading(true);
       setError('');
       const query: any = {};
       Object.entries(params).forEach(([key, value]) => { if (value !== '' && value !== undefined && value !== null && value !== false) query[key] = value; });
-      setData((await acc.get(path, query)).data);
+      const result = (await acc.get(path, { ...query, deferReview: true })).data;
+      if (request !== generation.current) return;
+      setData(result);
+      setIsLoading(false);
+      if (result.reviewStatus?.status === 'pending') {
+        try {
+          const reviewStatus = (await acc.get('review/status', { from: query.from, to: query.to || query.asOf })).data;
+          if (request === generation.current) setData({ ...result, reviewStatus });
+        } catch {
+          if (request === generation.current) setData({ ...result, reviewStatus: { ...result.reviewStatus, status: 'provisional', checkUnavailable: true } });
+        }
+      }
     } catch (err) {
-      setError(errorText(err));
+      if (request === generation.current) setError(errorText(err));
     }
-    setIsLoading(false);
+    if (request === generation.current) setIsLoading(false);
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [path]);
+  useEffect(() => { load(); return () => { generation.current++; }; }, [path]);
   return { data, error, isLoading, load };
 }
 
 const thisYear = () => ({ from: `${year()}-01-01`, to: todayLibya() });
 const ledgerLink = (accountId: string, period: Period) => `/accounting/accounts/${accountId}?${new URLSearchParams(Object.entries(period).filter(([, v]) => v) as any)}`;
 
-const ReviewNotice = ({ data }: { data: any }) => data?.reviewStatus ? <Alert severity={data.reviewStatus.status === 'approved' ? 'success' : 'warning'} className="mx-3 mb-2">
-  {data.reviewStatus.status === 'approved' ? 'حسابات الفترة معتمدة وفق المراجعة المسجلة' : 'تقرير مؤقت — يحتاج مراجعة واعتماد الحسابات'}
+const ReviewNotice = ({ data }: { data: any }) => data?.reviewStatus ? <Alert severity={data.reviewStatus.status === 'approved' ? 'success' : data.reviewStatus.status === 'pending' ? 'info' : 'warning'} className="mx-3 mb-2">
+  {data.reviewStatus.status === 'approved' ? 'حسابات الفترة معتمدة وفق المراجعة المسجلة' : data.reviewStatus.status === 'pending' ? 'التقرير مؤقت — جارٍ التحقق من حالة مراجعة الحسابات' : 'تقرير مؤقت — يحتاج مراجعة واعتماد الحسابات'}
   {data.reviewStatus.blocking > 0 && ' · بنود تحتاج معالجة: ' + data.reviewStatus.blocking}
   {data.reviewStatus.checkUnavailable && ' · تعذّر فحص اكتمال المراجعة'}
   <Open to={'/accounting/review?' + new URLSearchParams(Object.entries(data.reviewStatus.period || {}).filter(([k,v]) => ['from','to'].includes(k) && !!v) as any)}>فتح قائمة المراجعة</Open>
@@ -85,7 +108,7 @@ const ReviewNotice = ({ data }: { data: any }) => data?.reviewStatus ? <Alert se
 
 const IncomeStatement = () => {
   const navigate = useNavigate();
-  const { offices } = useAccountingData();
+  const { offices } = useAccountingData({ referenceOnly: true });
   const [period, setPeriod] = useState<Period>(thisYear());
   const [office, setOffice] = useState('');
   const [columns, setColumns] = useState('');
@@ -138,6 +161,14 @@ const IncomeStatement = () => {
             <Stat label="مجمل الربح" value={<Money value={data.summary.grossProfit.total} />} />
             <Stat label="صافي الربح" value={<Money value={data.summary.netProfit.total} />} tone={data.summary.netProfit.total < 0 ? 'danger' : 'accent'} />
           </StatGrid>
+          {data.services && <>
+            <Sub>الخدمات للفترة والمكتب المختارين — الأرقام داخلة في الإجماليات أعلاه. النتيجة مؤقتة إذا لم تصل جميع تكاليف الموردين.</Sub>
+            <StatGrid>
+              <Stat label="إيرادات الخدمات المسددة" value={<Money value={data.services.revenue} />} />
+              <Stat label="تكاليف الخدمات" value={<Money value={data.services.costs} />} />
+              <Stat label="نتيجة الخدمات قبل المصاريف العامة وفروق الصرف" value={<Money value={data.services.net} />} tone={data.services.net < 0 ? 'danger' : 'accent'} />
+            </StatGrid>
+          </>}
         </div>
       )}
       <DataTable

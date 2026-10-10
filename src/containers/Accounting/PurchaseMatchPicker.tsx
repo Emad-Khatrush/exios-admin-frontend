@@ -19,19 +19,29 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   const [selected, setSelected] = useState<any>(null);
   const [confirmDifference, setConfirmDifference] = useState(false);
   const [confirmHistoricalSettlement, setConfirmHistoricalSettlement] = useState(false);
+  const [confirmTripDifference, setConfirmTripDifference] = useState(false);
+  useEffect(() => { setConfirmTripDifference(false); }, [open, line?._id, selected?._id]);
+  // The bill's vendor differs from the merchant the statement names: approved after review, and corrected
+  const [confirmMerchant, setConfirmMerchant] = useState(false);
   const [browsing, setBrowsing] = useState(!suggestedBillId && !suggestedItemId);
   const initialChoice = useRef(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [duplicatePreview, setDuplicatePreview] = useState<any>(null);
+  const [independentCost, setIndependentCost] = useState(false);
+  const [duplicateReason, setDuplicateReason] = useState('');
+  useEffect(() => {
+    setDuplicatePreview(null); setIndependentCost(false); setDuplicateReason('');
+  }, [open, line?._id, selected?._id]);
   const [walletUsd, setWalletUsd] = useState('0');
   const [billLineId, setBillLineId] = useState('');
   const [refundOriginalAmount, setRefundOriginalAmount] = useState('');
   useEffect(() => {
     if (!open || !line?.day) return;
     setFilters({ from: settlementOnly ? '' : offsetDay(line.day, refund ? -180 : -7), to: settlementOnly ? '' : offsetDay(line.day, refund ? 0 : 7), source: 'all', status: 'open', q: '' });
-    setConfirmHistoricalSettlement(false);
+    setConfirmHistoricalSettlement(false); setConfirmMerchant(false);
     setWalletUsd('0'); setBillLineId(''); setRefundOriginalAmount('');
     setPage(1); setSelected(null); setOriginal(null); setBrowsing(!suggestedBillId && !suggestedItemId); initialChoice.current = true; setConfirmDifference(false); setError(''); setData(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,7 +87,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   const directionWrong = refund ? (line.amount !== undefined && Number(line.amount) <= 0) || line.movementKind === 'card_payment' : line.amount !== undefined && Number(line.amount) >= 0;
   const futureRefundBill = refund && selected?.kind !== 'existing_refund' && selected?.day > line.day;
   const recordedBankMismatch = refund && selected?.kind === 'existing_refund' && (selected.bankCurrency !== currency || Math.abs(Number(selected.bankAmount) - Number(paid)) > 0.0005);
-  const blocked = (!!selected?.historicalSettlement && !confirmHistoricalSettlement) || directionWrong || !sameCurrency || selected?.merchantMismatch || refundTooLarge || futureRefundBill || recordedBankMismatch || selected?.canMatch === false;
+  const blocked = (!!selected?.tripConflict && !confirmTripDifference) || (!!selected?.historicalSettlement && !confirmHistoricalSettlement) || directionWrong || !sameCurrency || (selected?.merchantMismatch && !confirmMerchant) || refundTooLarge || futureRefundBill || recordedBankMismatch || selected?.canMatch === false;
   const dateDifferent = (!refund || selected?.kind === 'existing_refund') && selected && line?.day && Math.abs((Date.parse(selected.day) - Date.parse(line.day)) / 86400000) > 7;
   const needsConfirmation = !!((!refund && amountDifferent) || (partialRefund && !refundTooLarge) || dateDifferent
     || (selected && !selected.merchantMatch && !selected.merchantMismatch));
@@ -90,16 +100,19 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
     ...(selected.merchantMatch ? ['المورد مطابق لتاجر الكشف'] : []),
   ] : [];
   const warnings = [
-    ...(selected?.matchProblems || []),
+    ...(selected?.tripConflict ? ['رقم الرحلة في الكشف يختلف عن رحلة التكلفة؛ راجع الرحلة الصحيحة قبل اعتماد الربط.'] : []),
+    ...(selected?.matchProblems || []).filter((problem: string) => !(selected?.merchantMismatch && problem === 'المورد مختلف عن تاجر الكشف')),
     ...(selected?.canMatch === false && !selected?.matchProblems?.length ? [selected.status === 'paid' ? 'الفاتورة مسددة، ولا يوجد سداد متاح للمطابقة على هذا البنك. راجع السداد الأصلي أو اختر فاتورة أخرى.' : 'هذا الاقتراح غير متاح للربط حاليًا؛ راجع حالته أو اختر البديل.'] : []),
     ...(directionWrong ? [refund ? 'هذه حركة خارجة من البنك وليست استرداداً وارداً، أو أنها سداد بطاقة. لا يمكن اعتمادها كريفاند.' : 'هذه حركة واردة وليست سداد مشتريات.'] : []),
-    ...(selected?.merchantMismatch ? [`المورد المختار مختلف عن تاجر الكشف (${selected.statementVendorName || 'المورد المعروف'}). لا يمكن اعتماد الربط.`] : []),
+    ...(selected?.merchantMismatch ? [`المورد في الفاتورة (${selected.vendorName || '—'}) مختلف عن تاجر الكشف (${selected.statementVendorName || 'المورد المعروف'}). راجع الفاتورة؛ إن كانت نفس العملية فأكد أدناه، ويُصحح النظام ربط التاجر.`] : []),
     ...(!sameCurrency ? ['عملة الفاتورة تختلف عن العملة الأصلية في الكشف؛ اختر المطابقة الصحيحة.'] : []),
     ...(amountDifferent ? [partialRefund ? `استرداد جزئي بقيمة ${original.amount} ${original.currency} من فاتورة قيمتها ${selected.amount} ${selected.currency}؛ هذا ليس تطابقاً كاملاً للمبلغ.` : `المبلغ غير مطابق: الكشف ${original.amount} ${original.currency} والفاتورة ${selected.amount} ${selected.currency}.`] : []),
     ...(refundTooLarge ? ['مبلغ الاسترداد أكبر من المتبقي في الفاتورة أو البند المختار. اختر الفاتورة الصحيحة.'] : []),
     ...(futureRefundBill ? ['تاريخ الفاتورة بعد الاسترداد؛ الاختيار غير صالح.'] : []),
     ...(recordedBankMismatch ? ['مبلغ الريفاند المسجل أو حساب عملته لا يطابق المبلغ المستلم في الكشف.'] : []),
-    ...(selected && !selected.merchantMatch && !selected.merchantMismatch ? ['هوية المورد لم تُثبت من نص الكشف؛ تشابه المبلغ والتاريخ وحده لا يثبت أنها نفس العملية.'] : []),
+    ...(selected?.paymentChannel ? ['الوصف يذكر حوالة عبر Alipay كطريقة دفع لدى الشريك، وليس اسم المورد. راجع الفاتورة والطلبية ثم أكد أنها نفس العملية.']
+      : selected?.genericVendor && selected.statementVendorName ? [`تاجر الكشف «${selected.statementVendorName}»، ومورد الفاتورة عام («${selected.vendorName}»). لا تعارض؛ تأكد فقط أنها الطلبية الصحيحة.`]
+      : selected && !selected.merchantMatch && !selected.merchantMismatch ? ['هوية المورد لم تُثبت من نص الكشف؛ تشابه المبلغ والتاريخ وحده لا يثبت أنها نفس العملية.'] : []),
     ...(dateDifferent ? [`فرق التاريخ ${daysApart} يوم؛ يحتاج تأكيدك.`] : []),
     ...(selected && !original?.known ? ['عملة الشراء ومبلغها غير موضحين في الكشف؛ راجع الفاتورة المختارة قبل الاعتماد.'] : []),
   ];
@@ -162,20 +175,44 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
       </Alert>)}
       {data?.truncated && <Alert severity="warning" className="my-2">النتائج كثيرة؛ ضيّق فترة التاريخ لإظهار جميع المشتريات في الفترة المختارة.</Alert>}
       <DataTable rows={data?.results || []} rowKey={(row: any) => row._id} loading={busy} columns={[
-        { key: 'choose', header: 'اختيار', render: (row: any) => <Button size="small" disabled={!row.canMatch || busy || submitting} onClick={() => { setSelected(row); setBrowsing(false); setConfirmDifference(false); setConfirmHistoricalSettlement(false); setError(''); }}>{selected?._id === row._id ? 'مختارة' : 'اختيار'}</Button> },
+        { key: 'choose', header: 'اختيار', render: (row: any) => <Button size="small" disabled={!row.canMatch || busy || submitting} onClick={() => { setSelected(row); setBrowsing(false); setConfirmDifference(false); setConfirmHistoricalSettlement(false); setConfirmMerchant(false); setError(''); }}>{selected?._id === row._id ? 'مختارة' : 'اختيار'}</Button> },
         { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
         { key: 'source', header: 'المصدر', render: (row: any) => row.source === 'trip' ? 'تكلفة رحلة / شحن' : row.source === 'order' ? 'مشتريات طلبية' : 'فاتورة مورد مباشرة' },
-        { key: 'purchase', header: 'الفاتورة / الطلبية', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.orders.map((order: any, i: number) => <Sub key={`${order._id}-${i}`}><Open to={`/invoice/${order._id}/edit`}><Ltr>{order.number}</Ltr></Open></Sub>)}<Sub>{row.vendorName} · {row.description}</Sub>{row.merchantMatch && <Sub>المورد مطابق لاسم التاجر في الكشف؛ تأكد من الطلبية والمبلغ قبل الاعتماد.</Sub>}</> },
+        { key: 'purchase', header: 'الفاتورة / الطلبية', render: (row: any) => <>{row.billId ? <Open to={`/accounting/bills/${row.billId}`}><Ltr>{row.number}</Ltr></Open> : <Ltr>{row.number}</Ltr>}{row.orders.map((order: any, i: number) => <Sub key={`${order._id}-${i}`}><Open to={`/invoice/${order._id}/edit`}><Ltr>{order.number}</Ltr></Open></Sub>)}<Sub>{row.vendorName} · {row.description}</Sub>{row.merchantMatch && <Sub>المورد مطابق لاسم التاجر في الكشف؛ تأكد من الطلبية والمبلغ قبل الاعتماد.</Sub>}{row.payments?.map((payment: any, i: number) => <Sub key={i}>سداد <Ltr>{payment.number} · {payment.day}</Ltr> من {payment.accountName}{payment.entryId && <> · <Open to={`/accounting/entries/${payment.entryId}`}>فتح قيد السداد</Open></>}</Sub>)}</> },
         { key: 'amount', header: 'المبلغ الأصلي', render: (row: any) => <Ltr>{row.amount} {row.currency}</Ltr> },
-        { key: 'status', header: 'الحالة', render: (row: any) => <>{states[row.status]}{row.matchProblems?.map((problem: string) => <Sub key={problem}>{problem}</Sub>)}{row.openUsd != null && <Sub>المتبقي: <Ltr>{row.openUsd} USD</Ltr></Sub>}{row.status === 'paid' && !row.canMatch && <Sub>لا يوجد قيد سداد متاح للمطابقة على هذا البنك.</Sub>}</> },
+        { key: 'status', header: 'الحالة', render: (row: any) => <>{states[row.status]}{row.matchProblems?.map((problem: string) => <Sub key={problem}>{problem}</Sub>)}{row.openUsd != null && <Sub>المتبقي: <Ltr>{row.openUsd} USD</Ltr></Sub>}{row.status === 'paid' && !row.canMatch && !row.paymentMatchProblem && <Sub>لا يوجد قيد سداد متاح للمطابقة على هذا البنك.</Sub>}</> },
       ]} />
       {data && <div className="d-flex align-items-center justify-content-between mt-2"><Sub>{data.total} نتيجة</Sub><Pagination count={Math.max(1, Math.ceil(data.total / data.pageSize))} page={page} onChange={(_, next) => { setPage(next); initialChoice.current = false; }} /></div>}</>}
+      {!browsing && selected?.merchantMismatch && <FormControlLabel control={<Checkbox checked={confirmMerchant} onChange={e => setConfirmMerchant(e.target.checked)} />} label={`راجعت الفاتورة: هذه نفس العملية رغم اسم التاجر في الكشف. صحّح ربط «${selected.statementVendorName || 'التاجر'}»${selected.vendorName && !/تاريخي|نقدية/.test(selected.vendorName) ? ` إلى «${selected.vendorName}»` : ''}`} />}
       {!browsing && selected && !selected.historicalSettlement && needsConfirmation && <FormControlLabel control={<Checkbox checked={confirmDifference} onChange={e => setConfirmDifference(e.target.checked)} />} label="راجعت بيانات العملية والاختلافات وأؤكد أنها نفس العملية" />}
+      {!browsing && selected?.tripConflict && <FormControlLabel control={<Checkbox checked={confirmTripDifference} onChange={e => setConfirmTripDifference(e.target.checked)} />} label="راجعت رقم الرحلة في الكشف ورحلة التكلفة وأؤكد أنها نفس العملية رغم اختلاف الرقم" />}
       {!selected && !busy && !browsing && <Alert severity="info">اختر الفاتورة أو بند المشتريات لإكمال المطابقة.</Alert>}
+      {!browsing && duplicatePreview && <Stack spacing={1} className="mt-2">
+        <Alert severity="warning">وجدنا تكاليف متشابهة. راجع الفواتير التالية؛ إن كانت العمولة نفسها فاختر الفاتورة الموجودة من «تغيير الفاتورة أو الطلبية». لا تسجلها مرة ثانية.</Alert>
+        {duplicatePreview.results.map((row: any) => <div key={row.key}>
+          <Open to={row.url}><Ltr>{row.number}</Ltr></Open> · <Ltr>{row.day} · {row.amount} {row.currency}</Ltr>
+          <Sub>{row.reason}</Sub>
+        </div>)}
+        {duplicatePreview.canConfirmIndependent && <>
+          <FormControlLabel control={<Checkbox checked={independentCost} onChange={e => setIndependentCost(e.target.checked)} />} label="راجعت التكاليف السابقة؛ هذه عملية مستقلة وليست سدادًا أو تكرارًا لها" />
+          {independentCost && <TextField fullWidth multiline minRows={2} label="سبب اعتبارها تكلفة مستقلة" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} helperText="مثال: عمولة حوالة أخرى برقم مرجع مختلف. اكتب سببًا واضحًا من 10 أحرف على الأقل." />}
+        </>}
+      </Stack>}
   </div>;
   const actions = <><Button disabled={submitting} onClick={onClose}>إلغاء</Button>{!browsing && <Button variant="contained" disabled={busy || submitting || !selected || blocked || (needsConfirmation && !confirmDifference) || (refund && selected?.kind !== 'existing_refund' && (!selectedRefundLine || (!original?.known && !(Number(refundOriginalAmount) > 0))))} onClick={async () => {
       setSubmitting(true); setError('');
-      try { await onConfirm(selected, { confirmDifference, historicalSettlement: !!selected.historicalSettlement, confirmHistoricalSettlement, refund, billLineId: selectedRefundLine?._id, walletUsd: Number(walletUsd), refundOriginalAmount: Number(refundOriginalAmount) }); } catch (err: any) { setError(errorText(err)); } finally { setSubmitting(false); }
+      try {
+        if (duplicatePreview && (!duplicatePreview.canConfirmIndependent || !independentCost || duplicateReason.trim().length < 10)) {
+          setError('اختر الفاتورة الموجودة، أو أكد أن العملية مستقلة واكتب سببًا واضحًا.'); return;
+        }
+        await onConfirm(selected, { confirmDifference, confirmMerchant, confirmTripDifference, historicalSettlement: !!selected.historicalSettlement, confirmHistoricalSettlement, refund, billLineId: selectedRefundLine?._id, walletUsd: Number(walletUsd), refundOriginalAmount: Number(refundOriginalAmount),
+          ...(duplicatePreview && independentCost && { duplicateDecision: 'independent', duplicateReason: duplicateReason.trim(), duplicateFingerprint: duplicatePreview.fingerprint }) });
+      } catch (err: any) {
+        setError(errorText(err));
+        if (err.response?.data?.costDuplicatePreview) {
+          setDuplicatePreview(err.response.data.costDuplicatePreview); setIndependentCost(false); setDuplicateReason('');
+        }
+      } finally { setSubmitting(false); }
     }}>{submitting ? 'جارٍ الاعتماد...' : refund ? 'موافقة واعتماد الاسترداد' : selected?.historicalSettlement ? 'اعتماد تسوية السداد التاريخي' : 'موافقة وتسجيل السداد'}</Button>}</>;
   if (embedded) return <>{content}<div className="d-flex justify-content-end gap-2 mt-3">{actions}</div></>;
   return <Dialog open={open} onClose={() => { if (!busy && !submitting) onClose(); }} maxWidth="lg" fullWidth>

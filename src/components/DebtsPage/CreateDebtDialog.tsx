@@ -25,10 +25,10 @@ const CreateDebtDialog = (props: Props) => {
   }
 
   const hasOrder = !!(props.orderId || form.orderId?.trim());
-  // A debt that only reminds of an order's own bill needs nothing more. Any other debt is money
-  // that left the company: say where it came from (a cash box, a bank, or a partner who paid it
-  // for us, like Aswaq), so accounting records it (spec 19.8)
-  const needsSource = !hasOrder || form.debtType === 'general';
+  // Service selling prices do not move a funding account. Linked invoice/shipping
+  // debts remain reminders of their original claim.
+  const isServiceSale = form.debtType === 'general';
+  const needsSource = !hasOrder && !isServiceSale;
   const [sources, setSources] = useState<any[]>([]);
   useEffect(() => {
     if (!needsSource || !form.currency) return setSources([]);
@@ -155,7 +155,7 @@ const CreateDebtDialog = (props: Props) => {
               >
                 <MenuItem dir="rtl" value={'invoice'}>دين لاجل تسديد فاتورة شراء</MenuItem>
                 <MenuItem dir="rtl" value={'receivedGoods'}>دين لاجل تسديد شحن</MenuItem>
-                <MenuItem dir="rtl" value={'general'}>دين عام لا يتعلق بطلبية</MenuItem>
+                <MenuItem dir="rtl" value={'general'}>دين خدمة — سعر البيع للعميل</MenuItem>
               </Select>
             </FormControl>
           </div>

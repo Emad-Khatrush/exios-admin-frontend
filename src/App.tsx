@@ -60,6 +60,7 @@ import AccountingEmployees from './containers/Accounting/Employees';
 import { Equity as AccountingEquity, Netting as AccountingNetting } from './containers/Accounting/EquityAndNetting';
 import BankReconciliation from './containers/Accounting/BankReconciliation';
 import PurchaseReconciliation from './containers/Accounting/PurchaseReconciliation';
+import UnidentifiedLines from './containers/Accounting/UnidentifiedLines';
 import AccountingMigration from './containers/Accounting/Migration';
 import AccountingGuide from './containers/Accounting/Guide';
 import AccountingSuspense from './containers/Accounting/Suspense';
@@ -137,6 +138,7 @@ const accountingRoutes = (
     <Route path='treasury' element={<Treasury />} />
     <Route path='bank' element={<BankReconciliation />} />
     <Route path='purchase-reconciliation' element={<PurchaseReconciliation />} />
+    <Route path='unidentified' element={<UnidentifiedLines />} />
     <Route path='employees' element={<AccountingEmployees />} />
     <Route path='assets' element={<AccountingAssets />} />
     <Route path='equity' element={<AccountingEquity />} />

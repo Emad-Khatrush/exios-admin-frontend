@@ -27,6 +27,7 @@ import {
   READY_DATE_HINT,
   READY_DATE_LABEL,
   SHIPPING_TYPE_OPTIONS,
+  SEA_LOAD_OPTIONS,
   STATUS_OPTIONS,
 } from "./InventoryFields";
 
@@ -302,6 +303,7 @@ const EditInventory = () => {
                 <dt>Shipping type</dt>
                 <dd>{optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType) || <span className="is-empty">Not set</span>}</dd>
               </div>
+              {inventory?.shippingType === 'sea' && <div><dt>نوع الشحن البحري</dt><dd>{optionLabel(SEA_LOAD_OPTIONS, inventory?.seaLoadType || '')}</dd></div>}
               <div>
                 <dt>Inventory office</dt>
                 <dd>{optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace) || <span className="is-empty">Not set</span>}</dd>
@@ -398,6 +400,8 @@ const EditInventory = () => {
                 disabled={!isAdmin}
                 required
               />
+
+              {valueOf('shippingType') === 'sea' && <ChoiceGroup name="seaLoadType" label="نوع الشحن البحري" options={SEA_LOAD_OPTIONS} value={valueOf('seaLoadType') || ''} onChange={onChangeHandler} disabled={!isAdmin} />}
 
               <ChoiceGroup
                 name="inventoryPlace"
