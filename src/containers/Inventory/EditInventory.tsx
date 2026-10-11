@@ -13,6 +13,7 @@ import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
 import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
+import FlightPdfButton from './FlightPdfButton';
 import { convertGoogleStorageUrl } from "../../utils/methods";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import {
@@ -254,6 +255,7 @@ const EditInventory = () => {
         </div>
         {!isEditing && (
           <div className="inv-head-actions">
+            <FlightPdfButton flightId={inventory._id} voyage={inventory.voyage} />
             {isAdmin && (
               <button type="button" className="inv-btn is-danger" onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={15} strokeWidth={2} />

@@ -9,9 +9,18 @@
 
 # testing
 /coverage
+*.test.*
+*.spec.*
+__tests__/
 
 # production
 /build
+/build-local-review/
+/build-qa/
+
+# Firebase local artifacts
+/.firebase/
+firebase-debug.log*
 
 # misc
 .DS_Store
