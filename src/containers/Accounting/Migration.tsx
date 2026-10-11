@@ -172,6 +172,8 @@ const Migration = () => {
   const committed = !!overview?.migrationDate;
   const active = run && ACTIVE.includes(run.status);
   const report = run?.report;
+  const incompleteOpenings = report?.openingCash?.filter((row: any) => !row.uncounted && row.opening && !row.entryId) || [];
+  const commitBlocked = !report?.balanced || !!run?.problems?.length || incompleteOpenings.length > 0;
   const warnings = overview?.warnings || {};
   const progress = run?.progress;
   const percent = progress?.total ? Math.round((progress.done / progress.total) * 100) : undefined;
@@ -287,13 +289,16 @@ const Migration = () => {
           actions={(
             <>
               {(run.status === 'review' || run.status === 'failed') && <Button color="error" variant="outlined" disabled={isBusy} onClick={() => setConfirm('discard')}>إلغاء التشغيل</Button>}
-              {run.status === 'review' && <Button variant="contained" disabled={isBusy} onClick={() => setConfirm('commit')}>اعتماد الترحيل</Button>}
+              {run.status === 'review' && <Button variant="contained" disabled={isBusy || commitBlocked} onClick={() => setConfirm('commit')}>اعتماد الترحيل</Button>}
               {run.status === 'review' && overview?.bankTrialAvailable && !run.bankTrialEnabled && (
                 <Button variant="outlined" disabled={isBusy} onClick={() => act(() => acc.post(`migration/runs/${run.runId}/bank-trial`), 'فُعّلت تجربة الكشوف. آثارها تُحفظ عند الاعتماد وتُزال عند إلغاء التشغيل.')}>تفعيل تجربة الكشوف</Button>
               )}
             </>
           )}
         >
+          {run.status === 'review' && commitBlocked && (
+            <Alert severity="error" className="mb-3">لا يمكن الاعتماد قبل معالجة العمليات الفاشلة وقيود الجرد الناقصة وتوازن الدفاتر. راجع الأخطاء أدناه، ثم صحّح أسبابها وألغِ التشغيل وأعده. إدخال سعر صرف لاحقًا لا يعيد إنشاء قيد فشل سابقًا.</Alert>
+          )}
           {run.status === 'review' && run.bankTrialEnabled && (
             <Alert severity="info" className="mb-3" action={<Button onClick={() => navigate('/accounting/bank')}>فتح الكشوف</Button>}>
               تجربة الكشوف مفعّلة على QA. يمكنك الاستيراد والمطابقة والترحيل ورؤية الأرصدة في التقارير دون إعادة الترحيل التاريخي.
@@ -388,7 +393,7 @@ const Migration = () => {
             <Panel
               flush
               title={<>أرصدة الخزائن بتاريخ الجرد <Ltr>{report.openingCash[0].countDay}</Ltr></>}
-              subtitle="رصيد كل خزينة في الدفاتر في هذا التاريخ هو ما كتبته أنت في الجرد (العمود الأخير). كل حركات المنظومة قبله مُرحَّلة كما هي، وما لم تفسّره تلك الحركات سُوّي بقيد واحد في تاريخ الجرد مقابل الرصيد الافتتاحي."
+              subtitle="الجرد المطلوب منفصل عن نتيجة الترحيل. فرق الجرد يصبح قيدًا فعليًا عند نجاح إنشائه؛ السطر الذي فشل لا يمثل رصيدًا مسجلًا في الدفاتر."
             >
               <DataTable
                 dense
@@ -397,8 +402,9 @@ const Migration = () => {
                 columns={[
                   { key: 'account', header: 'الحساب', render: (row: any) => <AccountRef code={row.code} name={row.name} /> },
                   { key: 'booked', header: 'حسب حركات المنظومة', numeric: true, render: (row: any) => <Money value={row.booked} currency={row.currency} tone="plain" /> },
-                  { key: 'opening', header: 'فرق سُوّي بقيد', numeric: true, render: (row: any) => (row.opening ? <Money value={row.opening} currency={row.currency} /> : <span className="acc-muted">مطابق</span>) },
-                  { key: 'counted', header: 'الرصيد في الدفاتر = جردك', numeric: true, render: (row: any) => <Money value={row.counted} currency={row.currency} strong /> },
+                  { key: 'opening', header: 'فرق الجرد المطلوب', numeric: true, render: (row: any) => (row.opening ? <Money value={row.opening} currency={row.currency} /> : <span className="acc-muted">مطابق</span>) },
+                  { key: 'counted', header: 'الجرد الذي أدخلته', numeric: true, render: (row: any) => <Money value={row.counted} currency={row.currency} strong /> },
+                  { key: 'result', header: 'نتيجة قيد الجرد', render: (row: any) => row.opening && !row.entryId ? <span className="text-danger">فشل — لم يُرحّل الفرق</span> : row.entryId ? 'تم إنشاء القيد' : 'مطابق دون قيد' },
                   { key: 'sheet', header: 'ورقة الجرد', align: 'end', render: (row: any) => (row.entryId ? <AttachSheet entryId={row.entryId} /> : null) },
                 ]}
               />
@@ -591,7 +597,7 @@ const Migration = () => {
       )}
 
       {run?.problems?.length > 0 && (
-        <Panel flush title={`سجلات تعذّر ترحيلها (${run.problems.length})`} subtitle="لم تدخل الدفاتر. صحّح سببها ثم ألغِ التشغيل وأعده، أو اعتمد وعالجها بقيود يدوية.">
+        <Panel flush title={`سجلات تعذّر ترحيلها (${run.problems.length})`} subtitle="لم تدخل الدفاتر وتمنع الاعتماد. صحّح أسبابها ثم ألغِ التشغيل وأعده. إذا كان التشغيل معتمدًا سابقًا، يحتاج تصحيحًا مستقلًا للقيود الناقصة.">
           <DataTable
             dense
             maxHeight={360}
@@ -637,7 +643,7 @@ const Migration = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setConfirm(null); setAgreed(false); }}>تراجع</Button>
-          <Button variant="contained" color={confirm === 'commit' ? 'primary' : 'error'} disabled={confirm === 'commit' && !agreed} onClick={decide}>
+          <Button variant="contained" color={confirm === 'commit' ? 'primary' : 'error'} disabled={isBusy || (confirm === 'commit' && (!agreed || commitBlocked))} onClick={decide}>
             {confirm === 'commit' ? 'اعتماد نهائي' : 'إلغاء التشغيل'}
           </Button>
         </DialogActions>

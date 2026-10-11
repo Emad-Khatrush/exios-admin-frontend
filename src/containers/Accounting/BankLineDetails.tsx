@@ -3,6 +3,7 @@ import { Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, 
 import { acc, CURRENCY_DECIMALS, errorText, EVENT_LABELS, formatMinor, formatUsd } from './accountingApi';
 import { DataTable, Ltr, Open, StatusBadge, Sub } from './ui';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
+import StatementDescriptionTranslation from './StatementDescriptionTranslation';
 
 type Props = { id: string; onClose: () => void; onChanged: () => Promise<void>; onReview: (line: any) => void };
 const timestamp = (value: string) => value ? new Date(value).toLocaleString('ar-LY') : '—';
@@ -75,6 +76,7 @@ export default function BankLineDetails({ id, onClose, onChanged, onReview }: Pr
         </Paper>}
         <BankReviewComparison line={line} currency={currency} paid={Math.abs(line.amount) / 10 ** decimals} bankName={`${bank?.code || ''} · ${bank?.name || ''}`} leftTitle="ما سُجل فعلياً في المحاسبة">
           <ReviewField label="الحالة"><StatusBadge status={line.lineStatus} /></ReviewField>
+          <ReviewField label="ترجمة البيان"><StatementDescriptionTranslation line={line} onTranslated={(_: string, translation: any) => setData((current: any) => ({ ...current, line: { ...current.line, descriptionTranslation: translation } }))} /></ReviewField>
           <ReviewField label="الرصيد بعد العملية">{line.balanceAfter == null ? 'غير مذكور في الكشف' : <Ltr>{formatMinor(line.balanceAfter, currency, decimals)}</Ltr>}</ReviewField>
           <ReviewField label="تاريخ الاستيراد">{timestamp(line.createdAt)}</ReviewField>
           <ReviewField label="آخر تحديث">{timestamp(line.updatedAt)}</ReviewField>

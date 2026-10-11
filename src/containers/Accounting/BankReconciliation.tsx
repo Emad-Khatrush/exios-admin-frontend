@@ -18,7 +18,10 @@ import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import StatementCoverage from './StatementCoverage';
 import BankMatchingSettings, { MatchingSettings, readMatchingSettings } from './BankMatchingSettings';
 import BankDuplicateSettlement from './BankDuplicateSettlement';
+import LinkedWalletRefundInfo, { WALLET_REFUND_LINK_MESSAGE } from './LinkedWalletRefundInfo';
 import { batchTrialAvailable } from './BatchPaymentTrial';
+import { bankSourceTextOverride } from './bankSourceTextOverride';
+import StatementDescriptionTranslation, { canTranslateDescription } from './StatementDescriptionTranslation';
 
 type Preview = {
   fileName: string
@@ -48,7 +51,7 @@ const billLabel = (bill: any) => `${bill.number} · ${bill.orders?.map((o: any) 
 const sourceTextBase = (item: any) => (({ exchange: 'صرف بين حسابي البنك', own_transfer: 'تحويل بين حسابات الشركة', card_transfer: 'سداد بطاقة البنك', funder_settlement: 'سداد جاري يوسف — دون تكلفة جديدة', cash_deposit: 'إيداع من خزينة الشركة — بنفس العملة', cash_withdrawal: 'استلام كاش — خزينة تركيا دولار', bank_fee: 'عمولة سحب أو تحويل — المتحدة', investment_transfer: 'استثمار صندوق أو حساب مشاركة', owner_loan: 'قرض عماد — استلام أو سداد دون إيراد أو مصروف', professional_fee: 'رسوم محاسبة أو غرفة تجارة' } as Record<string, string>)[item.source] || (item.source === 'bill' ? 'سداد فاتورة مورد موجودة' : item.source === 'order' ? 'مربوط بطلبية' : item.source === 'yuan' ? 'شراء يوان — الربط من Alipay' : item.source === 'service' ? 'خدمات الصين' : item.source === 'purchase_default' ? 'تكلفة شراء — لا توجد فاتورة مرتبطة' : item.source === 'vendor' ? 'مورد معروف' : item.source === 'rule' ? `قاعدة: ${item.keyword}` : 'مثل آخر مرة'));
 
 // Every row with the sign it will be imported with (skipped rows included, for the table)
-const sourceText = (item: any) => item.source === 'service_invoice' ? 'تكلفة خدمات — فاتورة خدمية' : sourceTextBase(item);
+const sourceText = (item: any) => item.source === 'service_invoice' ? 'تكلفة خدمات — فاتورة خدمية' : bankSourceTextOverride(item, sourceTextBase(item));
 const edited = (preview: Preview) => preview.rows
   .map((row, index) => ({ ...row, index, amount: (preview.flip.has(index) ? -1 : 1) * (preview.flipAll ? -1 : 1) * row.amount }));
 const withEdits = (preview: Preview) => edited(preview).filter((row) => !preview.skip.has(row.index));
@@ -76,6 +79,7 @@ const BankReconciliation = () => {
   const matchingSettings = useMemo(() => matchingProfiles[accountId] || readMatchingSettings(accountId), [accountId, matchingProfiles]);
   const [settingsDraft, setSettingsDraft] = useState<MatchingSettings | null>(null);
   const [settlingDuplicates, setSettlingDuplicates] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState<{ done: number; total: number } | null>(null);
   const matchingEnabled = (engine: string) => matchingSettings.engines.includes(engine);
   const [suggested, setSuggested] = useState<Record<string, any>>({});
   // A partner's current account (Wasl): its wallet deposits proposed for incoming lines by amount
@@ -127,7 +131,12 @@ const BankReconciliation = () => {
   const detailAccounts = useMemo(() => accounts.filter((a) => !a.isGroup && a.isActive && a._id !== accountId), [accounts, accountId]);
   // Money out before the count posted as a new cost: it may already be a historical bill on its order
   const beforeCountCost = (line: any, counterAccountId?: string) => !!line && line.amount < 0 && isBeforeCount(count, line.day)
-    && detailAccounts.find((a) => a._id === counterAccountId)?.type === 'expense';
+    && detailAccounts.some((a) => a._id === counterAccountId && a.code === '510400');
+  const relevantBills = (candidates: any[] = [], counterAccountId?: string, target?: string) => {
+    const counter = detailAccounts.find(a => a._id === counterAccountId);
+    if (target || !counter || counter.type !== 'expense' || counter.code === '510400') return candidates;
+    return candidates.filter(b => !b.hasNonExpenseTargets && b.expenseAccountIds?.includes(counterAccountId));
+  };
 
   const load = async () => {
     const version = ++loadVersion.current;
@@ -353,7 +362,7 @@ const BankReconciliation = () => {
     const { line, target, trip, order, partner, ...input } = entryFor;
     // A trip, an order or a customer's debt (lines of a partner's current account, spec 19.4)
     const routed = target === 'trip' ? { target, tripId: trip?._id } : target === 'order' ? { target, orderId: order?._id } : target === 'debt' ? { target, partnerId: partner?._id } : {};
-    if (suggested[line._id]?.billCandidates?.length && !input.confirmNewBill && !(input.billAccepted && input.billId && !target)) {
+    if (relevantBills(suggested[line._id]?.billCandidates, input.counterAccountId, target).length && !input.confirmNewBill && !(input.billAccepted && input.billId && !target)) {
       setEntryFor({ ...entryFor, error: 'راجع الفاتورة المقترحة ووافق على المطابقة، أو أكد أن هذه عملية جديدة.' });
       return;
     }
@@ -612,6 +621,21 @@ const BankReconciliation = () => {
         <Panel flush title="سطور الكشف" subtitle={data ? `عرض ${data.lines.length} من ${data.total ?? data.lines.length} سطر حسب الفلاتر · حدّد السطور أو عالج كل سطر وحده.` : 'حدّد السطور أو عالج كل سطر وحده.'}>
           {data?.hasMore && <Alert severity="info" className="mx-3 mb-2">يوجد أكثر من 500 نتيجة؛ ضيّق نطاق التاريخ أو البحث لعرض السطور المطلوبة. الفلترة تُطبّق على كامل الكشف.</Alert>}
           {bulk.bar}
+          {bulk.selection.selected.size > 0 && <div className="px-3 pb-2">
+            <Button size="small" variant="outlined" disabled={!!translationProgress} onClick={async () => {
+              const picked = (data?.lines || []).filter((row: any) => bulk.selection.selected.has(row._id) && canTranslateDescription(row)
+                && row.descriptionTranslation?.original !== row.description);
+              let completed = 0; const failures: string[] = [];
+              for (let index = 0; index < picked.length; index++) {
+                setTranslationProgress({ done: index, total: picked.length });
+                try { await acc.post(`bank/lines/${picked[index]._id}/translate`); completed++; }
+                catch (err: any) { failures.push(`${picked[index].day}: ${errorText(err)}`); break; }
+              }
+              setTranslationProgress(null);
+              setMessage({ type: failures.length ? 'error' : 'success', text: `تُرجم ${completed} من ${picked.length} بيان. ${failures.join(' · ')}` });
+              await load();
+            }}>{translationProgress ? `جارٍ الترجمة ${translationProgress.done}/${translationProgress.total}` : 'ترجمة بيانات المحدد للعربية'}</Button>
+          </div>}
           {(() => {
             const picked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched' && l.amount < 0);
             const yuanPicked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched' && yuanHints[l._id] && !yuanHints[l._id].beforeCount);
@@ -647,7 +671,10 @@ const BankReconciliation = () => {
                       {row.description}{row.reference && <span className="acc-muted"> · <Ltr>{row.reference}</Ltr></span>}
                       {hint?.reason && <Sub>{hint.reason}{hint.source === 'yuan' && <Sub><Open to="/accounting/alipay">فتح شراء اليوان في Alipay</Open></Sub>}</Sub>}
                       {(row.movementKind === 'purchase_refund' || hint?.isRefund) && <Sub><Badge tone="info">Refund — استرداد</Badge>{hint?.vendorName && <Sub>المورد: {hint.vendorName}</Sub>}{hint?.refundAccount && <Sub>حساب التكلفة المقترح: {hint.refundAccount.code} · {hint.refundAccount.name}</Sub>}{row.lineStatus === 'unmatched' && <Sub>لم يُرحّل بعد؛ اختر الفاتورة أو الريفاند الأصلي لاعتماد الربط.</Sub>}</Sub>}
-                      {row.customerRefundId?.number && <Sub>ريفاند الطلبية: <Ltr>{row.customerRefundId.number}</Ltr> · لمحفظة العميل: <Ltr>{row.customerRefundId.walletUsd / 100} USD</Ltr></Sub>}
+                      {row.customerRefundId?.number && <Sub>ريفاند الطلبية: <Ltr>{row.customerRefundId.number}</Ltr> · لمحفظة العميل: <Ltr>{(row.customerRefundId.legacyWalletUsd || row.customerRefundId.walletUsd) / 100} USD</Ltr>{row.customerRefundId.legacyWalletStatementId && ' · مرتبط بإضافة سابقة'}</Sub>}
+
+                      <StatementDescriptionTranslation line={row} onTranslated={(id: string, translation: any) => setData((current: any) => current ? { ...current, lines: current.lines.map((item: any) => item._id === id ? { ...item, descriptionTranslation: translation } : item) } : current)} />
+                      <LinkedWalletRefundInfo row={row} run={run} />
                       {row.unidentified?.status === 'open' && !row.pendingRefund && <Sub><Badge tone="warn">قيد التحديد</Badge>{row.unidentified.note && ` ${row.unidentified.note}`} <Open to="/accounting/unidentified">متابعة</Open></Sub>}
                       {row.unidentified?.status === 'decided' && <Sub><Badge tone="muted">صُنّفت بقرار المالك</Badge></Sub>}
                       {row.pendingRefund && <Sub><Badge tone="warn">استرداد مرحّل قيد التحديد</Badge>يُربط لاحقاً من تبويب الريفاند داخل الطلبية؛ البنك استلم المبلغ بالفعل.</Sub>}
@@ -959,7 +986,7 @@ const BankReconciliation = () => {
               paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency} bankName={account?.name} onBusyChange={setReviewSaving}
               onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
                 await acc.post(`bank/lines/${entryFor.line._id}/refund-match`, { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId });
-                setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمد الاسترداد وربط بالعملية الأصلية دون تكرار.' }); await load();
+                setEntryFor(null); setMessage({ type: 'success', text: selected.kind === 'legacy_wallet_link' ? WALLET_REFUND_LINK_MESSAGE : 'اعتُمد الاسترداد وربط بالعملية الأصلية دون تكرار.' }); await load();
               }} />}
             {['purchase', 'historical_settlement'].includes(entryFor.mode) && <PurchaseMatchPicker embedded open settlementOnly={entryFor.mode === 'historical_settlement'} accountId={accountId} line={entryFor.line}
               paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency}
@@ -1019,11 +1046,11 @@ const BankReconciliation = () => {
             {!entryFor.target && (
             <Autocomplete size="small" options={detailAccounts} value={detailAccounts.find((a) => a._id === entryFor.counterAccountId) || null}
               getOptionLabel={(a: any) => accountLabel(a)} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
-              onChange={(_, a: any) => setEntryFor({ ...entryFor, counterAccountId: a?._id || '', link: a?._id === suggested[entryFor.line._id]?.account?._id ? suggested[entryFor.line._id]?.link : undefined })}
+              onChange={(_, a: any) => setEntryFor({ ...entryFor, counterAccountId: a?._id || '', link: a?._id === suggested[entryFor.line._id]?.account?._id ? suggested[entryFor.line._id]?.link : undefined, error: '', costDuplicatePreview: null, independentCost: false, duplicateReason: '', billAccepted: false, confirmNewBill: false })}
               renderInput={(p) => <TextField {...p} label="الحساب المقابل (رسوم، إيجار، مورد، أو حساب بنك)" />} />
             )}
             {entryFor.link && <Alert severity="success" className="mt-2">مربوط بمشتريات الطلبية <Open to={`/invoice/${entryFor.link.orderId}/edit`}><Ltr>{entryFor.link.orderNumber}</Ltr></Open>: {entryFor.link.itemDescription} ({entryFor.link.amount} {entryFor.link.currency}). تُسجَّل تكلفةً على الطلبية.{entryFor.link.near && ' المطابقة تقريبية بالدولار (فرق حتى 2%)؛ تأكد أنها نفس الشراء.'}</Alert>}
-            {!!suggested[entryFor.line._id]?.billCandidates?.length && <>
+            {relevantBills(suggested[entryFor.line._id]?.billCandidates, entryFor.counterAccountId, entryFor.target).length > 0 && <>
               <Alert severity="info" className="mt-3">
                 توجد فاتورة مقترحة. إذا كانت نفس المشتريات، اعتمد سداد الفاتورة الأصلية لتجنب تكرار التكلفة.
                 <Button className="d-block" onClick={() => {
@@ -1073,7 +1100,7 @@ const BankReconciliation = () => {
         {entryFor?.mode === 'new' && <DialogActions>
           <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
           <Button variant="contained" onClick={saveEntry}
-            disabled={reviewSaving || (!entryFor?.target && beforeCountCost(entryFor?.line, entryFor?.counterAccountId) && !entryFor?.confirmBeforeCountPurchase) || (suggested[entryFor?.line?._id]?.billCandidates?.length > 0 && !entryFor?.confirmNewBill && !(entryFor?.billAccepted && entryFor?.billId && !entryFor?.target)) || (entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !(entryFor?.counterAccountId || (entryFor?.billAccepted && entryFor?.billId))) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
+            disabled={reviewSaving || (!entryFor?.target && beforeCountCost(entryFor?.line, entryFor?.counterAccountId) && !entryFor?.confirmBeforeCountPurchase) || (relevantBills(suggested[entryFor?.line?._id]?.billCandidates, entryFor?.counterAccountId, entryFor?.target).length > 0 && !entryFor?.confirmNewBill && !(entryFor?.billAccepted && entryFor?.billId && !entryFor?.target)) || (entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !(entryFor?.counterAccountId || (entryFor?.billAccepted && entryFor?.billId))) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
             {entryFor?.billAccepted ? 'قبول المطابقة وتسجيل السداد' : 'ترحيل'}
           </Button>
         </DialogActions>}

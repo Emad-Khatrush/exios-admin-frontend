@@ -7,6 +7,7 @@ import { useAccountingAccess } from './useAccountingAccess';
 import { AlipaySendPanel } from './AlipaySend';
 import OrderCostBreakdown from './OrderCostBreakdown';
 import AccountingFold from './AccountingFold';
+import PreviousWalletRefundPicker from './PreviousWalletRefundPicker';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
@@ -272,6 +273,7 @@ const PreviousCustomerLines = ({ orderId, onMoved }: { orderId: string; onMoved:
 // A refund from the supplier on a purchase invoice (spec 19.6): the money that came in (in its
 // account's currency, with its real dollar value from the bank) and what is added to the wallet
 const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: () => void }) => {
+  const [legacyChoice, setLegacyChoice] = useState<any>({});
   const [pendingMatches, setPendingMatches] = useState<any[]>([]);
   const [pendingBankLineId, setPendingBankLineId] = useState('');
   const [pendingBusy, setPendingBusy] = useState(false);
@@ -314,7 +316,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
     try {
       setBusy(true);
       setError('');
-      await sys.post(`acc/orders/${orderId}/refunds`, { ...form, existingRefundId: existingRefundId || undefined, pendingBankLineId: pendingBankLineId || undefined, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined, walletUsd: Number(form.walletUsd) || 0, idempotencyKey: idempotencyKey.current });
+      await sys.post(`acc/orders/${orderId}/refunds`, { ...form, ...legacyChoice, existingRefundId: existingRefundId || undefined, pendingBankLineId: pendingBankLineId || undefined, amount: Number(form.amount), usdValue: Number(form.usdValue) || undefined, walletUsd: Number(form.walletUsd) || 0, idempotencyKey: idempotencyKey.current });
       idempotencyKey.current = newKey();
       setOpen(false);
       setExistingRefundId('');
@@ -338,9 +340,9 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             { key: 'day', header: 'التاريخ', render: (row: any) => <><Ltr>{row.day}</Ltr><Sub><Ltr>{row.number}</Ltr></Sub></> },
             { key: 'in', header: 'دخل في', render: (row: any) => <>{row.accountId?.name}<Sub><Ltr>{row.amount} {row.currency}</Ltr></Sub></> },
             { key: 'usd', header: 'قيمته', numeric: true, render: (row: any) => <Money value={row.usd} /> },
-            { key: 'wallet', header: 'للمحفظة', numeric: true, render: (row: any) => <Money value={row.walletUsd} /> },
+            { key: 'wallet', header: 'للمحفظة', numeric: true, render: (row: any) => <><Money value={row.legacyWalletUsd || row.walletUsd} />{row.legacyWalletStatementId && <Sub>مرتبط بإضافة سابقة — دون تكرار</Sub>}</> },
             { key: 'status', header: '', render: (row: any) => <StatusBadge status={row.status} /> },
-            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <>{!row.walletUsd && <Button size="small" onClick={() => { setExistingRefundId(row._id); setForm({ accountId: row.accountId?._id || row.accountId, amount: String(row.amount), usdValue: String(row.usd / 100), walletUsd: '', day: todayLibya(), note: row.note || '' }); setOpen(true); }}>إضافة مبلغ العميل لنفس الريفاند</Button>}<Button size="small" color="error" onClick={() => setCanceling(row)}>إلغاء</Button></> : null) },
+            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' ? <>{!row.walletUsd && !row.legacyWalletStatementId && <Button size="small" onClick={() => { setExistingRefundId(row._id); setForm({ accountId: row.accountId?._id || row.accountId, amount: String(row.amount), usdValue: String(row.usd / 100), walletUsd: '', day: todayLibya(), note: row.note || '' }); setOpen(true); }}>إضافة مبلغ العميل لنفس الريفاند</Button>}<Button size="small" color="error" onClick={() => setCanceling(row)}>إلغاء</Button></> : null) },
           ]}
         />
       )}
@@ -359,7 +361,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             const id = e.target.value; setExistingRefundId(id);
             const selected = rows.find((r: any) => r._id === id);
             if (selected) setForm({ accountId: selected.accountId?._id || selected.accountId, amount: String(selected.amount), usdValue: String(selected.usd / 100), walletUsd: '', day: todayLibya(), note: selected.note || '' });
-          }}><MenuItem value="">استرداد جديد لم يُسجل في الكشف أو الطلبية</MenuItem>{rows.filter((r: any) => r.status === 'posted' && !r.walletUsd).map((r: any) => <MenuItem key={r._id} value={r._id}>{r.number} · {r.amount} {r.currency} · {r.day}</MenuItem>)}</TextField>
+          }}><MenuItem value="">استرداد جديد لم يُسجل في الكشف أو الطلبية</MenuItem>{rows.filter((r: any) => r.status === 'posted' && !r.walletUsd && !r.legacyWalletStatementId).map((r: any) => <MenuItem key={r._id} value={r._id}>{r.number} · {r.amount} {r.currency} · {r.day}</MenuItem>)}</TextField>
           {existingRefundId && <Alert severity="info" className="mb-2">استلام البنك وتخفيض تكلفة الطلبية مسجلان بالفعل. سيضاف مبلغ العميل لمحفظته فقط دون تكرار حركة البنك أو تخفيض التكلفة.</Alert>}
           {!existingRefundId && pendingMatches.length > 0 && <Alert severity="warning" className="mb-2">
             وجدنا استردادات في الكشف غير مرتبطة بطلبية، مرحّلة أو غير مرحّلة، بالمبلغ نفسه أو بنفس الجزء الصحيح مع اختلاف الكسور. راجع التفاصيل واختر الاسترداد؛ يُعتمد مبلغ الكشف وتاريخه. غير المرحّل سيُرحّل عند التأكيد، والمرحّل لن تتكرر حركة البنك فيه. مبلغ محفظة العميل يبقى كما أدخلته.
@@ -380,15 +382,16 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             </TextField>
             <TextField disabled={!!existingRefundId} type="number" label={`المبلغ المستلم (${account?.currency || ''})`} value={form.amount} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, amount: e.target.value }); }} />
             {account?.currency !== 'USD' && <TextField disabled={!!existingRefundId} type="number" label="القيمة الفعلية بالدولار (إن ذكرها البنك)" value={form.usdValue} onChange={e => { setPendingBankLineId(''); setForm({ ...form, usdValue: e.target.value }); }} helperText="اختياري؛ استخدم مقابل الدولار المطبوع في الكشف، وإلا يُستخدم تقييم المنظومة." />}
-            <TextField type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
+            <TextField disabled={!!legacyChoice.legacyWalletStatementId} type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
               helperText={account?.currency === 'USD' && usd > 0 ? <>مثلاً <Ltr>{Math.max(usd - 1, 0).toFixed(2)}</Ltr> (هامش حماية 1$)</> : 'ما يُضاف لمحفظة العميل بالدولار'} />
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, day: e.target.value }); }} />
             <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </div>
+          {open && <PreviousWalletRefundPicker key={existingRefundId || 'new'} orderId={orderId} day={form.day} walletUsd={form.walletUsd} onChange={setLegacyChoice} />}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>إلغاء</Button>
-          <Button variant="contained" disabled={busy || pendingBusy || (!existingRefundId && pendingMatches.length > 0 && !pendingBankLineId) || !form.accountId || !(Number(form.amount) > 0)} onClick={save}>{pendingBankLineId ? 'اعتماد الربط وإضافة مبلغ العميل' : 'تسجيل'}</Button>
+          <Button variant="contained" disabled={busy || pendingBusy || legacyChoice.loading || legacyChoice.blocked || (!existingRefundId && pendingMatches.length > 0 && !pendingBankLineId) || !form.accountId || !(Number(form.amount) > 0)} onClick={save}>{legacyChoice.legacyWalletStatementId ? 'تسجيل وربط الإضافة السابقة' : pendingBankLineId ? 'اعتماد الربط وإضافة مبلغ العميل' : 'تسجيل'}</Button>
         </DialogActions>
       </Dialog>
     </Panel>

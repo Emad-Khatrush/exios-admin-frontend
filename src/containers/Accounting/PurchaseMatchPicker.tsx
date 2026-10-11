@@ -3,6 +3,8 @@ import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTi
 import { acc, errorText } from './accountingApi';
 import { DataTable, FilterBar, Ltr, Open, Sub } from './ui';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
+import PreviousWalletRefundPicker from './PreviousWalletRefundPicker';
+import UnlinkedWalletRefunds from './UnlinkedWalletRefunds';
 
 const offsetDay = (day: string, offset: number) => {
   const date = new Date(`${day}T12:00:00Z`);
@@ -36,22 +38,31 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
     setDuplicatePreview(null); setIndependentCost(false); setDuplicateReason('');
   }, [open, line?._id, selected?._id]);
   const [walletUsd, setWalletUsd] = useState('0');
+  const [legacyChoice, setLegacyChoice] = useState<any>({});
+  const [browsePrevious, setBrowsePrevious] = useState(false);
+  const [previousRefund, setPreviousRefund] = useState<any>(null);
+  const [directPrevious, setDirectPrevious] = useState(true);
+  const [confirmSameRefund, setConfirmSameRefund] = useState(false);
+  const [confirmWalletImpact, setConfirmWalletImpact] = useState(false);
   const [billLineId, setBillLineId] = useState('');
+  useEffect(() => { setLegacyChoice({}); }, [selected?._id, billLineId]);
   const [refundOriginalAmount, setRefundOriginalAmount] = useState('');
   useEffect(() => {
     if (!open || !line?.day) return;
     setFilters({ from: settlementOnly ? '' : offsetDay(line.day, refund ? -180 : -7), to: settlementOnly ? '' : offsetDay(line.day, refund ? 0 : 7), source: 'all', status: 'open', q: '' });
     setConfirmHistoricalSettlement(false); setConfirmMerchant(false);
     setWalletUsd('0'); setBillLineId(''); setRefundOriginalAmount('');
+    setPreviousRefund(null); setBrowsePrevious(false); setConfirmWalletImpact(false);
+    setDirectPrevious(true); setConfirmSameRefund(false);
     setPage(1); setSelected(null); setOriginal(null); setBrowsing(!suggestedBillId && !suggestedItemId); initialChoice.current = true; setConfirmDifference(false); setError(''); setData(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, line?._id, line?.day, accountId, refund, settlementOnly, suggestedBillId, suggestedItemId]);
   useEffect(() => {
-    if (!open || !line?.day) { setBusy(false); return undefined; }
+    if (!open || !line?.day || (previousRefund && directPrevious)) { setBusy(false); return undefined; }
     let stale = false;
     const timer = window.setTimeout(() => {
       setBusy(true);
-      acc.get(refund ? 'bank/refunds' : 'bank/purchases', { accountId, lineId: line._id || undefined, paid, description: line.description,
+      acc.get(refund ? 'bank/refunds' : 'bank/purchases', { accountId, lineId: line._id || undefined, paid, description: line.description, partnerId: previousRefund?.partnerId,
         statementAmount: line.amount, movementKind: line.movementKind, day: line.day,
         originalAmount: line.originalAmount, originalCurrency: line.originalCurrency, suggestedBillId, suggestedItemId,
         includeProposal: initialChoice.current ? 'true' : 'false', settlementOnly: settlementOnly ? 'true' : undefined, ...filters, page })
@@ -67,7 +78,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
         .finally(() => { if (!stale) setBusy(false); });
     }, 250);
     return () => { stale = true; window.clearTimeout(timer); };
-  }, [open, accountId, line?._id, line?.day, line?.amount, line?.movementKind, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, refund, settlementOnly]);
+  }, [open, accountId, line?._id, line?.day, line?.amount, line?.movementKind, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, refund, settlementOnly, previousRefund?.partnerId, directPrevious]);
   useEffect(() => { onBusyChange?.(submitting); return () => onBusyChange?.(false); }, [submitting, onBusyChange]);
   useEffect(() => { contentRef.current?.closest('.MuiDialogContent-root')?.scrollTo({ top: 0 }); }, [browsing]);
   // The bank page mounts this picker before any row is selected. Keep all hooks
@@ -78,6 +89,40 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   const bankRefundUsd = currency === 'USD' ? Number(paid) : Number(line.settlementUsd) || (line.originalCurrency === 'USD' ? Number(line.originalAmount) : 0);
   const valuationDifference = refund && selected?.kind === 'existing_refund' && bankRefundUsd > 0 ? Math.round((bankRefundUsd - Number(selected.valuationUsd || selected.amount)) * 100) / 100 : 0;
   const selectedRefundLine = selected?.refundLines?.find((l: any) => l._id === billLineId) || (selected?.refundLines?.length === 1 ? selected.refundLines[0] : null);
+  const needsWalletConfirmation = refund && line.sourceProvider === 'alipay' && line.walletImpact === 'unknown';
+  const legacyOrderId = selectedRefundLine?.target === 'order' ? selectedRefundLine.orderId
+    : selected?.kind === 'existing_refund' && !selected.walletUsd ? selected.orders?.[0]?._id : null;
+  if (refund && previousRefund && directPrevious) {
+    const bankUsd = currency === 'USD' ? Number(paid) : Number(line.settlementUsd) || (line.originalCurrency === 'USD' ? Number(line.originalAmount) : 0);
+    const different = line.day !== previousRefund.day || !bankUsd || Math.round(bankUsd * 100) !== previousRefund.usd;
+    const directContent = <>
+      {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+      <BankReviewComparison line={line} currency={currency} paid={paid} bankName={bankName} leftTitle="حركة المحفظة المختارة">
+        <ReviewField label="العميل">{previousRefund.customerName}</ReviewField>
+        <ReviewField label="إضافة المحفظة السابقة"><Ltr>{previousRefund.amount} {previousRefund.currency}</Ltr> · {previousRefund.kind === 'compensation' ? 'تعويض' : 'Refund'}</ReviewField>
+        <ReviewField label="تاريخ إضافة المحفظة"><Ltr>{previousRefund.day}</Ltr></ReviewField>
+        <ReviewField label="البيان">{previousRefund.description}</ReviewField>
+        <ReviewField label="قيد المحفظة الموجود"><Ltr>{previousRefund.entryNumber}</Ltr></ReviewField>
+      </BankReviewComparison>
+      {different && <Alert severity="warning" className="mt-2">التاريخ أو القيمة غير متطابقين، أو أن مقابل الدولار في الكشف غير معروف. راجع مرجع الاسترداد والعميل؛ الاختيار وحده لا يثبت أنها نفس العملية.</Alert>}
+      <Alert severity="info" className="mt-2">هذا الربط لا يحتاج فاتورة مورد، ولا يضيف للمحفظة أو يسجل حركة بنك جديدة. يبقى ترحيل أو مطابقة استلام البنك مستقلًا إن لم يُسجّل بعد.</Alert>
+      {needsWalletConfirmation && <FormControlLabel control={<Checkbox checked={confirmWalletImpact} onChange={e => setConfirmWalletImpact(e.target.checked)} />} label="تأكدت أن المبلغ دخل رصيد Alipay لهذا الحساب" />}
+      <FormControlLabel control={<Checkbox checked={confirmSameRefund} onChange={e => setConfirmSameRefund(e.target.checked)} />} label="راجعت العميل والمرجع وأؤكد أن حركة الكشف تخص هذه الإضافة السابقة" />
+      <Stack direction="row" spacing={1} className="mt-3">
+        <Button variant="contained" disabled={submitting || !line._id || !confirmSameRefund || (needsWalletConfirmation && !confirmWalletImpact)} onClick={async () => {
+          setSubmitting(true); setError('');
+          try { await onConfirm({ kind: 'legacy_wallet_link' }, { legacyWalletStatementId: previousRefund._id, confirmSameRefund, confirmWalletImpact }); }
+          catch (err: any) { setError(errorText(err)); }
+          finally { setSubmitting(false); }
+        }}>ربط Refund المختار</Button>
+        <Button disabled={submitting} onClick={() => setDirectPrevious(false)}>تسجيل استرداد على فاتورة الطلبية بدل الربط فقط</Button>
+        <Button disabled={submitting} onClick={() => { setPreviousRefund(null); setBrowsing(true); }}>تغيير الاختيار</Button>
+        <Button disabled={submitting} onClick={onClose}>إلغاء</Button>
+      </Stack>
+    </>;
+    if (embedded) return directContent;
+    return <Dialog open onClose={submitting ? undefined : onClose} maxWidth="lg" fullWidth dir="rtl"><DialogTitle>ربط الاسترداد بإضافة المحفظة السابقة</DialogTitle><DialogContent>{directContent}</DialogContent></Dialog>;
+  }
   const amountComparable = selected && (original?.known || selected.currency === currency) && original?.currency === selected.currency && original.amount > 0 && !(refund && selected.kind === 'existing_refund' && !selected.nativeKnown);
   const amountDifferent = amountComparable && Math.abs(selected.amount - original.amount) > 0.0005;
   const partialRefund = refund && selected?.kind !== 'existing_refund' && amountDifferent && original.amount < selected.amount;
@@ -117,6 +162,18 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
     ...(selected && !original?.known ? ['عملة الشراء ومبلغها غير موضحين في الكشف؛ راجع الفاتورة المختارة قبل الاعتماد.'] : []),
   ];
   const content = <div ref={contentRef}>
+    {refund && <>
+      <Button variant="outlined" className="mb-2" onClick={() => setBrowsePrevious(true)}>جميع Refund والتعويضات السابقة غير المرتبطة</Button>
+      {previousRefund && <Alert severity="info" className="mb-2" action={<Button onClick={() => { setPreviousRefund(null); setSelected(null); setData(null); setBrowsing(true); }}>مسح الاختيار</Button>}>اختر فاتورة طلبية العميل {previousRefund.customerName} لربط الإضافة السابقة: {previousRefund.amount} {previousRefund.currency} · {previousRefund.day}.</Alert>}
+      {browsePrevious && <UnlinkedWalletRefunds onClose={() => setBrowsePrevious(false)} onSelect={(row: any) => {
+        setPreviousRefund(row); setDirectPrevious(!!line._id); setConfirmSameRefund(false); setBrowsePrevious(false); setWalletUsd(String(row.usd / 100)); setSelected(null); setData(null); setPage(1); setBrowsing(true);
+        setFilters({ from: '', to: '', source: 'order', status: 'open', q: '' }); initialChoice.current = false;
+      }} />}
+      {needsWalletConfirmation && <Alert severity="warning" className="mb-2">
+        كشف Alipay لا يحدد حساب استلام هذه الحركة. تستطيع مراجعة المرشحين الآن، لكن الاعتماد يحتاج تأكيد وصولها إلى رصيد Alipay.
+        <FormControlLabel control={<Checkbox checked={confirmWalletImpact} onChange={e => setConfirmWalletImpact(e.target.checked)} />} label="تأكدت أن المبلغ دخل رصيد Alipay لهذا الحساب" />
+      </Alert>}
+    </>}
       {error && <Alert severity="error" className="my-2">{error}</Alert>}
       {data?.proposalUnavailable && <Alert severity="warning" className="my-2">{data.proposalUnavailable}</Alert>}
       {!browsing && <BankReviewComparison line={line} currency={currency} paid={paid} bankName={bankName} original={original}
@@ -142,7 +199,10 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
           <div className="acc-sub mt-2">{selected.description}</div>
           {refund && selected.refundLines?.length > 1 && <TextField select fullWidth className="mt-2" label="بند المشتريات المسترد" value={billLineId} onChange={e => setBillLineId(e.target.value)}>{selected.refundLines.map((l: any) => <MenuItem key={l._id} value={l._id}>{l.description} · {l.amount} {selected.currency} {l.orderNumber && `· ${l.orderNumber}`}</MenuItem>)}</TextField>}
           {refund && selected.kind !== 'existing_refund' && !original?.known && <TextField type="number" fullWidth className="mt-2" label={`مبلغ الاسترداد الأصلي (${selected.currency})`} value={refundOriginalAmount} onChange={e => setRefundOriginalAmount(e.target.value)} />}
-          {refund && selectedRefundLine?.target === 'order' && <TextField type="number" fullWidth className="mt-2" label="يُضاف لمحفظة العميل بالدولار" value={walletUsd} onChange={e => setWalletUsd(e.target.value)} helperText="صفر لحفظ استرداد البنك فقط. تستطيع إضافة مبلغ العميل لاحقاً من نفس الريفاند داخل الطلبية." />}
+          {refund && selectedRefundLine?.target === 'order' && <>
+            <TextField disabled={!!legacyChoice.legacyWalletStatementId} type="number" fullWidth className="mt-2" label="يُضاف لمحفظة العميل بالدولار" value={walletUsd} onChange={e => setWalletUsd(e.target.value)} helperText="صفر لحفظ استرداد البنك فقط. اختر الإضافة السابقة إن أرجعت المبلغ للعميل بالفعل." />
+          </>}
+          {refund && legacyOrderId && <PreviousWalletRefundPicker key={`${selected._id}:${legacyOrderId}`} bank orderId={legacyOrderId} day={line.day} walletUsd={walletUsd} preferredId={previousRefund?._id || ''} onChange={setLegacyChoice} />}
           {valuationDifference !== 0 && <Alert severity="warning" className="mt-3">عند الاعتماد، سيُصحح تقييم البنك من <Ltr>{selected.valuationUsd} USD</Ltr> إلى <Ltr>{bankRefundUsd} USD</Ltr> بقيد تسوية فرق <Ltr>{valuationDifference} USD</Ltr>. مبلغ الليرة لا يتكرر. مبلغ العميل يبقى <Ltr>{selected.walletUsd} USD</Ltr>؛ الفرق بين المسترد من المورد والمضاف للمحفظة <Ltr>{(Math.round((bankRefundUsd - Number(selected.walletUsd)) * 100) / 100)} USD</Ltr>.</Alert>}
           {!blocked && !selected.historicalSettlement && <Alert severity="info" className="mt-3">{refund ? selected.kind === 'existing_refund' ? 'ستُربط الحركة بالريفاند الموجود. أي فرق في مقابل الدولار المكتوب في الكشف يُسجل كتسوية لتقييم البنك وتكلفة الطلبية؛ مبلغ محفظة العميل محفوظ.' : selectedRefundLine?.target === 'order' ? 'سيظهر هذا الاسترداد في قسم الريفاند الموجود بالطلبية. يُسجل استلام البنك وخفض التكلفة مرة واحدة.' : 'سيُسجل إشعار دائن واستلام من المورد على الفاتورة الأصلية، مع خفض تكلفة المشتريات.' : selected.kind === 'order_item' ? 'سيُسجَّل بند الشراء على الطلبية ويُسدد من سطر الكشف.' : selected.status === 'paid' ? 'ستُطابق حركة السداد الموجودة دون إنشاء دفعة جديدة.' : 'سيُسجَّل السداد على الفاتورة الأصلية؛ لا تُنشأ تكلفة أخرى.'}</Alert>}
         </> : <Alert severity="info">{busy ? 'جارٍ تجهيز الاقتراح...' : 'افتح قائمة المشتريات لاختيار الفاتورة أو بند الشراء.'}</Alert>}
@@ -199,13 +259,16 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
         </>}
       </Stack>}
   </div>;
-  const actions = <><Button disabled={submitting} onClick={onClose}>إلغاء</Button>{!browsing && <Button variant="contained" disabled={busy || submitting || !selected || blocked || (needsConfirmation && !confirmDifference) || (refund && selected?.kind !== 'existing_refund' && (!selectedRefundLine || (!original?.known && !(Number(refundOriginalAmount) > 0))))} onClick={async () => {
+  const actions = <><Button disabled={submitting} onClick={onClose}>إلغاء</Button>{!browsing && <Button variant="contained" disabled={busy || submitting || (needsWalletConfirmation && !confirmWalletImpact) || (legacyOrderId && (legacyChoice.loading || legacyChoice.blocked)) || !selected || blocked || (needsConfirmation && !confirmDifference) || (refund && selected?.kind !== 'existing_refund' && (!selectedRefundLine || (!original?.known && !(Number(refundOriginalAmount) > 0))))} onClick={async () => {
       setSubmitting(true); setError('');
       try {
         if (duplicatePreview && (!duplicatePreview.canConfirmIndependent || !independentCost || duplicateReason.trim().length < 10)) {
           setError('اختر الفاتورة الموجودة، أو أكد أن العملية مستقلة واكتب سببًا واضحًا.'); return;
         }
-        await onConfirm(selected, { confirmDifference, confirmMerchant, confirmTripDifference, historicalSettlement: !!selected.historicalSettlement, confirmHistoricalSettlement, refund, billLineId: selectedRefundLine?._id, walletUsd: Number(walletUsd), refundOriginalAmount: Number(refundOriginalAmount),
+        if (refund && legacyOrderId && (legacyChoice.loading || legacyChoice.blocked)) { setError('راجع الإضافات السابقة للمحفظة وأكد الاختيار قبل الاعتماد'); return; }
+        if (needsWalletConfirmation && !confirmWalletImpact) { setError('أكد وصول المبلغ إلى رصيد Alipay أولًا'); return; }
+        if (previousRefund && !legacyChoice.legacyWalletStatementId) { setError('اختر فاتورة الطلبية الصحيحة وأكد ربط حركة المحفظة المختارة'); return; }
+        await onConfirm(selected, { ...legacyChoice, confirmWalletImpact, confirmDifference, confirmMerchant, confirmTripDifference, historicalSettlement: !!selected.historicalSettlement, confirmHistoricalSettlement, refund, billLineId: selectedRefundLine?._id, walletUsd: Number(walletUsd), refundOriginalAmount: Number(refundOriginalAmount),
           ...(duplicatePreview && independentCost && { duplicateDecision: 'independent', duplicateReason: duplicateReason.trim(), duplicateFingerprint: duplicatePreview.fingerprint }) });
       } catch (err: any) {
         setError(errorText(err));
