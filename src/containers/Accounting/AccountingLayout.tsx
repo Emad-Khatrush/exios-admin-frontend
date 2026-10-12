@@ -7,6 +7,7 @@ import {
 import { AccountingTheme } from './ui/AccountingTheme';
 import { acc } from './accountingApi';
 import { useAccountingAccess } from './useAccountingAccess';
+import LocalAccountingAssistant from './LocalAccountingAssistant';
 // @ts-ignore
 import './Accounting.scss';
 
@@ -180,6 +181,7 @@ const AccountingLayout = () => {
           })}
         </nav>
         <main className="acc-main">
+          <LocalAccountingAssistant page={path} pageLabel={itemOf(path)?.label || undefined} />
           {pageAllowed ? <Outlet /> : (
             <div className="acc-empty">
               <h3>هذه الصفحة خارج صلاحياتك</h3>
