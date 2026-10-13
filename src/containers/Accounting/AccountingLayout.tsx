@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeftRight, BadgeDollarSign, BookMarked, BookOpen, Building2, CalendarClock, ChartColumn, CircleDollarSign, Contact, DatabaseBackup, FileSpreadsheet, FileText, Gauge, HandCoins, History, KeyRound, Landmark, ListChecks,
+  ArrowLeftRight, BadgeDollarSign, BookMarked, BookOpen, Building2, CalendarCheck2, CalendarClock, ChartColumn, CircleDollarSign, Contact, DatabaseBackup, FileSpreadsheet, FileText, Gauge, HandCoins, History, KeyRound, Landmark, ListChecks,
   ListTree, Lock, Receipt, ReceiptText, Rocket, Scale, ScrollText, Settings2, ShieldCheck, Ship, Truck, Users, Wallet,
 } from 'lucide-react';
 import { AccountingTheme } from './ui/AccountingTheme';
@@ -57,6 +57,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
   {
     label: 'المراجعة والتسويات',
     links: [
+      { to: '/accounting/daily-work', label: 'العمل اليومي', icon: CalendarCheck2, perms: ['reports', 'treasury'] },
       { to: '/accounting/review', label: 'قائمة المراجعة المحاسبية', icon: ListChecks, perms: ['reports', 'treasury'] },
       { to: '/accounting/purchase-reconciliation', label: 'متابعة مشتريات الطلبيات', icon: ListChecks, perms: ['treasury', 'reports'] },
       { to: '/accounting/unidentified', label: 'حركات قيد التحديد', icon: ListChecks, perms: ['treasury', 'reports'] },

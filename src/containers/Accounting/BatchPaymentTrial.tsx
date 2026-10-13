@@ -54,7 +54,6 @@ export default function BatchPaymentTrial() {
     } catch (err) { setError(errorText(err)); }
     finally { setBusy(false); }
   };
-  if (!batchTrialAvailable) return <Alert severity="info">هذا الإجراء متاح في نسخة التجربة فقط.</Alert>;
   if (result) return <>
     <PageHeader title="سُجلت الدفعة المجمعة" />
     <Alert severity="success" className="mb-3">سُددت الفواتير المختارة من دفعة واحدة. عند استيراد الكشف، طابق قيد هذه الدفعة.</Alert>
@@ -67,8 +66,8 @@ export default function BatchPaymentTrial() {
     </Panel>
   </>;
   return <>
-    <PageHeader title="دفعة مجمعة للمورد — تجريبية" subtitle="اختر فواتير الطلبيات، ثم أدخل المبلغ الإجمالي الذي دفعته." />
-    <Alert severity="info" className="mb-3">إجراء اختياري تحت التجربة في QA. يستخدم فواتير المورد الموجودة ولا ينشئ فاتورة أخرى.</Alert>
+    <PageHeader title="دفعة مجمعة للمورد" subtitle="اختر فواتير الطلبيات، ثم أدخل المبلغ الإجمالي الذي دفعته." />
+    <Alert severity="info" className="mb-3">يسدد فواتير المورد الموجودة من دفعة واحدة، ولا ينشئ فاتورة أو تكلفة أخرى.</Alert>
     {error && <Alert severity="error" className="mb-3">{error}</Alert>}
     <Panel title="1. المورد والحساب الدافع">
       <div className="acc-form-grid">
@@ -111,7 +110,7 @@ export default function BatchPaymentTrial() {
       {excess > 0 && form.excessPurpose === 'alipay' && <Alert severity="info" className="mt-3">يُحفظ شحن محفظتك بانتظار الوصول. عند وصول اليوان، أدخل الكمية في Alipay واضغط «وصل».</Alert>}
       <TextField disabled={busy} className="mt-3" fullWidth label="ملاحظة أو مرجع التحويل" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} />
       <div className="d-flex justify-content-end gap-2 mt-3"><Button disabled={busy} href="/accounting/payments">رجوع</Button>
-        <Button variant="contained" onClick={save} disabled={busy || loading || !vendorId || !form.fromAccountId || !form.day || !chosen.length || !Number.isFinite(paid) || paid <= 0 || excess < 0 || (excess > 0 && form.excessPurpose === 'alipay' && !form.toAccountId)}>{busy ? 'جارٍ تسجيل الدفعة…' : 'تأكيد الدفعة التجريبية'}</Button>
+        <Button variant="contained" onClick={save} disabled={busy || loading || !vendorId || !form.fromAccountId || !form.day || !chosen.length || !Number.isFinite(paid) || paid <= 0 || excess < 0 || (excess > 0 && form.excessPurpose === 'alipay' && !form.toAccountId)}>{busy ? 'جارٍ تسجيل الدفعة…' : 'تأكيد الدفعة'}</Button>
       </div>
     </Panel>
   </>;
