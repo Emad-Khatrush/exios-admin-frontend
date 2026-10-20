@@ -19,6 +19,19 @@ $inv-ease: cubic-bezier(0.16, 1, 0.3, 1);
 $inv-radius: 12px;
 $inv-radius-sm: 8px;
 
+.inv-page .inv-fold {
+  margin-top: 16px;
+  border: 1px solid $inv-line;
+  border-radius: $inv-radius;
+  background: $inv-surface;
+  > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; cursor: pointer; list-style: none; color: $inv-ink; }
+  > summary::-webkit-details-marker { display: none; }
+  > summary strong { font-size: 14px; font-weight: 600; }
+  > summary:hover { background: $inv-sunken; border-radius: $inv-radius; }
+  &[open] > summary > svg { transform: rotate(180deg); }
+  > .inv-fold-body { padding: 0 16px 16px; }
+}
+
 .inv-page {
   max-width: 1200px;
   margin: 0 auto;

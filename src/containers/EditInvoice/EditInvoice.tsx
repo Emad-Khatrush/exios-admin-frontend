@@ -17,6 +17,7 @@ import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog';
 import EditInvoiceItems from '../../components/EditInvoiceItems/EditInvoiceItems';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import { OrderAccounting, OrderCosts, OrderRefunds } from '../Accounting/AccountingPanels';
+import FreeShippingReview from '../Accounting/FreeShippingReview';
 import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
@@ -428,6 +429,7 @@ export class EditInvoice extends Component<Props, State> {
     const canReturnPayments = order.isCanceled && hasPayments && mayCancel;
     const { totalUsd, totalLyd } = totalDebts(userDebts);
     const step = getOrderSteps(order)[order.orderStatus || 0];
+    const orderKind = order.isPayment ? (order.isShipment ? 'combined' : 'purchase') : 'shipping';
 
     return (
       <header className="op-header">
@@ -439,8 +441,7 @@ export class EditInvoice extends Component<Props, State> {
             <h1>Order {order.orderId}</h1>
             <button type="button" className="op-copy" onClick={this.copyOrderNumber}>{copied ? 'Copied' : 'Copy'}</button>
             <div className="op-header__badges">
-              {order.isPayment && <Badge text="Purchase invoice" color="primary" />}
-              {order.isShipment && <Badge text="Shipment" color="sky" />}
+              {(order.isPayment || order.isShipment) && <span className={`op-order-kind op-order-kind--${orderKind}`} dir="rtl">{orderKind === 'combined' ? 'فاتورة شراء وشحن' : orderKind === 'purchase' ? 'فاتورة شراء' : 'فاتورة شحن'}</span>}
               {step && <Badge text={step.label} color="success" />}
               {order.unsureOrder && <Badge text="Not active" color="warning" />}
               {order.hasProblem && <Badge text="Has a problem" color="danger" />}
@@ -544,6 +545,8 @@ export class EditInvoice extends Component<Props, State> {
               onUploadPackageFiles={this.uploadPackageFiles}
               onDeletePackageFile={this.deletePackageFile}
             />
+            {order.isPayment && !order.isRemittance && !order.isCanceled && <div className="mt-3" dir="rtl"><FreeShippingReview orderId={order._id} disabled={locked || hasChanges}
+              onApplied={() => { this.reloadOrder({ rows: true }).catch(() => {}); }} /></div>}
             <div className="op-savebar">
               <span className={hasChanges ? 'op-savebar__dirty' : 'op-muted'}>{order.isCanceled ? 'A cancelled order cannot be changed.' : hasChanges ? 'You have unsaved changes.' : 'No changes to save.'}</span>
               <Button variant="contained" type="submit" disabled={locked}>Update invoice</Button>

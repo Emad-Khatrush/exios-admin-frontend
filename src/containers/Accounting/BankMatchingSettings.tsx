@@ -8,7 +8,7 @@ export const MATCH_ENGINES = [
   { id: 'partners', label: 'إيداعات المحافظ وحوالات الحسابات الجارية', detail: 'اقتراح العمليات المسجلة لدى شركات الخدمات.' },
   { id: 'yuan', label: 'شراء اليوان وعمليات Alipay', detail: 'اقتراح شراء اليوان المسجل والعمليات المرتبطة به.' },
 ];
-export type MatchingSettings = { engines: string[], proposalDays: number, automaticDays: number, requireIdentity: boolean };
+export type MatchingSettings = { engines: string[], proposalDays: number, automaticDays: number, requireIdentity: boolean, strongLedgerOnly?: boolean };
 export const defaultMatchingSettings = (): MatchingSettings => ({ engines: MATCH_ENGINES.map(e => e.id), proposalDays: 7, automaticDays: 3, requireIdentity: false });
 export function readMatchingSettings(accountId: string): MatchingSettings {
   try {
@@ -16,7 +16,7 @@ export function readMatchingSettings(accountId: string): MatchingSettings {
     if (!saved || !Array.isArray(saved.engines)) return defaultMatchingSettings();
     return { engines: saved.engines.filter((id: string) => MATCH_ENGINES.some(e => e.id === id)),
       proposalDays: [0, 1, 3, 7].includes(saved.proposalDays) ? saved.proposalDays : 7,
-      automaticDays: [0, 1, 3].includes(saved.automaticDays) ? saved.automaticDays : 3, requireIdentity: saved.requireIdentity === true };
+      automaticDays: [0, 1, 3].includes(saved.automaticDays) ? saved.automaticDays : 3, requireIdentity: saved.requireIdentity === true, strongLedgerOnly: saved.strongLedgerOnly === true };
   } catch { return defaultMatchingSettings(); }
 }
 export default function BankMatchingSettings({ value, accountName, onChange, onClose, onSave }: {
@@ -41,6 +41,8 @@ export default function BankMatchingSettings({ value, accountName, onChange, onC
         {[0, 1, 3].map(days => <MenuItem key={days} value={days}>{days === 0 ? 'نفس اليوم فقط' : `${days} أيام`}</MenuItem>)}
       </TextField>
       <FormControlLabel label="اقتراح الفواتير فقط عند تطابق اسم المورد أو مرجع العملية" control={<Checkbox checked={value.requireIdentity} onChange={(_, checked) => onChange({ ...value, requireIdentity: checked })} />}/>
+      <FormControlLabel label="المطابقة التلقائية للقيود ذات المرجع الموثوق فقط" control={<Checkbox checked={!!value.strongLedgerOnly} onChange={(_, checked) => onChange({ ...value, strongLedgerOnly: checked })} />}/>
+      {value.strongLedgerOnly && <Alert severity="info">تشابه المبلغ والتاريخ يبقى اقتراحًا للمراجعة. المطابقة التلقائية تتطلب مرجعًا مسجلًا في القيد يطابق الكشف.</Alert>}
       <Alert severity="warning">المطابقة التلقائية تشترط تطابق المبلغ والعملة وقيدًا واحدًا واضحًا فقط. الفواتير والتكاليف والاقتراحات القريبة تحتاج مراجعتك. فحص التكرار يبقى فعّالًا مع جميع الإعدادات.</Alert>
       {!value.engines.length && <Alert severity="info">كل طرق الاقتراح معطلة؛ يمكنك اختيار المطابقة يدويًا.</Alert>}
     </Stack></DialogContent>

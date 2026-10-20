@@ -106,6 +106,8 @@ const BillForm = () => {
     employeeId: form.payNow && payAccount?.requires?.includes('employee') ? form.employee?._id : undefined,
     lines: lines.map((line) => ({
       description: line.description, amount: Number(line.amount), target: line.target, office: line.office || undefined,
+      quantity: line.target === 'stock' ? Number(line.quantity) : undefined,
+      confirmCompanyOwned: line.target === 'stock' ? !!line.confirmCompanyOwned : undefined,
       tripId: line.target === 'trip' ? line.trip?._id : undefined,
       costCategory: line.target === 'trip' ? line.costCategory || undefined : undefined,
       orderId: ['order', 'customs'].includes(line.target) ? line.order?._id : undefined,
@@ -218,6 +220,11 @@ const BillForm = () => {
                 <IconButton size="small" aria-label="حذف السطر" disabled={lines.length <= 1} onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}><X size={16} /></IconButton>
               </div>
               <div className="d-flex gap-2 flex-wrap mt-2">
+                {line.target === 'stock' && <>
+                  <TextField type="number" label="كمية بضائع الشركة" value={line.quantity || ''} onChange={e => update(line.key, { quantity: e.target.value })} />
+                  {officeSelect(line)}
+                  <FormControlLabel control={<Checkbox checked={!!line.confirmCompanyOwned} onChange={e => update(line.key, { confirmCompanyOwned: e.target.checked })} />} label="البضاعة تملكها الشركة" />
+                </>}
                 {line.target === 'trip' && (
                   <div style={{ minWidth: 320, flex: 1 }}>
                     <RemotePicker endpoint="trips" minLength={0} label="الرحلة" value={line.trip} getLabel={tripLabel} onChange={(trip) => update(line.key, { trip })} disabled={form.isCreditNote} />

@@ -6,10 +6,10 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { amountLabel, CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, Badge, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
-import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
 
-const EQUITY_FILTERS: ListFilterValue = { type: '', status: '', from: '', to: '', search: '' };
-const NETTING_FILTERS: ListFilterValue = { status: '', from: '', to: '', search: '' };
+const EQUITY_FILTERS: ListFilterValue = { type: '', status: '', from: recentFrom(), to: '', search: '' };
+const NETTING_FILTERS: ListFilterValue = { status: '', from: recentFrom(), to: '', search: '' };
 
 const StatusField = ({ value, onChange }: { value: ListFilterValue; onChange: (value: ListFilterValue) => void }) => (
   <TextField size="small" select label="الحالة" value={value.status} onChange={(ev) => onChange({ ...value, status: ev.target.value })} style={{ minWidth: 130 }}>
@@ -105,6 +105,9 @@ export const Equity = () => {
               {Object.entries(EQUITY_TYPES).map(([value, item]) => <MenuItem key={value} value={value}>{item.label}</MenuItem>)}
             </TextField>
             <TextField label="اسم الشريك أو الجهة المقرضة" value={form.partyName} onChange={(e) => setForm({ ...form, partyName: e.target.value })} fullWidth className="mt-3" />
+            {['loan_in', 'loan_repayment'].includes(form.type) && <TextField select fullWidth className="mt-3" label="حساب القرض" value={form.loanRole || 'loans'} onChange={e => setForm({ ...form, loanRole: e.target.value })}>
+              <MenuItem value="loans">قروض عامة</MenuItem><MenuItem value="long_term_loans">قروض طويلة الأجل</MenuItem><MenuItem value="current_loan_portion">أقساط مستحقة خلال سنة</MenuItem>
+            </TextField>}
             <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} className="mt-3" />
             <TextField select label="الخزينة" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}

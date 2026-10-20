@@ -19,6 +19,7 @@ import { getErrorMessage } from '../../utils/errorHandler';
 import { SpecialPrices, getShippingMode } from '../../utils/specialPrices';
 import Badge from '../Badge/Badge';
 import ImageUploader from '../ImageUploader/ImageUploader';
+import FilesPreviewers from '../FilesPreviewers/FilesPreviewers';
 import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
 import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
@@ -54,7 +55,18 @@ type Props = {
 }
 
 const rowKey = (row: any, index: number) => row?._id || row?.index || index;
-const isLink = (value: any) => /^https?:\/\//i.test(String(value || '').trim());
+const paymentLinkHref = (value: unknown): string | null => {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const hasProtocol = /^https?:\/\//i.test(text);
+  const address = text.startsWith('//') ? text.slice(2) : text;
+  if (!hasProtocol && !/^(?:[a-z0-9-]+\.)+com(?=[:/?#]|$)/i.test(address)) return null;
+  try {
+    const url = new URL(hasProtocol ? text : `https://${address}`);
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) return null;
+    return url.href;
+  } catch { return null; }
+};
 const kindOf = (invoice?: Invoice): OrderKind => (invoice?.isPayment ? (invoice?.isShipment ? 'both' : 'payment') : 'shipment');
 // A purchase link is only bought and paid; it has no journey to follow
 const PAID_STEP = PACKAGE_STEPS.slice(0, 1);
@@ -170,6 +182,7 @@ const InvoiceForm = (props: Props) => {
     const defaults = packageDefaults(method);
     if (!defaults.shipmentMethod) return;
     paymentList.forEach((payment: any, index: number) => {
+      if (payment?.received || payment?.status?.received) return;
       const details = payment?.deliveredPackages || {};
       if (details.shipmentMethod) return;
       reportPackageField(handleChange, index, 'shipmentMethod', defaults.shipmentMethod);
@@ -183,11 +196,12 @@ const InvoiceForm = (props: Props) => {
     const details = payment?.deliveredPackages || {};
     const { weight, unit } = packageFigures(details);
     // An older package with no method or unit takes them from the order, and keeps them
-    const defaults = isCanceled ? {} : packageDefaults();
+    const received = stepDone(payment, 'received');
+    const defaults = isCanceled || received ? {} : packageDefaults();
     const method = details.shipmentMethod || defaults.shipmentMethod || '';
     const measureUnit = unit || (isCanceled ? '' : unitForMethod(method));
-    if (method && !details.shipmentMethod) reportPackageField(handleChange, index, 'shipmentMethod', method);
-    if (measureUnit && !unit) reportPackageField(handleChange, index, 'measureUnit', measureUnit);
+    if (!received && method && !details.shipmentMethod) reportPackageField(handleChange, index, 'shipmentMethod', method);
+    if (!received && measureUnit && !unit) reportPackageField(handleChange, index, 'measureUnit', measureUnit);
     setPackageDialog({
       open: true,
       id: index,
@@ -206,12 +220,12 @@ const InvoiceForm = (props: Props) => {
       actualWeight: details.weight?.actual ?? details.actualWeight ?? '',
       domesticFee: details.domesticFee || {},
       customsFee: details.customsFee || {},
-      savedWithWeight: !!payment?._id && Number(weight) > 0,
+      received,
     });
   };
 
   const changeNote = (text: string) => {
-    if (!noteDialog) return;
+    if (!noteDialog || isCanceled || stepDone(paymentList[noteDialog.index], 'received')) return;
     setNoteDialog({ ...noteDialog, text });
     handleChange({ target: { id: String(noteDialog.index), name: 'note', value: text } });
   };
@@ -405,9 +419,11 @@ const InvoiceForm = (props: Props) => {
           const figures = packageFigures(details);
           const deliveredAt = toDate(details.deliveredInfo?.deliveredDate);
           const link = payment?.link ?? payment?.paymentLink;
+          const linkHref = paymentLinkHref(link);
           const hidden = payment?.settings?.visableForClient === false;
           const paid = stepDone(payment, 'paid');
-          const toggleStep = (name: string) => handleChange({ target: { id: String(index), name } });
+          const packageLocked = isCanceled || stepDone(payment, 'received');
+          const toggleStep = (name: string) => { if (!packageLocked) handleChange({ target: { id: String(index), name } }); };
 
           const images = payment?.images?.length > 0 && (
             <AvatarGroup max={3} className="of-package__images">
@@ -417,20 +433,20 @@ const InvoiceForm = (props: Props) => {
             </AvatarGroup>
           );
           const noteButton = (
-            <Button variant="outlined" size="small" type="button" startIcon={<BiNote />} onClick={() => setNoteDialog({ index, text: payment?.note || '' })} disabled={isCanceled}>
+            <Button variant="outlined" size="small" type="button" startIcon={<BiNote />} onClick={() => setNoteDialog({ index, text: payment?.note || '' })} disabled={packageLocked}>
               {payment?.note ? 'Edit note' : 'Add note'}
             </Button>
           );
           const remove = (
-            <RemoveRowButton label={hasShipping ? 'Remove this package' : 'Remove this link'} onClick={() => setRemovingPackage(index)} disabled={isCanceled || paymentList.length <= 1} />
+            <RemoveRowButton label={hasShipping ? 'Remove this package' : 'Remove this link'} onClick={() => setRemovingPackage(index)} disabled={packageLocked || paymentList.length <= 1} />
           );
           const note = payment?.note && <p className="of-package__note" dir="auto"><BiNote /> {payment.note}</p>;
           const linkField = (
             <div className="of-inline">
-              <TextField id={String(index)} label={hasShipping ? 'Purchase link' : 'Payment link'} name="paymentLink" onChange={handleChange} defaultValue={link} disabled={isCanceled} placeholder="https://" />
-              {isLink(link) && (
+              <TextField id={String(index)} label={hasShipping ? 'Purchase link' : 'Payment link'} name="paymentLink" onChange={handleChange} defaultValue={link} disabled={packageLocked} placeholder="https://" />
+              {linkHref && (
                 <Tooltip title="Open the link">
-                  <IconButton component="a" href={String(link).trim()} target="_blank" rel="noreferrer" aria-label="Open the link"><MdOpenInNew /></IconButton>
+                  <IconButton component="a" href={linkHref} target="_blank" rel="noopener noreferrer" aria-label="Open the link"><MdOpenInNew /></IconButton>
                 </Tooltip>
               )}
             </div>
@@ -447,7 +463,7 @@ const InvoiceForm = (props: Props) => {
                   </div>
                   <div className="of-package__actions">
                     {images}
-                    <Button variant="outlined" size="small" type="button" startIcon={<MdAttachFile />} onClick={() => setFilesDialog({ index, _id: payment?._id, images: payment?.images || [] })}>
+                    <Button variant="outlined" size="small" type="button" startIcon={<MdAttachFile />} disabled={packageLocked} onClick={() => setFilesDialog({ index, _id: payment?._id, images: payment?.images || [] })}>
                       Files{payment?.images?.length ? ` (${payment.images.length})` : ''}
                     </Button>
                     {noteButton}
@@ -456,7 +472,7 @@ const InvoiceForm = (props: Props) => {
                 </header>
                 {linkField}
                 {note}
-                <Checkpoints steps={PAID_STEP} disabled={isCanceled} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
+                <Checkpoints steps={PAID_STEP} disabled={packageLocked} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
               </article>
             );
           }
@@ -468,6 +484,7 @@ const InvoiceForm = (props: Props) => {
                   <strong>Package {index + 1}</strong>
                   {details.trackingNumber ? <span className="of-package__tracking">{details.trackingNumber}</span> : <span className="of-package__missing">No tracking number yet</span>}
                   {details.shipmentMethod && <Badge text={String(details.shipmentMethod).toUpperCase()} color="primary" />}
+                  {payment.freeShippingOffer?.enabled && <Badge text="شحن مجاني ضمن عرض الشراء" color="success" />}
                   {details.locationPlace && <Badge text={details.locationPlace} color="warning" />}
                   {payment?.flight && <a href={`/inventory/${payment.flight._id}/edit`} target="_blank" rel="noreferrer"><Badge text={payment.flight.voyage} color="sky" /></a>}
                   {hidden && <Badge text="Hidden from customer" color="danger" />}
@@ -480,12 +497,12 @@ const InvoiceForm = (props: Props) => {
                 </div>
               </header>
 
-              <Checkpoints steps={hasLinks ? PACKAGE_STEPS : SHIPPING_STEPS} disabled={isCanceled} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
+              <Checkpoints steps={hasLinks ? PACKAGE_STEPS : SHIPPING_STEPS} disabled={packageLocked} isDone={(name) => stepDone(payment, name)} onToggle={toggleStep} />
 
               <dl className="of-package__facts">
                 <div><dt>Weight</dt><dd>{figures.weight ? `${figures.weight} ${figures.unit}` : 'Not set'}</dd></div>
-                <div><dt>Exios price</dt><dd>{figures.price ? formatMoney(figures.price) : 'Not set'}</dd></div>
-                <div><dt>Charge</dt><dd className="of-package__charge">{figures.charge ? formatMoney(figures.charge) : 'Not set'}</dd></div>
+                <div><dt>Exios price</dt><dd>{payment.freeShippingOffer?.enabled ? 'مجاني' : figures.price ? formatMoney(figures.price) : 'Not set'}</dd></div>
+                <div><dt>Charge</dt><dd className="of-package__charge">{payment.freeShippingOffer?.enabled ? formatMoney(0) : figures.charge ? formatMoney(figures.charge) : 'Not set'}</dd></div>
                 {packageFees(details).map((fee) => (
                   <div key={fee.label}><dt>{fee.label}</dt><dd>{fee.currency === 'USD' ? formatMoney(fee.amount) : `${fee.amount.toLocaleString('en-US')} LYD`}</dd></div>
                 ))}
@@ -504,7 +521,7 @@ const InvoiceForm = (props: Props) => {
       <Dialog open={!!filesDialog} onClose={() => setFilesDialog(null)} fullWidth maxWidth="sm">
         <DialogTitle>Link {(filesDialog?.index ?? 0) + 1} files</DialogTitle>
         <DialogContent dividers>
-          {filesDialog?._id && props.onUploadPackageFiles ? (
+          {filesDialog && stepDone(paymentList[filesDialog.index], 'received') ? <FilesPreviewers previewFiles={filesDialog.images} files={filesDialog.images} /> : filesDialog?._id && props.onUploadPackageFiles ? (
             <ImageUploader
               id={filesDialog._id}
               inputFileRef={filesRef}
@@ -529,11 +546,12 @@ const InvoiceForm = (props: Props) => {
           <TextField
             className="mt-2" label="Note" multiline minRows={4} maxRows={10} fullWidth autoFocus dir="auto"
             value={noteDialog?.text || ''} onChange={(event) => changeNote(event.target.value)}
+            disabled={isCanceled || (!!noteDialog && stepDone(paymentList[noteDialog.index], 'received'))}
             helperText="Kept with the form and stored when you save the invoice."
           />
         </DialogContent>
         <DialogActions>
-          <Button color="error" onClick={() => changeNote('')} disabled={!noteDialog?.text}>Clear</Button>
+          <Button color="error" onClick={() => changeNote('')} disabled={!noteDialog?.text || isCanceled || (!!noteDialog && stepDone(paymentList[noteDialog.index], 'received'))}>Clear</Button>
           <Button variant="contained" onClick={() => setNoteDialog(null)}>Done</Button>
         </DialogActions>
       </Dialog>
@@ -544,7 +562,7 @@ const InvoiceForm = (props: Props) => {
         onClose={() => setPackageDialog({ ...packageDialog, open: false })}
         handleChange={handleChange}
         specialPrices={specialPrices}
-        disabled={isCanceled}
+        disabled={isCanceled || stepDone(paymentList[packageDialog.id], 'received')}
         onUploadFiles={props.onUploadPackageFiles}
         onDeleteFile={props.onDeletePackageFile}
       />
@@ -556,7 +574,7 @@ const InvoiceForm = (props: Props) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRemovingPackage(null)}>تراجع</Button>
-          <Button color="error" variant="contained" autoFocus onClick={() => { props.onRemovePackage(removingPackage!); setRemovingPackage(null); }}>نعم، اريد حذفه</Button>
+          <Button color="error" variant="contained" autoFocus disabled={isCanceled || (removingPackage !== null && stepDone(paymentList[removingPackage], 'received'))} onClick={() => { props.onRemovePackage(removingPackage!); setRemovingPackage(null); }}>نعم، اريد حذفه</Button>
         </DialogActions>
       </Dialog>
 

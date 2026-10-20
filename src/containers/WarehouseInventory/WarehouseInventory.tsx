@@ -430,7 +430,7 @@ const WarehouseInventory = () => {
                   : null;
 
                 return (
-                  <article key={key} className={`warehouse__row is-${urgency}`}>
+                  <article key={key} className={`warehouse__row is-${urgency}${pkg.volumetric?.enabled ? ' is-volumetric' : ''}`}>
                     <input
                       type="checkbox"
                       className="warehouse__checkbox"
@@ -458,7 +458,7 @@ const WarehouseInventory = () => {
 
                     <div className="warehouse__figures">
                       {w.total ?
-                        <span className="warehouse__weight">{w.total} {w.measureUnit}{order?.paymentList?.deliveredPackages?.volumetric?.enabled && <span style={{ color: '#b45309', fontWeight: 700 }} title={`الوزن الفعلي ${w.actual ?? '-'} كغ`}> ⚠ حجمي</span>}</span>
+                        <span className="warehouse__weight">{w.total} {w.measureUnit}{pkg.volumetric?.enabled && <span className="warehouse__volumetric" title={`الوزن الفعلي ${w.actual ?? '-'} كغ`}><AlertTriangle size={13} aria-hidden="true" />وزن حجمي</span>}</span>
                         : <span className="warehouse__weight is-empty">-</span>
                       }
                       {cost && <span className="warehouse__cost">${cost}</span>}

@@ -15,7 +15,7 @@ type Props = {
 }
 
 const CreateDebtDialog = (props: Props) => {
-  const offices = useOffices();
+  const offices = useOffices().filter((o) => ['tripoli', 'benghazi'].includes(o.code));
   const [form, setForm] = useState<any>({ debtType: props.debtType });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -137,7 +137,7 @@ const CreateDebtDialog = (props: Props) => {
                 name="createdOffice"
                 onChange={onChangeHandler}
               >
-                {offices.map((o) => <MenuItem key={o.code} value={o.code}>{o.nameEn || o.name} office</MenuItem>)}
+                {offices.map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
               </Select>
             </FormControl>
           </div>

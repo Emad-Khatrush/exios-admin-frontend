@@ -20,7 +20,7 @@ const SEARCH_DELAY_MS = 350;
 
 const DebtsTable = (props: Props) => {
   // Offices are data (spec C4)
-  const OFFICES = useOffices().map((o) => ({ value: o.code, label: o.nameEn || o.name }));
+  const OFFICES = useOffices().filter((o) => ['tripoli', 'benghazi'].includes(o.code)).map((o) => ({ value: o.code, label: o.name }));
   const account: Account = useSelector((state: any) => state.session?.account)
 
   const [isLoading, setIsLoading] = useState<boolean>(false);

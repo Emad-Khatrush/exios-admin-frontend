@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@mui/material';
 import moment from 'moment';
-import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardCheck, History, MapPin, Weight, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardCheck, History, MapPin, Search, Weight, XCircle } from 'lucide-react';
 import api from '../../api';
 
 type Props = {
@@ -30,6 +30,22 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
   const [submittedCheck, setSubmittedCheck] = useState<any>(null);
   const [view, setView] = useState<'checklist' | 'history'>('checklist');
   const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const [historyLimit, setHistoryLimit] = useState(10);
+  const [issueLimits, setIssueLimits] = useState<Record<string, number>>({});
+  const [historyError, setHistoryError] = useState(false);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+  const filteredHistory = useMemo(() => {
+    const query = historyQuery.trim().toLocaleLowerCase();
+    return (history || []).filter(check => {
+      if (historyFilter === 'issues' && !check.discrepancies?.length) return false;
+      if (historyFilter === 'clear' && check.discrepancies?.length) return false;
+      return !query || [check.checkedBy?.firstName, check.checkedBy?.lastName, check.notes,
+        moment(check.createdAt).format('DD/MM/YYYY'), ...(check.discrepancies || []).flatMap((d: any) => [d.customerName, d.trackingNumber, d.note])]
+        .join(' ').toLocaleLowerCase().includes(query);
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [history, historyQuery, historyFilter]);
 
   const toggleExpanded = (id: string) => {
     setExpandedChecks((prev) => {
@@ -40,10 +56,13 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
   };
 
   useEffect(() => {
+    let active = true;
+    setHistoryError(false);
     api.get(`warehouse/${office}/checks`)
-      .then((response) => setHistory(response.data || []))
-      .catch(() => setHistory([]));
-  }, [office]);
+      .then((response) => { if (active) { if (!Array.isArray(response.data)) throw new Error('Invalid history'); setHistory(response.data); } })
+      .catch(() => { if (active) setHistoryError(true); });
+    return () => { active = false; };
+  }, [office, historyRefresh]);
 
   // Picks up where they left off, so an employee can check some packages,
   // close the dialog, and come back later to finish the rest.
@@ -131,7 +150,7 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
   const lastCheck = history?.[0];
 
   return (
-    <Dialog open onClose={() => !isSubmitting && onClose()} PaperProps={{ className: 'wh-dialog wh-dialog--wide', dir: 'rtl', lang: 'ar' }}>
+    <Dialog open maxWidth="md" aria-label={`الفحص الأسبوعي للمخزن - ${officeLabel}`} onClose={() => !isSubmitting && onClose()} PaperProps={{ className: 'wh-dialog wh-dialog--wide wh-weekly-dialog', dir: 'rtl', lang: 'ar' }}>
       {submittedCheck ?
         <div className="wh-dialog__done">
           <CheckCircle2 size={32} strokeWidth={1.5} className="wh-dialog__done-icon" />
@@ -200,47 +219,60 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
           }
 
           {view === 'history' ?
-            <div className="wh-picker">
-              {history?.length === 0 && <p className="wh-picker__hint">لم يتم إرسال أي فحص بعد.</p>}
-              {history?.map((check) => {
+            <section className="wh-check-history" aria-label="سجل الفحوصات">
+              <div className="wh-history-tools">
+                <label className="wh-history-search"><Search size={16} /><input type="search" aria-label="بحث في سجل الفحص" placeholder="بحث بالموظف، العميل، التتبع أو الملاحظة…" value={historyQuery} onChange={e => { setHistoryQuery(e.target.value); setHistoryLimit(10); }} /></label>
+                <label className="wh-history-filter">حالة الفحص<select value={historyFilter} onChange={e => { setHistoryFilter(e.target.value); setHistoryLimit(10); }}><option value="all">جميع الفحوصات</option><option value="issues">بها بلاغات</option><option value="clear">بدون بلاغات</option></select></label>
+              </div>
+              {historyError && <p className="wh-dialog__error" role="alert">تعذر تحميل السجل. <button type="button" className="wh-check-row__undo" onClick={() => setHistoryRefresh(n => n + 1)}>إعادة المحاولة</button></p>}
+              {!history && !historyError && <p className="wh-picker__hint" role="status">جارٍ تحميل السجل…</p>}
+              {history && <p className="wh-history-count" role="status">{filteredHistory.length} فحص · الأحدث أولًا</p>}
+              {history && filteredHistory.length === 0 && <p className="wh-picker__hint">{history.length ? 'لا توجد فحوصات تطابق البحث والتصفية.' : 'لم يتم إرسال أي فحص بعد.'}</p>}
+              <div className="wh-history-list">
+              {filteredHistory.slice(0, historyLimit).map((check) => {
                 const isOpen = expandedChecks.has(check._id);
+                const issueLimit = issueLimits[check._id] || 8;
                 return (
-                  <div key={check._id} className="wh-history-row">
-                    <button type="button" className="wh-history-row__toggle" onClick={() => toggleExpanded(check._id)}>
-                      <div>
-                        <strong>{check.checkedBy?.firstName} {check.checkedBy?.lastName}</strong>
-                        <small>{moment(check.createdAt).format('DD MMM YYYY, HH:mm')}</small>
+                  <article key={check._id} className="wh-history-row">
+                    <button type="button" className="wh-history-row__toggle" aria-expanded={isOpen} aria-controls={`check-history-${check._id}`} onClick={() => toggleExpanded(check._id)}>
+                      <div className="wh-history-identity">
+                        <strong><bdi>{[check.checkedBy?.firstName, check.checkedBy?.lastName].filter(Boolean).join(' ') || 'الموظف غير متاح'}</bdi></strong>
+                        <time dateTime={check.createdAt}>{moment(check.createdAt).format('DD/MM/YYYY · HH:mm')}</time>
                       </div>
                       <span className={`wh-history-row__badge ${check.discrepancies?.length ? 'is-warning' : 'is-success'}`}>
-                        {check.totalPackages} طرد، {check.discrepancies?.length || 0} مبلغ عنه
+                        {check.discrepancies?.length ? `${check.discrepancies.length} بلاغات` : 'بدون بلاغات'}
                       </span>
+                      <span className="wh-history-total">{check.totalPackages} طرد</span>
                       <ChevronDown size={15} strokeWidth={2} className={`wh-history-row__chevron ${isOpen ? 'is-open' : ''}`} />
                     </button>
 
                     {isOpen &&
-                      <div className="wh-history-row__details">
+                      <div className="wh-history-row__details" id={`check-history-${check._id}`}>
                         <p>
                           تم تأكيد {Math.max(0, check.totalPackages - (check.discrepancies?.length || 0))} طرد سليم من أصل {check.totalPackages}.
                         </p>
-                        {check.notes && <p className="wh-history-row__notes">ملاحظة عامة: {check.notes}</p>}
+                        {check.notes && <div className="wh-history-general"><strong>ملاحظة الفحص</strong><p dir="auto">{check.notes}</p></div>}
 
                         {check.discrepancies?.length > 0 ?
-                          check.discrepancies.map((d: any, i: number) => (
+                          <><h3 className="wh-history-issues-title">الطرود المبلّغ عنها ({check.discrepancies.length})</h3>{check.discrepancies.slice(0, issueLimit).map((d: any, i: number) => (
                             <div key={d.paymentListId || i} className="wh-history-row__issue">
-                              <strong>{d.customerName || 'غير معروف'}</strong>
-                              {d.trackingNumber && <small>{d.trackingNumber}</small>}
-                              <p>{d.note}</p>
+                              <strong><bdi>{d.customerName || 'غير معروف'}</bdi></strong>
+                              {d.trackingNumber && <small>رقم التتبع: <bdi>{d.trackingNumber}</bdi></small>}
+                              <p dir="auto">{d.note || 'لا توجد ملاحظة مسجلة'}</p>
                             </div>
-                          ))
+                          ))}{check.discrepancies.length > issueLimit && <button type="button" className="wh-btn wh-history-more" onClick={() => setIssueLimits(prev => ({ ...prev, [check._id]: issueLimit + 8 }))}>عرض بلاغات إضافية ({check.discrepancies.length - issueLimit} متبقية)</button>}</>
                           :
                           <p className="wh-history-row__notes">لم يتم الإبلاغ عن أي مشكلة في هذا الفحص.</p>
                         }
                       </div>
                     }
-                  </div>
+                  </article>
                 );
               })}
-            </div>
+              </div>
+              {filteredHistory.length > historyLimit && <button type="button" className="wh-btn wh-history-more" onClick={() => setHistoryLimit(n => n + 10)}>عرض فحوصات أقدم ({filteredHistory.length - historyLimit} متبقية)</button>}
+              <div className="wh-dialog__actions"><button type="button" className="wh-btn" onClick={onClose}>إغلاق السجل</button></div>
+            </section>
             :
             <>
               <p className="wh-dialog__note">
@@ -268,10 +300,10 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
                   return (
                     <div key={id} className={`wh-check-row ${status ? `is-${status.type}` : ''}`}>
                       <div className="wh-check-row__info">
-                        <strong>{fullName(order)}</strong>
+                        <strong><bdi>{fullName(order)}</bdi></strong>
                         <div className="wh-check-row__meta">
-                          {pkg.trackingNumber && <span>تتبع {pkg.trackingNumber}</span>}
-                          {pkg.receiptNo && <span>إيصال {pkg.receiptNo}</span>}
+                          {pkg.trackingNumber && <span>تتبع <bdi>{pkg.trackingNumber}</bdi></span>}
+                          {pkg.receiptNo && <span>إيصال <bdi>{pkg.receiptNo}</bdi></span>}
                           {pkg.weight?.total && <span><Weight size={11} strokeWidth={2} /> {pkg.weight.total} {pkg.weight.measureUnit}</span>}
                           {pkg.volumetric?.enabled && <span style={{ color: '#b45309', fontWeight: 700 }} title={`الوزن الفعلي ${pkg.weight?.actual ?? '-'} كغ · ${pkg.volumetric.cbm} CBM`}>⚠ حجمي (الفعلي {pkg.weight?.actual ?? '-'})</span>}
                           {pkg.locationPlace && <span><MapPin size={11} strokeWidth={2} /> {pkg.locationPlace}</span>}
@@ -282,6 +314,7 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
                         <button
                           type="button"
                           className={`wh-check-row__btn is-ok ${status?.type === 'ok' ? 'is-selected' : ''}`}
+                          aria-pressed={status?.type === 'ok'}
                           onClick={() => markOk(id)}
                         >
                           <CheckCircle2 size={14} strokeWidth={2} />
@@ -290,6 +323,7 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
                         <button
                           type="button"
                           className={`wh-check-row__btn is-issue ${status?.type === 'issue' ? 'is-selected' : ''}`}
+                          aria-pressed={status?.type === 'issue'}
                           onClick={() => markIssue(id)}
                         >
                           <XCircle size={14} strokeWidth={2} />
@@ -299,8 +333,9 @@ const WeeklyCheckDialog = ({ office, officeLabel, inventoryId, orders, onClose, 
                       </div>
 
                       {status?.type === 'issue' &&
-                        <input
-                          type="text"
+                        <textarea
+                          rows={2}
+                          aria-label={`سبب المشكلة في طرد ${pkg.trackingNumber || fullName(order)}`}
                           className="wh-check-row__note"
                           placeholder="ما المشكلة في هذا الطرد؟ (مطلوب)"
                           value={status.note}

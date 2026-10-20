@@ -36,16 +36,30 @@ type Props<T> = {
 
 const SKELETON_ROWS = 6;
 
+// Columns holding a date or a moment; they sort by time
+const DATE_KEYS = ['day', 'date', 'createdAt', 'updatedAt', 'at', 'paidAt', 'deliveredAt', 'closedAt'];
+const dateValue = (row: any, key: string): number => {
+  const value = row?.[key] ?? (key === 'date' ? row?.day : undefined);
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(time) ? time : 0;
+};
+
 // The one table used across accounting: sticky header, calm separators, numbers aligned and in
 // tabular figures, readable empty and loading states, optional sorting.
 export function DataTable<T>({
   columns, rows, rowKey, onRowClick, loading, empty, footer, rowTone, indent, caption, maxHeight, dense, selection,
 }: Props<T>) {
-  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
+  // A date column sorts without its own sortValue, and the table opens with the newest date first
+  const columnsWithDates = useMemo(() => columns.map((column) => (
+    column.sortValue || !DATE_KEYS.includes(column.key) ? column : { ...column, sortValue: (row: T) => dateValue(row, column.key) }
+  )), [columns]);
+  const dateKey = useMemo(() => columns.find((c) => DATE_KEYS.includes(c.key) && rows.some((row) => dateValue(row, c.key)))?.key, [columns, rows]);
+  const [chosenSort, setSort] = useState<{ key: string; dir: 1 | -1 } | null | undefined>(undefined);
+  const sort = chosenSort === undefined ? (dateKey ? { key: dateKey, dir: -1 as const } : null) : chosenSort;
 
   const sorted = useMemo(() => {
     if (!sort) return rows;
-    const column = columns.find((c) => c.key === sort.key);
+    const column = columnsWithDates.find((c) => c.key === sort.key);
     if (!column?.sortValue) return rows;
     return [...rows].sort((a, b) => {
       const x = column.sortValue!(a);
@@ -53,11 +67,12 @@ export function DataTable<T>({
       if (typeof x === 'number' && typeof y === 'number') return (x - y) * sort.dir;
       return String(x).localeCompare(String(y), 'ar') * sort.dir;
     });
-  }, [rows, sort, columns]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, sort?.key, sort?.dir, columnsWithDates]);
 
-  const toggleSort = (key: string) => setSort((current) => (
-    current?.key !== key ? { key, dir: -1 } : current.dir === -1 ? { key, dir: 1 } : null
-  ));
+  const toggleSort = (key: string) => setSort(
+    sort?.key !== key ? { key, dir: -1 } : sort.dir === -1 ? { key, dir: 1 } : null,
+  );
 
   const cellClass = (column: Column<T>) => [
     'dt-cell',
@@ -87,7 +102,7 @@ export function DataTable<T>({
                   <input type="checkbox" aria-label="تحديد الكل" checked={allPicked} disabled={!pickable.length} onChange={toggleAll} />
                 </th>
               )}
-              {columns.map((column) => (
+              {columnsWithDates.map((column) => (
                 <th key={column.key} className={cellClass(column)} style={column.width ? { width: column.width } : undefined}>
                   {column.sortValue ? (
                     <button type="button" className="dt-sort" onClick={() => toggleSort(column.key)}>

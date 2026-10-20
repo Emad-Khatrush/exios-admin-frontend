@@ -58,6 +58,8 @@ import TripCosts from './containers/Accounting/TripCosts';
 import Treasury from './containers/Accounting/Treasury';
 import AccountingAssets from './containers/Accounting/Assets';
 import AccountingEmployees from './containers/Accounting/Employees';
+import FinancialAnalysis from './containers/Accounting/FinancialAnalysis';
+import FinancialOperations from './containers/Accounting/FinancialOperations';
 import { Equity as AccountingEquity, Netting as AccountingNetting } from './containers/Accounting/EquityAndNetting';
 import BankReconciliation from './containers/Accounting/BankReconciliation';
 import PurchaseReconciliation from './containers/Accounting/PurchaseReconciliation';
@@ -150,6 +152,8 @@ const accountingRoutes = (
     <Route path='guide' element={<AccountingGuide />} />
     <Route path='suspense' element={<AccountingSuspense />} />
     <Route path='reports' element={<AccountingReports />} />
+    <Route path='financial-analysis' element={<FinancialAnalysis />} />
+    <Route path='financial-operations' element={<FinancialOperations />} />
     <Route path='review' element={<ReviewQueue />} />
     <Route path='daily-work' element={<DailyWork />} />
     <Route path='exceptions' element={<AccountingExceptions />} />

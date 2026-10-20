@@ -31,6 +31,8 @@ interface Invoice {
   referenceId: number;
   amountUSD?: number;
   amountLYD?: number;
+  partialDelivery?: boolean;
+  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
   customer: User;
 }
 
@@ -140,7 +142,8 @@ const DailyInvoices = () => {
                 <Typography>Full Name: {`${invoice.customer.firstName} ${invoice.customer.lastName}`}</Typography>
                 <Typography>Date: {new Date(invoice.createdAt).toLocaleDateString()}</Typography>
                 <Typography>Total: {invoice.total} {invoice.currency}</Typography>
-                <Typography className='mt-0 mb-2'>Customer Paid: {invoice.amountUSD} $, {invoice.amountLYD} LYD, Rate: {invoice.rate}</Typography>
+                <Typography className='mt-0 mb-2'>Customer Paid: {invoice.settlement?.paidUSD ?? invoice.amountUSD} $, {invoice.settlement?.paidLYD ?? invoice.amountLYD} LYD</Typography>
+                {invoice.partialDelivery && <Typography dir="rtl">المتبقي: {invoice.settlement?.remainingUSD || 0} USD · {Number(invoice.settlement?.remainingUSD) > 0 ? 'بانتظار السداد' : 'مدفوعة بالكامل'}</Typography>}
                 {invoice.note && <Typography>Note: {invoice.note}</Typography>}
 
                 <div className="order-card">

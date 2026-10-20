@@ -7,7 +7,8 @@ import api from '../../api';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
 import { apiErrorMessage } from '../../components/InvoiceForm/constants';
 import { OrderActivity } from '../../models';
-import { countries, customerMessages, orderActions, removeBr, supplierMessage } from './orderConstants';
+import { countries, customerMessages, removeBr, supplierMessage } from './orderConstants';
+import ActivityMessagePicker from '../../components/TransferOrdersList/ActivityMessagePicker';
 
 type Toast = (type: 'success' | 'error', message: string) => void;
 
@@ -55,13 +56,13 @@ const AddActivity = ({ order, disabled, toast, onOrderChanged }: Pick<Props, 'or
   const [isSaving, setIsSaving] = useState(false);
 
   const submit = async () => {
-    if (!description.trim() || !country.trim()) return toast('error', 'Choose the country and write the activity first');
+    if (!description.trim() || !country.trim()) return toast('error', 'حدد الموقع وأدخل نص التحديث أولًا.');
     try {
       setIsSaving(true);
-      await api.post(`order/${order._id}/addActivity`, { country, description });
+      await api.post(`order/${order._id}/addActivity`, { country: country.trim(), description: description.trim() });
       setCountry('');
       setDescription('');
-      toast('success', 'Activity added');
+      toast('success', 'تمت إضافة التحديث إلى سجل تتبع الطلبية.');
       onOrderChanged();
     } catch (error) {
       toast('error', apiErrorMessage(error));
@@ -70,18 +71,17 @@ const AddActivity = ({ order, disabled, toast, onOrderChanged }: Pick<Props, 'or
   };
 
   return (
-    <Panel title="Add activity">
+    <Panel title="إضافة تحديث للطلبية">
       <div className="op-stack">
         <Autocomplete
           freeSolo options={countries} inputValue={country} onInputChange={(_, value) => setCountry(value)}
-          renderInput={(params) => <TextField {...params} label="Country" dir="rtl" />}
+          disabled={disabled || isSaving}
+          ListboxProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
+          renderInput={(params) => <TextField {...params} label="الموقع" helperText="حدد موقع البضائع وقت هذا التحديث." dir="rtl" />}
         />
-        <Autocomplete
-          freeSolo options={orderActions} inputValue={description} onInputChange={(_, value) => setDescription(value)}
-          renderInput={(params) => <TextField {...params} label="Description" dir="rtl" multiline />}
-        />
+        <ActivityMessagePicker value={description} onChange={setDescription} disabled={disabled || isSaving} id="order-activity-message" />
         <div className="op-actions">
-          <Button variant="contained" type="button" onClick={submit} disabled={disabled || isSaving}>{isSaving ? 'Adding' : 'Add activity'}</Button>
+          <Button variant="contained" type="button" onClick={submit} disabled={disabled || isSaving || !country.trim() || !description.trim()}>{isSaving ? 'جارٍ الإضافة…' : 'إضافة التحديث'}</Button>
         </div>
       </div>
     </Panel>

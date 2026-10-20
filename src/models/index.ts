@@ -422,6 +422,8 @@ export type Account = {
 }
 
 export type Debt = {
+  deliveryInvoiceId?: string;
+  deliveryPackageId?: string;
   _id: string
   order: Invoice,
   owner: User,
@@ -431,7 +433,7 @@ export type Debt = {
   amount: number,
   initialAmount: number,
   currency: 'LYD' | 'USD',
-  status: 'open' | 'closed' | 'overdue' | 'lost' | 'waitingApproval'
+  status: 'open' | 'closed' | 'overdue' | 'lost' | 'waitingApproval' | 'canceled'
   notes: string,
   paymentHistory: [
     {

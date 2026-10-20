@@ -80,7 +80,7 @@ const DebtHistory = (props: Props) => {
 
   const isOpen = debt.status === 'open';
   const isOwed = isOpen || debt.status === 'overdue';
-  const canCloseManually = allowViewHiddenFields && isOwed;
+  const canCloseManually = allowViewHiddenFields && isOwed && !debt.deliveryInvoiceId;
   const closure = debt.manualClosure;
   const closedBy = closure?.closedBy && typeof closure.closedBy === 'object'
     ? `${closure.closedBy.firstName || ''} ${closure.closedBy.lastName || ''}`.trim()
@@ -94,6 +94,7 @@ const DebtHistory = (props: Props) => {
     <div className='debt-item'>
       <div className='debt-item-top'>
         <div className='debt-tags'>
+          {debt.deliveryInvoiceId && <span className='debt-tag' dir='rtl'>متبقي فاتورة تسليم</span>}
           <span className={`debt-status is-${debt.status}`}>{DEBT_STATUS_LABELS[debt.status] || debt.status}</span>
           <span className='debt-tag'>
             <Building2 size={12} strokeWidth={2} />
@@ -114,7 +115,7 @@ const DebtHistory = (props: Props) => {
         </div>
 
         <div className='debt-actions'>
-        {isOpen &&
+        {isOwed &&
           <button
             className='debts-btn is-primary is-small'
             onClick={() => props.setDialog({ customComponentTag: CreateDebtHistoryDialog, isOpen: true, item: debt, onSaved: props.fetchData })}
@@ -139,7 +140,7 @@ const DebtHistory = (props: Props) => {
             Confirm settlement
           </button>
         }
-        {isAdmin &&
+        {isAdmin && !debt.deliveryInvoiceId &&
           <button
             className='debts-icon-btn'
             onClick={() => setDeleteOpen(true)}

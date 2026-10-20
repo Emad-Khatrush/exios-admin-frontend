@@ -73,6 +73,19 @@
   }
 }
 
+.op-order-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  &--purchase { color: #2459a9; background: #edf3fc; }
+  &--shipping { color: #0b6b62; background: #edf7f4; }
+  &--combined { color: #6d45a5; background: #f4effb; }
+}
+
 .op-copy {
   border: 1px solid var(--op-line);
   background: #fff;

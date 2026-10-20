@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import BillExcelImport from './BillExcelImport';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, MenuItem, TextField } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
 import { OFFICE_LABELS, acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { amountLabel, today } from './shared';
 import { Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
-import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
+import { LateExpenseNotice } from './BankMatchTools';
 
-const RECENT_FILTERS: ListFilterValue = { status: '', from: '', to: '', search: '' };
+const RECENT_FILTERS: ListFilterValue = { status: '', from: recentFrom(), to: '', search: '' };
 
 // Rent, electricity, fuel...: a one-line bill to the "cash expenses" vendor, paid on the spot
 const QuickExpenses = () => {
@@ -22,6 +23,9 @@ const QuickExpenses = () => {
   const [message, setMessage] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [duplicateReview, setDuplicateReview] = useState<any>(null);
+  const [duplicateReason, setDuplicateReason] = useState('');
+  const [savedBillId, setSavedBillId] = useState('');
   const idempotencyKey = useRef(newKey());
 
   const cashAccounts = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
@@ -41,20 +45,26 @@ const QuickExpenses = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const save = async () => {
+  const save = async (decision?: any) => {
+    if (isSaving) return;
     try {
       setIsSaving(true);
-      await acc.post('bills', {
+      const saved = await acc.post('bills', {
         vendorId: cashVendor._id, day: form.day, currency: from?.currency || 'USD', rate: Number(form.rate) || undefined,
         isQuickExpense: true, paidImmediatelyFrom: form.fromAccountId, idempotencyKey: idempotencyKey.current,
         lines: [{ description: form.description || type?.name, amount: Number(form.amount), target: 'expense', accountId: type.accountId?._id || type.accountId, office: form.office }],
+        ...(decision || {}),
       });
+      setDuplicateReview(null);
+      setSavedBillId(saved.data?._id || '');
       setMessage({ type: 'success', text: 'تم تسجيل المصروف.' });
       idempotencyKey.current = newKey();
       setForm({ ...form, description: '', amount: '' });
       loadRecent();
     } catch (err) {
       setMessage({ type: 'error', text: errorText(err) });
+      const preview = (err as any)?.response?.data?.costDuplicatePreview;
+      if (preview) { setDuplicateReview(preview); setDuplicateReason(''); }
     }
     setIsSaving(false);
   };
@@ -64,6 +74,21 @@ const QuickExpenses = () => {
       <PageHeader title="مصروفات سريعة" subtitle="للمصروفات التشغيلية المدفوعة فوراً (إيجار، كهرباء، وقود...). فواتير الموردين الآجلة تُسجَّل من «فواتير الموردين»." />
       <div className="d-flex justify-content-end mb-3"><BillExcelImport kind="expenses" onDone={() => loadRecent()} /></div>
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
+      <Dialog open={!!duplicateReview} onClose={() => !isSaving && setDuplicateReview(null)} fullWidth maxWidth="sm" dir="rtl">
+        <DialogTitle>هل هذا المصروف مسجّل بالفعل؟</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" className="mb-3">وجدنا مصروفًا مشابهًا. افتحه وراجعه؛ إذا كان نفس المصروف فلا تحتاج تسجيله مرة ثانية.</Alert>
+          {(duplicateReview?.results || []).map((item: any) => <Panel key={item.key} title={`${item.number} · ${item.amount} ${item.currency}`}>
+            <p>{item.day} · {item.reason}</p>
+            <Button component="a" href={item.url} target="_blank" rel="noopener noreferrer">فتح المصروف الموجود</Button>
+          </Panel>)}
+          {duplicateReview?.canConfirmIndependent && <TextField fullWidth multiline minRows={2} label="إذا كان مصروفًا آخر، اكتب سبب الاختلاف" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} />}
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={isSaving} onClick={() => setDuplicateReview(null)}>رجوع للمراجعة</Button>
+          {duplicateReview?.canConfirmIndependent && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={() => save({ duplicateDecision: 'independent', duplicateReason: duplicateReason.trim(), duplicateFingerprint: duplicateReview.fingerprint })}>تسجيله كمصروف مستقل</Button>}
+        </DialogActions>
+      </Dialog>
       <Panel title="مصروف جديد">
         <div className="acc-form-grid">
           <TextField select label="نوع المصروف" value={form.typeId} onChange={(e) => {
@@ -88,11 +113,12 @@ const QuickExpenses = () => {
         </div>
         {beforeCount && count && <Alert severity="info" className="mt-3">{beforeCountText(count)}</Alert>}
         <div className="d-flex justify-content-end mt-3">
-          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !from || !form.office || !(Number(form.amount) > 0)} onClick={save}>تسجيل المصروف</Button>
+          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !from || !form.office || !(Number(form.amount) > 0)} onClick={() => save()}>تسجيل المصروف</Button>
         </div>
       </Panel>
 
       <Panel flush title="المصروفات السريعة">
+        {savedBillId && <LateExpenseNotice billId={savedBillId} />}
         <div className="px-3">
           <ListFilters value={filters} onChange={setFilters} onApply={loadRecent} blank={RECENT_FILTERS} searchLabel="الوصف أو رقم الفاتورة">
             <TextField size="small" select label="الحالة" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} style={{ minWidth: 130 }}>

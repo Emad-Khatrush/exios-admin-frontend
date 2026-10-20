@@ -25,13 +25,13 @@ import api from '../../api';
 import { Inventory } from '../../models';
 import { Alert, Backdrop, CircularProgress, Dialog, Snackbar } from '@mui/material';
 import { FaArrowLeft, FaArrowRight, FaBuilding, FaFileExcel, FaSortAlphaDown, FaSortAlphaUp, FaWarehouse, FaWhatsapp, FaWeight } from "react-icons/fa";
-import * as XLSX from 'xlsx';
+import { downloadInventoryExcel } from './inventoryExcel';
 import moment from 'moment';
 import { IoIosCloseCircle, IoIosListBox } from 'react-icons/io';
 import { AiOutlineInbox, AiOutlineSearch } from 'react-icons/ai';
 import ActivityDialog from './ActivityDialog';
 import EditPackageWeight from './EditPackageWeight';
-import { calculateMinTotalPrice, toExcelSheetName, toFileName } from '../../utils/methods';
+import { calculateMinTotalPrice } from '../../utils/methods';
 
 // Each row is one package. An order can have several packages, so the order _id alone is not
 // unique: duplicate React keys left old rows on screen after the search results changed.
@@ -156,13 +156,13 @@ const RowSkeleton = () => (
   </Box>
 );
 
-type StatusTone = 'positive' | 'neutral' | 'accent';
+type StatusTone = 'positive' | 'neutral' | 'accent' | 'volumetric';
 
 const StatusTag = ({ label, tone }: { label: string, tone: StatusTone }) => (
   <Box
     component="span"
     sx={(theme) => {
-      const color = tone === 'positive' ? theme.palette.success.main : tone === 'accent' ? theme.palette.primary.main : theme.palette.text.secondary;
+      const color = tone === 'volumetric' ? '#a1251b' : tone === 'positive' ? theme.palette.success.main : tone === 'accent' ? theme.palette.primary.main : theme.palette.text.secondary;
       return {
         display: 'inline-flex',
         alignItems: 'center',
@@ -205,8 +205,9 @@ type OrderRowProps = {
 const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps) => {
   const pkg = order?.paymentList?.deliveredPackages;
   const status = order?.paymentList?.status;
+  const volumetric = !!pkg?.volumetric?.enabled;
   const meta = detailed ? [
-    pkg?.weight?.total ? `${pkg.weight.total} ${pkg.weight.measureUnit || ''}${pkg?.volumetric?.enabled ? ` ⚠ حجمي (الفعلي ${pkg?.weight?.actual ?? '-'})` : ''}`.trim() : '',
+    pkg?.weight?.total ? `${pkg.weight.total} ${pkg.weight.measureUnit || ''}${volumetric ? ` · الوزن الفعلي ${pkg?.weight?.actual ?? '-'} KG` : ''}`.trim() : '',
     order?.shipment?.fromWhere ? order?.shipment?.toWhere : '',
     pkg?.locationPlace,
     pkg?.boxesCount ? `${pkg.boxesCount} صناديق` : '',
@@ -223,11 +224,14 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
         px: 2,
         py: 1.5,
         borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderColor: volumetric ? '#eab5af' : 'divider',
+        bgcolor: volumetric ? '#fff0ef' : undefined,
+        color: volumetric ? '#8f211a' : undefined,
         boxShadow: checked ? `inset 3px 0 0 ${theme.palette.primary.main}` : 'none',
         transition: `background-color 150ms ${EASE}, box-shadow 150ms ${EASE}`,
-        '&.Mui-selected': { bgcolor: alpha(theme.palette.primary.main, 0.05) },
-        '&.Mui-selected:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+        '&:hover': { bgcolor: volumetric ? '#ffe2df' : undefined },
+        '&.Mui-selected': { bgcolor: volumetric ? '#ffdcd7' : alpha(theme.palette.primary.main, 0.05) },
+        '&.Mui-selected:hover': { bgcolor: volumetric ? '#ffd0ca' : alpha(theme.palette.primary.main, 0.08) },
       })}
     >
       <Checkbox
@@ -251,7 +255,7 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
               fontFamily: MONO,
               fontSize: 13,
               fontWeight: 600,
-              color: 'primary.main',
+              color: volumetric ? '#8f211a' : 'primary.main',
               textDecoration: 'none',
               '&:hover': { textDecoration: 'underline', textUnderlineOffset: 3 },
             }}
@@ -262,6 +266,7 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
             <StatusTag label={status?.arrivedLibya ? 'وصلت ليبيا' : 'لم تصل ليبيا'} tone={status?.arrivedLibya ? 'positive' : 'neutral'} />
           )}
           {detailed && status?.received && <StatusTag label="تم التسليم" tone="accent" />}
+          {volumetric && <StatusTag label="وزن حجمي" tone="volumetric" />}
         </Stack>
 
         <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 0.25, minWidth: 0 }}>
@@ -281,7 +286,7 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
         </Stack>
 
         {meta.length > 0 && (
-          <Typography sx={{ mt: 0.5, fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+          <Typography sx={{ mt: 0.5, fontSize: 12, color: volumetric ? '#8f332b' : 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
             {meta.join('  ·  ')}
           </Typography>
         )}
@@ -399,43 +404,12 @@ const TransferOrdersList = (props: Props) => {
   };
 
   const handleDownload = () => {
-    const data: any = [[props.inventory.inventoryFinishedDate ? moment(props.inventory.inventoryFinishedDate).format('DD/MM/YYYY') : '', '', '', props.inventory.shippedCountry, '', '', props.inventory.voyage], [], ['العدد', 'اسم الزبون', 'رمز العميل', 'كود تتبع Exios', 'رقم تتبع الصين', 'رقم تتبع المصدر', 'وزن/حجم', 'نوع القياس', 'عدد الصناديق', '$ السعر المحسوب', '$ سعر التكلفة', '$ تكلفة اكسيوس', '$ اجمالي التكلفة', 'موقعها', 'ملاحظات']];
-    let totalBoxes = 0;
-    right.forEach((orderPackage: any, i) => {
-      // boxesCount is stored as text; count it in the total only when it is a real number
-      const boxesCount = orderPackage.paymentList.deliveredPackages?.boxesCount;
-      const boxesNumber = Number(boxesCount);
-      if (boxesCount !== undefined && boxesCount !== null && boxesCount !== '' && !Number.isNaN(boxesNumber)) {
-        totalBoxes += boxesNumber;
-      }
-      data.push([
-        i + 1,
-        orderPackage.customerInfo.fullName,
-        orderPackage.user.customerId,
-        orderPackage.orderId,
-        orderPackage.paymentList.deliveredPackages.trackingNumber,
-        orderPackage.paymentList.deliveredPackages.receiptNo,
-        orderPackage.paymentList.deliveredPackages.weight.total,
-        orderPackage.paymentList.deliveredPackages.weight.measureUnit,
-        boxesCount === undefined || boxesCount === null || boxesCount === '' ? '' : (Number.isNaN(boxesNumber) ? boxesCount : boxesNumber),
-        orderPackage.paymentList.deliveredPackages.exiosPrice,
-        props.inventory.costPrice,
-        calculateMinTotalPrice(orderPackage.paymentList.deliveredPackages.exiosPrice, orderPackage.paymentList.deliveredPackages.weight.total, props.inventory.shippedCountry, orderPackage.paymentList.deliveredPackages.weight.measureUnit),
-        orderPackage.paymentList.deliveredPackages.weight.total * props.inventory.costPrice,
-        orderPackage.paymentList.deliveredPackages.locationPlace,
-        orderPackage.shipment.toWhere
-      ])
-    })
-    const totalWeight = sumWeights(right);
-    data.push([]);
-    data.push(['', 'الاجمالي', '', '', '', '', totalWeight.total, totalWeight.unit, totalBoxes]);
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    // Merge cells A1 and B1
-    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, toExcelSheetName(props.inventory.voyage, 'قائمة الجرد'));
-    XLSX.writeFile(workbook, `${toFileName(props.inventory.voyage, 'inventory')}.xlsx`);
+    try {
+      downloadInventoryExcel(right, props.inventory);
+    } catch {
+      setIsSucceed(false);
+      setShowResponseMessage('تعذر تصدير ملف Excel. حاول مرة أخرى.');
+    }
   };
 
   const handleToggle = (value: number) => () => {
@@ -892,7 +866,7 @@ const TransferOrdersList = (props: Props) => {
               '&:hover': { borderColor: 'text.secondary', bgcolor: 'action.hover' },
             }}
           >
-            تصدير Excel
+            تصدير كل الجرد (Excel)
           </Button>
         </Stack>
 

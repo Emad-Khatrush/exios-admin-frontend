@@ -162,11 +162,12 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
           rowTone={(row: any) => (row.status === 'canceled' || row.status === 'deleted' ? 'canceled' : undefined)}
           empty={{ title: 'لا فواتير بهذا البحث' }}
           columns={[
+            { key: 'date', header: 'التاريخ', sortValue: (row: any) => row.date || '', render: (row: any) => <Ltr>{row.date ? String(row.date).slice(0, 10) : '—'}</Ltr> },
             {
               key: 'order', header: 'الفاتورة', sortValue: (row: any) => row.orderNumber, render: (row: any) => (
                 <>
                   <Ltr>{row.orderNumber}</Ltr> <Badge tone={row.kind === 'purchase' ? 'info' : 'muted'}>{KIND_LABEL[row.kind]}</Badge>
-                  <Sub><Ltr>{String(row.date).slice(0, 10)}</Ltr> · {OFFICE_LABELS[row.office] || row.office}</Sub>
+                  <Sub>{OFFICE_LABELS[row.office] || row.office}</Sub>
                 </>
               ),
             },

@@ -1,5 +1,6 @@
 import { Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from "@mui/material"
 import { useState } from "react"
+import { useSelector } from 'react-redux';
 import { Building2, History, Info, Pencil, Trash2 } from "lucide-react"
 import api from "../../api"
 import { useParams } from "react-router-dom"
@@ -27,10 +28,12 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const [previewImages, setPreviewImages] = useState<any>(undefined);
 
   const isOutflow = statement?.calculationType === '-';
+  const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const isWithdrawal = isOutflow && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
   // A refund/compensation/cancellation adds to the wallet but no cash came in
   const isCredit = statementFlow(statement || {}) === 'credit';
   // Outgoing payments are linked to orders and debts, so only incoming ones can be edited or deleted
-  const canManage = canManageUser && !isOutflow;
+  const canManage = isWithdrawal ? isAdmin : canManageUser && !isOutflow;
   const date = moment(statement?.createdAt);
   const office = statement?.office;
   // Money that went to an account (a partner's current account such as Wasl) shows that account, not the office
@@ -166,7 +169,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
             <dd>{walletEffect}</dd>
           </dl>
           <p className="cashflow-confirm__hint">
-            The payment is removed from the statement and the {statement?.currency} wallet balance is adjusted by {walletEffect}. A copy is kept in Deleted payments with your name.
+            {isWithdrawal ? `ستعود قيمة السحب إلى محفظة العميل (${walletEffect}) ويُعكس القيد المحاسبي المرتبط بها. تُحفظ نسخة في العمليات المحذوفة باسمك.` : `The payment is removed from the statement and the ${statement?.currency} wallet balance is adjusted by ${walletEffect}. A copy is kept in Deleted payments with your name.`}
           </p>
           {deleteError && <p className="cashflow-confirm__error" role="alert">{deleteError}</p>}
         </DialogContent>

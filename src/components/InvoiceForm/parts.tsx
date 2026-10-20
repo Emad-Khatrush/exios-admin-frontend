@@ -120,7 +120,7 @@ export const OrderKindPicker = ({ value, onChange, disabled }: { value: OrderKin
     {ORDER_KINDS.map((kind) => (
       <button
         key={kind.value} type="button" role="radio" aria-checked={value === kind.value} disabled={disabled}
-        className={`of-kind${value === kind.value ? ' is-active' : ''}`} onClick={() => onChange(kind.value)}
+        className={`of-kind of-kind--${kind.value}${value === kind.value ? ' is-active' : ''}`} onClick={() => onChange(kind.value)}
       >
         <span className="of-kind__mark">{value === kind.value && <BsCheck2 />}</span>
         <span className="of-kind__text">

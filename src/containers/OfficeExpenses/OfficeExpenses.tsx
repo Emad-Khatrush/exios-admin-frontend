@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Snackbar, TextField } from '@mui/material';
+import { Alert, Autocomplete, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Snackbar, TextField } from '@mui/material';
 import moment from 'moment';
+import { Link } from 'react-router-dom';
 import { Paperclip, Pencil, Plus, Receipt, Trash2, X } from 'lucide-react';
 import { errorText, newKey, sys, todayLibya } from '../Accounting/accountingApi';
 import './OfficeExpenses.scss';
@@ -24,7 +25,13 @@ type Expense = {
   editable: boolean;
   // Paid from the office cash box, or from the custody the staff member holds
   paidFrom?: 'box' | 'custody';
+  target?: 'expense' | 'trip';
+  tripId?: string;
+  tripName?: string;
+  costCategory?: string;
 };
+
+type TripOption = { _id: string; voyage: string; shippingType?: string; inventoryPlace?: string };
 
 type Options = {
   office: string | null;
@@ -37,7 +44,7 @@ type Options = {
   custody?: Record<string, number>;
 };
 
-const blank = (currency = '') => ({ expenseTypeId: '', amount: '', currency, day: todayLibya(), note: '', payFrom: 'box' as 'box' | 'custody' });
+const blank = (currency = '') => ({ expenseTypeId: '', amount: '', currency, day: todayLibya(), note: '', payFrom: 'box' as 'box' | 'custody', target: 'expense' as 'expense' | 'trip', tripId: '', costCategory: 'other' });
 
 const formatAmount = (value: number) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 3 });
 
@@ -48,6 +55,11 @@ const OfficeExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(blank());
+  const [trip, setTrip] = useState<TripOption | null>(null);
+  const [trips, setTrips] = useState<TripOption[]>([]);
+  const [tripSearch, setTripSearch] = useState('');
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsError, setTripsError] = useState('');
   const [receipt, setReceipt] = useState<File | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [saving, setSaving] = useState(false);
@@ -83,6 +95,23 @@ const OfficeExpenses = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (form.target !== 'trip') return;
+    let active = true;
+    setTripsLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await sys.get('office-expenses/trips', { search: tripSearch });
+        if (active) { setTrips(res.data.results || []); setTripsError(''); }
+      } catch (err) {
+        if (active) setTripsError(errorText(err, 'تعذر تحميل الرحلات. أعد البحث للمحاولة.'));
+      } finally {
+        if (active) setTripsLoading(false);
+      }
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [form.target, tripSearch]);
+
   const changeOffice = async (code: string) => {
     setOffice(code);
     try {
@@ -94,6 +123,8 @@ const OfficeExpenses = () => {
 
   const reset = () => {
     setForm(blank(options?.currencies[0] || ''));
+    setTrip(null);
+    setTripSearch('');
     setReceipt(null);
     setEditing(null);
     setError('');
@@ -102,13 +133,15 @@ const OfficeExpenses = () => {
 
   const startEdit = (expense: Expense) => {
     setEditing(expense);
-    setForm({ expenseTypeId: expense.expenseTypeId, amount: String(expense.amount), currency: expense.currency, day: expense.day, note: expense.note, payFrom: expense.paidFrom === 'custody' ? 'custody' : 'box' });
+    setForm({ expenseTypeId: expense.expenseTypeId, amount: String(expense.amount), currency: expense.currency, day: expense.day, note: expense.note, payFrom: expense.paidFrom === 'custody' ? 'custody' : 'box', target: expense.target || 'expense', tripId: expense.tripId || '', costCategory: expense.costCategory || 'other' });
+    setTrip(expense.tripId ? { _id: expense.tripId, voyage: expense.tripName || expense.tripId } : null);
+    setTripSearch('');
     setReceipt(null);
     setError('');
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const canSave = !!form.expenseTypeId && Number(form.amount) > 0 && !!form.currency && !!form.day && !saving;
+  const canSave = !!form.expenseTypeId && Number.isFinite(Number(form.amount)) && Number(form.amount) > 0 && !!form.currency && !!form.day && (form.target !== 'trip' || !!form.tripId) && !saving;
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -122,6 +155,11 @@ const OfficeExpenses = () => {
     body.append('currency', form.currency);
     body.append('day', form.day);
     body.append('note', form.note.trim());
+    body.append('target', form.target);
+    if (form.target === 'trip') {
+      body.append('tripId', form.tripId);
+      body.append('costCategory', form.costCategory);
+    }
     if (form.payFrom === 'custody') body.append('payFrom', 'custody');
     if (options?.anyOffice && office) body.append('office', office);
     if (!editing) body.append('idempotencyKey', key.current);
@@ -178,7 +216,7 @@ const OfficeExpenses = () => {
       <header className="oe-header">
         <div>
           <h1>Expenses</h1>
-          <p>What your office paid out of its cash box. It goes straight into accounting.</p>
+          <p>Office and trip expenses, paid from your office cash box or custody and recorded directly in accounting.</p>
         </div>
         {options?.anyOffice ? (
           <TextField select size="small" label="Office" value={office} onChange={(e) => changeOffice(e.target.value)} className="oe-office-select">
@@ -196,6 +234,33 @@ const OfficeExpenses = () => {
               <h2>{editing ? 'Change expense' : 'New expense'}</h2>
               {editing && <button type="button" className="oe-link" onClick={reset}><X size={14} /> Cancel change</button>}
             </div>
+
+            <TextField select fullWidth size="small" label="المصروف يخص" value={form.target} disabled={saving}
+              onChange={(e) => setForm({ ...form, target: e.target.value as 'expense' | 'trip' })}>
+              <MenuItem value="expense">مصروف مكتب</MenuItem>
+              <MenuItem value="trip">مصروف رحلة</MenuItem>
+            </TextField>
+
+            {form.target === 'trip' && <>
+              <Autocomplete<TripOption> size="small" fullWidth options={trips} value={trip} loading={tripsLoading} disabled={saving}
+                filterOptions={(items) => items} getOptionLabel={(item) => item.voyage}
+                isOptionEqualToValue={(item, selected) => item._id === selected._id}
+                onInputChange={(_, value, reason) => { if (reason === 'input' || reason === 'clear') setTripSearch(value); }}
+                onChange={(_, selected) => { setTrip(selected); setForm((current) => ({ ...current, tripId: selected?._id || '' })); }}
+                loadingText="جارٍ تحميل الرحلات…" noOptionsText="لا توجد رحلات مطابقة"
+                renderInput={(params) => <TextField {...params} label="الرحلة" required error={!!tripsError}
+                  helperText={tripsError || 'ابحث باسم الرحلة. سيظهر الدفع مباشرة ضمن مصاريفها.'}
+                  InputProps={{ ...params.InputProps, endAdornment: <>{tripsLoading && <CircularProgress size={16} />}{params.InputProps.endAdornment}</> }} />}
+              />
+              <TextField select fullWidth size="small" label="تصنيف مصروف الرحلة" value={form.costCategory} disabled={saving}
+                onChange={(e) => setForm({ ...form, costCategory: e.target.value })}>
+                <MenuItem value="shipping">شحن</MenuItem>
+                <MenuItem value="customs">جمارك</MenuItem>
+                <MenuItem value="clearance">تخليص</MenuItem>
+                <MenuItem value="transport">نقل</MenuItem>
+                <MenuItem value="other">أخرى</MenuItem>
+              </TextField>
+            </>}
 
             <TextField select fullWidth size="small" label="Type" value={form.expenseTypeId} onChange={(e) => setForm({ ...form, expenseTypeId: e.target.value })}>
               {(options?.types || []).map((type) => <MenuItem key={type._id} value={type._id}>{type.name}</MenuItem>)}
@@ -261,6 +326,7 @@ const OfficeExpenses = () => {
                   <div key={expense._id} className={`oe-item${editing?._id === expense._id ? ' is-editing' : ''}`}>
                     <div className="oe-item__main">
                       <strong>{expense.type}{expense.paidFrom === 'custody' && <small className="oe-custody"> · from custody</small>}</strong>
+                      {expense.target === 'trip' && <span dir="auto">مصروف رحلة · <Link to={`/inventory/${expense.tripId}/edit`}>{expense.tripName || 'عرض الرحلة'}</Link></span>}
                       {expense.note && <span dir="auto">{expense.note}</span>}
                     </div>
                     <div className="oe-item__amount">{formatAmount(expense.amount)} <small>{expense.currency}</small></div>

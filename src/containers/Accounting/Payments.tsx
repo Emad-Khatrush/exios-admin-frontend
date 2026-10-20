@@ -7,9 +7,9 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
-import { ListFilters, queryOf } from './ListFilters';
+import { ListFilters, queryOf, recentFrom } from './ListFilters';
 
-const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: '', to: '', search: '' };
+const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: recentFrom(), to: '', search: '' };
 
 export const PaymentsList = () => {
   const navigate = useNavigate();
@@ -74,6 +74,8 @@ export const PaymentsList = () => {
           rows={data.results}
           rowKey={(row: any) => row._id}
           rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
+          // The payment's journal entry shows its details and the payment voucher
+          onRowClick={(row: any) => row.entryId && navigate(`/accounting/entries/${row.entryId?._id || row.entryId}`)}
           empty={{ title: 'لا توجد دفعات بعد', action: <Button variant="outlined" onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button> }}
           columns={[
             { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
@@ -85,7 +87,7 @@ export const PaymentsList = () => {
                 : <Money value={row.allocations.reduce((s: number, a: any) => s + a.amountUsd, 0)} />),
             },
             { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
-            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' && !row.autoFromBillId ? <Button size="small" color="error" onClick={() => setCancel(row)}>إلغاء</Button> : null) },
+            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' && !row.autoFromBillId ? <Button size="small" color="error" onClick={(e) => { e.stopPropagation(); setCancel(row); }}>إلغاء</Button> : null) },
           ]}
         />
       </Panel>
@@ -101,7 +103,7 @@ const ReceiptsList = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [cancel, setCancel] = useState<any>(null);
   const { vendors } = useVendors();
-  const blank = { vendorId: '', from: '', to: '', search: '' };
+  const blank = { vendorId: '', from: recentFrom(), to: '', search: '' };
   const [filters, setFilters] = useState<any>(blank);
   const load = (current = filters) => acc.get('receipts', { ...queryOf(current), limit: 200 }).then((res: any) => setRows(res.data.results)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps

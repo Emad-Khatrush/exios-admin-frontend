@@ -3,9 +3,9 @@ import { Alert, Button, Dialog, DialogContent, DialogTitle, MenuItem, TextField 
 import moment from 'moment';
 import { acc, errorText } from './accountingApi';
 import { DataTable, Ltr, PageHeader, Panel } from './ui';
-import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
 
-const AUDIT_FILTERS: ListFilterValue = { action: '', from: '', to: '' };
+const AUDIT_FILTERS: ListFilterValue = { action: '', from: recentFrom(), to: '' };
 // The kinds of change, by the start of their action name
 const ACTION_GROUPS: [string, string][] = [
   ['bill.', 'فواتير الموردين'], ['payment.', 'الدفعات'], ['transfer.', 'التحويلات'], ['cashcount.', 'الجرد'], ['entry.', 'القيود'],

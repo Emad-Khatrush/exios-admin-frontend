@@ -35,8 +35,13 @@ function useSummary(path: string | null) {
   return { access, canSee, data, error, reload };
 }
 
-const Frame = ({ title, error, loading, actions, children }: { title: string; error: string; loading: boolean; actions?: ReactNode; children: ReactNode }) => (
+const Frame = ({ title, error, loading, actions, children, collapsible = false }: { title: string; error: string; loading: boolean; actions?: ReactNode; children: ReactNode; collapsible?: boolean }) => (
   <AccountingTheme>
+    {collapsible ? <AccountingFold title={title}>
+      {actions && <div className="acc-embed__head"><div className="d-flex gap-3 flex-wrap">{actions}</div></div>}
+      {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      {loading && !error ? <div className="acc-empty">جارٍ التحميل…</div> : children}
+    </AccountingFold> :
     <div className="acc-embed">
       <div className="acc-embed__head">
         <h3>{title}</h3>
@@ -44,7 +49,7 @@ const Frame = ({ title, error, loading, actions, children }: { title: string; er
       </div>
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       {loading && !error ? <div className="acc-empty">جارٍ التحميل…</div> : children}
-    </div>
+    </div>}
   </AccountingTheme>
 );
 
@@ -620,34 +625,40 @@ export const TripAccounting = ({ tripId }: { tripId?: string }) => {
   return (
     <Frame
       title="المحاسبة" error={error} loading={!data}
+      collapsible
       actions={access.can('purchases') ? <Open to={`/accounting/bills/new?tripId=${tripId}`}>فاتورة بعدة سطور أو مرفقات</Open> : undefined}
     >
       {data && (
         <>
           {!data.entries.length && <NoEntries />}
           <StatGrid>
-            <Stat label="إيراد معترف به" value={<Money value={totals.revenue} />} hint={data.international ? <>{totals.recognizedPackages} من {totals.packages} طرداً · مؤجل <Money value={totals.deferred} /></> : 'رحلة داخلية: تكلفة نقل فقط'} />
+            <Stat label="إيراد معترف به" value={<Money value={totals.revenue} />} hint={data.international ? <>{totals.recognizedPackages} من {totals.packages} طرداً · مؤجل <Money value={totals.deferred} /></> : 'رسوم النقل الداخلي المستحقة عند التسليم'} />
+            <Stat label="المحصّل للشحن" value={<Money value={totals.collected} />} hint="السداد المخصص لأجرة الشحن، بما فيه الدفع من المحفظة" />
+            <Stat label="المتبقي على العملاء" value={<Money value={totals.open} />} tone={totals.open > 0 ? 'warn' : undefined} hint="ذمم العملاء؛ مستقلة عن الاعتراف بالإيراد" />
             <Stat label="تكلفة محمَّلة" value={<Money value={totals.cost} />} hint={<>قيد التنفيذ <Money value={totals.costInProgress} /></>} />
-            <Stat label="إجمالي تكاليف الرحلة" value={<Money value={totals.totalCost} />} hint={data.international ? 'تُوزَّع على الطرود حسب الوزن' : 'مصروف مباشر، لا يُوزَّع على الطرود'} />
-            {data.international
-              ? <Stat label="ربح الرحلة" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={totals.margin !== null ? `${totals.margin}%` : SHIPPING_TYPES[data.trip.shippingType]} />
-              : <Stat label="ربح الرحلة" value="—" hint="إيراد طرودها في رحلتها الجوية أو البحرية، وتكلفة هذه الرحلة تُخصم من ربحها هناك" />}
+            <Stat label="إجمالي تكاليف الرحلة" value={<Money value={totals.totalCost} />} hint="تُوزَّع على الطرود حسب الوزن المحتسب" />
+            <Stat label="الربح المحاسبي" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={totals.margin !== null ? `${totals.margin}%` : SHIPPING_TYPES[data.trip.shippingType]} />
           </StatGrid>
           <BillsTable bills={data.bills} empty="لا مصاريف مسجلة على هذه الرحلة" />
-          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="حصة الطرد من التكلفة تنتقل من «قيد التنفيذ» عند الاعتراف بإيراده.">
+          <AccountingFold title="الطرود" summary={`${data.packages.length} طرد`}>
+          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="عند التسليم يُحتسب الإيراد وحصة الطرد من التكلفة. السداد اللاحق يخفض الدين فقط. الأرقام تخص أجرة الشحن لهذه الرحلة دون رسوم الخدمات الأخرى.">
             <DataTable
               dense maxHeight={420} rows={data.packages} rowKey={(row: any) => String(row.packageId)} empty={{ title: 'لا طرود في الرحلة' }}
               rowTone={(row: any) => (row.isCanceled ? 'canceled' : undefined)}
               columns={[
                 { key: 'package', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.delivered && <Badge tone="ok">مسلَّم</Badge>}<Sub>الطلب <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> · {row.weight} كغ محتسب{row.volumetric && <> <Badge tone="info">حجمي</Badge> الفعلي {row.actualWeight ?? '-'} كغ</>}</Sub></>, sortValue: (row: any) => row.orderNumber },
                 { key: 'charge', header: 'أجرة الشحن', numeric: true, render: (row: any) => <Money value={row.charge} tone="plain" />, sortValue: (row: any) => row.charge },
+                { key: 'collected', header: 'المحصّل', numeric: true, render: (row: any) => <Money value={row.collected} hideZero tone="plain" />, sortValue: (row: any) => row.collected },
                 { key: 'open', header: 'باقٍ على العميل', numeric: true, render: (row: any) => <Money value={row.open} hideZero />, sortValue: (row: any) => row.open },
                 { key: 'revenue', header: 'إيراد معترف به', numeric: true, render: (row: any) => (row.revenue ? <Money value={row.revenue} /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null), sortValue: (row: any) => row.revenue },
                 { key: 'cost', header: 'حصته من التكلفة', numeric: true, render: (row: any) => <Money value={row.cost} hideZero tone="plain" />, sortValue: (row: any) => row.cost },
               ]}
             />
           </Panel>
-          <EntriesTable entries={data.entries} />
+          </AccountingFold>
+          <AccountingFold title="القيود المحاسبية" summary={`${data.entries.length} قيد`}>
+            <EntriesTable entries={data.entries} />
+          </AccountingFold>
         </>
       )}
     </Frame>

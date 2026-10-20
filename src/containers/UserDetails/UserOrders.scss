@@ -660,3 +660,45 @@ $co-ease: cubic-bezier(0.16, 1, 0.3, 1);
   .customer-orders .co-skeleton-line,
   .customer-orders .co-selection-bar { animation: none; }
 }
+.co-dialog .co-credit-option {
+  margin-block: 16px;
+  font-size: 14px;
+  color: #23443f;
+  p { margin: 10px 0 0; line-height: 1.7; font-size: 13px; }
+}
+.co-dialog .co-payment-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  background: #eef4f3;
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #3d5550;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    &:hover { background: #e0ebe8; }
+    &.is-active { background: #087569; color: #fff; }
+    &:focus-visible { outline: 2px solid #075e54; outline-offset: 2px; }
+    &:disabled { opacity: .6; cursor: wait; }
+  }
+}
+.co-dialog .co-breakdown .co-remaining {
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #eaf4f1;
+  color: #164d42;
+  font-weight: 600;
+  dd { font-size: 18px; font-variant-numeric: tabular-nums; }
+}

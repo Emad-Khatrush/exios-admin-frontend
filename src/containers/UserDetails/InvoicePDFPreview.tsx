@@ -18,6 +18,8 @@ type Invoice = {
   referenceId: number;
   amountUSD?: number;
   amountLYD?: number;
+  partialDelivery?: boolean;
+  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
   customer: User
   isCanceled?: boolean;
 };
@@ -31,6 +33,8 @@ const money = (value: number) =>
 
 const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) => {
   const list = invoice.list || [];
+  const paidUSD = invoice.partialDelivery ? invoice.settlement?.paidUSD || 0 : invoice.amountUSD || 0;
+  const paidLYD = invoice.partialDelivery ? invoice.settlement?.paidLYD || 0 : invoice.amountLYD || 0;
   const fullName = `${invoice.customer?.firstName || ''} ${invoice.customer?.lastName || ''}`.trim();
   const boxesTotal = list.reduce((sum: number, item: any) => sum + (Number(item.boxesCount) || 0), 0);
 
@@ -68,8 +72,8 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
         <div>
           <p className="invoice-doc__label">Paid from wallet</p>
           <p className="invoice-doc__strong">
-            {money(invoice.amountUSD || 0)} USD
-            {(invoice.amountLYD || 0) > 0 && <span className="invoice-doc__plus"> + {money(invoice.amountLYD || 0)} LYD</span>}
+            {money(paidUSD)} USD
+            {paidLYD > 0 && <span className="invoice-doc__plus"> + {money(paidLYD)} LYD</span>}
           </p>
         </div>
       </section>
@@ -116,6 +120,7 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
           <div><dt>Packages</dt><dd>{list.length}</dd></div>
           {boxesTotal > 0 && <div><dt>Boxes</dt><dd>{boxesTotal}</dd></div>}
           <div className="is-total"><dt>Total</dt><dd>{money(invoice.total)} {invoice.currency}</dd></div>
+          {invoice.partialDelivery && <div className="is-total"><dt>Remaining / المتبقي</dt><dd>{money(invoice.settlement?.remainingUSD || 0)} USD</dd></div>}
         </dl>
       </section>
 

@@ -35,6 +35,7 @@ export const getTabsOfDebts = (countList: DebtsCounter, isAdminOrAccountant: boo
 }
 
 export const DEBT_STATUS_LABELS: Record<Debt['status'], string> = {
+  canceled: 'ملغى',
   open: 'Open',
   waitingApproval: 'Waiting approval',
   closed: 'Closed',

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useSelector } from 'react-redux';
 // The stylesheet is bundled by the frontend build, but TypeScript has no
 // ambient declaration for side-effect SCSS imports in this project.
 // @ts-ignore -- intentional side-effect stylesheet import
@@ -41,6 +42,7 @@ type SelectedPackage = {
   // The fees in dinars (transport to another office, customs clearance), paid from the dinar wallet
   feeAmount?: number;
   feeCurrency?: string;
+  feeLydAmounts?: number[];
 };
 
 type PaymentInput = { amountUSD: string; amountLYD: string };
@@ -86,6 +88,7 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   orderId,
   feeAmount: lydFeesOf(pkg),
   feeCurrency: lydFeesOf(pkg) > 0 ? 'LYD' : undefined,
+  feeLydAmounts: feesOf(pkg).filter(fee => fee.currency === 'LYD').map(fee => Number(fee.amount)),
 });
 
 // Received packages were already delivered (and paid for), so they can never be selected again
@@ -97,7 +100,7 @@ const tabs = [
   { value: 'finished', label: 'Finished', tabType: 'finished' },
 ];
 
-const CustomerOrders = ({ customerId, balances }: any) => {
+const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const [orders, setOrders] = useState<Invoice[]>([]);
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
   const [filter, setFilter] = useState<string>('active');
@@ -108,9 +111,13 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const [isError, setIsError] = useState<boolean>(false);
   const [resMessage, setResMessage] = useState<string>();
   const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
+  const [allowPartial, setAllowPartial] = useState(false);
+  const [partialRate, setPartialRate] = useState('');
+  const canCredit = useSelector((state: any) => !!(state.session.account?.roles?.isAdmin || state.session.account?.roles?.isAccountant));
   const [previewImages, setPreviewImages] = useState<any>();
   // Fees in dinars (transport, customs clearance): paid from the dinar wallet on their own, or converted to dollars
   const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');
+  const effectiveFeeMode = allowPartial ? 'usd' : feeMode;
   const { rate: todayRate } = usePackageSettings();
 
   const [cancelToken, setCancelToken] = useState();
@@ -240,10 +247,10 @@ const CustomerOrders = ({ customerId, balances }: any) => {
       if (pkg.feeCurrency === 'LYD' && pkg.feeAmount) feesLYD += pkg.feeAmount;
     });
     // Converted at today's rate when paid in dollars; otherwise taken from the dinar wallet as is
-    if (feeMode === 'usd' && feesLYD && todayRate) totalFees += Math.round((feesLYD / todayRate) * 100) / 100;
+    if (effectiveFeeMode === 'usd' && feesLYD && todayRate) totalFees += selectedPackages.reduce((sum, pkg) => sum + (pkg.feeLydAmounts || []).reduce((fees, amount) => fees + round2(amount / todayRate), 0), 0);
 
-    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)), feesLYD: Number(feesLYD.toFixed(2)), separateLYD: feeMode === 'separate' ? Number(feesLYD.toFixed(2)) : 0 };
-  }, [selectedPackages, feeMode, todayRate]);
+    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)), feesLYD: Number(feesLYD.toFixed(2)), separateLYD: effectiveFeeMode === 'separate' ? Number(feesLYD.toFixed(2)) : 0 };
+  }, [selectedPackages, effectiveFeeMode, todayRate]);
 
   // The rate is calculated, never typed (the server calculates it the same way):
   // USD only -> 0, LYD only -> LYD / total, both -> USD is taken first and LYD pays the rest.
@@ -251,8 +258,8 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const amountUSD = toNumber(payment.amountUSD);
     const amountLYD = toNumber(payment.amountLYD);
     const remainingUSD = round2(totals.totalFees - amountUSD);
-    const rate = amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
-    const lydInUsd = rate > 0 ? remainingUSD : 0;
+    const rate = allowPartial ? Number(partialRate) : amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
+    const lydInUsd = rate > 0 ? allowPartial ? amountLYD / rate : remainingUSD : 0;
     const covered = round2(amountUSD + lydInUsd);
     const difference = round2(covered - totals.totalFees);
 
@@ -263,14 +270,17 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
     // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
     const nothingOwed = totals.totalFees === 0 && totals.feesLYD === 0;
-    if (amountUSD === 0 && amountLYD === 0 && !nothingOwed) errors.push('Enter a USD or LYD amount.');
-    if (amountLYD === 0 && amountUSD > 0) {
+    if (amountUSD === 0 && amountLYD === 0 && !nothingOwed && !allowPartial) errors.push('Enter a USD or LYD amount.');
+    if (allowPartial && amountLYD > 0 && (!Number.isFinite(rate) || rate <= 0)) errors.push('أدخل سعر صرف صحيحًا للدينار.');
+    if (allowPartial && totals.feesLYD > 0 && !todayRate) errors.push('سجل سعر الدينار أولًا لتحويل رسوم الطرود.');
+    if (allowPartial && difference > 0) errors.push('الدفعة أكبر من إجمالي الطرود المحددة.');
+    if (!allowPartial && amountLYD === 0 && amountUSD > 0) {
       if (difference < -PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(-difference)} short of the total (max $${PAYMENT_TOLERANCE_USD}).`);
       if (difference > PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(difference)} more than the total (max $${PAYMENT_TOLERANCE_USD}).`);
     }
 
     return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
-  }, [payment, totals.totalFees, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd]);
+  }, [payment, totals.totalFees, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd, allowPartial, partialRate, todayRate]);
 
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
@@ -284,14 +294,16 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const closeDialog = () => {
     setOpenDialog(false);
     setPayment(emptyPayment);
+    setAllowPartial(false);
+    setPartialRate('');
   };
 
   const markAsDelivered = async () => {
-    if (selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
+    if (isPending || selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
 
     try {
       setIsPending(true);
-      await api.post(`user/${customerId}/markAsDelivered`, {
+      const delivery = await api.post(`user/${customerId}/markAsDelivered`, {
         // Images are only needed for the preview, so don't send them
         selectedPackages: selectedPackages.map(({ images, ...pkg }) => pkg),
         payment: {
@@ -300,13 +312,15 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           rate: paymentSummary.rate,
         },
         totalCost: totals.totalFees,
-        feeMode,
+        feeMode: effectiveFeeMode,
+        allowPartial,
       });
 
       closeDialog();
       handleFilterChange(filter);
+      onDelivered?.();
       setIsError(false);
-      setResMessage('Packages marked as delivered successfully');
+      setResMessage(allowPartial ? `تم التسليم؛ المتبقي $${formatMoney(delivery.data.remainingUSD)} مرتبط بالفاتورة في قسم الديون.` : 'Packages marked as delivered successfully');
     } catch (err: any) {
       console.error(err);
       setIsError(true);
@@ -499,12 +513,24 @@ const CustomerOrders = ({ customerId, balances }: any) => {
         </>
       )}
 
-      <Dialog open={openDialog} onClose={closeDialog} maxWidth="sm" fullWidth PaperProps={{ className: 'co-dialog' }}>
+      <Dialog open={openDialog} onClose={() => { if (!isPending) closeDialog(); }} maxWidth="sm" fullWidth PaperProps={{ className: 'co-dialog' }}>
         <DialogContent>
           <div className="co-dialog-head">
             <h2>Confirm delivery</h2>
             <p>{selectedPackages.length} package{selectedPackages.length === 1 ? '' : 's'}, paid from the customer's wallet.</p>
           </div>
+
+          {canCredit && <div className="co-credit-option" dir="rtl">
+            <div className="co-payment-modes" role="group" aria-label="طريقة السداد">
+              <button type="button" className={!allowPartial ? 'is-active' : ''} aria-pressed={!allowPartial} disabled={isPending} onClick={() => setAllowPartial(false)}>
+                <CircleCheck size={17} aria-hidden="true" /> دفع كامل
+              </button>
+              <button type="button" className={allowPartial ? 'is-active' : ''} aria-pressed={allowPartial} disabled={isPending} onClick={() => setAllowPartial(true)}>
+                <Wallet size={17} aria-hidden="true" /> دفع جزئي
+              </button>
+            </div>
+            {allowPartial && <p>أدخل المدفوع وحدد سعر الصرف عند الدفع بالدينار. يُحسب المتبقي مباشرة ويُسجل كدين على العميل.</p>}
+          </div>}
 
           <div className="co-wallets">
             <div>
@@ -524,11 +550,11 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           {totals.feesLYD > 0 && (
             <div className="co-fee-box" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, margin: '12px 0' }}>
               <strong>Fees in LYD (transport, customs clearance): {formatMoney(totals.feesLYD)} LYD</strong>
-              <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
-                <label><input type="radio" checked={feeMode === 'separate'} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
+              {allowPartial ? <p dir="rtl">تُضاف الرسوم إلى الإجمالي بالدولار بسعر اليوم: {todayRate || '—'} دينار لكل دولار.</p> : <><div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
+                <label><input type="radio" checked={feeMode === 'separate'} disabled={allowPartial} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
                 <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>
               </div>
-              {feeMode === 'separate' && <small>{formatMoney(totals.feesLYD)} LYD are taken from the LYD wallet on their own; the total above is the shipping only.</small>}
+              {feeMode === 'separate' && <small>{formatMoney(totals.feesLYD)} LYD are taken from the LYD wallet on their own; the total above is the shipping only.</small>}</>}
             </div>
           )}
 
@@ -553,15 +579,20 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               value={payment.amountLYD}
               onChange={updatePayment('amountLYD')}
               onWheel={(event: any) => event.target.blur()}
-              helperText={paymentSummary.amountUSD > 0 ? `Pays the $${formatMoney(Math.max(0, paymentSummary.remainingUSD))} left after USD` : 'Pays the whole total'}
+              helperText={allowPartial ? 'المبلغ المدفوع فعليًا من محفظة الدينار' : paymentSummary.amountUSD > 0 ? `Pays the $${formatMoney(Math.max(0, paymentSummary.remainingUSD))} left after USD` : 'Pays the whole total'}
             />
             <TextField
               fullWidth
-              label="Exchange rate"
-              value={paymentSummary.rate > 0 ? paymentSummary.rate : 0}
-              disabled
+              label={allowPartial ? 'سعر الصرف المتفق عليه' : 'Exchange rate'}
+              type="number"
+              value={allowPartial ? partialRate : paymentSummary.rate > 0 ? paymentSummary.rate : 0}
+              onChange={event => setPartialRate(event.target.value)}
+              disabled={!allowPartial}
+              required={allowPartial && paymentSummary.amountLYD > 0}
+              error={allowPartial && paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0)}
+              inputProps={allowPartial ? { inputMode: 'decimal', min: 0.0001, step: 'any' } : undefined}
               InputProps={{ endAdornment: <InputAdornment position="end">LYD / $</InputAdornment> }}
-              helperText={paymentSummary.rate > 0
+              helperText={allowPartial ? 'أدخل عدد الدنانير مقابل دولار واحد؛ المدفوع بالدينار ÷ السعر = ما تم سداده بالدولار' : paymentSummary.rate > 0
                 ? `${formatMoney(paymentSummary.amountLYD)} LYD / $${formatMoney(paymentSummary.remainingUSD)}`
                 : 'Calculated from the LYD amount'}
             />
@@ -577,6 +608,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               <dt>Covered</dt>
               <dd>${formatMoney(paymentSummary.covered)} of ${formatMoney(totals.totalFees)}</dd>
             </div>
+            {allowPartial && <div className="co-remaining" dir="rtl" aria-live="polite"><dt>المتبقي على العميل</dt><dd dir="ltr">{paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0) ? '—' : `$${formatMoney(Math.max(0, totals.totalFees - paymentSummary.covered))}`}</dd></div>}
           </dl>
 
           {paymentSummary.errors.length > 0 ? (
@@ -586,7 +618,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               ))}
             </ul>
           ) : (
-            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> Payment covers the total.</p>
+            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> {allowPartial && paymentSummary.covered < totals.totalFees ? 'المتبقي سيُسجل كدين مرتبط بهذه الفاتورة والطرود.' : 'Payment covers the total.'}</p>
           )}
 
           <details className="co-selected-list">
@@ -607,9 +639,9 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           </details>
         </DialogContent>
         <DialogActions className="co-dialog-actions">
-          <button className="co-btn-ghost" onClick={closeDialog}>Cancel</button>
+          <button className="co-btn-ghost" onClick={closeDialog} disabled={isPending}>Cancel</button>
           <button className="co-btn-primary" onClick={markAsDelivered} disabled={paymentSummary.errors.length > 0 || isPending}>
-            Confirm delivery
+            {isPending ? 'جارٍ الحفظ…' : allowPartial ? 'تسليم وإثبات المتبقي' : 'Confirm delivery'}
           </button>
         </DialogActions>
       </Dialog>

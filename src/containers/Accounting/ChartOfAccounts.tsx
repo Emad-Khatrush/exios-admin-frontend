@@ -8,6 +8,7 @@ import { Archive, ArchiveRestore, ChevronDown, ChevronLeft, Pencil, Plus, Trash2
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABEL, CURRENCY_DECIMALS, DIMENSIONS, acc, errorText } from './accountingApi';
 import { AccountingAccount, toTree, useAccountingData } from './useAccountingData';
 import { useBulk } from './bulk';
+import { useAccountingAccess } from './useAccountingAccess';
 import { AccountRef, Badge, DataTable, FilterBar, Money, PageHeader, Panel } from './ui';
 
 const emptyForm = {
@@ -17,6 +18,7 @@ const emptyForm = {
 
 const ChartOfAccounts = () => {
   const navigate = useNavigate();
+  const access = useAccountingAccess();
   const { accounts, offices, currencies, isLoading, reload } = useAccountingData();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
@@ -119,7 +121,11 @@ const ChartOfAccounts = () => {
       <PageHeader
         title="شجرة الحسابات"
         subtitle="الأرصدة بالدولار. الحساب الذي عليه قيود يُعاد تسميته أو نقله ولا يُحذف؛ يُؤرشف بعد تصفير رصيده."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => openCreate()}>حساب جديد</Button>}
+        actions={<><Button variant="outlined" onClick={() => navigate('/accounting/financial-operations')}>التسويات والمستحقات</Button>{access.can('setup') && <Button variant="outlined" disabled={isSaving} onClick={async () => {
+          setIsSaving(true);
+          try { const response = await acc.post('setup/expanded-chart'); setMessage({ type: 'success', text: `تم تجهيز الحسابات وربطها. أضيف ${response.data.created.length} حسابًا جديدًا.` }); await reload(); }
+          catch (err) { setMessage({ type: 'error', text: errorText(err) }); } finally { setIsSaving(false); }
+        }}>تجهيز الحسابات الإضافية</Button>}<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => openCreate()}>حساب جديد</Button></>}
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <Panel flush>

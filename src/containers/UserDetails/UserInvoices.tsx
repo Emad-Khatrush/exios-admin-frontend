@@ -27,6 +27,8 @@ type Invoice = {
   referenceId: number
   amountUSD?: number;
   amountLYD?: number;
+  partialDelivery?: boolean;
+  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
   customer: User
   isCanceled?: boolean;
   canceledAt?: string;
@@ -157,7 +159,9 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
       ) : (
         <div className="invoices__grid">
           {invoices.map((invoice, index) => {
-            const hasLYD = (invoice.amountLYD || 0) > 0;
+            const paidUSD = invoice.partialDelivery ? invoice.settlement?.paidUSD || 0 : invoice.amountUSD || 0;
+            const paidLYD = invoice.partialDelivery ? invoice.settlement?.paidLYD || 0 : invoice.amountLYD || 0;
+            const hasLYD = paidLYD > 0;
             return (
               <article
                 key={invoice._id}
@@ -175,6 +179,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                   </div>
                   {invoice.isCanceled && <span className="invoice-canceled-tag">Cancelled</span>}
                   {!invoice.isCanceled && invoice.list.some((pkg: any) => pkg.canceledAt) && <span className="invoice-canceled-tag">Partly cancelled</span>}
+                  {invoice.partialDelivery && !invoice.isCanceled && <span className="invoice-card__label" dir="rtl">{Number(invoice.settlement?.remainingUSD) > 0 ? paidUSD || paidLYD ? 'مدفوعة جزئيًا' : 'غير مدفوعة' : 'مدفوعة بالكامل'}</span>}
                 </div>
 
                 <div className="invoice-card__figures">
@@ -184,9 +189,10 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                   </div>
                   <div>
                     <span className="invoice-card__label">Paid from wallet</span>
-                    <span className="invoice-card__value">{formatMoney(invoice.amountUSD || 0, 'USD')}</span>
-                    {hasLYD && <span className="invoice-card__value">{formatMoney(invoice.amountLYD || 0, 'LYD')}</span>}
+                    <span className="invoice-card__value">{formatMoney(paidUSD, 'USD')}</span>
+                    {hasLYD && <span className="invoice-card__value">{formatMoney(paidLYD, 'LYD')}</span>}
                   </div>
+                  {invoice.partialDelivery && <div dir="rtl"><span className="invoice-card__label">المتبقي للسداد</span><strong className="invoice-card__value">{formatMoney(invoice.settlement?.remainingUSD || 0, 'USD')}</strong></div>}
                 </div>
 
                 {!invoice.isCanceled && (invoice.cancellation?.refundedUSD || invoice.cancellation?.refundedLYD) ?
@@ -247,7 +253,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
               <>
                 <dl className="cashflow-confirm">
                   <dt>Customer paid</dt>
-                  <dd>{formatMoney(invoiceToCancel?.amountUSD || 0, 'USD')}, {formatMoney(invoiceToCancel?.amountLYD || 0, 'LYD')}</dd>
+                  <dd>{formatMoney(invoiceToCancel?.settlement?.paidUSD ?? invoiceToCancel?.amountUSD ?? 0, 'USD')}, {formatMoney(invoiceToCancel?.settlement?.paidLYD ?? invoiceToCancel?.amountLYD ?? 0, 'LYD')}</dd>
                   <dt>To cancel</dt>
                   <dd>{cancelIds.length} of {openPackages(invoiceToCancel).length} packages</dd>
                 </dl>
@@ -260,7 +266,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                         <input type="checkbox" checked={cancelIds.includes(id)}
                           onChange={() => setCancelIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))} />
                         <span style={{ flex: 1 }}>{pkg.trackingNumber || 'N/A'}</span>
-                        <span>{formatMoney(pkg.cost || 0, invoiceToCancel?.currency || 'USD')}</span>
+                        <span>{invoiceToCancel?.partialDelivery ? `${formatMoney(pkg.paidUSD || 0, 'USD')} / ${formatMoney(pkg.paidLYD || 0, 'LYD')}` : formatMoney(pkg.cost || 0, invoiceToCancel?.currency || 'USD')}</span>
                       </label>
                     );
                   })}
@@ -268,6 +274,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                 <p className="cashflow-confirm__hint">For each package cancelled:</p>
                 <ul className="cashflow-confirm__hint invoice-cancel-steps">
                   <li>The wallet payment is cancelled and the amount goes back to the customer's wallet.</li>
+                  {invoiceToCancel?.partialDelivery && <li dir="rtl">يُلغى الدين المتبقي للطرود المحددة وتُعاد الدفعات الفعلية، بما فيها الأقساط اللاحقة.</li>}
                   <li>The package goes back to Libya on, Received off.</li>
                   <li>The order goes back to وصلت البضائع, ready for pickup again.</li>
                 </ul>
@@ -280,11 +287,11 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                   <dt>Refunded LYD</dt>
                   <dd className="is-in">{formatMoney(cancelResult.refundedLYD || 0, 'LYD')}</dd>
                 </dl>
-                {cancelResult.packages?.some((pkg: any) => !pkg.refunds?.length || !pkg.statusUpdated) &&
+                {cancelResult.packages?.some((pkg: any) => (!invoiceToCancel?.partialDelivery && !pkg.refunds?.length) || !pkg.statusUpdated) &&
                   <p className="cashflow-confirm__error">
                     Check these tracking numbers by hand:{' '}
                     {cancelResult.packages
-                      .filter((pkg: any) => !pkg.refunds?.length || !pkg.statusUpdated)
+                      .filter((pkg: any) => (!invoiceToCancel?.partialDelivery && !pkg.refunds?.length) || !pkg.statusUpdated)
                       .map((pkg: any) => `${pkg.trackingNumber || 'N/A'} (${!pkg.refunds?.length ? 'no wallet payment found' : 'package not found in order'})`)
                       .join(', ')}
                   </p>

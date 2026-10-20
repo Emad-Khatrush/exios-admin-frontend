@@ -63,12 +63,14 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
       { to: '/accounting/unidentified', label: 'حركات قيد التحديد', icon: ListChecks, perms: ['treasury', 'reports'] },
       { to: '/accounting/exceptions', label: 'المطابقة والاستثناءات', icon: ShieldCheck, perms: ['reports'] },
       { to: '/accounting/suspense', label: 'تسوية المعلّق', icon: ListChecks, perms: ['suspense'] },
+      { to: '/accounting/financial-operations', label: 'التسويات والمستحقات', icon: ListChecks, perms: ['treasury', 'payroll', 'assets', 'purchases', 'entries', 'reports'] },
     ],
   },
   {
     label: 'الدفاتر والتقارير',
     links: [
       { to: '/accounting/reports', label: 'التقارير', icon: ChartColumn, perms: ['reports'] },
+      { to: '/accounting/financial-analysis', label: 'التحليل المالي', icon: ChartColumn, perms: ['reports'] },
       { to: '/accounting/entries', label: 'القيود', icon: BookOpen, perms: ['entries', 'entries_view'] },
       { to: '/accounting/accounts', label: 'شجرة الحسابات', icon: ListTree, perms: ['setup', 'reports', 'treasury'] },
       { to: '/accounting/trial-balance', label: 'ميزان المراجعة', icon: Scale, perms: ['reports'] },

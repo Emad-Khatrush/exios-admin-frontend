@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { useAccountingAccess } from './useAccountingAccess';
+import { recentFrom } from './ListFilters';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { Badge, DataTable, FilterBar, ForeignTotals, Ltr, Money, PageHeader, Panel, ShowCanceled, Sub } from './ui';
 
@@ -12,7 +13,7 @@ const JournalEntries = () => {
   const access = useAccountingAccess();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [filters, setFilters] = useState({ from: '', to: '', journalId: '', eventType: '', search: '', accountId: params.get('accountId') || '', showCanceled: '' });
+  const [filters, setFilters] = useState({ from: params.get('accountId') ? '' : recentFrom(), to: '', journalId: '', eventType: '', search: '', accountId: params.get('accountId') || '', showCanceled: '' });
   const [journals, setJournals] = useState<any[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [data, setData] = useState<any>({ results: [], total: 0, page: 1 });

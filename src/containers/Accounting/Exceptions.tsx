@@ -5,6 +5,8 @@ import { CheckCheck, RotateCw, Undo2 } from 'lucide-react';
 import { useAccountingAccess } from './useAccountingAccess';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid } from './ui';
+import WalletStatementReconciliation from './WalletStatementReconciliation';
+import FreeShippingReview from './FreeShippingReview';
 
 const SEVERITY: Record<string, { label: string; tone: any }> = {
   error: { label: 'خطأ', tone: 'danger' }, warn: { label: 'للمراجعة', tone: 'warn' }, info: { label: 'معلومة', tone: 'info' },
@@ -19,6 +21,8 @@ const Exceptions = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [walletRevision, setWalletRevision] = useState(0);
+  const [walletDifferenceCount, setWalletDifferenceCount] = useState<number | null>(null);
   const { can } = useAccountingAccess();
   const canReview = can('closing');
   // Items accepted after review (spec: they leave the list until the mark is taken back)
@@ -47,6 +51,7 @@ const Exceptions = () => {
   const titleOf = (key: string) => (data?.results || []).find((r: any) => r.key === key)?.title || key;
 
   const load = async (run = false) => {
+    if (run) setWalletRevision(value => value + 1);
     try {
       setIsRunning(run);
       setError('');
@@ -58,8 +63,10 @@ const Exceptions = () => {
   };
   useEffect(() => { load(); }, []);
 
-  const found = (data?.results || []).filter((r: any) => r.count > 0).sort((a: any, b: any) => ORDER[a.severity] - ORDER[b.severity]);
-  const clean = (data?.results || []).filter((r: any) => r.count === 0);
+  const found = (data?.results || []).filter((r: any) => r.key !== 'walletStatements' && r.count > 0).sort((a: any, b: any) => ORDER[a.severity] - ORDER[b.severity]);
+  const clean = (data?.results || []).filter((r: any) => r.key !== 'walletStatements' && r.count === 0);
+  const walletCount = walletDifferenceCount ?? (data?.results || []).find((row: any) => row.key === 'walletStatements')?.count ?? 0;
+  const errors = found.filter((row: any) => row.severity === 'error').length + (walletCount > 0 ? 1 : 0);
 
   return (
     <>
@@ -71,14 +78,16 @@ const Exceptions = () => {
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       {data && (
         <StatGrid>
-          <Stat label="أخطاء" value={data.errorCount} tone={data.errorCount ? 'danger' : undefined} hint="يجب ألا تبقى" />
+          <Stat label="أخطاء" value={errors} tone={errors ? 'danger' : undefined} hint="يجب ألا تبقى" />
           <Stat label="للمراجعة" value={data.warningCount} tone={data.warningCount ? 'warn' : undefined} hint="قرار المحاسب" />
           <Stat label="فحوص سليمة" value={clean.length} tone="accent" />
           <Stat label="آخر فحص" value={<Ltr>{data.day}</Ltr>} hint={data.ranAt ? new Date(data.ranAt).toLocaleTimeString('en-GB', { timeZone: 'Africa/Tripoli', hour: '2-digit', minute: '2-digit' }) : undefined} />
         </StatGrid>
       )}
       {!data && !error && <div className="acc-empty">جارٍ التحميل…</div>}
-      {data && found.length === 0 && <Alert severity="success" className="mb-3">كل الفحوص سليمة. الدفاتر تطابق المنظومة.</Alert>}
+      {data && walletDifferenceCount === 0 && found.length === 0 && <Alert severity="success" className="mb-3">كل الفحوص سليمة. الدفاتر تطابق المنظومة.</Alert>}
+      <WalletStatementReconciliation revision={walletRevision} onRepaired={() => load(true)} onCompared={setWalletDifferenceCount} />
+      <div className="mb-3"><FreeShippingReview onApplied={() => load(true)} /></div>
 
       {found.map((check: any) => (
         <Panel

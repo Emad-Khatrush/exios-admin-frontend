@@ -51,12 +51,16 @@ test('a legitimate partial refund is labelled partial and requires explicit appr
   await waitFor(() => expect(onConfirm).toHaveBeenCalled());
 });
 
-test('choosing a different merchant remains blocked even when amounts are equal', async () => {
+test('a different merchant requires explicit confirmation even when amounts are equal', async () => {
   prepare(refundBill({ merchantMismatch: true, statementVendorName: 'Alibaba' }), 81);
-  render(<PurchaseMatchPicker embedded open refund accountId="bank" currency="TRY" paid={4000} suggestedBillId="wrong"
+  const onConfirm = jest.fn().mockResolvedValue(undefined);
+  render(<PurchaseMatchPicker embedded open refund accountId="bank" currency="TRY" paid={4000} suggestedBillId="wrong" onConfirm={onConfirm}
     line={{ day: '2026-08-05', amount: 4000, originalAmount: 81, originalCurrency: 'USD' }} />);
-  await waitFor(() => expect(screen.getByText(/المورد المختار مختلف/)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(/مختلف عن تاجر الكشف/)).toBeTruthy());
   expect(screen.getByRole('button', { name: 'موافقة واعتماد الاسترداد' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox', { name: /راجعت الفاتورة: هذه نفس العملية رغم اسم التاجر/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'موافقة واعتماد الاسترداد' }));
+  await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ confirmMerchant: true })));
 });
 
 test('closed picker renders safely without a selected statement row', () => {

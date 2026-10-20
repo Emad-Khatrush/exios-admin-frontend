@@ -188,7 +188,9 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
           {selected.historicalSettlement && <>
             <ReviewField label="السداد التاريخي"><Ltr>{selected.historicalSettlement.paymentNumber} · {selected.historicalSettlement.paymentDay}</Ltr></ReviewField>
             <ReviewField label="حساب السداد السابق">{selected.historicalSettlement.accountName}</ReviewField>
-            <ReviewField label="قيمة تسوية المعلّق"><Ltr>{selected.historicalSettlement.amountUsd} USD</Ltr></ReviewField>
+            <ReviewField label="الحساب المقابل للتسوية">{selected.historicalSettlement.counterpartName || selected.historicalSettlement.accountName}</ReviewField>
+            {selected.historicalSettlement.closureNumber && <ReviewField label="الإقفال السابق"><Ltr>{selected.historicalSettlement.closureNumber}</Ltr></ReviewField>}
+            <ReviewField label="قيمة التسوية"><Ltr>{selected.historicalSettlement.amountUsd} USD</Ltr></ReviewField>
             <Alert severity="info" className="my-2">{selected.historicalSettlement.explanation} أي فرق في التقييم بين السداد التاريخي والقيمة الدفترية للبنك يُسجل في حساب فرق الصرف.</Alert>
             <FormControlLabel control={<Checkbox checked={confirmHistoricalSettlement} onChange={e => { setConfirmHistoricalSettlement(e.target.checked); setConfirmDifference(e.target.checked); }} />} label="راجعت المورد ومرجع الحوالة وأؤكد أنها تسوية السداد التاريخي نفسه" />
           </>}

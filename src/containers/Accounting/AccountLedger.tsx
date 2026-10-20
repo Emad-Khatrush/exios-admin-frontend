@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, TextField } from '@mui/material';
-import { CURRENCY_DECIMALS, EVENT_LABELS, acc, errorText } from './accountingApi';
+import moment from 'moment';
+import { CURRENCY_DECIMALS, EVENT_LABELS, acc, errorText, todayLibya } from './accountingApi';
 import { AccountRef, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, ShowCanceled, Stat, StatGrid, Sub } from './ui';
 
 const AccountLedger = () => {
@@ -9,8 +10,9 @@ const AccountLedger = () => {
   const navigate = useNavigate();
   // A report that links here passes its own period, so the figures match
   const [params] = useSearchParams();
-  const [from, setFrom] = useState(params.get('from') || '');
-  const [to, setTo] = useState(params.get('to') || '');
+  const hasLinkedPeriod = params.has('from') || params.has('to');
+  const [from, setFrom] = useState(() => hasLinkedPeriod ? params.get('from') || '' : moment(todayLibya(), 'YYYY-MM-DD').subtract(2, 'days').format('YYYY-MM-DD'));
+  const [to, setTo] = useState(() => hasLinkedPeriod ? params.get('to') || '' : todayLibya());
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +66,7 @@ const AccountLedger = () => {
           onRowClick={(row: any) => navigate(`/accounting/entries/${row._id}`)}
           empty={{ title: 'لا توجد حركات في هذه الفترة' }}
           columns={[
-            { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
+            { key: 'day', header: 'التاريخ', width: 110, sortValue: (row: any) => `${row.day}:${row.createdAt || ''}:${row._id}:${String(row.sequence ?? 0).padStart(8, '0')}`, render: (row: any) => <Ltr>{row.day}</Ltr> },
             {
               key: 'description', header: 'البيان', render: (row: any) => (
                 <>

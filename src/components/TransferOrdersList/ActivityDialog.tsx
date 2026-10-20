@@ -1,6 +1,7 @@
 import { Autocomplete, CircularProgress, TextField } from '@mui/material';
 import React, { useMemo, useRef, useState } from 'react'
-import { countries, orderActions } from '../../containers/EditInvoice/EditInvoice';
+import { countries } from '../../containers/EditInvoice/orderConstants';
+import ActivityMessagePicker from './ActivityMessagePicker';
 import { acceptingPaymentAlertText, arrivedPackageDetails, arrivingGoodsToPortAlert, reminderToReceiveGoodsText } from './readyTexts';
 import { calculateMinTotalPrice, replaceWords } from '../../utils/methods';
 import api from '../../api';
@@ -341,26 +342,8 @@ const ActivityDialog = (props: Props) => {
             </div>
 
             <div className="ad-field">
-              <label className="ad-label" htmlFor="ad-description">نص التحديث</label>
-              <Autocomplete
-                freeSolo
-                options={orderActions}
-                ListboxProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
-                inputValue={description}
-                onInputChange={(_event, value) => { setDescription(value); setActivityResult(undefined); }}
-                disabled={isAdding}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    id="ad-description"
-                    size="small"
-                    required
-                    multiline
-                    placeholder="اختر تحديثاً جاهزاً أو اكتب نصاً جديداً"
-                  />
-                )}
-              />
-              <span className="ad-hint">اختر من القائمة أو اكتب نصك الخاص.</span>
+              <ActivityMessagePicker value={description} onChange={value => { setDescription(value); setActivityResult(undefined); }} disabled={isAdding} id="ad-description" />
+              <span className="ad-hint">تأكد أن الرسالة مناسبة لجميع الطلبيات المحددة قبل الإضافة.</span>
             </div>
 
             {activityResult &&

@@ -1,10 +1,20 @@
 import { ReactNode } from 'react';
 import { Button, TextField } from '@mui/material';
 import { FilterBar } from './ui';
+import { todayLibya } from './accountingApi';
 
 // The filters of the accounting lists (owner's request 2026-10-04): any fields of the page, then
 // the dates and a search on the document number or its note. "عرض" asks the server again.
 export type ListFilterValue = Record<string, string>;
+
+// Lists open on the last few days (today and the two before it) so they load little data; the
+// dates can be changed or cleared to see more
+export const RECENT_DAYS = 3;
+export const recentFrom = () => {
+  const day = new Date(`${todayLibya()}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - (RECENT_DAYS - 1));
+  return day.toISOString().slice(0, 10);
+};
 
 // The filled fields only, as query parameters
 export const queryOf = (value: ListFilterValue) => Object.fromEntries(Object.entries(value).filter(([, v]) => v));

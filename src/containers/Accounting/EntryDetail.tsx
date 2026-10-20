@@ -3,6 +3,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { EVENT_LABELS, OFFICE_LABELS, acc, errorText } from './accountingApi';
 import { useAccountingAccess } from './useAccountingAccess';
+import { CancelDialog } from './shared';
 import { AccountRef, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Sub } from './ui';
 
 // Internal references with no page of their own
@@ -16,6 +17,7 @@ const EntryDetail = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const [docCancelOpen, setDocCancelOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -67,6 +69,7 @@ const EntryDetail = () => {
           {entry.reversalOf && <Badge tone="warn">قيد عكسي</Badge>}
           {entry.isHistorical && <Badge tone="info">تاريخي</Badge>}
           {cashNet !== 0 && <Button variant="outlined" component="a" href={`/accounting/vouchers/${entry._id}`} target="_blank" rel="noreferrer">{cashNet > 0 ? 'سند قبض' : 'سند صرف'} ↗</Button>}
+          {source?.cancel && entry.status === 'posted' && access.can('cancel') && <Button color="error" variant="outlined" onClick={() => setDocCancelOpen(true)}>إلغاء {source.cancel.title}</Button>}
           {source?.url && <Button variant="outlined" component="a" href={source.url} target="_blank" rel="noreferrer">فتح {source.label} ↗</Button>}
           {canCancel && access.can('entries') && access.can('cancel') && <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)}>إلغاء القيد</Button>}
         </>}
@@ -136,6 +139,8 @@ const EntryDetail = () => {
           <Button color="error" variant="contained" onClick={cancel} disabled={!reason.trim() || isCancelling}>تأكيد الإلغاء</Button>
         </DialogActions>
       </Dialog>
+      {source?.cancel && <CancelDialog open={docCancelOpen} onClose={() => setDocCancelOpen(false)} onDone={load}
+        model={source.cancel.model} id={source.cancel.id} title={source.cancel.title} />}
     </>
   );
 };

@@ -570,6 +570,24 @@ $cl-ease: cubic-bezier(0.16, 1, 0.3, 1);
   .wl-direction--minus.is-active { color: $cl-danger; }
 }
 
+.wl-office-filter {
+  width: 180px;
+  max-width: 100%;
+  margin-bottom: 14px !important;
+}
+
+.wl-statement__office {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+  color: $cl-ink;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+
+  svg { flex-shrink: 0; }
+}
+
 .wl-summary {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 

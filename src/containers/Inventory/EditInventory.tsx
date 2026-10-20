@@ -15,7 +15,7 @@ import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
 import { TripAccounting } from "../Accounting/AccountingPanels";
 import { convertGoogleStorageUrl } from "../../utils/methods";
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import {
   ChoiceGroup,
   COUNTRY_OPTIONS,
@@ -34,6 +34,12 @@ import {
 import './InventoryForm.scss';
 
 const formatDate = (value?: string | Date) => (value ? moment(value).format('DD/MM/YYYY') : '');
+const InventoryFold = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <details className="inv-fold">
+    <summary dir="rtl"><strong>{title}</strong><ChevronDown size={18} aria-hidden="true" /></summary>
+    <div className="inv-fold-body">{children}</div>
+  </details>
+);
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -229,6 +235,7 @@ const EditInventory = () => {
 
   const orders = inventory?.orders || [];
   const deliveredCount = orders.filter((order: any) => order?.paymentList?.status?.received).length;
+  const volumetricCount = orders.filter((order: any) => order?.paymentList?.deliveredPackages?.volumetric?.enabled).length;
   const isFinished = inventory?.status === 'finished';
 
   return (
@@ -280,8 +287,8 @@ const EditInventory = () => {
               <strong>{deliveredCount}<small>of {orders.length}</small></strong>
             </div>
             <div className="inv-tile">
-              <span>Ready date</span>
-              <strong>{formatDate(inventory?.inventoryFinishedDate) || <small>Not set</small>}</strong>
+              <span>Arrival date</span>
+              <strong>{formatDate(inventory?.arrivalDate) || <small>Not set</small>}</strong>
             </div>
           </section>
 
@@ -503,23 +510,29 @@ const EditInventory = () => {
         </form>
       )}
 
-      {!isEditing && (roles.isAdmin || ['S092', 'A647'].includes(customerId)) && (
+      {!isEditing && (roles.isAdmin || roles.isAccountant || ['S092', 'A647'].includes(customerId)) && (
+        <InventoryFold title="المصاريف">
         <InventoryExpenses
           inventoryId={inventory?._id}
           inventory={inventory}
         />
+        </InventoryFold>
       )}
 
       {!isEditing && <TripAccounting tripId={inventory?._id} />}
 
       {!isEditing && (
-        <>
-          <h2 className="inv-section-title">Packages</h2>
+        <section aria-label="طرود الرحلة">
+          <h2 className="inv-section-title mb-2" dir="rtl">الطرود ({orders.length})</h2>
+          {volumetricCount > 0 && <Alert severity="warning" role="status" dir="rtl" sx={{ mb: 2, bgcolor: '#fff0ef', color: '#9f2920', border: '1px solid #eab5af', '& .MuiAlert-icon': { color: 'inherit' } }}>
+            <strong>تنبيه: تحتوي هذه الرحلة على {volumetricCount} طرود بوزن حجمي.</strong>
+            <div>هذه الطرود مميزة بالأحمر في قائمة الجرد. راجع الوزن الفعلي ووزن الفوترة عند تجهيز الرحلة.</div>
+          </Alert>}
           <InventoryOrders
             inventory={inventory}
             getInventory={getInventory}
           />
-        </>
+        </section>
       )}
 
       <Snackbar

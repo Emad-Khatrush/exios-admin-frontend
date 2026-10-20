@@ -1,27 +1,40 @@
-.order-widget {
-  h5 {
-    font-size: 1.2rem;
-  }
-
-  .preview-image {
-    img {
-      width: 150px;
-      height: 150px;
-    }
-  }
-
-  .description {
-    color: #afafb9;
-    font-weight: 500;
-    font-size: 0.8rem;
-    width: fit-content;
-    &:hover {
-      cursor: pointer;
-      text-decoration: underline;
-    }
-  }
-
-  .order-image {
-    cursor: pointer;
-  }
+.customer-profile-card {
+  color: #182b3d; background: #fff; border: 1px solid #dfe7ec; border-radius: 12px; padding: 20px 24px; margin-bottom: 14px;
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Tahoma, sans-serif; font-size: 13px;
+  *, *::before, *::after { box-sizing: border-box; }
+  h2, p, dl, dd { margin: 0; }
+  button { font: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid #0b6b62; outline-offset: 3px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .cpc-heading { display: flex; align-items: center; gap: 12px; }
+  .cpc-avatar { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; color: #0b6b62; background: #edf7f4; font-size: 15px; font-weight: 600; }
+  .cpc-identity { min-width: 0; flex: 1; }
+  h2 { text-align: right; overflow-wrap: anywhere; font-size: 17px; font-weight: 600; line-height: 1.6; }
+  .cpc-identity > span { color: #586979; font-size: 12px; }
+  .cpc-edit { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; flex-shrink: 0; border: 1px solid #dfe7ec; border-radius: 7px; background: #fff; color: #586979; font-size: 12px; }
+  .cpc-edit:hover { color: #0b6b62; border-color: #8fb8b0; }
+  .cpc-content { display: grid; grid-template-columns: 155px minmax(0, 1fr); gap: 24px; margin-top: 20px; align-items: center; }
+  .cpc-code { border-inline-end: 1px solid #dfe7ec; padding-inline-end: 24px; }
+  .cpc-code > span { display: block; color: #586979; font-size: 11px; }
+  .cpc-code button { display: flex; align-items: center; gap: 12px; max-width: 100%; padding: 3px 0; background: transparent; border: 0; color: #0b6b62; }
+  .cpc-code bdi { font: 600 23px/1.6 'Red Hat Text', sans-serif; overflow-wrap: anywhere; }
+  .cpc-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 18px; min-width: 0; }
+  .cpc-facts > div { min-width: 0; }
+  dt { display: flex; align-items: center; gap: 6px; color: #586979; font-size: 11px; font-weight: 400; }
+  dd { margin-top: 5px; color: #182b3d; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+}
+@media (max-width: 540px) {
+  .customer-profile-card .cpc-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 6px 10px; }
+  .customer-profile-card .cpc-avatar { grid-row: 1 / 3; }
+  .customer-profile-card .cpc-identity { grid-column: 2; }
+  .customer-profile-card .cpc-edit { grid-column: 2; justify-self: start; min-height: 34px; }
+}
+:where(.customer-profile-card *) { font-size: inherit; }
+@media (max-width: 700px) {
+  .customer-profile-card { padding: 18px 16px; }
+  .customer-profile-card .cpc-heading { flex-wrap: wrap; gap: 10px; }
+  .customer-profile-card .cpc-content { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  .customer-profile-card .cpc-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 12px; border-inline-end: 0; border-bottom: 1px solid #dfe7ec; }
+  .customer-profile-card .cpc-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  .customer-profile-card .cpc-edit { min-height: 38px; }
 }

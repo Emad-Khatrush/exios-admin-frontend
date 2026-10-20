@@ -10,6 +10,7 @@ import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat,
 import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, readSheet, rowsFrom } from './bankImport';
 import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 import PurchaseMatchPicker from './PurchaseMatchPicker';
+import BankFinancialOperation from './BankFinancialOperation';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
 import BankLineDetails from './BankLineDetails';
 import UnidentifiedPark from './UnidentifiedPark';
@@ -22,6 +23,8 @@ import LinkedWalletRefundInfo, { WALLET_REFUND_LINK_MESSAGE } from './LinkedWall
 import { batchTrialAvailable } from './BatchPaymentTrial';
 import { bankSourceTextOverride } from './bankSourceTextOverride';
 import StatementDescriptionTranslation, { canTranslateDescription } from './StatementDescriptionTranslation';
+import { BankDuplicateReview, BankGroupMatch, BankIntegrityDialog, MatchQuality } from './BankMatchTools';
+import LocalBankReset, { localBankResetHost } from './LocalBankReset';
 
 type Preview = {
   fileName: string
@@ -61,6 +64,7 @@ const STATUS_LABEL: Record<string, { text: string, tone: any }> = {
   imported: { text: 'مستورد من قبل', tone: 'muted' },
   match: { text: 'مسجل في الدفاتر', tone: 'ok' },
   maybeDuplicate: { text: 'قد يكون مكرراً', tone: 'warn' },
+  possibleImported: { text: 'سطر مستورد محتمل', tone: 'warn' },
 };
 
 // The first words of a statement text make a good rule keyword ("COMMISSION TRF 001" -> "commission trf")
@@ -79,6 +83,9 @@ const BankReconciliation = () => {
   const matchingSettings = useMemo(() => matchingProfiles[accountId] || readMatchingSettings(accountId), [accountId, matchingProfiles]);
   const [settingsDraft, setSettingsDraft] = useState<MatchingSettings | null>(null);
   const [settlingDuplicates, setSettlingDuplicates] = useState(false);
+  const [referenceReview, setReferenceReview] = useState<any>(null);
+  const [groupMatchLines, setGroupMatchLines] = useState<any[] | null>(null);
+  const [integrityOpen, setIntegrityOpen] = useState(false);
   const [translationProgress, setTranslationProgress] = useState<{ done: number; total: number } | null>(null);
   const matchingEnabled = (engine: string) => matchingSettings.engines.includes(engine);
   const [suggested, setSuggested] = useState<Record<string, any>>({});
@@ -108,7 +115,7 @@ const BankReconciliation = () => {
   }, [entryFor?.error]);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [purchaseReview, setPurchaseReview] = useState<any>(null);
-  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('lineId'));
   const [parkFor, setParkFor] = useState<any>(null);
   // "Are you sure?" before ignoring, deleting or undoing a line
   const [confirmBox, setConfirmBox] = useState<any>(null);
@@ -396,6 +403,8 @@ const BankReconciliation = () => {
 
   // One clear line per unmatched row: what the system found for it, or that it found nothing
   const suggestionLine = (row: any) => {
+    if (row.duplicateReviewPending) return <Alert severity="warning">قد يكون هذا السطر مستوردًا سابقًا ببيان مختلف.
+      <Button onClick={() => setReferenceReview(row)}>مراجعة التكرار</Button></Alert>;
     const hint = suggested[row._id];
     const partner = partnerHints[row._id] || [];
     const transfers = transferHints[row._id];
@@ -504,6 +513,11 @@ const BankReconciliation = () => {
 
   return (
     <>
+      {referenceReview && <BankDuplicateReview line={referenceReview} candidates={suggested[referenceReview._id]?.statementDuplicates || []} currency={currency}
+        onClose={() => setReferenceReview(null)} onDone={async () => { setReferenceReview(null); await load(); }} />}
+      {groupMatchLines && <BankGroupMatch lines={groupMatchLines} movements={data?.unmatchedMovements || []} currency={currency}
+        onClose={() => setGroupMatchLines(null)} onDone={async () => { setGroupMatchLines(null); await load(); }} />}
+      {integrityOpen && <BankIntegrityDialog accountId={accountId} currency={currency} onClose={() => setIntegrityOpen(false)} onDone={load} />}
       {settingsDraft && <BankMatchingSettings value={settingsDraft} accountName={account?.name || ''} onChange={setSettingsDraft} onClose={() => setSettingsDraft(null)} onSave={() => {
         try {
           localStorage.setItem(`acc-bank-matching:${accountId}`, JSON.stringify(settingsDraft));
@@ -562,6 +576,9 @@ const BankReconciliation = () => {
               <input hidden type="file" accept=".xlsx,.xls,.csv,.pdf" onChange={(e) => { openFile(e.target.files?.[0]); e.target.value = ''; }} />
             </Button>
             <Button variant="outlined" disabled={!matchingEnabled('ledger') || isLoading} onClick={() => run(() => acc.post('bank/auto-match', { accountId, matchingSettings }), (d) => `طُوبق ${d.matched} سطراً.`)}>مطابقة تلقائية</Button>
+            <Button variant="outlined" disabled={!accountId || isLoading} onClick={() => setIntegrityOpen(true)}>فحص المطابقات السابقة</Button>
+            <LocalBankReset accountId={accountId} lines={(data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id))}
+              onDone={async (result) => { bulk.selection.onChange(new Set()); setMessage({ type: 'success', text: `حُذف ${result.deleted} سطرًا وأُلغي ترحيل التجربة. يمكنك استيراد نفس الكشف مجددًا.` }); await load(); }} />
             <Button component={RouterLink} to="/accounting/purchase-reconciliation">متابعة المشتريات</Button>
             {batchTrialAvailable && currency === 'USD' && <Button variant="outlined" color="warning" disabled={isLoading} onClick={() => setSettlingDuplicates(true)}>تسوية التكرار</Button>}
             </div>
@@ -600,6 +617,10 @@ const BankReconciliation = () => {
         {!accountId && <div className="acc-empty">اختر بنكاً أو محفظة إلكترونية.</div>}
       </Panel>
 
+      {partnerAccount && matchingEnabled('partners') && ((account as any)?.walletCustomerCode || (account as any)?.seedKey === '110401') && <Alert severity="info" className="mb-3">
+        هذا الحساب مرتبط بمحفظة العميل <Ltr>{(account as any)?.walletCustomerCode || 'N999'}</Ltr>. عند رفع الكشف تُطابق الإيداعات تلقائيًا إذا تطابق المبلغ والتاريخ وكان هناك احتمال واحد فقط. الفروق والحالات المتشابهة تبقى للمراجعة، ولا تُضاف قيمة جديدة للمحفظة.
+      </Alert>}
+
       {accountId && data && (
         <StatGrid>
           <Stat label="الرصيد الحالي في الدفاتر" value={money(data.bookBalance.foreign)} tone="accent" hint={data.bookBalanceAtStatement && data.bookBalanceAtStatement.foreign !== data.bookBalance.foreign
@@ -622,6 +643,8 @@ const BankReconciliation = () => {
           {data?.hasMore && <Alert severity="info" className="mx-3 mb-2">يوجد أكثر من 500 نتيجة؛ ضيّق نطاق التاريخ أو البحث لعرض السطور المطلوبة. الفلترة تُطبّق على كامل الكشف.</Alert>}
           {bulk.bar}
           {bulk.selection.selected.size > 0 && <div className="px-3 pb-2">
+            <Button variant="outlined" disabled={!(data?.lines || []).some((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched')}
+              onClick={() => setGroupMatchLines((data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched'))}>مطابقة المحدد مع دفعة أو مجموعة قيود</Button>
             <Button size="small" variant="outlined" disabled={!!translationProgress} onClick={async () => {
               const picked = (data?.lines || []).filter((row: any) => bulk.selection.selected.has(row._id) && canTranslateDescription(row)
                 && row.descriptionTranslation?.original !== row.description);
@@ -655,7 +678,7 @@ const BankReconciliation = () => {
             );
           })()}
           <DataTable
-            selection={bulk.selection}
+            selection={{ ...bulk.selection, selectable: (row: any) => localBankResetHost() || bulk.selection.selectable(row) }}
             loading={isLoading}
             rows={data?.lines || []}
             rowKey={(row: any) => row._id}
@@ -692,6 +715,9 @@ const BankReconciliation = () => {
                       {row.crossRate > 0 && <Sub>السعر المباشر: <Ltr>{Number(row.crossRate).toFixed(6)} {row.rateQuoteCurrency}/{row.rateBaseCurrency}</Ltr></Sub>}
                       {row.settlementUsd > 0 && <Sub>مقابل الدولار في الكشف: <Ltr>{row.settlementUsd} USD</Ltr></Sub>}
                       {row.lineStatus === 'unmatched' && suggestionLine(row)}
+                      {row.lineStatus === 'unmatched' && !row.duplicateReviewPending && <MatchQuality quality={hint?.matchQuality} />}
+                      {row.matchGroupId && <Sub>مطابقة مجموعة — فك الربط يعيد المجموعة كاملة للمراجعة</Sub>}
+                      {row.duplicateResolvedToId && <Button size="small" onClick={() => setDetailsId(row.duplicateResolvedToId)}>نسخة مكررة — فتح السطر الأصلي</Button>}
                       {row.lineStatus === 'unmatched' && hint?.exactMatch && <Sub>✓ مطابق المبلغ والعملة والتاريخ — متاح للاعتماد الجماعي</Sub>}
                     </>
                   );
@@ -751,6 +777,14 @@ const BankReconciliation = () => {
           />
         </Panel>
       )}
+
+      {!!data?.balanceAdjustments?.length && <Panel flush title="قيود الجرد وتصحيح الرصيد الافتتاحي" subtitle="هذه قيود لتسوية رصيد الدفاتر، ولا تمثل إيداعًا أو سدادًا جديدًا في البنك. تبقى محسوبة في الرصيد ولا تحتاج مطابقة مع سطر كشف.">
+        <DataTable dense rows={data.balanceAdjustments} rowKey={(row: any) => row._id} columns={[
+          { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
+          { key: 'entry', header: 'القيد', render: (row: any) => <><Open to={`/accounting/entries/${row._id}`}><Ltr>{row.number}</Ltr></Open><Sub>{row.description}</Sub></> },
+          { key: 'amount', header: 'أثره على الرصيد', numeric: true, render: (row: any) => money(row.amount) },
+        ]} />
+      </Panel>}
 
       {accountId && (
         <Panel
@@ -970,7 +1004,9 @@ const BankReconciliation = () => {
               {entryFor.line.amount > 0 && entryFor.line.movementKind !== 'card_payment' && <MenuItem value="pending_refund">ترحيل استرداد قيد التحديد — الطلبية غير معروفة</MenuItem>}
               <MenuItem value="ledger">مطابقة مع قيد مسجل سابقًا</MenuItem>
               <MenuItem value="new">ترحيل عملية جديدة</MenuItem>
+              <MenuItem value="financial_operation">تسوية حوالة أو تأمين أو مستحق مسجل</MenuItem>
             </TextField>
+            {entryFor.mode === 'financial_operation' && <BankFinancialOperation line={entryFor.line} currency={currency} onDone={() => { setEntryFor(null); load(); }} />}
             {entryFor.mode === 'pending_refund' && <>
               <Alert severity="info">سيُسجل استلام البنك مقابل حساب 219100 «استردادات موردين قيد التحديد». عند تحديد الطلبية، اختر هذا المبلغ من نموذج الريفاند لتسوية المعلّق وإضافة مبلغ العميل دون استلام البنك مرة ثانية.</Alert>
               <Button className="mt-3" variant="contained" disabled={reviewSaving} onClick={async () => {

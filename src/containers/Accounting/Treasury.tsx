@@ -7,10 +7,10 @@ import { CancelDialog, RemotePicker, today, userLabel } from './shared';
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { SubBoxesPanel } from './SubBoxes';
-import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
+import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
 
-const TRANSFER_FILTERS: ListFilterValue = { accountId: '', status: '', from: '', to: '', search: '' };
-const COUNT_FILTERS: ListFilterValue = { accountId: '', from: '', to: '' };
+const TRANSFER_FILTERS: ListFilterValue = { accountId: '', status: '', from: recentFrom(), to: '', search: '' };
+const COUNT_FILTERS: ListFilterValue = { accountId: '', from: recentFrom(), to: '' };
 
 const Treasury = () => {
   const { accounts, reload } = useAccountingData();

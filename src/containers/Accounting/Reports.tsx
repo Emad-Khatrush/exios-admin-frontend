@@ -5,6 +5,7 @@ import { Download, Printer } from 'lucide-react';
 import { CURRENCY_DECIMALS, EVENT_LABELS, OFFICE_LABELS, acc, errorText, todayLibya } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
 import { RemotePicker, SHIPPING_TYPES, userLabel } from './shared';
+import ShippingRecognitionReview from './ShippingRecognitionReview';
 import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub, ShowCanceled } from './ui';
 
 // ---------- Shared pieces ----------
@@ -366,6 +367,9 @@ const TripDetail = ({ trip, onClose }: { trip: any; onClose: () => void }) => {
       </header>
 
       <StatGrid>
+        <Stat label="المحصّل للشحن" value={<Money value={trip.collected} />} hint="المبالغ المسددة والمخصصة لأجرة الشحن" />
+        <Stat label="المتبقي على العملاء" value={<Money value={trip.open} />} tone={trip.open > 0 ? 'warn' : undefined} />
+        <Stat label="الربح المحاسبي" value={<Money value={trip.profit} />} hint={<>إيراد مستحق <Money value={trip.revenue} /> − تكلفة محمّلة <Money value={trip.cost} /></>} />
         {domestic ? (
           <>
             <Stat label="تكلفة الرحلة الداخلية" value={<Money value={trip.totalCost} />} hint={trip.costInProgress ? <>منها قيد التنفيذ <Money value={trip.costInProgress} tone="plain" /></> : undefined} />
@@ -375,14 +379,14 @@ const TripDetail = ({ trip, onClose }: { trip: any; onClose: () => void }) => {
           </>
         ) : (
           <>
-            <Stat label="إجمالي الإيراد" value={<Money value={trip.totalRevenue} />} hint={<>معترف به <Money value={trip.revenue} tone="plain" /> · مؤجل <Money value={trip.deferred} tone="plain" /></>} />
+            <Stat label="قيمة الشحن الكلية" value={<Money value={trip.totalRevenue} />} hint={<>معترف به <Money value={trip.revenue} tone="plain" /> · مؤجل <Money value={trip.deferred} tone="plain" /></>} />
             <Stat
               label="إجمالي التكلفة" value={<Money value={trip.totalCost} />}
               hint={trip.freeShippingCost > 0 ? <>منها شحن مجاني <Money value={trip.freeShippingCost} tone="plain" /></> : trip.costInProgress ? <>قيد التنفيذ <Money value={trip.costInProgress} tone="plain" /></> : undefined}
             />
-            <Stat label="الصافي قبل النقل الداخلي" value={<Money value={trip.profitBeforeDomestic} />} tone={trip.profitBeforeDomestic < 0 ? 'danger' : undefined} />
+            <Stat label="الربح المتوقع قبل النقل الداخلي" value={<Money value={trip.profitBeforeDomestic} />} tone={trip.profitBeforeDomestic < 0 ? 'danger' : undefined} />
             <Stat
-              label="الصافي بعد النقل الداخلي" value={<Money value={trip.profitAfterDomestic} />} tone={trip.profitAfterDomestic < 0 ? 'danger' : 'accent'}
+              label="الربح المتوقع بعد النقل الداخلي" value={<Money value={trip.profitAfterDomestic} />} tone={trip.profitAfterDomestic < 0 ? 'danger' : 'accent'}
               hint={trip.domesticCost ? <>النقل الداخلي <Money value={trip.domesticCost} tone="plain" /></> : 'لا نقل داخلي'}
             />
             <Stat
@@ -424,7 +428,7 @@ const TripDetail = ({ trip, onClose }: { trip: any; onClose: () => void }) => {
                 },
                 { key: 'sellPerUnit', header: `بيع ${unit}`, numeric: true, render: (row: any) => (row.sellPerUnit === null ? null : <Money value={row.sellPerUnit} tone="plain" />) },
                 { key: 'domesticCost', header: 'النقل الداخلي', numeric: true, render: (row: any) => <Money value={row.domesticCost} hideZero tone="plain" /> },
-                { key: 'profit', header: 'الربح', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
+                { key: 'profit', header: 'الربح المتوقع', numeric: true, render: (row: any) => <Money value={row.profit} strong /> },
               ]}
             />
           </div>
@@ -447,12 +451,13 @@ const Trips = () => {
   return (
     <Panel
       flush title="ربحية الرحلات"
-      subtitle="إجمالي الإيراد = المعترف به (مسلَّم ومسدد) + المؤجل (لم يُسلَّم أو لم يُسدَّد). إجمالي التكلفة = كل مصاريف الرحلة. الصافي = إجمالي الإيراد ناقص إجمالي التكلفة. سعر الوحدة = إجمالي التكلفة (أو الإيراد) ÷ مجموع أوزان الطرود: الجوي بالكيلو والبحري بالـCBM. الرحلة الداخلية: تكلفتها تُوزَّع على طرودها بالوزن ويقابلها رسوم النقل. اضغط رحلة لتفاصيلها: التكلفة حسب النوع، والكيلو حسب مكتب التسليم، والربح قبل النقل الداخلي وبعده."
-      actions={<Actions onExport={() => exportSheet('trips', (data?.results || []).map((r: any) => ({
+      subtitle="يُعترف بإيراد الشحن وتكلفته عند التسليم، ويبقى غير المسدد ذمة على العميل. المحصّل هو السداد المخصص لأجرة الشحن، وليس إجمالي إيداعات الخزينة. الربح المحاسبي = الإيراد المعترف به ناقص التكلفة المحمّلة؛ والربح المتوقع يشمل الشحن المؤجل وتكاليف الرحلة كاملة."
+      actions={<><ShippingRecognitionReview onApplied={() => { setOpened(null); load(filters); }} /><Actions onExport={() => exportSheet('trips', (data?.results || []).map((r: any) => ({
         trip: r.voyage, type: r.shippingType, status: r.status, packages: r.packages, recognizedPackages: r.recognizedPackages, weight: r.weight, unit: r.unit || '',
         revenueRecognized: dollars(r.revenue), deferred: dollars(r.deferred), totalRevenue: dollars(r.totalRevenue), totalCost: dollars(r.totalCost), net: dollars(r.net),
+        collected: dollars(r.collected), remaining: dollars(r.open), recognizedCost: dollars(r.cost), accountingProfit: dollars(r.profit),
         costPerUnit: r.costPerUnit === null ? '' : dollars(r.costPerUnit), revenuePerUnit: r.revenuePerUnit === null ? '' : dollars(r.revenuePerUnit),
-      })), data?.reviewStatus)} />}
+      })), data?.reviewStatus)} /></>}
     >
       <div className="px-3 acc-noprint">
         <FilterBar>
@@ -488,10 +493,14 @@ const Trips = () => {
           { key: 'status', header: 'الحالة', hideOnMobile: true, render: (row: any) => <StatusBadge status={row.status} /> },
           { key: 'weight', header: 'الوزن', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.weight, render: (row: any) => (row.weight ? <span className="money">{row.weight.toLocaleString('en-US', { maximumFractionDigits: 3 })} {row.unit || (row.mixedUnits ? 'مختلط' : '')}</span> : null) },
           { key: 'revenue', header: 'إيراد معترف به', numeric: true, sortValue: (row: any) => row.revenue, render: (row: any) => <Money value={row.revenue} hideZero /> },
+          { key: 'collected', header: 'المحصّل للشحن', numeric: true, sortValue: (row: any) => row.collected, render: (row: any) => <Money value={row.collected} hideZero tone="plain" /> },
+          { key: 'open', header: 'المتبقي على العملاء', numeric: true, sortValue: (row: any) => row.open, render: (row: any) => <Money value={row.open} hideZero /> },
+          { key: 'profit', header: 'الربح المحاسبي', numeric: true, sortValue: (row: any) => row.profit, render: (row: any) => <Money value={row.profit} strong /> },
+          { key: 'recognizedCost', header: 'التكلفة المحمّلة', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.cost, render: (row: any) => <Money value={row.cost} hideZero tone="plain" /> },
           { key: 'deferred', header: 'مؤجل', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.deferred, render: (row: any) => <Money value={row.deferred} hideZero tone="plain" /> },
-          { key: 'totalRevenue', header: 'إجمالي الإيراد', numeric: true, sortValue: (row: any) => row.totalRevenue, render: (row: any) => <Money value={row.totalRevenue} /> },
+          { key: 'totalRevenue', header: 'قيمة الشحن الكلية', numeric: true, sortValue: (row: any) => row.totalRevenue, render: (row: any) => <Money value={row.totalRevenue} /> },
           { key: 'totalCost', header: 'إجمالي التكلفة', numeric: true, sortValue: (row: any) => row.totalCost, render: (row: any) => <><Money value={row.totalCost} />{row.freeShippingCost > 0 && <Sub>منها شحن مجاني <Money value={row.freeShippingCost} tone="plain" /> على فواتير الشراء</Sub>}</> },
-          { key: 'net', header: 'الصافي', numeric: true, sortValue: (row: any) => row.net, render: (row: any) => <Money value={row.net} strong /> },
+          { key: 'net', header: 'الربح المتوقع', numeric: true, sortValue: (row: any) => row.net, render: (row: any) => <Money value={row.net} tone="plain" /> },
           { key: 'afterDomestic', header: 'بعد النقل الداخلي', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.profitAfterDomestic ?? row.net, render: (row: any) => (row.profitAfterDomestic === undefined ? null : <Money value={row.profitAfterDomestic} tone="plain" />) },
           { key: 'costPerUnit', header: 'تكلفة الكيلو/CBM', numeric: true, sortValue: (row: any) => row.costPerUnit ?? -1, render: (row: any) => (row.costPerUnit === null ? null : <Money value={row.costPerUnit} tone="plain" />) },
           { key: 'revenuePerUnit', header: 'بيع الكيلو/CBM', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.revenuePerUnit ?? -1, render: (row: any) => (row.revenuePerUnit === null ? null : <Money value={row.revenuePerUnit} tone="plain" />) },
@@ -499,6 +508,8 @@ const Trips = () => {
         footer={data ? {
           trip: 'الإجمالي', revenue: <Money value={data.totals.revenue} strong />, deferred: <Money value={data.totals.deferred} tone="plain" />,
           totalRevenue: <Money value={data.totals.totalRevenue} strong />, totalCost: <Money value={data.totals.totalCost} strong />, net: <Money value={data.totals.net} strong />,
+          collected: <Money value={data.totals.collected} strong />, open: <Money value={data.totals.open} strong />, profit: <Money value={data.totals.profit} strong />,
+          recognizedCost: <Money value={data.totals.cost} strong />,
         } : undefined}
       />
     </Panel>

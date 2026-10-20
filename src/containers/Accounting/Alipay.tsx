@@ -3,7 +3,7 @@ import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogCon
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { CancelDialog, RemotePicker, orderLabel, today, useVendors } from './shared';
+import { CancelDialog, RemotePicker, orderLabel, userLabel, today, useVendors } from './shared';
 import { AlipaySendPanel } from './AlipaySend';
 import { Amount, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
@@ -32,6 +32,7 @@ const Alipay = () => {
   const request = useRef(0);
   const [buying, setBuying] = useState(false);
   const [arriving, setArriving] = useState<any>(null);
+  const [settling, setSettling] = useState<any>(null);
   const [cancel, setCancel] = useState<any>(null);
   const [sending, setSending] = useState(false);
   const [sendOrder, setSendOrder] = useState<any>(null);
@@ -137,18 +138,19 @@ const Alipay = () => {
             </Panel>
           )}
 
-          <Panel flush title="عمليات شراء اليوان" subtitle="السعر = اليوان ÷ الدولار المدفوع.">
+          <Panel flush title="عمليات شراء اليوان" subtitle="السعر = اليوان ÷ إجمالي قيمة الشراء بالدولار.">
             <DataTable
               dense maxHeight={420} rows={data.purchases.filter((p: any) => !filters.broker || String(p.vendorId?._id || p.vendorId) === filters.broker)} rowKey={(row: any) => row._id}
               empty={{ title: 'لا عمليات بعد' }}
               columns={[
                 { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
                 { key: 'broker', header: 'الوسيط', render: (row: any) => <>{row.broker}<Sub><Ltr>{row.number}</Ltr> · {row.toAccountId?.name}</Sub></> },
-                { key: 'from', header: 'من', hideOnMobile: true, render: (row: any) => <>{row.fromAccountId?.name}<Sub><Amount value={row.amount} currency={row.currency} /></Sub>{row.fundedFromPaymentId && <Sub>جزء من الدفعة المجمعة <Ltr>{row.fundedFromPaymentId.number}</Ltr> · دون دفع إضافي</Sub>}</> },
-                { key: 'usd', header: 'بالدولار', numeric: true, render: (row: any) => <Money value={row.usd} /> },
+                { key: 'from', header: 'الدفع عند الشراء', hideOnMobile: true, render: (row: any) => <>{row.fromAccountId?.name}<Sub><Amount value={row.amount || 0} currency={row.currency || 'USD'} /></Sub>{row.initialPaymentId && <Sub>دفعة <Ltr>{row.initialPaymentId.number}</Ltr>{row.initialPaymentId.status === 'canceled' && ' · ملغاة'}</Sub>}{row.initialNettingId && <Sub>إلى المحفظة <Money value={row.initialNettingId.amountUsd} /> · <Ltr>{row.initialNettingId.number}</Ltr>{row.initialNettingId.status === 'canceled' && ' · ملغاة'}</Sub>}{row.fundedFromPaymentId && <Sub>جزء من الدفعة المجمعة <Ltr>{row.fundedFromPaymentId.number}</Ltr> · دون دفع إضافي</Sub>}</> },
+                { key: 'usd', header: 'إجمالي الشراء', numeric: true, render: (row: any) => <Money value={row.usd} /> },
+                { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => row.settlementBillId ? <><Money value={row.openUsd || 0} /><Sub><Open to={`/accounting/bills/${row.settlementBillId}`}>فاتورة المورد</Open>{row.customerId && <> · <Open to={`/user/${row.customerId}`}>محفظة العميل</Open></>}</Sub></> : '—' },
                 { key: 'cny', header: 'اليوان', numeric: true, render: (row: any) => (row.arrived ? <Amount value={row.cnyReceived} currency="CNY" /> : <Badge tone="warn">بانتظار الوصول</Badge>) },
                 { key: 'rate', header: 'السعر', numeric: true, render: (row: any) => rateText(row.rate) },
-                { key: 'actions', header: '', align: 'end', render: (row: any) => <Button size="small" color="error" onClick={() => setCancel(row)}>إلغاء</Button> },
+                { key: 'actions', header: '', align: 'end', render: (row: any) => <>{row.settlementBillId && row.openUsd > 0 && <Button size="small" onClick={() => setSettling(row)}>سداد الباقي</Button>}<Button size="small" color="error" onClick={() => setCancel(row)}>إلغاء</Button></> },
               ]}
             />
           </Panel>
@@ -224,6 +226,7 @@ const Alipay = () => {
       </Dialog>
       {buying && <BuyDialog defaultAccountId={accountId} onClose={() => setBuying(false)} onDone={() => { setBuying(false); load(); }} />}
       {arriving && <ArrivalDialog purchase={arriving} onClose={() => setArriving(null)} onDone={() => { setArriving(null); load(); }} />}
+      {settling && <YuanSettlementDialog purchase={settling} onClose={() => setSettling(null)} onDone={() => { setSettling(null); load(); }} />}
       {cancel && <CancelDialog open onClose={() => setCancel(null)} onDone={() => load()} model="AccountingYuanPurchase" id={cancel._id} title={`شراء اليوان ${cancel.number}`} />}
     </>
   );
@@ -237,9 +240,14 @@ const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: st
   const [form, setForm] = useState<any>({ vendor: null, day: today(), fromAccountId: '', amount: '', toAccountId: defaultAccountId, cny: '', arrived: true, rate: '', transactionReference: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [split, setSplit] = useState(false);
+  const [totalUsd, setTotalUsd] = useState('');
+  const [walletUsd, setWalletUsd] = useState('');
   const idempotencyKey = useRef(newKey());
   const from = payAccounts.find((a) => a._id === form.fromAccountId);
-  const usdGuess = from?.currency === 'USD' ? Number(form.amount) : null;
+  const linkedCustomer = form.vendor?.linkedCustomer;
+  const usdGuess = split ? Number(totalUsd) : from?.currency === 'USD' ? Number(form.amount) : null;
+  const remaining = Math.round((Number(totalUsd || 0) - Number(form.amount || 0) - Number(walletUsd || 0)) * 100) / 100;
   const save = async () => {
     try {
       setBusy(true);
@@ -248,6 +256,7 @@ const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: st
         vendorId: form.vendor?._id, day: form.day, fromAccountId: form.fromAccountId, amount: Number(form.amount), rate: Number(form.rate) || undefined,
         toAccountId: form.toAccountId, arrived: form.arrived, [form.arrived ? 'cnyReceived' : 'cnyExpected']: Number(form.cny), idempotencyKey: idempotencyKey.current,
         transactionReference: form.transactionReference,
+        ...(split && { totalUsd: Number(totalUsd), cashUsd: Number(form.amount || 0), walletUsd: Number(walletUsd || 0), customerId: linkedCustomer?._id }),
       });
       onDone();
     } catch (err) {
@@ -261,15 +270,23 @@ const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: st
       <DialogTitle>شراء يوان من وسيط</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+        {!!linkedCustomer && <FormControlLabel control={<Checkbox checked={split} onChange={e => { setSplit(e.target.checked); setWalletUsd(''); setForm({ ...form, amount: '', fromAccountId: '' }); }} />} label="دفع جزئي أو إضافة إلى محفظة العميل" />}
+        {split && linkedCustomer && <div className="acc-form-grid mb-3">
+          <TextField type="number" label="إجمالي قيمة الشراء (USD)" value={totalUsd} onChange={e => setTotalUsd(e.target.value)} />
+          <TextField type="number" label="يضاف لمحفظة العميل (USD)" value={walletUsd} onChange={e => setWalletUsd(e.target.value)} />
+          <Alert severity="info">محفظة العميل: <Open to={`/user/${linkedCustomer._id}`}>{userLabel(linkedCustomer)}</Open></Alert>
+          <TextField label="المتبقي للدفع لاحقًا (USD)" value={remaining} InputProps={{ readOnly: true }} error={remaining < 0} />
+        </div>}
         <div className="acc-form-grid">
           <Autocomplete size="small" options={vendors} value={form.vendor} getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
-            onChange={(_, vendor: any) => setForm({ ...form, vendor })} renderInput={(p) => <TextField {...p} label="الوسيط - شركة الحوالة" />} />
+            onChange={(_, vendor: any) => { setForm({ ...form, vendor }); setSplit(false); setWalletUsd(''); setTotalUsd(''); }} renderInput={(p) => <TextField {...p} label="الوسيط - شركة الحوالة" />} />
           <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="دُفع من" value={form.fromAccountId} onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}>
-            {payAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+            <MenuItem value="">لم أدفع كاش الآن</MenuItem>
+            {payAccounts.filter(a => !split || a.currency === 'USD').map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
           </TextField>
           <TextField type="number" label={`المدفوع (${from?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          {from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = متوسط الحساب)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
+          {!split && from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = متوسط الحساب)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
           <TextField select label="إلى حساب Alipay" value={form.toAccountId} onChange={(e) => setForm({ ...form, toAccountId: e.target.value })}>
             {alipays.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
           </TextField>
@@ -278,14 +295,55 @@ const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: st
         </div>
         <FormControlLabel className="mt-2" control={<Checkbox checked={form.arrived} onChange={(e) => setForm({ ...form, arrived: e.target.checked })} />} label="وصل اليوان" />
         {form.arrived && <TextField fullWidth label="رقم عملية وصول اليوان في Alipay (اختياري)" value={form.transactionReference} onChange={e => setForm({ ...form, transactionReference: e.target.value })} helperText="رقم العملية الكامل يربط وصول اليوان بالكشف دون إيداع ثانٍ" />}
-        {!form.arrived && <p className="acc-muted">تُحفظ «مدفوعة، بانتظار الوصول»؛ أكّد الوصول بالكمية الفعلية عندما يصل.</p>}
+        {!form.arrived && <p className="acc-muted">بانتظار وصول اليوان؛ أكّد الكمية الفعلية عندما يصل.</p>}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>إلغاء</Button>
-        <Button variant="contained" disabled={busy || !form.vendor || !form.fromAccountId || !form.toAccountId || !(Number(form.amount) > 0) || !(Number(form.cny) > 0)} onClick={save}>ترحيل</Button>
+        <Button variant="contained" disabled={busy || !form.vendor || !form.toAccountId || !(Number(form.cny) > 0) || (split ? !linkedCustomer || !(Number(totalUsd) > 0) || remaining < 0 || Number(form.amount) < 0 || Number(walletUsd) < 0 || (Number(form.amount) > 0 && !form.fromAccountId) : !form.fromAccountId || !(Number(form.amount) > 0))} onClick={save}>تسجيل الشراء</Button>
       </DialogActions>
     </Dialog>
   );
+};
+
+const YuanSettlementDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: () => void; onDone: () => void }) => {
+  const { accounts } = useAccountingData();
+  const [day, setDay] = useState(today());
+  const [cash, setCash] = useState('');
+  const [wallet, setWallet] = useState('');
+  const [account, setAccount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const key = useRef(newKey());
+  const linkedCustomer = purchase.vendorId?.linkedCustomer;
+  const canUseWallet = !!linkedCustomer && (!purchase.customerId || String(purchase.customerId) === String(linkedCustomer._id));
+  const remaining = purchase.openUsd / 100 - Number(cash || 0) - Number(wallet || 0);
+  const save = async () => {
+    setBusy(true); setError('');
+    try {
+      await acc.post(`yuan-purchases/${purchase._id}/settle`, { day, cashUsd: Number(cash || 0), walletUsd: Number(wallet || 0), fromAccountId: account,
+        customerId: canUseWallet ? linkedCustomer._id : undefined, idempotencyKey: key.current });
+      onDone();
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  };
+  return <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <DialogTitle>سداد باقي شراء اليوان {purchase.number}</DialogTitle>
+    <DialogContent>
+      {error && <Alert severity="error">{error}</Alert>}
+      <p>المستحق الحالي: <Money value={purchase.openUsd} /></p>
+      <div className="acc-form-grid">
+        <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={e => setDay(e.target.value)} />
+        <TextField type="number" label="الدفع الآن (USD)" value={cash} onChange={e => setCash(e.target.value)} />
+        <TextField select label="من حساب" value={account} onChange={e => setAccount(e.target.value)}>
+          {accounts.filter(a => a.isActive && !a.isGroup && a.isCash && a.currency === 'USD').map(a => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
+        </TextField>
+        {canUseWallet && <TextField type="number" label="يضاف إلى المحفظة (USD)" value={wallet} onChange={e => setWallet(e.target.value)} />}
+        <TextField label="المتبقي بعد السداد (USD)" value={remaining.toFixed(2)} InputProps={{ readOnly: true }} error={remaining < -0.001} />
+      </div>
+      {canUseWallet && <p><Open to={`/user/${linkedCustomer._id}`}>{userLabel(linkedCustomer)}</Open></p>}
+    </DialogContent>
+    <DialogActions><Button disabled={busy} onClick={onClose}>إلغاء</Button><Button variant="contained" onClick={save}
+      disabled={busy || remaining < -0.001 || Number(cash) < 0 || Number(wallet) < 0 || !(Number(cash) + Number(wallet) > 0) || (Number(cash) > 0 && !account) || (Number(wallet) > 0 && !canUseWallet)}>تسجيل السداد</Button></DialogActions>
+  </Dialog>;
 };
 
 const ArrivalDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: () => void; onDone: () => void }) => {
@@ -304,7 +362,7 @@ const ArrivalDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: 
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>وصول اليوان {purchase.number}</DialogTitle>
       <DialogContent>
-        <p className="acc-muted">المدفوع <Money value={purchase.usd} />. الكمية الفعلية تغيّر السعر فقط، لا الدولار.</p>
+        <p className="acc-muted">قيمة الشراء <Money value={purchase.usd} />. الكمية الفعلية تغيّر السعر فقط، لا الدولار.</p>
         {error && <Alert severity="error" className="mb-2">{error}</Alert>}
         <div className="acc-form-grid">
           <TextField type="number" label="اليوان الواصل" value={form.cny} onChange={(e) => setForm({ ...form, cny: e.target.value })} />

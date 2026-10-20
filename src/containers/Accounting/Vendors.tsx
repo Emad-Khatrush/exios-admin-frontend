@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, TextField, Tooltip } from '@mui/material';
+import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, TextField, Tooltip } from '@mui/material';
 import { Archive, ArchiveRestore, HandCoins, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
-import { RemotePicker, VENDOR_TYPES, userLabel } from './shared';
+import { VENDOR_TYPES, userLabel } from './shared';
 import { useBulk } from './bulk';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 
@@ -16,6 +16,22 @@ export const VendorsList = () => {
   const [form, setForm] = useState<any>(null);
   const [message, setMessage] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [linkError, setLinkError] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const edit = (vendor: any) => {
+    setLinkError('');
+    setForm({ ...vendor, isCustomerVendor: !!vendor.linkedCustomer, linkedCustomerCode: vendor.linkedCustomer?.customerId || '' });
+  };
+  const verifyCustomer = async () => {
+    const code = form.linkedCustomerCode.trim();
+    setLinkBusy(true); setLinkError('');
+    try {
+      const customer = (await acc.get('lookup/customer-code', { code })).data.customer;
+      setForm((current: any) => current?.isCustomerVendor && current.linkedCustomerCode.trim() === code ? { ...current, linkedCustomer: customer } : current);
+    } catch (err) { setLinkError(errorText(err)); } finally { setLinkBusy(false); }
+  };
 
   const load = async () => {
     try {
@@ -34,8 +50,11 @@ export const VendorsList = () => {
   };
 
   const save = async () => {
-    const body = { ...form, linkedCustomer: form.linkedCustomer?._id || '' };
-    if (await run(() => (form._id ? acc.patch(`vendors/${form._id}`, body) : acc.post('vendors', body)), 'تم حفظ المورد.')) setForm(null);
+    const body = { name: form.name, type: form.type, phone: form.phone, country: form.country, defaultCurrency: form.defaultCurrency, note: form.note,
+      isCustomerVendor: form.isCustomerVendor, linkedCustomerCode: form.isCustomerVendor ? form.linkedCustomerCode.trim() : '' };
+    setSaving(true);
+    try { if (await run(() => (form._id ? acc.patch(`vendors/${form._id}`, body) : acc.post('vendors', body)), 'تم حفظ المورد.')) setForm(null); }
+    finally { setSaving(false); }
   };
 
   const bulk = useBulk<any>({
@@ -66,7 +85,7 @@ export const VendorsList = () => {
       <PageHeader
         title="الموردون"
         subtitle="شركات الشحن والموردون ومقدمو الخدمات، مع ما تدين به الشركة لكل منهم."
-        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setForm({ name: '', type: 'supplier', phone: '', country: '', defaultCurrency: 'USD', note: '', linkedCustomer: null })}>مورد جديد</Button>}
+        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => edit({ name: '', type: 'supplier', phone: '', country: '', defaultCurrency: 'USD', note: '', linkedCustomer: null })}>مورد جديد</Button>}
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
       <Panel flush>
@@ -105,7 +124,7 @@ export const VendorsList = () => {
               key: 'actions', header: '', align: 'end', render: (row: any) => (
                 <span onClick={(e) => e.stopPropagation()}>
                   {row.owed > 0 && <Tooltip title="دفع للمورد"><IconButton size="small" color="primary" onClick={() => navigate(`/accounting/payments/new?vendorId=${row._id}`)}><HandCoins size={15} /></IconButton></Tooltip>}
-                  <Tooltip title="تعديل"><IconButton size="small" onClick={() => setForm({ ...row })}><Pencil size={15} /></IconButton></Tooltip>
+                  <Tooltip title="تعديل"><IconButton size="small" onClick={() => edit(row)}><Pencil size={15} /></IconButton></Tooltip>
                   {row.isActive
                     ? <Tooltip title="أرشفة (لا مستحقات)"><IconButton size="small" onClick={() => run(() => acc.post(`vendors/${row._id}/archive`), 'تمت أرشفة المورد.')}><Archive size={15} /></IconButton></Tooltip>
                     : <Tooltip title="إلغاء الأرشفة"><IconButton size="small" onClick={() => run(() => acc.post(`vendors/${row._id}/unarchive`), 'أُعيد المورد.')}><ArchiveRestore size={15} /></IconButton></Tooltip>}
@@ -118,7 +137,7 @@ export const VendorsList = () => {
         />
       </Panel>
 
-      <Dialog open={!!form} onClose={() => setForm(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!form} onClose={saving ? undefined : () => setForm(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{form?._id ? 'تعديل مورد' : 'مورد جديد'}</DialogTitle>
         {form && (
           <DialogContent>
@@ -132,14 +151,22 @@ export const VendorsList = () => {
             <TextField fullWidth className="mt-3" label="الهاتف" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <TextField fullWidth className="mt-3" label="الدولة" value={form.country || ''} onChange={(e) => setForm({ ...form, country: e.target.value })} />
             <div className="mt-3">
-              <RemotePicker endpoint="lookup/users" label="عميل أيضاً (للمقاصة)" value={form.linkedCustomer} getLabel={userLabel} onChange={(linkedCustomer) => setForm({ ...form, linkedCustomer })} />
+              <FormControlLabel control={<Checkbox checked={!!form.isCustomerVendor} disabled={saving || linkBusy}
+                onChange={e => { setLinkError(''); setForm({ ...form, isCustomerVendor: e.target.checked, linkedCustomer: null, linkedCustomerCode: '' }); }} />} label="مورد وعميل في نفس الوقت" />
+              {form.isCustomerVendor && <>
+                <TextField fullWidth label="كود العميل" placeholder="T388" value={form.linkedCustomerCode} disabled={saving || linkBusy}
+                  onChange={e => { setLinkError(''); setForm({ ...form, linkedCustomerCode: e.target.value, linkedCustomer: null }); }} />
+                <Button className="mt-2" disabled={saving || linkBusy || !form.linkedCustomerCode.trim()} onClick={verifyCustomer}>التحقق من العميل</Button>
+                {form.linkedCustomer && <Alert severity="success" className="mt-2">{userLabel(form.linkedCustomer)}</Alert>}
+                {linkError && <Alert severity="error" className="mt-2">{linkError}</Alert>}
+              </>}
             </div>
             <TextField fullWidth className="mt-3" label="ملاحظة" value={form.note || ''} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </DialogContent>
         )}
         <DialogActions>
-          <Button onClick={() => setForm(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={!form?.name} onClick={save}>حفظ</Button>
+          <Button disabled={saving} onClick={() => setForm(null)}>إلغاء</Button>
+          <Button variant="contained" disabled={saving || linkBusy || !form?.name || (form?.isCustomerVendor && !form?.linkedCustomer)} onClick={save}>حفظ</Button>
         </DialogActions>
       </Dialog>
     </>
