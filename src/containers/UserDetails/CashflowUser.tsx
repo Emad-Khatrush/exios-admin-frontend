@@ -95,6 +95,10 @@ const CashflowUser = (props: Props) => {
             <span className="cashflow__stat-label">Cash withdrawn</span>
             <span className="cashflow__stat-value is-negative">−{formatMoney(summary.cashOut, statementCurrency)}</span>
           </div>
+          {(summary.exchangeIn > 0 || summary.exchangeOut > 0) && <>
+            <div className="cashflow__stat"><span className="cashflow__stat-label">وارد من الصرافة</span><span className="cashflow__stat-value is-credit">+{formatMoney(summary.exchangeIn, statementCurrency)}</span></div>
+            <div className="cashflow__stat"><span className="cashflow__stat-label">صادر للصرافة</span><span className="cashflow__stat-value is-negative">−{formatMoney(summary.exchangeOut, statementCurrency)}</span></div>
+          </>}
         </section>
 
         <div className="cashflow__list-head" aria-hidden>

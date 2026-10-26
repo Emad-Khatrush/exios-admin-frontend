@@ -9,7 +9,7 @@ import { Suspense, useEffect } from 'react';
 import { CLOSE_SIDEBAR } from '../constants/actions';
 
 // TypeScript does not resolve SCSS side-effect imports without a stylesheet declaration.
-// @ts-expect-error SCSS is processed by the bundler at runtime.
+// @ts-ignore SCSS is processed by the bundler at runtime.
 import '../App.scss';
 
 type Props = {

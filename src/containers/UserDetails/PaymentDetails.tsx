@@ -30,7 +30,8 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   // A refund/compensation/cancellation adds to the wallet but no cash came in
   const isCredit = statementFlow(statement || {}) === 'credit';
   // Outgoing payments are linked to orders and debts, so only incoming ones can be edited or deleted
-  const canManage = canManageUser && !isOutflow;
+  const isExchange = !!statement?.walletExchangeId || statement?.actionType === 'exchange';
+  const canManage = canManageUser && !isOutflow && !isExchange;
   const date = moment(statement?.createdAt);
   const office = statement?.office;
   const walletEffect = `${isOutflow ? '+' : '−'}${formatMoney(statement?.amount, statement?.currency)}`;
@@ -62,9 +63,9 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
           <div className="cashflow-row__meta">
             <span className={`cashflow-chip cashflow-chip--office ${office ? '' : 'is-missing'}`}>
               <Building2 size={12} strokeWidth={2} />
-              {office ? getOfficeLabel(office) : 'No office'}
+              {isExchange ? 'داخل المحفظة' : office ? getOfficeLabel(office) : 'No office'}
             </span>
-            {statement?.actionType && <span className="cashflow-chip">{statement.actionType}</span>}
+            {statement?.actionType && <span className="cashflow-chip" title={isExchange ? `مرجع الصرافة: ${statement.walletExchangeId}` : undefined}>{isExchange ? 'صرافة داخلية' : statement.actionType}</span>}
             {isCredit &&
               <Tooltip title="Added to the wallet balance, but no cash was received" arrow enterTouchDelay={0}>
                 <span className="cashflow-chip cashflow-chip--credit">No cash</span>

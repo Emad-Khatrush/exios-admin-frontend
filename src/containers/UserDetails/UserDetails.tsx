@@ -12,6 +12,7 @@ import CashflowUser from './CashflowUser';
 import CustomButton from '../../components/CustomButton/CustomButton';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
+import WalletExchangeDialog from './WalletExchangeDialog';
 import ShippingMarkDialog from './ShippingMarkDialog';
 import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
@@ -37,6 +38,7 @@ const UserDetails = (props: Props) => {
   const [user, setUser] = useState<any>();
   const [debts, setDebts] = useState<any>();
   const [wallet, setWallet] = useState<any>();
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   const [userStatement, setUserStatement] = useState<any>();
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
@@ -160,6 +162,9 @@ const UserDetails = (props: Props) => {
             >
               سحب من المحفظة كاش
             </CustomButton>
+            <CustomButton background='#08776b' size="small" disabled={isLoading} onClick={() => setExchangeOpen(true)} style={{ marginInlineStart: 8 }}>
+              صرافة داخل المحفظة
+            </CustomButton>
           </div>
 
           <div className="col-md-4">
@@ -233,6 +238,8 @@ const UserDetails = (props: Props) => {
         </div>
       )}
 
+      <WalletExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} customerId={user._id}
+        balances={{ walletLyd, walletUsd }} onSaved={refreshWalletAndStatement} />
       <Dialog
         open={dialog}
         onClose={() => setDialog(undefined)}
