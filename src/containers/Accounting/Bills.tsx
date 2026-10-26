@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import BillExcelImport from './BillExcelImport';
+import BillDetailsEditDialog from './BillDetailsEditDialog';
+import { useAccountingAccess } from './useAccountingAccess';
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
@@ -162,6 +164,8 @@ export const BillDetail = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const access = useAccountingAccess();
 
   const load = async () => {
     try { setData((await acc.get(`bills/${id}`)).data); } catch (err) { setError(errorText(err)); }
@@ -196,19 +200,25 @@ export const BillDetail = () => {
             <Button variant="contained" onClick={postDraft}>ترحيل</Button>
           </>}
           {bill.status === 'posted' && <>
+            {(access.can('purchases') || access.isOwner) && <Button variant="outlined" disabled={!!data.editLock} onClick={() => {
+              if (!bill.isCreditNote && !bill.yuanPurchaseId && bill.lines.every((line: any) => ['trip', 'order', 'expense', 'customs'].includes(line.target))) navigate(`/accounting/bills/${id}/edit`);
+              else setEditDetailsOpen(true);
+            }}>تعديل</Button>}
             {!bill.isCreditNote && open > 0 && <Button variant="contained" onClick={() => navigate(`/accounting/payments/new?vendorId=${bill.vendorId?._id}&billId=${bill._id}`)}>دفع</Button>}
+            {!bill.isCreditNote && open < 0 && <Button variant="contained" onClick={() => navigate(`/accounting/receipts/new?vendorId=${bill.vendorId?._id}`)}>استلام الرصيد من المورد</Button>}
             {!bill.isCreditNote && !bill.yuanPurchaseId && !bill.lines.some((l: any) => l.target === 'stock') && <Button variant="outlined" onClick={() => navigate(`/accounting/bills/new?creditFor=${bill._id}`)}>إشعار دائن</Button>}
             {bill.yuanPurchaseId ? <Button variant="outlined" onClick={() => navigate('/accounting/alipay')}>عرض شراء اليوان أو إلغاؤه</Button> : <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)}>إلغاء</Button>}
           </>}
         </>}
       />
       {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+      {data.editLock && <Alert severity="info" className="mb-2">{data.editLock}؛ التعديل على هذه الفاتورة مقفل.</Alert>}
       {bill.cancelReason && <Alert severity="info" className="mb-2">أُلغيت: {bill.cancelReason}</Alert>}
 
       {open !== null && (
         <StatGrid>
           <Stat label="إجمالي الفاتورة" value={<Money value={bill.totalUsd} />} hint={<Amount value={bill.total} currency={bill.currency} />} />
-          <Stat label="المتبقي للمورد" value={<Money value={open} />} tone={open > 0 ? 'warn' : 'accent'} hint={open > 0 ? 'لم تُسدَّد بالكامل' : 'مسددة'} />
+          <Stat label={open < 0 ? 'رصيد لنا عند المورد' : 'المتبقي للمورد'} value={<Money value={Math.abs(open)} />} tone={open > 0 ? 'warn' : 'accent'} hint={open > 0 ? 'لم تُسدَّد بالكامل' : open < 0 ? 'يمكن تسويته أو استلامه من المورد' : 'مسددة'} />
         </StatGrid>
       )}
 
@@ -245,6 +255,7 @@ export const BillDetail = () => {
       )}
 
       <CancelDialog open={cancelOpen} onClose={() => setCancelOpen(false)} onDone={load} model="AccountingSupplierBill" id={bill._id} title={`الفاتورة ${bill.number}`} />
+      <BillDetailsEditDialog billId={editDetailsOpen ? bill._id : null} onClose={() => setEditDetailsOpen(false)} onDone={load} />
     </>
   );
 };

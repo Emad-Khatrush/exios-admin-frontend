@@ -35,6 +35,7 @@ const toForm = (statement: any) => ({
 const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   const { id } = useParams();
   const [form, setForm] = useState(toForm(statement));
+  const [editRevision, setEditRevision] = useState(statement?.editHistory?.length || 0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const isWithdrawal = statement?.calculationType === '-' && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
@@ -61,6 +62,7 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   useEffect(() => {
     if (open) {
       setForm(toForm(statement));
+      setEditRevision(statement?.editHistory?.length || 0);
       setError('');
     }
   }, [open, statement]);
@@ -72,12 +74,18 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   const amountDelta = Number.isFinite(newAmount) ? newAmount - Number(statement?.amount || 0) : 0;
   // A bigger deposit adds to the wallet, a bigger payment takes from it
   const walletDelta = isOutflow ? -amountDelta : amountDelta;
+  const original = toForm(statement);
+  const hasChanges = (Object.keys(form) as (keyof typeof form)[]).some(key => {
+    if (key === 'createdAt') return new Date(form.createdAt).getTime() !== new Date(original.createdAt).getTime();
+    if (key === 'amount' || key === 'rate') return Number(form[key] || 0) !== Number(original[key] || 0);
+    return String(form[key] ?? '') !== String(original[key] ?? '');
+  });
 
   const save = async () => {
-    if (isSaving) return;
+    if (isSaving || !hasChanges) return;
     if (!form.description.trim()) return setError('Description is required.');
     if (!Number.isFinite(newAmount) || newAmount <= 0) return setError('Amount must be greater than 0.');
-    if (isNaN(new Date(form.createdAt).getTime())) return setError('Pick a valid date.');
+    if (!form.createdAt || isNaN(new Date(form.createdAt).getTime())) return setError('Pick a valid date.');
     if (isWithdrawal && form.withdrawalSource === 'box' && !form.office) return setError('اختر مكتب الصرف المرتبط بخزينة');
 
     try {
@@ -85,6 +93,7 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
       setError('');
       await api.update(`user/${id}/statement/${statement._id}`, {
         ...form,
+        ...(isWithdrawal && { expectedEditCount: editRevision }),
         accountId: form.accountId || null,
         amount: newAmount,
         createdAt: new Date(form.createdAt),
@@ -215,7 +224,7 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
       </DialogContent>
       <DialogActions>
         <Button disabled={isSaving} onClick={onClose}>Cancel</Button>
-        <Button disabled={isSaving} variant="contained" disableElevation onClick={save}>
+        <Button disabled={isSaving || !hasChanges} variant="contained" disableElevation onClick={save}>
           {isSaving ? 'Saving…' : 'Save changes'}
         </Button>
       </DialogActions>

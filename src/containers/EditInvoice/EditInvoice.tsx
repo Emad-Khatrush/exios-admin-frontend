@@ -11,6 +11,7 @@ import { calculateTotalWallet, getOrderSteps } from '../../utils/methods';
 import { formatInvoiceFields, formatPurchaseFields } from '../XTrackingPage/utils';
 import Badge from '../../components/Badge/Badge';
 import InvoiceForm from '../../components/InvoiceForm/InvoiceForm';
+import ShippingBlockControl from '../../components/InvoiceForm/ShippingBlockControl';
 import { apiErrorMessage } from '../../components/InvoiceForm/constants';
 import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplate';
 import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog';
@@ -445,6 +446,7 @@ export class EditInvoice extends Component<Props, State> {
               {step && <Badge text={step.label} color="success" />}
               {order.unsureOrder && <Badge text="Not active" color="warning" />}
               {order.hasProblem && <Badge text="Has a problem" color="danger" />}
+              {order.shippingBlocked && <Badge text="ممنوعة من الشحن" color="danger" />}
               {order.isCanceled && <Badge text="Cancelled" color="danger" />}
             </div>
           </div>
@@ -540,13 +542,14 @@ export class EditInvoice extends Component<Props, State> {
               onAddPurchaseItem={this.addPurchaseItem}
               onRemovePurchaseItem={this.removePurchaseItem}
               paymentList={this.state.paymentList}
+              shippingRestrictionAction={!order.isCanceled ? <ShippingBlockControl order={order} disabled={locked || hasChanges} onSaved={async () => { await this.reloadOrder({ rows: true }); }} /> : undefined}
+              shippingOfferAction={order.isPayment && !order.isRemittance && !order.isCanceled ? <FreeShippingReview orderId={order._id} disabled={locked || hasChanges}
+                onApplied={() => { this.reloadOrder({ rows: true }).catch(() => {}); }} /> : undefined}
               onAddPackage={this.addPackage}
               onRemovePackage={this.removePackage}
               onUploadPackageFiles={this.uploadPackageFiles}
               onDeletePackageFile={this.deletePackageFile}
             />
-            {order.isPayment && !order.isRemittance && !order.isCanceled && <div className="mt-3" dir="rtl"><FreeShippingReview orderId={order._id} disabled={locked || hasChanges}
-              onApplied={() => { this.reloadOrder({ rows: true }).catch(() => {}); }} /></div>}
             <div className="op-savebar">
               <span className={hasChanges ? 'op-savebar__dirty' : 'op-muted'}>{order.isCanceled ? 'A cancelled order cannot be changed.' : hasChanges ? 'You have unsaved changes.' : 'No changes to save.'}</span>
               <Button variant="contained" type="submit" disabled={locked}>Update invoice</Button>

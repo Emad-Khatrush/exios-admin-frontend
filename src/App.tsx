@@ -12,6 +12,7 @@ import { Session } from './models';
 import './App.scss';
 import EditTask from './containers/EditTask/EditTask';
 import Settings from './containers/Settings/Settings';
+import TripNumbering from './containers/Settings/TripNumbering';
 import ServicesPrice from './containers/Settings/ServicesPrice';
 import Announcements from './components/Announcements/Announcements';
 import AdminPosts from './containers/AdminPosts/AdminPosts';
@@ -179,12 +180,13 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/mytasks' element={<MyTasks />} />
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
-      {roles?.isAccountant && <>
+      {(roles?.isAccountant || roles?.isAdmin) && <>
         <Route path='/settings' element={<Settings />} />
         <Route path='/settings/pricing' element={<ServicesPrice />} />
         <Route path='/settings/announcements' element={<Announcements />} />
         <Route path='/settings/posts' element={<AdminPosts />} />
         <Route path='/settings/popup-ads' element={<PopupAds />} />
+        {roles?.isAdmin && <Route path='/settings/trip-numbering' element={<TripNumbering />} />}
       </>}
       {accountingRoutes}
       <Route path='/balances' element={<Balances />} />
@@ -219,6 +221,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings/posts' element={<AdminPosts />} />
       <Route path='/settings/popup-ads' element={<PopupAds />} />
       <Route path='/settings/company-notes' element={<CompanyNotes />} />
+      <Route path='/settings/trip-numbering' element={<TripNumbering />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />

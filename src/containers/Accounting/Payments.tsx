@@ -139,9 +139,10 @@ const ReceiptsList = () => {
 
 export const ReceiptForm = () => {
   const navigate = useNavigate();
+  const [receiptParams] = useSearchParams();
   const { accounts } = useAccountingData();
   const { vendors } = useVendors();
-  const [vendorId, setVendorId] = useState('');
+  const [vendorId, setVendorId] = useState(receiptParams.get('vendorId') || '');
   const [form, setForm] = useState<any>({ day: today(), toAccountId: '', amount: '', rate: '', note: '' });
   const [owed, setOwed] = useState<any[]>([]);
   const [advance, setAdvance] = useState(0);
@@ -197,7 +198,7 @@ export const ReceiptForm = () => {
         {vendorId && <p className="acc-muted mt-2">{advance > 0 ? <>دفعتنا المقدمة لديه: <Money value={advance} /></> : advance < 0 ? <>نحتفظ له برصيد: <Money value={-advance} /></> : 'لا دفعة مقدمة ولا رصيد له.'}</p>}
       </Panel>
       {owed.length > 0 && (
-        <Panel flush title="ما عليه لنا" subtitle="فواتير دُفعت ثم صدر عليها إشعار دائن.">
+        <Panel flush title="ما عليه لنا" subtitle="أرصدة لنا نتيجة تعديل فاتورة مدفوعة أو إصدار إشعار دائن.">
           <DataTable
             rows={owed} rowKey={(row: any) => row._id}
             columns={[

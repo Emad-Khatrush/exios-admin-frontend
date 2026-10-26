@@ -156,13 +156,13 @@ const RowSkeleton = () => (
   </Box>
 );
 
-type StatusTone = 'positive' | 'neutral' | 'accent' | 'volumetric';
+type StatusTone = 'positive' | 'neutral' | 'accent' | 'volumetric' | 'danger';
 
 const StatusTag = ({ label, tone }: { label: string, tone: StatusTone }) => (
   <Box
     component="span"
     sx={(theme) => {
-      const color = tone === 'volumetric' ? '#a1251b' : tone === 'positive' ? theme.palette.success.main : tone === 'accent' ? theme.palette.primary.main : theme.palette.text.secondary;
+      const color = tone === 'volumetric' || tone === 'danger' ? '#a1251b' : tone === 'positive' ? theme.palette.success.main : tone === 'accent' ? theme.palette.primary.main : theme.palette.text.secondary;
       return {
         display: 'inline-flex',
         alignItems: 'center',
@@ -267,6 +267,7 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
           )}
           {detailed && status?.received && <StatusTag label="تم التسليم" tone="accent" />}
           {volumetric && <StatusTag label="وزن حجمي" tone="volumetric" />}
+          {order?.shippingBlocked && <StatusTag label="ممنوعة من الشحن" tone="danger" />}
         </Stack>
 
         <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 0.25, minWidth: 0 }}>

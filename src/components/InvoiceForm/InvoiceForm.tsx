@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl,
@@ -47,6 +47,8 @@ type Props = {
   onRemovePurchaseItem?: (index: number) => void
 
   paymentList?: any[]
+  shippingOfferAction?: ReactNode
+  shippingRestrictionAction?: ReactNode
   // A new package starts with the order's shipping method and the unit that goes with it
   onAddPackage: (defaults: { shipmentMethod?: string, measureUnit?: string }) => void
   onRemovePackage: (index: number) => void
@@ -318,6 +320,7 @@ const InvoiceForm = (props: Props) => {
             <ToggleChip label="Has remaining payment" name="hasRemainingPayment" tone="warn" defaultChecked={invoice?.hasRemainingPayment} onChange={handleChange} disabled={isCanceled} />
             <ToggleChip label="Order has a problem" name="hasProblem" tone="danger" defaultChecked={invoice?.hasProblem} onChange={handleChange} disabled={isCanceled} />
           </div>
+          {props.shippingRestrictionAction}
         </div>
       </Section>
 
@@ -408,9 +411,12 @@ const InvoiceForm = (props: Props) => {
           ? `Each package has its own journey, weight and price${hasLinks ? ', and the link it was bought from' : ''}. Click a step to tick it.`
           : 'What we buy for the customer: one row per link, with its note and whether it is paid.'}
         action={(
+          <div className="d-flex flex-wrap gap-2">
+          {props.shippingOfferAction}
           <Button variant="outlined" size="small" type="button" startIcon={<MdAdd />} onClick={() => props.onAddPackage(packageDefaults())} disabled={isCanceled}>
             {hasShipping ? 'Add package' : 'Add link'}
           </Button>
+          </div>
         )}
       >
         {hasShipping && paymentList.length > 0 && <PackagesSummary paymentList={paymentList} />}

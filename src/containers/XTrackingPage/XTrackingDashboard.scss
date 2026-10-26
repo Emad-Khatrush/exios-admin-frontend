@@ -510,13 +510,53 @@
   .xt-customer-facts dt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--xt-muted); font-weight: 400; }
   .xt-customer-facts dd { color: var(--xt-ink); font-weight: 500; }
   .xt-customer-facts dd bdi { font-family: 'Red Hat Text', 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
-  .xt-description { padding-top: 10px; }
+  .xt-customer-status-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 170px);
+    align-items: start;
+    gap: 16px;
+    padding-block: 2px 10px;
+  }
+  .xt-customer-status-row > .xt-customer { min-width: 0; }
+  .xt-customer-status-row .xt-customer-name { overflow-wrap: anywhere; }
+  .xt-customer-status-row .xt-customer-code { max-width: 100%; box-sizing: border-box; flex-wrap: wrap; }
+  .xt-customer-status-row .xt-customer-facts > div { min-width: 0; flex-wrap: wrap; }
+  .xt-customer-status-row .xt-customer-facts dd { min-width: 0; overflow-wrap: anywhere; }
+  .xt-current-state {
+    display: grid;
+    justify-items: end;
+    align-content: start;
+    gap: 5px;
+    min-width: 0;
+    text-align: end;
+    padding-inline-start: 14px;
+    border-inline-start: 1px solid var(--xt-line);
+  }
+  .xt-state-label { color: var(--xt-muted); font-size: 12px; line-height: 1.6; }
+  .xt-current-state > strong { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+  .xt-tag.xt-tag--blocked { color: var(--xt-danger); background: var(--xt-danger-soft); border-color: var(--xt-danger); }
+  .xt-current-age { display: grid; justify-items: end; gap: 3px; margin-top: 2px; color: var(--kind); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .xt-current-age > span { display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px; line-height: 1.6; }
+  .xt-current-age small { color: var(--xt-muted); font-size: 11px; }
+  .xt-current-state .xt-show-stages { justify-content: flex-end; margin-top: 2px; text-align: end; }
   .xt-customer-heading > a:focus-visible { outline-offset: 2px; }
+  @media (min-width: 541px) and (max-width: 820px) {
+    .xt-order-main { grid-template-columns: minmax(0, 1fr); }
+    .xt-financial { max-width: none; border-inline-start: 0; border-top: 1px solid var(--xt-line); }
+  }
   @media (max-width: 540px) {
+    .xt-customer-status-row { grid-template-columns: minmax(0, 1fr) minmax(110px, 130px); gap: 10px; }
+    .xt-current-state { padding-inline-start: 10px; }
     .xt-customer-heading { gap: 6px; align-items: center; }
     .xt-customer-name { flex-basis: 100%; }
     a.xt-customer-code { min-height: 40px; }
     .xt-customer-facts { gap: 6px 14px; }
     .xt-customer-facts > div { flex-wrap: wrap; }
+  }
+  @media (max-width: 360px) {
+    .xt-customer-status-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .xt-current-state { justify-items: start; text-align: start; border-inline-start: 0; border-top: 1px solid var(--xt-line); padding: 10px 0 0; }
+    .xt-current-age { justify-items: start; }
+    .xt-current-state .xt-show-stages { justify-content: flex-start; text-align: start; }
   }
 }

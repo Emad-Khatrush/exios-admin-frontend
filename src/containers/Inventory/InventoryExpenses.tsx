@@ -14,12 +14,15 @@ import {
   TextField
 } from "@mui/material";
 import api from "../../api";
+import { useLocation, useNavigate } from 'react-router-dom';
 import moment from "moment";
 import { calculateMinTotalPrice, toExcelSheetName, toFileName } from "../../utils/methods";
 import * as XLSX from 'xlsx';
-import { Download, Plus, Receipt, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { FieldLabel } from "./InventoryFields";
 import { errorText, newKey, sys, todayLibya } from "../Accounting/accountingApi";
+import BillDetailsEditDialog from '../Accounting/BillDetailsEditDialog';
+import { useAccountingAccess } from '../Accounting/useAccountingAccess';
 
 import './InventoryForm.scss';
 
@@ -42,6 +45,9 @@ const COST_CATEGORIES: [string, string][] = [['shipping', 'Shipping'], ['customs
 const categoryLabel = (value?: string | null) => COST_CATEGORIES.find(([key]) => key === value)?.[1] || '';
 
 interface Bill {
+  editLocked?: boolean;
+  canEditFinancial?: boolean;
+  openUsd?: number;
   _id: string;
   costCategory?: string | null;
   number: string;
@@ -100,6 +106,8 @@ const legacyUsd = (exp: LegacyExpense) => {
 };
 
 const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [legacy, setLegacy] = useState<LegacyExpense[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
@@ -111,6 +119,8 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
   const [formError, setFormError] = useState<string>();
   const [showCanceled, setShowCanceled] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Bill | null>(null);
+  const [editBillId, setEditBillId] = useState<string | null>(null);
+  const access = useAccountingAccess();
   const [isCanceling, setIsCanceling] = useState(false);
   const [reportProgress, setReportProgress] = useState<{ done: number, total: number } | null>(null);
   const [toast, setToast] = useState<{ message: string, isError?: boolean } | null>(null);
@@ -213,7 +223,10 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
   const rows: Row[] = useMemo(() => {
     const fromBills: Row[] = bills.map((bill) => ({
       key: bill._id, date: bill.day, description: [categoryLabel(bill.costCategory), bill.description].filter(Boolean).join(' · '), supplier: bill.vendor, amount: bill.amount, currency: bill.currency,
-      usd: (bill.usd || 0) / 100, paidFrom: bill.paid ? bill.paidFrom || 'Paid' : 'Owed to supplier', legacy: false, canceled: bill.status === 'canceled', bill,
+      usd: (bill.usd || 0) / 100, paidFrom: bill.openUsd !== undefined && bill.openUsd < 0
+        ? `رصيد لنا عند المورد: $${formatNumber(-bill.openUsd / 100)}`
+        : bill.openUsd !== undefined && bill.openUsd > 0 ? `متبقي على الفاتورة: $${formatNumber(bill.openUsd / 100)}`
+        : bill.paid ? bill.paidFrom || 'Paid' : 'Owed to supplier', legacy: false, canceled: bill.status === 'canceled', bill,
     }));
     const fromLegacy: Row[] = legacy.map((exp) => ({
       key: exp._id, date: exp.date, description: exp.description, supplier: '', amount: exp.amount, currency: exp.currency, usd: legacyUsd(exp), legacy: true,
@@ -622,6 +635,14 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
                   <td className="is-num">{row.usd === undefined ? <span className="is-muted">-</span> : formatNumber(row.usd)}</td>
                   <td>{row.legacy ? <span className="is-muted">-</span> : row.paidFrom}</td>
                   <td className="is-actions">
+                    {!row.legacy && !row.canceled && row.bill && (access.can('purchases') || access.isOwner) && (
+                      <button type="button" className="inv-icon-btn" disabled={row.bill.editLocked} onClick={() => {
+                        if (row.bill!.canEditFinancial) navigate(`/accounting/bills/${row.bill!._id}/edit?returnTo=${encodeURIComponent(location.pathname)}`);
+                        else setEditBillId(row.bill!._id);
+                      }} aria-label="تعديل" title={row.bill.editLocked ? 'الفترة مقفلة؛ التعديل غير متاح' : 'تعديل'}>
+                        <Pencil size={15} strokeWidth={2} />
+                      </button>
+                    )}
                     {/* The person who entered a cost can take it back the same day; later the accountant does */}
                     {!row.legacy && !row.canceled && row.bill && moment(row.bill.createdAt).format('YYYY-MM-DD') === today && (
                       <button type="button" className="inv-icon-btn is-danger" onClick={() => setCancelTarget(row.bill!)} aria-label="Cancel cost" title="Cancel">
@@ -642,6 +663,11 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
           </table>
         </div>
       )}
+
+      <BillDetailsEditDialog billId={editBillId} onClose={() => setEditBillId(null)} onDone={async () => {
+        await fetchCosts();
+        setToast({ message: 'تم حفظ بيانات الفاتورة والمورد.' });
+      }} />
 
       <Dialog
         open={!!cancelTarget}

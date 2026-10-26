@@ -23,6 +23,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
 
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteRevision, setDeleteRevision] = useState<number | undefined>();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [previewImages, setPreviewImages] = useState<any>(undefined);
@@ -32,7 +33,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const isWithdrawal = isOutflow && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
   // A refund/compensation/cancellation adds to the wallet but no cash came in
   const isCredit = statementFlow(statement || {}) === 'credit';
-  // Outgoing payments are linked to orders and debts, so only incoming ones can be edited or deleted
+  // Admins can correct cash withdrawals. Other outflows keep their own source actions.
   const canManage = isWithdrawal ? isAdmin : canManageUser && !isOutflow;
   const date = moment(statement?.createdAt);
   const office = statement?.office;
@@ -44,7 +45,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
     try {
       setIsDeleting(true);
       setDeleteError('');
-      await api.delete(`user/${id}/statement/${statement._id}`, {});
+      await api.delete(`user/${id}/statement/${statement._id}`, isWithdrawal ? { expectedEditCount: deleteRevision ?? statement?.editHistory?.length ?? 0 } : {});
       setConfirmDelete(false);
       onChanged?.();
     } catch (error: any) {
@@ -127,11 +128,11 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         <div className="cashflow-row__actions">
           <StatementReceipt statement={statement} />
           {canManage &&
-            <Tooltip title="Edit payment" arrow>
+            <Tooltip title={isWithdrawal ? 'Edit cash withdrawal' : 'Edit payment'} arrow>
               <button
                 type="button"
                 className="cashflow-icon-btn"
-                aria-label="Edit payment"
+                aria-label={isWithdrawal ? 'Edit cash withdrawal' : 'Edit payment'}
                 onClick={() => setEditOpen(true)}
               >
                 <Pencil size={14} strokeWidth={2} />
@@ -139,13 +140,14 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
             </Tooltip>
           }
           {canManage &&
-            <Tooltip title="Delete payment" arrow>
+            <Tooltip title={isWithdrawal ? 'Delete cash withdrawal' : 'Delete payment'} arrow>
               <button
                 type="button"
                 className="cashflow-icon-btn cashflow-icon-btn--danger"
-                aria-label="Delete payment"
+                aria-label={isWithdrawal ? 'Delete cash withdrawal' : 'Delete payment'}
                 onClick={() => {
                   setDeleteError('');
+                  setDeleteRevision(statement?.editHistory?.length || 0);
                   setConfirmDelete(true);
                 }}
               >
@@ -157,7 +159,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
       </article>
 
       <Dialog open={confirmDelete} onClose={() => !isDeleting && setConfirmDelete(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, fontSize: '1.05rem' }}>Delete this payment?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, fontSize: '1.05rem' }}>{isWithdrawal ? 'Delete this cash withdrawal?' : 'Delete this payment?'}</DialogTitle>
         <DialogContent>
           <p className="cashflow-confirm__description" dir="rtl" dangerouslySetInnerHTML={{ __html: statement?.description }} />
           <dl className="cashflow-confirm">
@@ -176,7 +178,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         <DialogActions>
           <Button disabled={isDeleting} onClick={() => setConfirmDelete(false)}>Cancel</Button>
           <Button disabled={isDeleting} color="error" variant="contained" disableElevation onClick={deleteStatement}>
-            {isDeleting ? 'Deleting…' : 'Delete payment'}
+            {isDeleting ? 'Deleting…' : isWithdrawal ? 'Delete withdrawal' : 'Delete payment'}
           </Button>
         </DialogActions>
       </Dialog>

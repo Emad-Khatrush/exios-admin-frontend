@@ -1,4 +1,4 @@
-import { ChevronRight, DollarSign, FolderLock, Megaphone, MonitorSmartphone, Newspaper } from "lucide-react";
+import { ChevronRight, DollarSign, FolderLock, Hash, Megaphone, MonitorSmartphone, Newspaper } from "lucide-react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import './SettingsCommon.scss';
@@ -12,6 +12,7 @@ const sections = [
 ];
 
 const adminSections = [
+  { to: '/settings/trip-numbering', icon: Hash, label: 'Trip numbering', description: 'Automatic sequences and name templates for each country and shipping type.' },
   { to: '/settings/company-notes', icon: FolderLock, label: 'Company notes', description: 'Important notes and company files, visible to admins only.' },
 ];
 

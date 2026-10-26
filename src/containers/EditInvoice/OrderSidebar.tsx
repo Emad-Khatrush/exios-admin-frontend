@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Autocomplete, Button, ButtonGroup, FormControlLabel, IconButton, Switch, TextField, Tooltip } from '@mui/material';
 import { MdDeleteOutline } from 'react-icons/md';
 import QRCode from 'qrcode.react';
@@ -9,6 +9,8 @@ import { apiErrorMessage } from '../../components/InvoiceForm/constants';
 import { OrderActivity } from '../../models';
 import { countries, customerMessages, removeBr, supplierMessage } from './orderConstants';
 import ActivityMessagePicker from '../../components/TransferOrdersList/ActivityMessagePicker';
+import { specialPriceMessage } from '../../utils/specialPrices';
+import { shippingPriceCountry } from '../../utils/shipmentPrices';
 
 type Toast = (type: 'success' | 'error', message: string) => void;
 
@@ -79,7 +81,7 @@ const AddActivity = ({ order, disabled, toast, onOrderChanged }: Pick<Props, 'or
           ListboxProps={{ style: { direction: 'rtl', textAlign: 'right' } }}
           renderInput={(params) => <TextField {...params} label="الموقع" helperText="حدد موقع البضائع وقت هذا التحديث." dir="rtl" />}
         />
-        <ActivityMessagePicker value={description} onChange={setDescription} disabled={disabled || isSaving} id="order-activity-message" />
+        <ActivityMessagePicker value={description} onChange={setDescription} disabled={disabled || isSaving} id="order-activity-message" initialGroup={order.isPayment ? 'الشراء' : 'الوصول'} order={order} />
         <div className="op-actions">
           <Button variant="contained" type="button" onClick={submit} disabled={disabled || isSaving || !country.trim() || !description.trim()}>{isSaving ? 'جارٍ الإضافة…' : 'إضافة التحديث'}</Button>
         </div>
@@ -93,16 +95,43 @@ const Whatsapp = ({ order, disabled, toast }: Pick<Props, 'order' | 'disabled' |
   const [qrCode, setQrCode] = useState('');
   const [showQr, setShowQr] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+  const priceRequest = useRef(0);
+  useEffect(() => {
+    setIsLoadingPrices(false);
+    return () => { priceRequest.current++; };
+  }, [order._id]);
   const messages = customerMessages(order);
+  const chooseMessage = (text: string) => {
+    priceRequest.current++;
+    setIsLoadingPrices(false);
+    setMessage(text);
+  };
 
   // The warehouse message followed by the current price list of the order's shipping method
   const withPrices = async () => {
+    const request = ++priceRequest.current;
+    setIsLoadingPrices(true);
+    setMessage('');
     try {
-      const prices = (await api.get('shipmentPrices'))?.data || [];
-      const price = prices.find((item: any) => item.shippingType === order?.shipment?.method);
-      setMessage(removeBr(`${messages.arrivedWarehouse} -----------------------\n${price?.priceDescription || ''}`));
+      const customerId = order.user?._id || (typeof order.user === 'string' ? order.user : undefined);
+      // Re-read the customer's prices when preparing the message, since they may
+      // have changed since the order page was opened.
+      const customer = customerId ? (await api.get(`customer/${customerId}`)).data : order.user;
+      const origin = shippingPriceCountry(order?.shipment?.fromWhere);
+      const special = specialPriceMessage(customer?.specialPrices, order?.shipment?.method, origin);
+      let description = special;
+      if (!special) {
+        const prices = (await api.get('shipmentPrices'))?.data || [];
+        const price = prices.find((item: any) => item.shippingType === order?.shipment?.method && shippingPriceCountry(item.country) === origin);
+        if (!price) throw new Error('لا توجد أسعار شحن لهذا البلد وطريقة الشحن.');
+        description = price.priceDescription || `سعر الشحن: ${price.sellingPrice} دولار / ${price.shippingType === 'sea' ? 'متر مكعب' : 'كجم'}`;
+      }
+      if (request === priceRequest.current) setMessage(removeBr(`${special ? 'سعر حصري لك\n\n' : ''}${messages.arrivedWarehouse} -----------------------\n${description}`));
     } catch (error) {
-      toast('error', apiErrorMessage(error));
+      if (request === priceRequest.current) toast('error', apiErrorMessage(error));
+    } finally {
+      if (request === priceRequest.current) setIsLoadingPrices(false);
     }
   };
 
@@ -132,17 +161,17 @@ const Whatsapp = ({ order, disabled, toast }: Pick<Props, 'order' | 'disabled' |
     <Panel title="WhatsApp message">
       <div className="op-stack">
         <ButtonGroup variant="outlined" size="small" className="op-templates" aria-label="Message templates">
-          <Button type="button" onClick={withPrices}>وصلت مخزن باسعار</Button>
-          <Button type="button" onClick={() => setMessage(messages.arrivedWarehouse)}>وصلت بدون اسعار</Button>
-          <Button type="button" onClick={() => setMessage(messages.invoicePaid)}>الفاتورة دفعت</Button>
-          <Button type="button" onClick={() => setMessage('')}>فارغ</Button>
+          <Button type="button" onClick={withPrices} disabled={isLoadingPrices}>{isLoadingPrices ? 'تجهيز الأسعار…' : 'وصلت مخزن باسعار'}</Button>
+          <Button type="button" onClick={() => chooseMessage(messages.arrivedWarehouse)}>وصلت بدون اسعار</Button>
+          <Button type="button" onClick={() => chooseMessage(messages.invoicePaid)}>الفاتورة دفعت</Button>
+          <Button type="button" onClick={() => chooseMessage('')}>فارغ</Button>
         </ButtonGroup>
-        <TextField label="Message" multiline minRows={6} maxRows={14} dir="rtl" value={message} onChange={(event) => setMessage(event.target.value)} />
+        <TextField label="Message" multiline minRows={6} maxRows={14} dir="rtl" value={message} onChange={(event) => chooseMessage(event.target.value)} />
         <div className="op-actions op-actions--between">
           <FormControlLabel label="Show QR code" control={<Switch size="small" checked={showQr} onChange={(event) => setShowQr(event.target.checked)} />} />
           <div className="op-actions">
             <Button variant="outlined" type="button" onClick={getQr}>Get QR</Button>
-            <Button variant="contained" type="button" onClick={send} disabled={disabled || isSending}>{isSending ? 'Sending' : 'Send'}</Button>
+            <Button variant="contained" type="button" onClick={send} disabled={disabled || isSending || isLoadingPrices}>{isSending ? 'Sending' : 'Send'}</Button>
           </div>
         </div>
         {showQr && (qrCode ? <QRCode value={qrCode} /> : <p className="op-muted">Press Get QR to load the code.</p>)}

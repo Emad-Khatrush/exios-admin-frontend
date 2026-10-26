@@ -37,6 +37,8 @@ export type Invoice = {
   unsureOrder: boolean,
   hasRemainingPayment: boolean
   hasProblem: boolean
+  shippingBlocked?: boolean
+  shippingBlockReason?: string
   orderStatus: number,
   isFinished: boolean,
   netIncome: {
@@ -531,7 +533,7 @@ export type Inventory = {
     description: string
   }[],
   voyage: string,
-  shippedCountry: 'CN' | 'UAE' | 'TR' | 'USA' | 'UK' | 'LY',
+  shippedCountry: 'CN' | 'UAE' | 'SA' | 'TR' | 'USA' | 'UK' | 'LY',
   inventoryPlace: 'tripoli' | 'benghazi',
   inventoryFinishedDate: Date,
   voyageAmount: number,

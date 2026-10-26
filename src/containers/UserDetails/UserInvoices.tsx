@@ -14,6 +14,7 @@ import './CashflowUser.scss';
 import './UserInvoices.scss';
 import { User } from '../../models';
 import { formatMoney } from './statementUtils';
+import { invoiceDeliverySummary } from './invoiceDeliverySummary';
 
 type Invoice = {
   _id: string;
@@ -159,6 +160,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
       ) : (
         <div className="invoices__grid">
           {invoices.map((invoice, index) => {
+            const delivery = invoiceDeliverySummary(invoice);
             const paidUSD = invoice.partialDelivery ? invoice.settlement?.paidUSD || 0 : invoice.amountUSD || 0;
             const paidLYD = invoice.partialDelivery ? invoice.settlement?.paidLYD || 0 : invoice.amountLYD || 0;
             const hasLYD = paidLYD > 0;
@@ -209,7 +211,10 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                 }
 
                 <div className="invoice-card__packages">
-                  <p className="invoice-card__label">{invoice.list.length} {invoice.list.length === 1 ? 'package' : 'packages'}</p>
+                  <p className="invoice-card__label">
+                    {delivery.packages} delivered {delivery.packages === 1 ? 'package' : 'packages'} · {delivery.boxes} boxes
+                    {delivery.canceledPackages > 0 && <> · {delivery.canceledPackages} cancelled</>}
+                  </p>
                   <ul>
                     {invoice.list.map((pkg: any, pkgIndex: number) => (
                       <li key={pkg.packageId || pkgIndex} style={pkg.canceledAt ? { opacity: 0.55, textDecoration: 'line-through' } : undefined}>

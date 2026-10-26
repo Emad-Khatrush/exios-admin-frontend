@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { MenuItem, Select, useMediaQuery } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowUpRight, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronUp, Clock3, Copy, MapPin, Package, Phone, Plane, RefreshCw, Search, Ship, ShoppingBag, Truck, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Ban, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronUp, CircleHelp, Clock3, Copy, MapPin, Package, Phone, Plane, RefreshCw, Search, Ship, ShoppingBag, Truck, Wallet, X } from 'lucide-react';
 import { base } from '../../api';
 import { getOrderSteps } from '../../utils/methods';
 import { customerInitials, locationLabel } from './trackingDisplay';
@@ -13,6 +13,7 @@ type Order = {
   user?: { _id?: string; customerId: string; firstName?: string; lastName?: string }; shipment?: { fromWhere: string; toWhere: string; method: string };
   placedAt: string; officeLabel?: string; productName: string; isPayment: boolean; isShipment: boolean; unsureOrder?: boolean;
   isFinished: boolean; hasProblem: boolean; orderNote?: string; orderStatus: number;
+  shippingBlocked?: boolean; shippingBlockReason?: string;
   createdAt: string; lastActivityAt: string; ageIsEstimated?: boolean;
   billedCents: number; purchaseCents: number; openCents: number; paymentState: string; moneySource: string;
   packages: Parcel[]; packageCount: number; matchedTrackings?: string[];
@@ -28,7 +29,7 @@ const PAGE_SIZE = 10;
 const COUNTS_REFRESH_MS = 60_000;
 const sameCounts = (previous: Record<string, number>, next: Record<string, number>) =>
   Object.keys(previous).length === Object.keys(next).length && Object.keys(next).every(key => previous[key] === next[key]);
-const FILTERS = [ ['all', 'الطلبيات النشطة'], ['purchase', 'شراء'], ['shipping', 'شحن'], ['combined', 'شراء وشحن'], ['waitingPurchase', 'شراء بانتظار الدفع'], ['hasProblem', 'فيها مشكلة'], ['finished', 'مكتملة'] ];
+const FILTERS = [ ['all', 'الطلبيات النشطة'], ['purchase', 'شراء'], ['shipping', 'شحن'], ['combined', 'شراء وشحن'], ['waitingPurchase', 'شراء بانتظار الدفع'], ['blocked', 'ممنوعة من الشحن'], ['hasProblem', 'فيها مشكلة'], ['finished', 'مكتملة'] ];
 const PAYMENT_OPTIONS = [['all', 'كل حالات السداد'], ['paid', 'مدفوعة بالكامل'], ['unpaid', 'غير مدفوعة'], ['partial', 'متبقي عليها'], ['unknown', 'تحتاج مراجعة']];
 const PAYMENT: Record<string, string> = { paid: 'مدفوعة بالكامل', unpaid: 'لم تدفع بعد', partial: 'مدفوعة جزئيًا', pending: 'لا يوجد مبلغ مستحق مسجل', unknown: 'السداد يحتاج مراجعة' };
 const SUMMARY = [
@@ -71,6 +72,9 @@ function OrderCard({ order, search, packagesOpen }: { order: Order; search: stri
   useEffect(() => { active.current = true; return () => { active.current = false; if (timer.current) clearTimeout(timer.current); }; }, []);
   const kind = order.isPayment ? order.isShipment ? 'combined' : 'purchase' : order.isShipment ? 'shipping' : 'other';
   const purchaseOnly = kind === 'purchase';
+  const shippingMethod = order.shipment?.method;
+  const shippingLabel = shippingMethod === 'air' ? 'جوي' : shippingMethod === 'sea' ? 'بحري' : 'غير معروف';
+  const ShippingIcon = shippingMethod === 'air' ? Plane : shippingMethod === 'sea' ? Ship : CircleHelp;
   const customerName = order.customerInfo?.fullName?.trim() || [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ') || 'عميل غير محدد';
   const customerCode = order.user?.customerId;
   const [showStages, setShowStages] = useState(false);
@@ -103,19 +107,26 @@ function OrderCard({ order, search, packagesOpen }: { order: Order; search: stri
         <div className="xt-number"><Link to={`/invoice/${order._id}/edit`}><span>رقم الطلبية</span><h3 dir="ltr">{order.orderId}</h3></Link><button type="button" onClick={copy} aria-label={copied ? 'تم نسخ رقم الطلبية' : 'نسخ رقم الطلبية'}>{copied ? <CheckCircle2 size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}</button>{copied && <span className="xt-copy-confirmation" role="status">تم النسخ</span>}</div>
       </div></div>
       <div className="xt-statuses">
+        <span className="xt-tag" aria-label={`نوع الشحن: ${shippingLabel}`} title="نوع الشحن"><ShippingIcon size={15} aria-hidden="true" />{shippingLabel}</span>
         {order.unsureOrder && <span className="xt-tag">غير مؤكدة</span>}
+        {order.shippingBlocked && <span className="xt-tag xt-tag--blocked"><Ban size={15} aria-hidden="true" />ممنوعة من الشحن</span>}
         {order.hasProblem && <span className="xt-tag xt-tag--problem"><AlertCircle size={15} aria-hidden="true" />تحتاج متابعة</span>}
         <span className={`xt-payment xt-payment--${order.paymentState}`}>{order.paymentState === 'paid' ? <CheckCircle2 size={15} aria-hidden="true" /> : <Wallet size={15} aria-hidden="true" />}{PAYMENT[order.paymentState] || PAYMENT.unknown}</span>
       </div>
     </div>
     <div className="xt-order-main">
       <div className="xt-order-information">
+        <div className="xt-customer-status-row">
         <div className="xt-customer"><span className="xt-customer-avatar" aria-hidden="true">{customerInitials(customerName)}</span><div className="xt-customer-profile"><div className="xt-customer-heading"><strong className="xt-customer-name"><bdi dir="auto">{customerName}</bdi></strong>{order.user?._id ? <Link className="xt-customer-code" to={`/user/${order.user._id}`} aria-label={`فتح صفحة العميل ${customerCode || customerName}`}><span>كود العميل</span><bdi dir="ltr">{customerCode || 'عرض العميل'}</bdi><ArrowUpRight size={14} aria-hidden="true" /></Link> : customerCode ? <span className="xt-customer-code"><span>كود العميل</span><bdi dir="ltr">{customerCode}</bdi></span> : null}</div><dl className="xt-customer-facts"><div><dt><MapPin size={13} aria-hidden="true" />المكتب</dt><dd>{locationLabel(order.officeLabel || order.placedAt) || 'غير محدد'}</dd></div>{order.customerInfo?.phone && <div><dt><Phone size={13} aria-hidden="true" />الهاتف</dt><dd><bdi dir="ltr">{order.customerInfo.phone}</bdi></dd></div>}</dl></div></div>
-        <p className="xt-description" dir="auto">{order.productName || 'لا يوجد وصف للطلبية'}</p>
-        <div className="xt-stage-summary"><div><span className="xt-section-kicker">الحالة الحالية</span><strong>{order.isFinished ? 'مكتملة' : steps[currentStep]?.label || 'قيد المتابعة'}</strong></div><span className="xt-age"><Clock3 size={16} aria-hidden="true" />{days === null ? 'المدة غير متاحة' : `${order.ageIsEstimated ? 'نحو ' : ''}${days} يوم`}{order.ageIsEstimated && <small>تقديري</small>}</span></div>
+        <section className="xt-current-state" aria-label="الحالة الحالية ومدة الانتظار">
+          <span className="xt-state-label">الحالة الحالية</span>
+          <strong>{order.isFinished ? 'مكتملة' : steps[currentStep]?.label || 'قيد المتابعة'}</strong>
+          <div className="xt-current-age"><span><Clock3 size={14} aria-hidden="true" />{days === null ? 'المدة غير متاحة' : `${order.ageIsEstimated ? 'نحو ' : ''}${days} يوم`}</span>{order.ageIsEstimated && <small>تقديري</small>}</div>
         <button type="button" className="xt-show-stages" aria-expanded={showStages} aria-controls={`xt-stages-${order._id}`} onClick={() => setShowStages(v => !v)}>{showStages ? 'إخفاء المراحل' : 'عرض المراحل'}<ChevronDown size={14} aria-hidden="true" className={showStages ? 'is-open' : ''} /></button>
+        </section>
+        </div>
         {showStages && <ol id={`xt-stages-${order._id}`} className="xt-stage-track" aria-label="مراحل الطلبية">{steps.map((step, i) => <li key={step.value} className={i < currentStep || order.isFinished ? 'is-complete' : i === currentStep ? 'is-current' : ''} aria-current={!order.isFinished && i === currentStep ? 'step' : undefined}><span className="xt-step-dot" aria-hidden="true">{i < currentStep || order.isFinished ? <Check size={13} /> : i + 1}</span><span>{step.label}</span></li>)}</ol>}
-        <div className="xt-order-meta"><span>{order.ageIsEstimated ? 'آخر نشاط:' : 'تغيّرت الحالة:'} <b dir="ltr">{date(order.lastActivityAt)}</b></span><span>تاريخ الإنشاء: <b dir="ltr">{date(order.createdAt)}</b></span>{order.shipment?.fromWhere && <span className="xt-route"><Truck size={14} aria-hidden="true" />{locationLabel(order.shipment.fromWhere)} ← {locationLabel(order.shipment.toWhere)}</span>}</div>
+        <div className="xt-order-meta"><span>تاريخ الإنشاء: <b dir="ltr">{date(order.createdAt)}</b></span>{order.shipment?.fromWhere && <span className="xt-route"><Truck size={14} aria-hidden="true" />{locationLabel(order.shipment.fromWhere)} ← {locationLabel(order.shipment.toWhere)}</span>}</div>
       </div>
       <aside className={`xt-financial xt-financial--${order.paymentState}`} aria-label="ملخص السداد">
         <div className="xt-financial-heading"><Wallet size={16} aria-hidden="true" /><span>ملخص السداد</span><span>USD</span></div>
@@ -144,6 +155,7 @@ function OrderCard({ order, search, packagesOpen }: { order: Order; search: stri
       {order.packageCount > 3 && <button className="xt-expand" type="button" onClick={expand} disabled={loading} aria-expanded={expanded}>{loading ? 'جاري جلب الشحنات…' : expanded ? 'إخفاء الشحنات الإضافية' : `عرض ${order.packageCount - 3} شحنات إضافية`}{expanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</button>}
     </details>}
     {order.hasProblem && <div className="xt-problem-note"><AlertCircle size={18} aria-hidden="true" /><div><strong>ملاحظة المتابعة</strong><p>{plainNote(order.orderNote) || 'هذه الطلبية مؤشرة بوجود مشكلة وتحتاج متابعة.'}</p></div></div>}
+    {order.shippingBlocked && <div className="xt-problem-note"><Ban size={18} aria-hidden="true" /><div><strong>ممنوعة من الشحن</strong><p>{order.shippingBlockReason || 'يجب رفع المنع من داخل الطلبية قبل إضافتها إلى رحلة.'}</p></div></div>}
     {error && <div className="xt-inline-error" role="alert">{error}</div>}
     <div className="xt-order-footer"><span>{!purchaseOnly && <><Package size={15} aria-hidden="true" />{order.packageCount ? `${order.packageCount} شحنات مرتبطة` : 'لا توجد شحنات مرتبطة'}</>}</span><Link className="xt-open-order" to={`/invoice/${order._id}/edit`}>فتح الطلبية <ChevronLeft size={15} aria-hidden="true" /></Link></div>
   </article>;
@@ -334,17 +346,17 @@ export default function XTrackingDashboard() {
   const resetFilters = () => { updateSearch(''); commitCriteria(DEFAULT_CRITERIA); };
   return <main className="xt-page" dir="rtl">
     <header className="xt-header"><div><h1>X-Tracking</h1><p>متابعة طلبيات الشراء والشحن</p></div><div className="xt-header-actions"><button className="xt-refresh" onClick={refreshData} disabled={busy || searchPending}><RefreshCw size={17} aria-hidden="true" className={busy ? 'xt-spin' : ''} />{busy ? 'جاري التحديث' : 'تحديث البيانات'}</button><span>{updatedAt ? `آخر جلب ${updatedAt.toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}` : 'جاري جلب البيانات'}</span></div></header>
-    <section className="xt-summary" aria-label={query ? 'ملخص نتائج البحث' : 'ملخص الطلبيات'}>{SUMMARY.map(item => <button key={item.key} className={`xt-summary-card xt-summary-card--${item.key} ${stage === item.key ? 'is-selected' : ''}`} type="button" aria-pressed={stage === item.key} onClick={() => selectStage(item.key)}><span className="xt-summary-icon"><item.icon size={22} aria-hidden="true" /></span><span className="xt-summary-label">{item.label}</span><strong>{counts[item.key]?.toLocaleString() ?? '—'}</strong><span className="xt-summary-hint">{query ? 'ضمن نتائج البحث الحالية' : item.hint}</span><ChevronLeft className="xt-summary-arrow" size={17} aria-hidden="true" /></button>)}</section>
+    <section className="xt-summary" aria-label={query ? 'ملخص نتائج البحث' : 'ملخص الطلبيات'}>{SUMMARY.map(item => <button key={item.key} className={`xt-summary-card xt-summary-card--${item.key} ${stage === item.key ? 'is-selected' : ''}`} type="button" aria-pressed={stage === item.key} onClick={() => selectStage(item.key)}><span className="xt-summary-icon"><item.icon size={22} aria-hidden="true" /></span><span className="xt-summary-label">{item.key === 'all' && query ? 'كل الطلبيات' : item.label}</span><strong>{counts[item.key]?.toLocaleString() ?? '—'}</strong><span className="xt-summary-hint">{query ? 'ضمن نتائج البحث الحالية' : item.hint}</span><ChevronLeft className="xt-summary-arrow" size={17} aria-hidden="true" /></button>)}</section>
     <section className="xt-toolbar" aria-label="البحث وتصفية الطلبيات">
       <div className="xt-search-controls"><CompactSelect id="xt-search-type" label="البحث بواسطة" value={searchType} options={[['orderId', 'Exios Id'], ['trackingNumber', 'Tracking Number']]} onChange={value => change('searchType', value)} /><div className="xt-search-field"><label htmlFor="xt-search-value">{searchType === 'orderId' ? 'رقم الطلبية أو اسم العميل أو كوده' : 'رقم تتبع الشحنة'}</label><div className={`xt-search ${searchPending ? 'is-searching' : ''}`}><Search size={17} aria-hidden="true" /><input id="xt-search-value" ref={input} value={search} onChange={e => updateSearch(e.target.value)} placeholder={searchType === 'orderId' ? 'رقم الطلبية، الاسم، أو كود العميل…' : 'رقم التتبع فقط…'} autoComplete="off" dir="auto" maxLength={120} aria-describedby="xt-search-hint" />{(searchPending || (busy && !!query)) && <RefreshCw size={14} className="xt-spin" aria-hidden="true" />}{search && <button type="button" onClick={() => { updateSearch(''); input.current?.focus(); }} aria-label="مسح البحث"><X size={16} aria-hidden="true" /></button>}</div></div><CompactSelect id="xt-sort" label="ترتيب النتائج" value={sort} options={[['recent', 'الأحدث أولًا'], ['waiting', 'الأطول انتظارًا']]} onChange={value => change('sort', value)} /></div>
       <p id="xt-search-hint" className="xt-search-hint">{searchType === 'orderId' ? 'Exios Id: ابحث برقم الطلبية أو اسم العميل أو كود العميل.' : 'Tracking Number: يبحث في أرقام تتبع الشحنات فقط.'}</p>
       <label className="xt-packages-preference"><input type="checkbox" checked={packagesOpen} onChange={event => setPackagesOpen(event.target.checked)} /><span>فتح الشحنات المرتبطة</span></label>
-      <div className="xt-filters" role="group" aria-label="فئات الطلبيات"><span className="xt-filter-label">الطلبيات</span>{FILTERS.map(([key, label]) => <button type="button" key={key} aria-pressed={stage === key} className={[stage === key ? 'is-active' : '', key === 'finished' ? 'xt-filter-finished' : ''].filter(Boolean).join(' ')} onClick={() => selectStage(key)}>{key === 'finished' ? <CheckCircle2 size={15} aria-hidden="true" /> : key === 'purchase' ? <ShoppingBag size={15} aria-hidden="true" /> : key === 'shipping' ? <Truck size={15} aria-hidden="true" /> : key === 'combined' ? <Package size={15} aria-hidden="true" /> : null}{label}<span>{counts[key]?.toLocaleString() ?? '—'}</span></button>)}</div>
+      <div className="xt-filters" role="group" aria-label="فئات الطلبيات"><span className="xt-filter-label">الطلبيات</span>{FILTERS.map(([key, label]) => <button type="button" key={key} aria-pressed={stage === key} className={[stage === key ? 'is-active' : '', key === 'finished' ? 'xt-filter-finished' : ''].filter(Boolean).join(' ')} onClick={() => selectStage(key)}>{key === 'blocked' ? <Ban size={15} aria-hidden="true" /> : key === 'finished' ? <CheckCircle2 size={15} aria-hidden="true" /> : key === 'purchase' ? <ShoppingBag size={15} aria-hidden="true" /> : key === 'shipping' ? <Truck size={15} aria-hidden="true" /> : key === 'combined' ? <Package size={15} aria-hidden="true" /> : null}{key === 'all' && query ? 'كل الطلبيات' : label}<span>{counts[key]?.toLocaleString() ?? '—'}</span></button>)}</div>
       <div className="xt-payment-filters" role="group" aria-label="حالة السداد"><span><Wallet size={14} aria-hidden="true" />حالة السداد</span><div>{PAYMENT_OPTIONS.map(([key, label]) => <button key={key} type="button" aria-pressed={payment === key} className={payment === key ? 'is-active' : ''} onClick={() => change('payment', key)}>{label}<span>{paymentCounts[key]?.toLocaleString() ?? '—'}</span></button>)}</div></div>
       {countsError && <p className="xt-count-error" role="status">تعذر تحديث بعض العدادات. <button type="button" onClick={retryCounts}>إعادة المحاولة</button></p>}
     </section>
     <div className="xt-list-heading"><div><h2>{FILTERS.find(([key]) => key === stage)?.[1]}</h2><span className="xt-result-count" role="status" aria-atomic="true">{busy || searchPending ? 'جاري جلب الطلبيات…' : result.total === null ? `${result.orders.length.toLocaleString()} طلبيات محمّلة` : `${result.orders.length.toLocaleString()} من ${result.total.toLocaleString()} طلبية`}</span>{payment !== 'all' && <span className="xt-selected-payment">{PAYMENT_OPTIONS.find(([key]) => key === payment)?.[1]}</span>}</div>{(search || stage !== 'all' || sort !== 'recent' || payment !== 'all') && <button className="xt-reset" type="button" onClick={resetFilters}><X size={15} aria-hidden="true" />مسح الفلاتر</button>}</div>
-    {query && <p className="xt-query-caption">نتائج البحث عن <b dir="ltr">{query}</b></p>}
+    {query && <p className="xt-query-caption">نتائج البحث عن <b dir="ltr">{query}</b> · يشمل البحث الطلبيات النشطة والمكتملة</p>}
     {searchPending || busy ? <div className="xt-skeletons" aria-label="جاري تحميل الطلبيات" aria-busy="true">{[1, 2, 3].map(n => <div key={n} className="xt-skeleton"><span /><span /><span /></div>)}</div> : error ? <div className="xt-empty" role="alert"><span className="xt-empty-icon"><AlertCircle size={30} aria-hidden="true" /></span><h3>تعذر تحميل الطلبيات</h3><p>{error}</p><button type="button" onClick={refreshData}>إعادة المحاولة</button></div> : result.orders.length ? <div className="xt-order-list">{result.orders.map(order => <MemoizedOrderCard key={`${order._id}:${reload}`} order={order} search={searchType === 'trackingNumber' ? query : ''} packagesOpen={packagesOpen} />)}</div> : <div className="xt-empty"><span className="xt-empty-icon"><Search size={30} aria-hidden="true" /></span><h3>لا توجد طلبيات هنا</h3><p>جرّب رقمًا آخر أو اعرض الطلبيات النشطة.</p><button type="button" onClick={resetFilters}>عرض الطلبيات النشطة</button></div>}
     {!busy && !searchPending && !error && result.orders.length > 0 && <div ref={sentinel} className="xt-load-next" aria-busy={moreBusy}>{moreError ? <><p role="alert">{moreError}</p><button type="button" onClick={() => void loadMore(true)}>إعادة المحاولة</button></> : moreBusy ? <span><RefreshCw size={16} aria-hidden="true" className="xt-spin" />جاري تحميل الطلبيات التالية…</span> : hasMore ? <button type="button" onClick={() => void loadMore()}>تحميل المزيد<ChevronDown size={16} aria-hidden="true" /></button> : <span>نهاية النتائج الحالية · {result.orders.length.toLocaleString()} طلبية</span>}</div>}
   </main>;

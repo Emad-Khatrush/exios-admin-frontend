@@ -78,11 +78,11 @@ export const ComboField = ({ label, name, options, defaultValue, onChange, requi
 };
 
 // A yes/no property of the order shown as a chip that is on or off
-export const ToggleChip = ({ label, name, defaultChecked, onChange, disabled, tone = 'neutral' }: {
-  label: string, name: string, defaultChecked?: boolean, onChange: (event: any, checked: boolean) => void, disabled?: boolean, tone?: 'neutral' | 'warn' | 'danger'
+export const ToggleChip = ({ label, name, defaultChecked, checked, onChange, disabled, tone = 'neutral' }: {
+  label: string, name: string, defaultChecked?: boolean, checked?: boolean, onChange: (event: any, checked: boolean) => void, disabled?: boolean, tone?: 'neutral' | 'warn' | 'danger'
 }) => (
   <label className={`of-chip of-chip--${tone}${disabled ? ' is-disabled' : ''}`}>
-    <input type="checkbox" name={name} defaultChecked={!!defaultChecked} disabled={disabled} onChange={(event) => onChange(event, event.target.checked)} />
+    <input type="checkbox" name={name} {...(checked === undefined ? { defaultChecked: !!defaultChecked } : { checked })} disabled={disabled} onChange={(event) => onChange(event, event.target.checked)} />
     <span className="of-chip__box"><BsCheck2 /></span>
     <span className="of-chip__label">{label}</span>
   </label>

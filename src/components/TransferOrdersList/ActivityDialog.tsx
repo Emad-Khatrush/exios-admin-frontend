@@ -1,6 +1,6 @@
 import { Autocomplete, CircularProgress, TextField } from '@mui/material';
 import React, { useMemo, useRef, useState } from 'react'
-import { countries } from '../../containers/EditInvoice/orderConstants';
+import { countries, formatActivityMessage } from '../../containers/EditInvoice/orderConstants';
 import ActivityMessagePicker from './ActivityMessagePicker';
 import { acceptingPaymentAlertText, arrivedPackageDetails, arrivingGoodsToPortAlert, reminderToReceiveGoodsText } from './readyTexts';
 import { calculateMinTotalPrice, replaceWords } from '../../utils/methods';
@@ -264,7 +264,7 @@ const ActivityDialog = (props: Props) => {
     setIsAdding(true);
     setActivityResult(undefined);
     const results = await Promise.allSettled(
-      uniqueOrders.map((order: any) => api.post(`order/${order._id}/addActivity`, activity))
+      uniqueOrders.map((order: any) => api.post(`order/${order._id}/addActivity`, { ...activity, description: formatActivityMessage(activity.description, order) }))
     );
     const failed = results.filter(result => result.status === 'rejected').length;
     const added = results.length - failed;

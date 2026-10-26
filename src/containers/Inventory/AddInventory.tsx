@@ -3,10 +3,12 @@ import DatePicker from "@mui/lab/DatePicker";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import { CircularProgress, TextField } from "@mui/material";
 import ImageUploader from "../../components/ImageUploader/ImageUploader";
-import React, { useState } from "react";
-import { arrayRemoveByValue } from "../../utils/methods";
+import React, { useRef, useState } from "react";
+import { useSelector } from 'react-redux';
+import InventoryAttachments, { FileVisibility } from '../../components/InventoryAttachments/InventoryAttachments';
 import api from "../../api";
 import { getErrorMessage } from "../../utils/errorHandler";
+import { newTripCreationRequestId, useTripNumbering } from '../../utils/useTripNumbering';
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { ARRIVAL_DATE_HINT, ARRIVAL_DATE_LABEL, ChoiceGroup, COUNTRY_OPTIONS, FieldLabel, OFFICE_OPTIONS, READY_DATE_AUTO_HINT, READY_DATE_LABEL, SHIPPING_TYPE_OPTIONS, SEA_LOAD_OPTIONS } from "./InventoryFields";
@@ -19,67 +21,44 @@ const AddInventory = () => {
 
   // No ready date on create: it is set when the inventory is marked finished (اكتملت)
   const [form, setForm] = useState<any>({});
+  const numbering = useTripNumbering(form.shippedCountry, form.shippingType, form.seaLoadType);
+  const requestId = useRef('');
+  if (!requestId.current) requestId.current = newTripCreationRequestId();
+  const submitting = useRef(false);
 
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [files, setFiles] = useState<any>([]);
-  const [previewFiles, setPreviewFiles] = useState<any>([]);
+  const [defaultVisibility, setDefaultVisibility] = useState<FileVisibility>('staff');
+  const roles = useSelector((state: any) => state.session.account?.roles);
+  const canManageFiles = !!(roles?.isAdmin || roles?.isAccountant);
 
   const filesRef = React.createRef();
 
-  const fileUploaderHandler = async (event: any) => {
-    const files = event.target.files;
-
-    const newFiles: any =[];
-
-    for (const file of files) {
-      file.category = event.target.id;
-      newFiles.unshift(file)
+  const fileUploaderHandler = (event: any) => {
+    const selected = Array.from<File>(event.target.files || []);
+    if (selected.some(file => file.size > 25 * 1024 * 1024) || files.length + selected.length > 20) {
+      setError('Choose up to 20 files, with each file 25 MB or smaller.'); return;
     }
-
-    setFiles((previewState: any) => {
-      previewFile([ ...previewState, ...newFiles ], event.target.id);
-      return [ ...previewState, ...newFiles ];
-    })
-  }
-
-  const previewFile = async (files: any, category: string) => {
-    const results = await Promise.all(files.map(async (file: any) => {
-      const fileContents = await handleFileChosen(file);
-      return fileContents;
-    }));
-
-    setPreviewFiles(results);
+    const pending = selected.map(file => Object.assign(file, { visibility: canManageFiles ? defaultVisibility : 'staff' }));
+    setFiles((previous: any[]) => [...previous, ...pending]);
+    if (event.target.value !== undefined) event.target.value = '';
+  };
+  const deleteImage = (file: any) => setFiles((previous: any[]) => previous.filter(item => item !== file));
+  const changePendingVisibility = (file: any, visibility: FileVisibility) => {
+    setFiles((previous: any[]) => previous.map(item => item === file ? Object.assign(item, { visibility }) : item));
   };
 
-  const handleFileChosen = async (file: any) => {
-    return new Promise((resolve, reject) => {
-      let fileReader = new FileReader();
-      fileReader.readAsDataURL(file);
-      fileReader.onload = () => {
-        resolve(fileReader.result);
-      };
-    });
-  }
-
-  const deleteImage = (file: never) => {
-    const fileIndex = previewFiles.indexOf(file);
-
-    const filesInput = arrayRemoveByValue(files, files[fileIndex]);
-    const newPreviewFiles = arrayRemoveByValue(previewFiles, file);
-    setFiles(filesInput);
-    setPreviewFiles(newPreviewFiles);
-  }
-
   const onChangeHandler = (event: any) => {
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const { name, value } = event.target;
+    setForm((previous: any) => ({ ...previous, [name]: value, ...(name === 'shippingType' && value !== 'sea' ? { seaLoadType: '' } : {}) }));
   }
 
   const onSubmit = (event: any) => {
     event.preventDefault();
 
-    if (!form) {
+    if (!form || submitting.current || !numbering.ready) {
       return;
     }
 
@@ -97,8 +76,11 @@ const AddInventory = () => {
       });
     }
 
+    formData.append('attachmentVisibilities', JSON.stringify(files.map((file: any) => file.visibility || 'staff')));
     formData.append('inventoryType', 'inventoryGoods');
+    formData.append('creationRequestId', requestId.current);
 
+    submitting.current = true;
     setIsLoading(true);
     setError(undefined);
 
@@ -107,6 +89,7 @@ const AddInventory = () => {
         if (res?.success !== undefined && !res?.success) {
           setError(getErrorMessage(res.message));
           setIsLoading(false);
+          submitting.current = false;
         } else {
           history(`/inventory/${res._id}/edit`);
         }
@@ -114,6 +97,7 @@ const AddInventory = () => {
       .catch((error) => {
         setError(getErrorMessage(error.message));
         setIsLoading(false);
+        submitting.current = false;
       })
   }
 
@@ -142,31 +126,24 @@ const AddInventory = () => {
           </div>
 
           <div className="inv-grid">
+            <div className="inv-voyage-row is-wide">
             <div className="inv-field">
-              <FieldLabel required>Voyage number</FieldLabel>
+              <FieldLabel required>{numbering.enabled ? 'Trip name — automatic numbering' : 'Voyage number'}</FieldLabel>
               <TextField
                 size="small"
                 fullWidth
                 name="voyage"
-                required
-                autoFocus
+                required={!numbering.enabled}
+                value={numbering.enabled ? numbering.voyage : form.voyage || ''}
+                disabled={numbering.loading || numbering.enabled || isLoading}
                 onChange={onChangeHandler}
-                inputProps={{ 'aria-label': 'Voyage number' }}
+                inputProps={{ 'aria-label': 'Voyage number', dir: 'auto' }}
               />
+              <span className="inv-hint">{numbering.loading ? 'Loading the next trip number…' : numbering.enabled ? 'The final number is reserved on save and may advance if another trip is created first.' : !form.shippedCountry || !form.shippingType ? 'Select a country and shipping type to load numbering settings.' : form.shippingType === 'sea' && !form.seaLoadType ? 'Select FCL or LCL to load numbering settings.' : 'Automatic numbering is off for this type. Enter the name manually.'}</span>
+              {numbering.error && <div className="inv-error" role="alert">{numbering.error} <button type="button" className="inv-btn is-ghost" onClick={numbering.retry}>Retry</button></div>}
             </div>
 
-            <div className="inv-field">
-              <FieldLabel note="Optional">Odo reference code</FieldLabel>
-              <TextField
-                size="small"
-                fullWidth
-                name="odoReferenceCode"
-                onChange={onChangeHandler}
-                inputProps={{ 'aria-label': 'Odo reference code' }}
-              />
-            </div>
-
-            <div className="is-wide">
+            <div>
               <ChoiceGroup
                 name="shippedCountry"
                 label="Shipped from"
@@ -175,6 +152,7 @@ const AddInventory = () => {
                 onChange={onChangeHandler}
                 required
               />
+            </div>
             </div>
 
             <ChoiceGroup
@@ -186,7 +164,7 @@ const AddInventory = () => {
               required
             />
 
-            {form.shippingType === 'sea' && <ChoiceGroup name="seaLoadType" label="نوع الشحن البحري" options={SEA_LOAD_OPTIONS} value={form.seaLoadType || ''} onChange={onChangeHandler} />}
+            {form.shippingType === 'sea' && <ChoiceGroup name="seaLoadType" label="نوع الشحن البحري" options={SEA_LOAD_OPTIONS} value={form.seaLoadType || ''} onChange={onChangeHandler} required />}
 
             <ChoiceGroup
               name="inventoryPlace"
@@ -249,9 +227,12 @@ const AddInventory = () => {
                 id={'attachments'}
                 inputFileRef={filesRef}
                 fileUploaderHandler={fileUploaderHandler}
-                previewFiles={previewFiles}
+                previewFiles={[]}
                 files={files}
                 deleteImage={deleteImage}
+                disabled={isLoading}
+                inventoryFileAccess={{ value: defaultVisibility, onChange: setDefaultVisibility, canManage: canManageFiles }}
+                previewContent={<InventoryAttachments files={files} pending canManage={canManageFiles} disabled={isLoading} onVisibilityChange={changePendingVisibility} onDelete={deleteImage} />}
               />
             </div>
           </div>
@@ -261,7 +242,7 @@ const AddInventory = () => {
           <span>Fields marked * are required</span>
           <div>
             <Link className="inv-btn is-ghost" to="/inventory">Cancel</Link>
-            <button type="submit" className="inv-btn is-primary" disabled={isLoading}>
+            <button type="submit" className="inv-btn is-primary" disabled={isLoading || !numbering.ready}>
               {isLoading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Create inventory'}
             </button>
           </div>

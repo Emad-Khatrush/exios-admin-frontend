@@ -34,6 +34,12 @@ const BillForm = () => {
   const idempotencyKey = useRef(newKey());
   const [duplicateReview, setDuplicateReview] = useState<any>(null);
   const [duplicateReason, setDuplicateReason] = useState('');
+  const [postedBill, setPostedBill] = useState<any>(null);
+  const [loadingBill, setLoadingBill] = useState(!!id);
+  const [editLock, setEditLock] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [financialReview, setFinancialReview] = useState<any>(null);
+  const commitBusy = useRef(false);
 
   const expenseAccounts = useMemo(() => accounts.filter((a) => a.type === 'expense' && !a.isGroup && a.isActive), [accounts]);
   const assetAccounts = useMemo(() => accounts.filter((a) => a.type === 'asset' && !a.isGroup && a.isActive && !a.isCash && a.code.startsWith('15')), [accounts]);
@@ -62,15 +68,18 @@ const BillForm = () => {
     }
     const loadId = id || params.get('creditFor');
     if (!loadId) return;
+    setLoadingBill(true);
     acc.get(`bills/${loadId}`).then((res: any) => {
       const { bill, trips, orders } = res.data;
+      setPostedBill(id && bill.status === 'posted' ? bill : null);
+      setEditLock(id ? res.data.editLock || '' : '');
       const findById = (list: any[], value: any) => list.find((item) => item._id === value) || null;
       setForm((prev: any) => ({
         ...prev, vendorId: bill.vendorId?._id || bill.vendorId, currency: bill.currency, rate: bill.rate || '',
         ...(id ? { vendorRef: bill.vendorRef || '', day: bill.day, note: bill.note || '', isCreditNote: bill.isCreditNote, originalBillId: bill.originalBillId || '' } : { isCreditNote: true }),
       }));
       const loaded = bill.lines.map((line: any) => ({
-        ...blankLine(line.target), description: line.description, amount: id ? String(line.amount) : '', office: line.office || '',
+        ...blankLine(line.target), savedId: id ? line._id : undefined, description: line.description, amount: id ? String(line.amount) : '', office: line.office || '',
         accountId: line.accountId || '', costCategory: line.costCategory || '', trip: findById(trips, line.tripId), order: findById(orders, line.orderId), packageId: line.packageId || '',
         asset: { name: line.asset?.name || '', usefulLifeMonths: line.asset?.usefulLifeMonths || '', salvageValue: line.asset?.salvageValue || '' },
         prepaid: { expenseAccountId: line.prepaid?.expenseAccountId || '', months: line.prepaid?.months || '', startMonth: line.prepaid?.startMonth || '' },
@@ -79,7 +88,7 @@ const BillForm = () => {
       loaded.forEach((line: any, index: number) => {
         if (line.target === 'customs') loadPackages(line.key, bill.lines[index].orderId, line.packageId);
       });
-    }).catch((err: any) => setError(errorText(err)));
+    }).catch((err: any) => setError(errorText(err))).finally(() => setLoadingBill(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -105,6 +114,7 @@ const BillForm = () => {
     paidBeforeCount: form.paidBeforeCount && !form.isCreditNote ? true : undefined,
     employeeId: form.payNow && payAccount?.requires?.includes('employee') ? form.employee?._id : undefined,
     lines: lines.map((line) => ({
+      ...(postedBill && line.savedId ? { _id: line.savedId } : {}),
       description: line.description, amount: Number(line.amount), target: line.target, office: line.office || undefined,
       quantity: line.target === 'stock' ? Number(line.quantity) : undefined,
       confirmCompanyOwned: line.target === 'stock' ? !!line.confirmCompanyOwned : undefined,
@@ -116,13 +126,24 @@ const BillForm = () => {
       asset: line.target === 'asset' ? { name: line.asset.name, usefulLifeMonths: Number(line.asset.usefulLifeMonths), salvageValue: Number(line.asset.salvageValue) || 0 } : undefined,
       prepaid: line.target === 'prepaid' ? { expenseAccountId: line.prepaid.expenseAccountId, months: Number(line.prepaid.months), startMonth: line.prepaid.startMonth || undefined } : undefined,
     })),
+    ...(postedBill ? { updatedAt: postedBill.updatedAt, reason: editReason } : {}),
   });
 
   const save = async (asDraft: boolean, decision?: any) => {
+    if (loadingBill || editLock || (postedBill && !editReason.trim())) return;
     try {
       setIsSaving(true);
       setError('');
       const input = { ...body(), ...(decision || {}) };
+      if (postedBill) {
+        const preview = (await acc.post(`bills/${id}/edit-preview`, input)).data;
+        if (!decision && preview.duplicates?.results?.length) {
+          setDuplicateReview({ ...preview.duplicates, input, asDraft: false }); setDuplicateReason(''); return;
+        }
+        setDuplicateReview(null);
+        setFinancialReview({ ...preview, input });
+        return;
+      }
       if (!decision) {
         const preview = (await acc.post('bills/duplicate-preview', { ...input, excludeId: id })).data;
         if (preview.results.length) { setDuplicateReview({ ...preview, input, asDraft }); setDuplicateReason(''); return; }
@@ -141,11 +162,22 @@ const BillForm = () => {
     finally { setIsSaving(false); }
   };
 
+  const commitEdit = async () => {
+    if (commitBusy.current || !financialReview) return;
+    commitBusy.current = true; setIsSaving(true); setError('');
+    try {
+      await acc.post(`bills/${id}/edit-posted`, { ...financialReview.input, fingerprint: financialReview.fingerprint });
+      const returnTo = params.get('returnTo');
+      navigate(returnTo?.startsWith('/inventory/') ? returnTo : `/accounting/bills/${id}`);
+    } catch (err) { setError(errorText(err)); }
+    finally { commitBusy.current = false; setIsSaving(false); }
+  };
+
   const addVendor = async () => {
     try {
       const res = await acc.post('vendors', newVendor);
       await reloadVendors();
-      setForm({ ...form, vendorId: res.data._id, currency: newVendor.defaultCurrency });
+      setForm({ ...form, vendorId: res.data._id, currency: postedBill ? form.currency : newVendor.defaultCurrency });
       setNewVendor(null);
     } catch (err) {
       setError(errorText(err));
@@ -161,17 +193,39 @@ const BillForm = () => {
   return (
     <>
       <PageHeader
-        title={form.isCreditNote ? 'إشعار دائن (مرتجع من المورد)' : id ? 'تعديل مسودة فاتورة' : 'فاتورة مورد جديدة'}
+        title={postedBill ? `تعديل الفاتورة ${postedBill.number}` : form.isCreditNote ? 'إشعار دائن (مرتجع من المورد)' : id ? 'تعديل مسودة فاتورة' : 'فاتورة مورد جديدة'}
         subtitle="كل سطر يُحمَّل على رحلة أو طلب شراء أو مصروف أو أصل ثابت أو مصروف مقدم. تكاليف الرحلات والطلبات تبقى «قيد التنفيذ» حتى يُعترف بإيرادها."
       />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      {editLock && <Alert severity="warning" className="mb-3">{editLock}؛ تعديل الفاتورة غير متاح.</Alert>}
+      {loadingBill && <p role="status">جارٍ تحميل الفاتورة…</p>}
+      <Dialog open={!!financialReview} onClose={() => !isSaving && setFinancialReview(null)} fullWidth maxWidth="sm" dir="rtl" aria-labelledby="bill-edit-preview-title">
+        <DialogTitle id="bill-edit-preview-title">معاينة أثر تعديل الفاتورة</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+          {financialReview && <>
+            <Alert severity="info" className="mb-3">يُحفظ التعديل وسببه وتُحدّث تكلفة الرحلات والطلبات. المدفوع سابقًا يبقى كما هو، وأي دفع أو استرداد جديد يُسجَّل بشكل مستقل.</Alert>
+            <dl className="mb-3">
+              <dt>القيمة الحالية</dt><dd><Amount value={financialReview.oldTotal} currency={financialReview.oldCurrency} /></dd>
+              <dt>القيمة بعد التعديل</dt><dd><Amount value={financialReview.newTotal} currency={financialReview.newCurrency} /></dd>
+              <dt>المسدّد والتسويات السابقة</dt><dd><Money value={financialReview.settledUsd} /></dd>
+              <dt>{financialReview.newOpen < 0 ? 'رصيد لنا عند المورد بعد التعديل' : 'المتبقي للمورد بعد التعديل'}</dt><dd><Money value={Math.abs(financialReview.newOpen)} strong /></dd>
+              <dt>التغير في التكلفة بالدولار</dt><dd><Money value={financialReview.costDelta} /></dd>
+              <dt>تاريخ الفاتورة بعد التعديل</dt><dd><Ltr>{financialReview.day}</Ltr></dd>
+            </dl>
+            <p className="acc-muted">سبب التعديل: {financialReview.input.reason}</p>
+          </>}
+        </DialogContent>
+        <DialogActions><Button disabled={isSaving} onClick={() => setFinancialReview(null)}>العودة للتعديل</Button>
+          <Button variant="contained" disabled={isSaving} onClick={commitEdit}>{isSaving ? 'جارٍ الحفظ…' : 'اعتماد التعديل'}</Button></DialogActions>
+      </Dialog>
       <Dialog open={!!duplicateReview} onClose={() => !isSaving && setDuplicateReview(null)} fullWidth maxWidth="md" dir="rtl">
-        <DialogTitle>راجع التكلفة الموجودة قبل إنشاء فاتورة أخرى</DialogTitle>
+        <DialogTitle>{postedBill ? 'راجع التكلفة المشابهة قبل اعتماد التعديل' : 'راجع التكلفة الموجودة قبل إنشاء فاتورة أخرى'}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" className="mb-3">تشابه البيانات لا يثبت التكرار. إذا كانت نفس العملية، استخدم الفاتورة المسجلة؛ لا تسجل تكلفة أو سداداً جديداً.</Alert>
           {(duplicateReview?.results || []).map((row: any) => <Panel key={row.key} title={`${row.number} · ${row.amount} ${row.currency}`}>
             <p>{row.reason} · {row.day}</p><Button onClick={() => navigate(row.url)}>فتح العملية المسجلة</Button>
-            {row.billId && duplicateReview.input.lines.length === 1 && duplicateReview.input.lines[0].orderId && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={async () => {
+            {!postedBill && row.billId && duplicateReview.input.lines.length === 1 && duplicateReview.input.lines[0].orderId && <Button disabled={isSaving || duplicateReason.trim().length < 10} onClick={async () => {
               setIsSaving(true); try {
                 await acc.post(`bills/${row.billId}/link-order`, { orderId: duplicateReview.input.lines[0].orderId, reason: duplicateReason });
                 navigate(`/accounting/bills/${row.billId}`);
@@ -185,13 +239,14 @@ const BillForm = () => {
         </DialogActions>
       </Dialog>
 
+      <fieldset disabled={isSaving || loadingBill || !!editLock} className="border-0 p-0 m-0 w-100">
       <Panel title="بيانات الفاتورة">
         <div className="acc-form-grid">
           <div className="d-flex gap-1 align-items-start" style={{ gridColumn: 'span 2' }}>
             <Autocomplete size="small" style={{ flex: 1 }} options={vendors} disabled={form.isCreditNote && !id}
               value={vendors.find((v) => v._id === form.vendorId) || null}
               getOptionLabel={(v: any) => `${v.name} · ${VENDOR_TYPES[v.type] || v.type}`} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
-              onChange={(_, v: any) => setForm({ ...form, vendorId: v?._id || '', currency: v?.defaultCurrency || form.currency })}
+              onChange={(_, v: any) => setForm({ ...form, vendorId: v?._id || '', currency: postedBill ? form.currency : v?.defaultCurrency || form.currency })}
               renderInput={(p) => <TextField {...p} label="المورد" />} />
             {!form.isCreditNote && <Button onClick={() => setNewVendor({ name: '', type: 'supplier', defaultCurrency: 'USD' })}>جديد</Button>}
           </div>
@@ -212,7 +267,7 @@ const BillForm = () => {
             <div key={line.key} className="acc-line">
               <div className="d-flex gap-2 flex-wrap align-items-start">
                 <TextField select label="يُحمَّل على" value={line.target} onChange={(e) => update(line.key, { target: e.target.value })} style={{ width: 170 }} disabled={form.isCreditNote}>
-                  {Object.entries(TARGET_LABELS).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+                  {Object.entries(TARGET_LABELS).filter(([value]) => !postedBill || ['trip', 'order', 'expense', 'customs'].includes(value)).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
                 </TextField>
                 <TextField label="الوصف" value={line.description} onChange={(e) => update(line.key, { description: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
                 <TextField type="number" label={`المبلغ (${form.currency})`} value={line.amount} onChange={(e) => update(line.key, { amount: e.target.value })} style={{ width: 160 }}
@@ -293,7 +348,7 @@ const BillForm = () => {
       </Panel>
 
       <Panel>
-        {!form.isCreditNote && (
+        {!form.isCreditNote && !postedBill && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
             <FormControlLabel control={<Checkbox checked={form.payNow} onChange={(e) => setForm({ ...form, payNow: e.target.checked, paidBeforeCount: false })} />} label="دُفعت الآن من" />
             {form.payNow && (
@@ -310,12 +365,16 @@ const BillForm = () => {
         )}
         {paidBeforeCount && count && <Alert severity="info" className="mb-3">{beforeCountText(count)}</Alert>}
         <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth />
+        {postedBill && <TextField label="سبب التعديل" required fullWidth multiline minRows={2} className="mt-3" value={editReason}
+          inputProps={{ maxLength: 1000 }} onChange={event => setEditReason(event.target.value)} />}
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>
-          {!form.isCreditNote && <Button variant="outlined" disabled={isSaving} onClick={() => save(true)}>حفظ كمسودة</Button>}
-          <Button variant="contained" disabled={isSaving || !form.vendorId} onClick={() => save(false)}>{isSaving ? 'جارٍ الترحيل…' : 'ترحيل'}</Button>
+          {!form.isCreditNote && !postedBill && <Button variant="outlined" disabled={isSaving} onClick={() => save(true)}>حفظ كمسودة</Button>}
+          <Button variant="contained" disabled={isSaving || loadingBill || !!editLock || !form.vendorId || (!!postedBill && !editReason.trim())} onClick={() => save(false)}>{isSaving ? 'جارٍ المعالجة…' : postedBill ? 'معاينة التعديل' : 'ترحيل'}</Button>
         </div>
       </Panel>
+
+      </fieldset>
 
       <Dialog open={!!newVendor} onClose={() => setNewVendor(null)} maxWidth="xs" fullWidth>
         <DialogTitle>مورد جديد</DialogTitle>

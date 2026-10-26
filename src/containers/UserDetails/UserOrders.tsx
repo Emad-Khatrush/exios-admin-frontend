@@ -269,8 +269,8 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
     if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
     // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
-    const nothingOwed = totals.totalFees === 0 && totals.feesLYD === 0;
-    if (amountUSD === 0 && amountLYD === 0 && !nothingOwed && !allowPartial) errors.push('Enter a USD or LYD amount.');
+    // Separate LYD fees are collected automatically from that wallet, outside these inputs.
+    if (amountUSD === 0 && amountLYD === 0 && totals.totalFees > 0 && !allowPartial) errors.push('Enter a USD or LYD amount.');
     if (allowPartial && amountLYD > 0 && (!Number.isFinite(rate) || rate <= 0)) errors.push('أدخل سعر صرف صحيحًا للدينار.');
     if (allowPartial && totals.feesLYD > 0 && !todayRate) errors.push('سجل سعر الدينار أولًا لتحويل رسوم الطرود.');
     if (allowPartial && difference > 0) errors.push('الدفعة أكبر من إجمالي الطرود المحددة.');

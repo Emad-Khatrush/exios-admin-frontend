@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip } from '@mui/material';
+import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, TextField, Tooltip } from '@mui/material';
 import { CheckCheck, RotateCw, Undo2 } from 'lucide-react';
 import { useAccountingAccess } from './useAccountingAccess';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
@@ -23,6 +23,8 @@ const Exceptions = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [walletRevision, setWalletRevision] = useState(0);
   const [walletDifferenceCount, setWalletDifferenceCount] = useState<number | null>(null);
+  const [freeShippingCount, setFreeShippingCount] = useState<number | null>(null);
+  const [includeHistoricalPurchases, setIncludeHistoricalPurchases] = useState(false);
   const { can } = useAccountingAccess();
   const canReview = can('closing');
   // Items accepted after review (spec: they leave the list until the mark is taken back)
@@ -63,10 +65,15 @@ const Exceptions = () => {
   };
   useEffect(() => { load(); }, []);
 
-  const found = (data?.results || []).filter((r: any) => r.key !== 'walletStatements' && r.count > 0).sort((a: any, b: any) => ORDER[a.severity] - ORDER[b.severity]);
-  const clean = (data?.results || []).filter((r: any) => r.key !== 'walletStatements' && r.count === 0);
+  const checks = (data?.results || []).map((row: any) => row.key === 'purchases' && includeHistoricalPurchases && row.includingHistorical
+    ? { ...row, ...row.includingHistorical } : row);
+  const found = checks.filter((r: any) => r.key !== 'walletStatements' && r.count > 0).sort((a: any, b: any) => ORDER[a.severity] - ORDER[b.severity]);
+  const cards = checks.filter((r: any) => r.key !== 'walletStatements' && (r.count > 0 || (r.key === 'purchases' && r.includingHistorical?.count > 0)))
+    .sort((a: any, b: any) => ORDER[a.severity] - ORDER[b.severity]);
+  const clean = checks.filter((r: any) => r.key !== 'walletStatements' && r.count === 0);
   const walletCount = walletDifferenceCount ?? (data?.results || []).find((row: any) => row.key === 'walletStatements')?.count ?? 0;
   const errors = found.filter((row: any) => row.severity === 'error').length + (walletCount > 0 ? 1 : 0);
+  const warnings = found.filter((row: any) => row.severity === 'warn').length + ((freeShippingCount || 0) > 0 ? 1 : 0);
 
   return (
     <>
@@ -79,27 +86,34 @@ const Exceptions = () => {
       {data && (
         <StatGrid>
           <Stat label="أخطاء" value={errors} tone={errors ? 'danger' : undefined} hint="يجب ألا تبقى" />
-          <Stat label="للمراجعة" value={data.warningCount} tone={data.warningCount ? 'warn' : undefined} hint="قرار المحاسب" />
+          <Stat label="للمراجعة" value={warnings} tone={warnings ? 'warn' : undefined} hint="قرار المحاسب" />
           <Stat label="فحوص سليمة" value={clean.length} tone="accent" />
           <Stat label="آخر فحص" value={<Ltr>{data.day}</Ltr>} hint={data.ranAt ? new Date(data.ranAt).toLocaleTimeString('en-GB', { timeZone: 'Africa/Tripoli', hour: '2-digit', minute: '2-digit' }) : undefined} />
         </StatGrid>
       )}
       {!data && !error && <div className="acc-empty">جارٍ التحميل…</div>}
-      {data && walletDifferenceCount === 0 && found.length === 0 && <Alert severity="success" className="mb-3">كل الفحوص سليمة. الدفاتر تطابق المنظومة.</Alert>}
+      {data && walletDifferenceCount === 0 && freeShippingCount === 0 && found.length === 0 && <Alert severity="success" className="mb-3">كل الفحوص سليمة. الدفاتر تطابق المنظومة.</Alert>}
       <WalletStatementReconciliation revision={walletRevision} onRepaired={() => load(true)} onCompared={setWalletDifferenceCount} />
-      <div className="mb-3"><FreeShippingReview onApplied={() => load(true)} /></div>
+      <FreeShippingReview card revision={walletRevision} onCompared={setFreeShippingCount} onApplied={() => load(true)} />
 
-      {found.map((check: any) => (
+      {cards.map((check: any) => (
         <Panel
           key={check.key}
           flush
           title={<><Badge tone={SEVERITY[check.severity]?.tone}>{SEVERITY[check.severity]?.label}</Badge> {check.title} ({check.count})</>}
           subtitle={check.hint}
           actions={<>
+            {check.key === 'purchases' && check.migrationDay && <FormControlLabel
+              control={<Checkbox size="small" checked={includeHistoricalPurchases} onChange={(_, checked) => setIncludeHistoricalPurchases(checked)} />}
+              label="إظهار الطلبيات السابقة للترحيل أيضًا" />}
             {check.reviewedCount > 0 && <Button size="small" onClick={() => setShowReviewed(true)}>{check.reviewedCount} تمت مراجعتها</Button>}
             {check.link && <Button size="small" variant="outlined" onClick={() => navigate(check.link)}>فتح الشاشة</Button>}
           </>}
         >
+          {check.key === 'purchases' && check.migrationDay && <p className="acc-muted mx-3 mt-2">
+            {includeHistoricalPurchases ? 'تُعرض الطلبيات بجميع تواريخها.' : <>تُعرض الطلبيات بعد تاريخ الترحيل <Ltr>{check.migrationDay}</Ltr> فقط.</>}
+            {!check.count && ' لا توجد طلبيات ضمن هذا النطاق.'}
+          </p>}
           {check.items.length > 0 && (
             <DataTable
               dense
@@ -108,6 +122,7 @@ const Exceptions = () => {
               rowKey={(_: any, index: number) => String(index)}
               caption={check.count > check.items.length ? `تُعرض أول ${check.items.length} من ${check.count}.` : undefined}
               columns={[
+                ...(check.key === 'purchases' ? [{ key: 'date', header: 'تاريخ الطلبية', render: (row: any) => <Ltr>{row.day || '—'}</Ltr> }] : []),
                 { key: 'label', header: 'البند', render: (row: any) => <Open to={row.url}>{row.label}</Open> },
                 { key: 'note', header: '', hideOnMobile: true, render: (row: any) => (row.note ? <span className="acc-muted">{row.note}</span> : row.day ? <Ltr>{dayOf(row.day)}</Ltr> : null) },
                 {

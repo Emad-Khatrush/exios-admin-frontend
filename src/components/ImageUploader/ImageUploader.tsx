@@ -6,6 +6,7 @@ import FilesPreviewers from '../FilesPreviewers/FilesPreviewers';
 import { WebcamCapture } from '../WebCamUploader/WebCamUploader';
 import { Dialog } from '@mui/material';
 import CustomButton from '../CustomButton/CustomButton';
+import { FileVisibility, InventoryVisibilityPicker } from '../InventoryAttachments/InventoryAttachments';
 
 type Props = {
   id?: string
@@ -15,6 +16,9 @@ type Props = {
   previewFiles?: any
   files?: any
   required?: boolean
+  disabled?: boolean
+  previewContent?: React.ReactNode
+  inventoryFileAccess?: { value: FileVisibility; onChange: (value: FileVisibility) => void; canManage: boolean }
 }
 
 type State = {
@@ -32,6 +36,8 @@ class ImageUploader extends Component<Props, State> {
   handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (this.props.disabled) return;
 
     this.setState({ isDragging: false });
 
@@ -65,10 +71,13 @@ class ImageUploader extends Component<Props, State> {
 
     return (
       <div>
+        {this.props.inventoryFileAccess && <div className="inventory-files inventory-files__upload-access">
+          {this.props.inventoryFileAccess.canManage ? <InventoryVisibilityPicker label="Visibility for new files" value={this.props.inventoryFileAccess.value} onChange={this.props.inventoryFileAccess.onChange} disabled={this.props.disabled} /> : <span className="inventory-files__empty">New files are visible to all staff.</span>}
+        </div>}
         <CustomButton 
           background='rgb(0, 171, 85)' 
           size="small"
-          onClick={() => this.setState({ cameraDialog: true })}
+          onClick={() => !this.props.disabled && this.setState({ cameraDialog: true })}
         >
           Capture From Camera
         </CustomButton>
@@ -76,6 +85,7 @@ class ImageUploader extends Component<Props, State> {
         <input 
           id={id} 
           multiple 
+          disabled={this.props.disabled}
           className='d-none' 
           onChange={fileUploaderHandler}
           ref={inputFileRef} 
@@ -85,7 +95,7 @@ class ImageUploader extends Component<Props, State> {
 
         <div 
           className={`circle-border ${this.state.isDragging ? 'dragging' : ''}`}
-          onClick={() => inputFileRef.current.click()}
+          onClick={() => !this.props.disabled && inputFileRef.current.click()}
           onDrop={this.handleDrop}
           onDragOver={this.handleDragOver}
           onDragLeave={this.handleDragLeave}
@@ -97,14 +107,14 @@ class ImageUploader extends Component<Props, State> {
         </div>
 
         <p className='allow-format mb-2'>
-          Allowed *.jpeg, *.jpg, *.png, *.webp, *.gif, *.pdf max size of 3.1 MB
+          {this.props.inventoryFileAccess ? 'All file types · up to 25 MB per file · up to 20 files per upload' : 'Allowed *.jpeg, *.jpg, *.png, *.webp, *.gif, *.pdf max size of 3.1 MB'}
         </p>
 
-        <FilesPreviewers
+        {this.props.previewContent !== undefined ? this.props.previewContent : <FilesPreviewers
           previewFiles={uploadedFiles}
           files={previewFiles}
           deleteImage={this.props.deleteImage}
-        />
+        />}
 
         <Dialog 
           open={this.state.cameraDialog}

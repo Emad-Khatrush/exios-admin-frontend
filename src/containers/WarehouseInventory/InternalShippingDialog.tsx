@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Dialog } from '@mui/material';
 import moment from 'moment-timezone';
 import { CheckCircle2, ChevronDown, SquareArrowOutUpRight, Truck } from 'lucide-react';
 import api from '../../api';
+import { newTripCreationRequestId, useTripNumbering } from '../../utils/useTripNumbering';
 
 type Office = 'tripoli' | 'benghazi';
 
@@ -32,6 +33,10 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState<{ _id: string; voyage: string; movedCount: number } | null>(null);
+  const numbering = useTripNumbering('LY', 'domestic');
+  const requestId = useRef('');
+  if (!requestId.current) requestId.current = newTripCreationRequestId();
+  const submitting = useRef(false);
 
   const summary = useMemo(() => {
     const weights = new Map<string, number>();
@@ -59,10 +64,11 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!voyage.trim() || orders.length === 0) return;
+    if ((!numbering.enabled && !voyage.trim()) || orders.length === 0 || !numbering.ready || submitting.current) return;
 
     try {
       setIsSubmitting(true);
+      submitting.current = true;
       setError('');
       const paymentListIds = orders.map((order) => order?.paymentList?._id).filter(Boolean);
       const response = await api.post(`warehouse/${office}/internalShipping`, {
@@ -70,6 +76,7 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
         destination,
         voyage: voyage.trim(),
         note: note.trim(),
+        creationRequestId: requestId.current,
       });
       setCreated(response.data);
       onShipped(paymentListIds);
@@ -77,6 +84,7 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
       setError(err?.response?.data?.message || 'تعذر إنشاء رحلة الشحن الداخلي. حاول مرة أخرى.');
     } finally {
       setIsSubmitting(false);
+      submitting.current = false;
     }
   };
 
@@ -139,9 +147,12 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
           id="wh-ship-voyage"
           type="text"
           required
-          value={voyage}
+          value={numbering.enabled ? numbering.voyage : voyage}
+          disabled={numbering.loading || numbering.enabled || isSubmitting}
           onChange={(event) => { setVoyage(event.target.value); setVoyageEdited(true); }}
         />
+        {numbering.enabled && <p className="wh-dialog__note">This name follows the trip numbering settings. The final number is reserved when the trip is created.</p>}
+        {numbering.error && <p className="wh-dialog__error" role="alert">{numbering.error} <button type="button" className="wh-btn" onClick={numbering.retry}>Retry</button></p>}
 
         <label className="wh-dialog__label" htmlFor="wh-ship-note">ملاحظات <small>(اختياري)</small></label>
         <textarea
@@ -181,7 +192,7 @@ const InternalShippingDialog = ({ office, officeLabel, offices, orders, onClose,
           <button
             type="submit"
             className="wh-btn wh-btn--primary"
-            disabled={isSubmitting || !voyage.trim() || orders.length === 0}
+            disabled={isSubmitting || !numbering.ready || (!numbering.enabled && !voyage.trim()) || orders.length === 0}
           >
             <Truck size={14} strokeWidth={2} />
             {isSubmitting ? 'جارٍ الإنشاء…' : `إنشاء الرحلة ونقل ${orders.length} طرد`}
