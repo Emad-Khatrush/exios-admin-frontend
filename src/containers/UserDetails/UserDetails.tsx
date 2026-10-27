@@ -33,6 +33,7 @@ type Props = {}
 
 const UserDetails = (props: Props) => {
   const { id } = useParams();
+  const canExchangeWallet = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();
@@ -162,9 +163,9 @@ const UserDetails = (props: Props) => {
             >
               سحب من المحفظة كاش
             </CustomButton>
-            <CustomButton background='#08776b' size="small" disabled={isLoading} onClick={() => setExchangeOpen(true)} style={{ marginInlineStart: 8 }}>
+            {canExchangeWallet && <CustomButton background='#08776b' size="small" disabled={isLoading} onClick={() => setExchangeOpen(true)} style={{ marginInlineStart: 8 }}>
               صرافة داخل المحفظة
-            </CustomButton>
+            </CustomButton>}
           </div>
 
           <div className="col-md-4">
@@ -238,8 +239,8 @@ const UserDetails = (props: Props) => {
         </div>
       )}
 
-      <WalletExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} customerId={user._id}
-        balances={{ walletLyd, walletUsd }} onSaved={refreshWalletAndStatement} />
+      {canExchangeWallet && <WalletExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} customerId={user._id}
+        balances={{ walletLyd, walletUsd }} onSaved={refreshWalletAndStatement} />}
       <Dialog
         open={dialog}
         onClose={() => setDialog(undefined)}
