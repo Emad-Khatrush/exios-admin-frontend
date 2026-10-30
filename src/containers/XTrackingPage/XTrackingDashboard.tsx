@@ -5,9 +5,10 @@ import { AlertCircle, ArrowUpRight, Ban, Check, CheckCircle2, ChevronDown, Chevr
 import { base } from '../../api';
 import { getOrderSteps } from '../../utils/methods';
 import { customerInitials, locationLabel } from './trackingDisplay';
+import TrackingImages, { TrackingImage } from './TrackingImages';
 import './XTrackingDashboard.scss';
 
-type Parcel = { _id: string; trackingNumber?: string; arrivedAt?: string; weight?: { total: number; measureUnit: string }; chargeCents: number; received: boolean; arrivedLibya: boolean; arrived: boolean; mark?: string; trip?: { _id: string; name: string; method: string } | null };
+type Parcel = { _id: string; trackingNumber?: string; arrivedAt?: string; images?: TrackingImage[]; weight?: { total: number; measureUnit: string }; chargeCents: number; received: boolean; arrivedLibya: boolean; arrived: boolean; mark?: string; trip?: { _id: string; name: string; method: string } | null };
 type Order = {
   _id: string; orderId: string; customerInfo?: { fullName: string; phone: string };
   user?: { _id?: string; customerId: string; firstName?: string; lastName?: string }; shipment?: { fromWhere: string; toWhere: string; method: string };
@@ -16,7 +17,7 @@ type Order = {
   shippingBlocked?: boolean; shippingBlockReason?: string;
   createdAt: string; lastActivityAt: string; ageIsEstimated?: boolean;
   billedCents: number; purchaseCents: number; openCents: number; paymentState: string; moneySource: string;
-  packages: Parcel[]; packageCount: number; matchedTrackings?: string[];
+  packages: Parcel[]; packageCount: number; matchedTrackings?: string[]; images?: TrackingImage[];
 };
 type Result = { orders: Order[]; total: number | null; counts: Record<string, number> };
 type Criteria = { searchType: string; stage: string; sort: string; payment: string; query: string };
@@ -127,6 +128,7 @@ function OrderCard({ order, search, packagesOpen }: { order: Order; search: stri
         </div>
         {showStages && <ol id={`xt-stages-${order._id}`} className="xt-stage-track" aria-label="مراحل الطلبية">{steps.map((step, i) => <li key={step.value} className={i < currentStep || order.isFinished ? 'is-complete' : i === currentStep ? 'is-current' : ''} aria-current={!order.isFinished && i === currentStep ? 'step' : undefined}><span className="xt-step-dot" aria-hidden="true">{i < currentStep || order.isFinished ? <Check size={13} /> : i + 1}</span><span>{step.label}</span></li>)}</ol>}
         <div className="xt-order-meta"><span>تاريخ الإنشاء: <b dir="ltr">{date(order.createdAt)}</b></span>{order.shipment?.fromWhere && <span className="xt-route"><Truck size={14} aria-hidden="true" />{locationLabel(order.shipment.fromWhere)} ← {locationLabel(order.shipment.toWhere)}</span>}</div>
+        {!!order.images?.length && <div className="xt-order-images"><span>صور الأدمن</span><TrackingImages images={order.images} label={`صور الأدمن للطلبية ${order.orderId}`} /></div>}
       </div>
       <aside className={`xt-financial xt-financial--${order.paymentState}`} aria-label="ملخص السداد">
         <div className="xt-financial-heading"><Wallet size={16} aria-hidden="true" /><span>ملخص السداد</span><span>USD</span></div>
@@ -147,7 +149,7 @@ function OrderCard({ order, search, packagesOpen }: { order: Order; search: stri
       {!!order.packageCount && <div className="xt-parcel-columns" aria-hidden="true"><span>رقم التتبع</span><span>حالة الشحنة</span><span>الرحلة</span><span>الوزن</span><span>الشحن</span></div>}
       {!order.packageCount && <p className="xt-no-packages">لم تضاف شحنات لهذه الطلبية بعد.</p>}
       <ul className="xt-parcel-list">{visible.map(p => <li className={`xt-parcel ${search && p.trackingNumber?.toLowerCase().includes(search.toLowerCase()) ? 'xt-parcel--match' : ''}`} key={p._id}>
-        <div><span className="xt-parcel-icon" aria-hidden="true"><Package size={15} /></span><div><small>Tracking</small><strong dir="ltr">{p.trackingNumber || 'لم يسجل رقم التتبع'}</strong></div></div>
+        <div className="xt-parcel-identity"><span className="xt-parcel-icon" aria-hidden="true"><Package size={15} /></span><div><small>Tracking</small><strong dir="ltr">{p.trackingNumber || 'لم يسجل رقم التتبع'}</strong></div><TrackingImages images={p.images} label={`صور الشحنة ${p.trackingNumber || order.orderId}`} /></div>
         <span className={`xt-parcel-stage ${p.mark === 'missing' ? 'is-missing' : p.received ? 'is-delivered' : ''}`}><span aria-hidden="true" />{p.mark === 'missing' ? 'مفقودة' : p.received ? 'تم الاستلام' : p.arrivedLibya ? 'جاهزة للاستلام' : p.arrived ? 'بالمخزن الخارجي' : 'بانتظار الوصول'}</span>
         <span className={`xt-trip ${p.trip ? '' : 'xt-trip--empty'}`}>{p.trip?.method === 'sea' ? <Ship size={15} aria-hidden="true" /> : <Plane size={15} aria-hidden="true" />}{p.trip ? <Link to={`/inventory/${p.trip._id}/edit`}>{p.trip.name}<ArrowUpRight size={13} aria-hidden="true" /></Link> : 'غير مرتبطة برحلة'}</span>
         <span className="xt-weight"><small>الوزن</small><b dir="ltr">{p.weight?.total || 0} {p.weight?.measureUnit || '—'}</b></span><span className="xt-parcel-amount"><small>الشحن</small><b dir="ltr">{dollars(p.chargeCents)}</b></span>

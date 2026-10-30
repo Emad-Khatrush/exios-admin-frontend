@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import { base } from '../../api';
 import XTrackingDashboard from './XTrackingDashboard';
+import TrackingImages from './TrackingImages';
 
 jest.mock('../../api', () => ({ base: { axios: { get: jest.fn() } } }));
 const get = base.axios.get as jest.Mock;
@@ -35,6 +36,38 @@ test('purchase-only cards hide package sections, shipping amounts and customer t
   expect(within(card).queryByRole('region', { name: 'الشحنات المرتبطة' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /تتبع العميل/ })).not.toBeInTheDocument();
   expect(within(card).getByText('فاتورة الشراء')).toBeInTheDocument();
+});
+
+test('order admin pictures and each shipment gallery open independently for tracking users', async () => {
+  get.mockImplementation((_url, config) => Promise.resolve(config.params.countsOnly ? counts : rows([order('PHOTOS', {
+    isShipment: true, images: [{ path: 'https://example.com/admin.jpg' }], packageCount: 1,
+    packages: [{ _id: 'p1', trackingNumber: 'TRACK', chargeCents: 3000, images: [{ path: 'https://example.com/parcel.jpg' }] }],
+  })])));
+  show(); await screen.findByRole('article');
+  fireEvent.click(screen.getByRole('button', { name: 'فتح صور الأدمن للطلبية PHOTOS — صورة 1 من 1' }));
+  expect(within(screen.getByRole('dialog')).getByRole('img')).toHaveAttribute('src', 'https://example.com/admin.jpg');
+  fireEvent.click(screen.getByRole('button', { name: 'إغلاق الصور' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByLabelText('فتح الشحنات المرتبطة'));
+  fireEvent.click(screen.getByRole('button', { name: 'فتح صور الشحنة TRACK — صورة 1 من 1' }));
+  expect(within(screen.getByRole('dialog')).getByRole('img')).toHaveAttribute('src', 'https://example.com/parcel.jpg');
+});
+
+test('extra pictures open at their index and remain navigable when one picture fails', () => {
+  render(<TrackingImages label="صور الشحنة" images={Array.from({ length: 5 }, (_, n) => ({ path: `https://example.com/${n}.jpg` }))} />);
+  fireEvent.click(screen.getByRole('button', { name: 'عرض بقية صور الشحنة — 5 صور' }));
+  const dialog = within(screen.getByRole('dialog'));
+  expect(dialog.getByRole('img')).toHaveAttribute('src', 'https://example.com/2.jpg');
+  fireEvent.click(dialog.getByRole('button', { name: 'الصورة التالية' }));
+  expect(dialog.getByRole('img')).toHaveAttribute('src', 'https://example.com/3.jpg');
+  fireEvent.click(dialog.getByRole('button', { name: 'الصورة التالية' }));
+  expect(dialog.getByRole('img')).toHaveAttribute('src', 'https://example.com/4.jpg');
+  expect(dialog.getByRole('button', { name: 'الصورة التالية' })).toBeDisabled();
+  fireEvent.error(dialog.getByRole('img'));
+  expect(dialog.getByText(/تعذر عرض الصورة/)).toBeInTheDocument();
+  expect(dialog.getByRole('link', { name: 'فتح الملف الأصلي' })).toHaveAttribute('href', 'https://example.com/4.jpg');
+  fireEvent.click(dialog.getByRole('button', { name: 'الصورة السابقة' }));
+  expect(dialog.getByRole('img')).toHaveAttribute('src', 'https://example.com/3.jpg');
 });
 
 test('modern search selector contains only the two supported modes and preserves trimmed search text', async () => {
@@ -90,7 +123,7 @@ test('next-page failure retains current rows and can be retried', async () => {
   show(); await screen.findByRole('article'); nearBottom();
   await screen.findByRole('alert');
   expect(screen.getByRole('article', { name: 'طلبية ONE' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'إعادة المحاولة' }));
+  fireEvent.click(within(screen.getByRole('alert').parentElement!).getByRole('button', { name: 'إعادة المحاولة' }));
   await screen.findByRole('article', { name: 'طلبية TWO' });
   expect(screen.getAllByRole('article')).toHaveLength(2);
 });
