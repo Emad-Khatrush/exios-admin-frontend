@@ -36,11 +36,12 @@ export const getOfficeLabel = (office?: string) =>
 // What a statement line really is. Only cash/bank deposits and cash withdrawals move
 // real money; refunds, compensation and cancellations credit the wallet without any
 // cash coming in, and paying orders/debts from the wallet spends balance, not cash.
-export type StatementFlow = 'cashIn' | 'credit' | 'spent' | 'cashOut';
+export type StatementFlow = 'cashIn' | 'credit' | 'spent' | 'cashOut' | 'exchangeIn' | 'exchangeOut';
 
 const CREDIT_ACTIONS = ['refund', 'compensation', 'cancellation', 'wallet'];
 
-export const statementFlow = (statement: { calculationType?: string, actionType?: string, paymentType?: string }): StatementFlow => {
+export const statementFlow = (statement: { calculationType?: string, actionType?: string, paymentType?: string, walletExchangeId?: string }): StatementFlow => {
+  if (statement.walletExchangeId || statement.actionType === 'exchange') return statement.calculationType === '-' ? 'exchangeOut' : 'exchangeIn';
   if (statement.calculationType === '-') {
     return statement.actionType === 'withdrawal' || statement.paymentType === 'withdrawal' ? 'cashOut' : 'spent';
   }
@@ -52,4 +53,4 @@ export const summarizeStatements = (statements: any[]) =>
   statements.reduce((acc: Record<StatementFlow, number>, statement: any) => {
     acc[statementFlow(statement)] += Number(statement.amount || 0);
     return acc;
-  }, { cashIn: 0, credit: 0, spent: 0, cashOut: 0 });
+  }, { cashIn: 0, credit: 0, spent: 0, cashOut: 0, exchangeIn: 0, exchangeOut: 0 });

@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Banknote, History, Loader2, MapPin, Paperclip, Undo2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Banknote, History, Loader2, MapPin, Paperclip, Undo2 } from 'lucide-react';
 import { MenuItem, TextField } from '@mui/material';
 import moment from 'moment';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -45,6 +45,8 @@ type Summary = {
   credit: FlowTotals
   spent: FlowTotals
   cashOut: FlowTotals
+  exchangeIn?: FlowTotals
+  exchangeOut?: FlowTotals
 };
 
 const PAGE_SIZE = 20;
@@ -187,6 +189,18 @@ const StatementList = () => {
       icon: Banknote,
       hidden: direction === 'plus',
     },
+    {
+      key: 'exchangeIn', label: 'وارد من الصرافة',
+      value: formatPair(summary?.exchangeIn?.USD || 0, summary?.exchangeIn?.LYD || 0, '+'),
+      note: 'تحويل داخلي بين محفظتي العميل، دون نقد', icon: ArrowLeftRight,
+      hidden: direction === 'minus' || !summary?.exchangeIn?.count,
+    },
+    {
+      key: 'exchangeOut', label: 'صادر للصرافة',
+      value: formatPair(summary?.exchangeOut?.USD || 0, summary?.exchangeOut?.LYD || 0, '−'),
+      note: 'تحويل داخلي بين محفظتي العميل، دون نقد', icon: ArrowLeftRight,
+      hidden: direction === 'plus' || !summary?.exchangeOut?.count,
+    },
   ].filter((tile) => !tile.hidden);
 
   return (
@@ -246,12 +260,13 @@ const StatementList = () => {
           {items.map((item, index) => {
             const isPlus = item.calculationType === '+';
             const isCredit = statementFlow(item) === 'credit';
+            const isExchange = item.actionType === 'exchange';
             const attachment = item.attachments?.[0]?.path;
             const created = moment(item.createdAt);
 
             return (
               <li key={item._id} ref={items.length === index + 1 ? lastElementRef : null} className="wl-statement">
-                <span className={`wl-statement__icon ${isCredit ? 'is-credit' : isPlus ? 'is-in' : 'is-out'}`} aria-label={isCredit ? 'Wallet credit' : isPlus ? 'Deposit' : 'Payment'}>
+                <span className={`wl-statement__icon ${isCredit ? 'is-credit' : isPlus ? 'is-in' : 'is-out'}`} aria-label={isExchange ? 'صرافة داخلية' : isCredit ? 'Wallet credit' : isPlus ? 'Deposit' : 'Payment'}>
                   {isPlus ? <ArrowDownLeft size={16} strokeWidth={2.4} /> : <ArrowUpRight size={16} strokeWidth={2.4} />}
                 </span>
 
@@ -263,6 +278,7 @@ const StatementList = () => {
                     {item.user?.customerId && <span className="wl-client__id">{item.user.customerId}</span>}
                     <span className="wl-statement__type" dir="rtl">{walletActivityType(item)}</span>
                     {isCredit && <span className="wl-statement__credit" title="Added to the wallet, but no cash was received">No cash</span>}
+                    {isExchange && <span className="wl-statement__credit">صرافة داخلية · دون نقد</span>}
                     {attachment && (
                       <a
                         className="wl-statement__file"

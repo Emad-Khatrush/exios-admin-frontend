@@ -16,6 +16,8 @@ import InventoryExpenses from "./InventoryExpenses";
 import { TripAccounting } from "../Accounting/AccountingPanels";
 
 import { ChevronDown, ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import FlightPdfButton from './FlightPdfButton';
+import { convertGoogleStorageUrl } from '../../utils/methods';
 import {
   ChoiceGroup,
   COUNTRY_OPTIONS,
@@ -150,7 +152,7 @@ const EditInventory = () => {
   }
 
   // Current value of a field: the unsaved edit if there is one, otherwise what is saved
-  const valueOf = (name: string) => (name in form ? form[name] : inventory?.[name]);
+  const valueOf = (name: string) => (name in form ? form[name] : name === 'seaLoadType' ? inventory?.seaLoadType || inventory?.seaType?.toUpperCase() : inventory?.[name]);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -248,12 +250,14 @@ const EditInventory = () => {
             {[
               optionLabel(COUNTRY_OPTIONS, inventory?.shippedCountry),
               optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType),
+              inventory?.shippingType === 'sea' ? (inventory.seaLoadType || inventory.seaType || '').toUpperCase() : '',
               optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace),
             ].filter(Boolean).join(', ')}
           </p>
         </div>
         {!isEditing && (
           <div className="inv-head-actions">
+            <FlightPdfButton flightId={inventory._id} voyage={inventory.voyage} />
             {isAdmin && (
               <button type="button" className="inv-btn is-danger" onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={15} strokeWidth={2} />
@@ -303,7 +307,7 @@ const EditInventory = () => {
                 <dt>Shipping type</dt>
                 <dd>{optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType) || <span className="is-empty">Not set</span>}</dd>
               </div>
-              {inventory?.shippingType === 'sea' && <div><dt>نوع الشحن البحري</dt><dd>{optionLabel(SEA_LOAD_OPTIONS, inventory?.seaLoadType || '')}</dd></div>}
+              {inventory?.shippingType === 'sea' && <div><dt>نوع الشحن البحري</dt><dd>{optionLabel(SEA_LOAD_OPTIONS, inventory?.seaLoadType || inventory?.seaType?.toUpperCase() || '')}</dd></div>}
               <div>
                 <dt>Inventory office</dt>
                 <dd>{optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace) || <span className="is-empty">Not set</span>}</dd>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
+import axios, { CancelTokenSource } from 'axios';
 // The stylesheet is bundled by the frontend build, but TypeScript has no
 // ambient declaration for side-effect SCSS imports in this project.
 // @ts-ignore -- intentional side-effect stylesheet import
@@ -22,6 +23,7 @@ import {
 } from '@mui/material';
 import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
 
@@ -120,7 +122,8 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const effectiveFeeMode = allowPartial ? 'usd' : feeMode;
   const { rate: todayRate } = usePackageSettings();
 
-  const [cancelToken, setCancelToken] = useState();
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const ordersRequest = useRef<CancelTokenSource | null>(null);
   const latestRequestId = useRef(0);
 
   const walletUsd = toNumber(balances?.walletUsd);
@@ -128,15 +131,27 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
 
   const fetchOrders = async (tabType: string) => {
     const requestId = ++latestRequestId.current;
+    ordersRequest.current?.cancel();
+    const source = axios.CancelToken.source();
+    ordersRequest.current = source;
 
     try {
       setIsOrdersLoading(true);
-      const res = await api.get(`user/${customerId}/packages`, { cancelToken, tabType });
+      setOrdersError(null);
+      setOrders([]);
+      const res = await base.axios.get(`user/${customerId}/packages`, {
+        params: { tabType },
+        cancelToken: source.token,
+      });
       // Ignore responses from a tab switch that's since been superseded by a newer one.
       if (requestId !== latestRequestId.current) return;
       setOrders(res.data.results || []);
-    } catch (err) {
+    } catch (err: any) {
       if (requestId !== latestRequestId.current) return;
+      if (axios.isCancel(err)) return;
+      setOrdersError(err?.response?.status === 503
+        ? 'The server could not load the packages in time. Please try again.'
+        : 'Could not load packages. Please try again.');
       console.error(err);
     } finally {
       if (requestId === latestRequestId.current) setIsOrdersLoading(false);
@@ -144,13 +159,18 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   };
 
   useEffect(() => {
+    const invalidateRequests = () => {
+      ++latestRequestId.current;
+      ordersRequest.current?.cancel();
+    };
+    setFilter('active');
+    setSelectedPackages([]);
     fetchOrders('active');
+    return () => invalidateRequests();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
 
   const handleFilterChange = (newFilter: string) => {
-    const cancelTokenSource: any = base.cancelRequests(); // Call this before making a request
-    setCancelToken(cancelTokenSource);
     setFilter(newFilter);
     setSelectedPackages([]);
 
@@ -380,6 +400,10 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
             </div>
           ))}
         </div>
+      ) : ordersError ? (
+        <Alert severity="error" action={
+          <Button color="inherit" onClick={() => handleFilterChange(filter)}>Retry</Button>
+        }>{ordersError}</Alert>
       ) : (
         <>
           {orders.length === 0 && (
@@ -421,12 +445,17 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                   </div>
                 </div>
 
-                {canSelect && group.packages.some(isSelectable) && (
+                <div className="co-flight-actions">
+                  {group.flight?._id && (
+                    <FlightPdfButton flightId={group.flight._id} voyage={group.flight.voyage} customerId={customerId} />
+                  )}
+                  {canSelect && group.packages.some(isSelectable) && (
                   <label className="co-check">
                     <input type="checkbox" checked={isFlightSelected(group)} onChange={() => handleFlightSelect(group)} />
                     Select flight
                   </label>
-                )}
+                  )}
+                </div>
               </header>
 
               {openFlights.has(group.id) && <div className="co-packages">

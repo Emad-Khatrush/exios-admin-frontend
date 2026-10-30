@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale, FaBullseye } from 'react-icons/fa';
 import { FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -93,6 +93,11 @@ const adminRoutes = [
       title: 'Marketing',
       path: '/marketing',
       icon: <FaBullhorn className="sidebar-icon" />,
+     },
+     {
+      title: 'Goals',
+      path: '/goals',
+      icon: <FaBullseye className="sidebar-icon" />,
      },
      {
       title: 'Analytics',

@@ -542,6 +542,7 @@ export type Inventory = {
   voyageCurrency: 'USD' | 'LYD',
   inventoryType: 'inventoryGoods' | 'shippingVoyage',
   shippingType: 'air' | 'sea' | 'domestic'
+  seaType?: 'lcl' | 'fcl'
   note: string
   costPrice: number
 }

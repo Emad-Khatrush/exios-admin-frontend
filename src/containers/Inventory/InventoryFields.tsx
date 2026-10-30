@@ -23,6 +23,10 @@ export const SEA_LOAD_OPTIONS: ChoiceOption[] = [
   { value: 'FCL', label: 'FCL — حاوية كاملة' },
   { value: 'LCL', label: 'LCL — شحن مشترك' },
 ];
+export const SEA_TYPE_OPTIONS: ChoiceOption[] = [
+  { value: 'lcl', label: 'LCL - شحن مشترك' },
+  { value: 'fcl', label: 'FCL - حاوية كاملة' },
+];
 
 export const OFFICE_OPTIONS: ChoiceOption[] = [
   { value: 'tripoli', label: 'Tripoli' },

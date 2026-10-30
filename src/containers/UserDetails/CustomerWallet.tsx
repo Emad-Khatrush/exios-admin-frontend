@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ReceiptText, Wallet } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ChevronLeft, ReceiptText, Wallet } from 'lucide-react';
 import { Debt } from '../../models';
 import CustomerDebtsDialog from './CustomerDebtsDialog';
 import './CustomerWallet.scss';
@@ -17,6 +17,7 @@ type Props = {
   walletLyd: number;
   onDeposit: () => void;
   onWithdraw: () => void;
+  onExchange?: () => void;
   onRefreshDebts: () => Promise<void>;
   onPaymentSaved: () => Promise<void>;
 };
@@ -34,7 +35,7 @@ export default function CustomerWallet(props: Props) {
           <div><dt><span className="cw-currency" dir="ltr">USD</span>دولار أمريكي</dt><dd dir="ltr">{customerMoney(props.walletUsd)} <span>$</span></dd></div>
           <div><dt><span className="cw-currency" dir="ltr">LYD</span>دينار ليبي</dt><dd dir="ltr">{customerMoney(props.walletLyd)} <span>د.ل</span></dd></div>
         </dl>
-        <div className="cw-actions"><button className="cw-button cw-button--primary" type="button" onClick={props.onDeposit}><ArrowDownLeft size={16} aria-hidden="true" />إضافة رصيد</button><button className="cw-button" type="button" onClick={props.onWithdraw}><ArrowUpRight size={16} aria-hidden="true" />سحب نقدي</button></div>
+        <div className="cw-actions"><button className="cw-button cw-button--primary" type="button" onClick={props.onDeposit}><ArrowDownLeft size={16} aria-hidden="true" />إضافة رصيد</button><button className="cw-button" type="button" onClick={props.onWithdraw}><ArrowUpRight size={16} aria-hidden="true" />سحب نقدي</button>{props.onExchange && <button className="cw-button" type="button" onClick={props.onExchange}><ArrowLeftRight size={16} aria-hidden="true" />صرافة داخل المحفظة</button>}</div>
       </div>
       <div className={`cw-debts ${debts.length ? 'has-debts' : ''}`}>
         <header className="cw-heading"><div><h2><ReceiptText size={18} aria-hidden="true" />الديون المتبقية</h2><p>المبالغ المستحقة على العميل</p></div>{!props.debtError && !props.debtLoading && <span className="cw-debt-count">{debts.length} مفتوحة</span>}</header>

@@ -7,7 +7,7 @@ import { useAccountingAccess } from './useAccountingAccess';
 
 export const OPERATION_TYPES: Record<string, string> = {
   deposit: 'إيداع', withdrawal: 'سحب كاش', refund: 'استرداد / إلغاء', compensation: 'تعويض',
-  wallet_payment: 'دفع من المحفظة', purchase_payment: 'دفع فاتورة شراء', shipping_payment: 'دفع شحن',
+  wallet_payment: 'دفع من المحفظة', wallet_exchange: 'صرافة محفظة', purchase_payment: 'دفع فاتورة شراء', shipping_payment: 'دفع شحن',
   purchase_invoice: 'فاتورة شراء', shipping_order: 'إنشاء طلبية شحن', shipping_invoice: 'فاتورة تسليم شحن', supplier_bill: 'فاتورة مورد',
   expense: 'مصروف', supplier_payment: 'دفعة مورد', supplier_receipt: 'استلام من مورد', transfer: 'تحويل خزينة',
   salary: 'راتب / عمولة', change: 'تعديل / حذف / إلغاء', manual_entry: 'قيد يدوي',

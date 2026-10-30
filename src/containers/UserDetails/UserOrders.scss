@@ -383,6 +383,13 @@ $co-ease: cubic-bezier(0.16, 1, 0.3, 1);
     }
   }
 
+  .co-flight-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
   .co-flight-icon {
     display: grid;
     place-items: center;

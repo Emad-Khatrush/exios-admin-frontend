@@ -8,6 +8,7 @@ import CashflowUser from './CashflowUser';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
 import ShippingMarkDialog, { ShippingMarkCard } from './ShippingMarkDialog';
+import WalletExchangeDialog from './WalletExchangeDialog';
 import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
 import SpecialPricesTab from './SpecialPricesTab';
@@ -29,6 +30,7 @@ type Props = {}
 
 const UserDetails = (props: Props) => {
   const { id } = useParams();
+  const canExchangeWallet = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();
@@ -36,6 +38,7 @@ const UserDetails = (props: Props) => {
   const [debtLoading, setDebtLoading] = useState(true);
   const [debtError, setDebtError] = useState(false);
   const [wallet, setWallet] = useState<any>();
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   const [userStatement, setUserStatement] = useState<any>();
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
@@ -148,6 +151,7 @@ const UserDetails = (props: Props) => {
             <CustomerWallet user={user} debts={debts} debtLoading={debtLoading} debtError={debtError} walletUsd={walletUsd} walletLyd={walletLyd}
               onDeposit={() => setDialog({ component: AddBalanceToWallet })}
               onWithdraw={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
+              onExchange={canExchangeWallet ? () => setExchangeOpen(true) : undefined}
               onRefreshDebts={fetchDebtsOfUser}
               onPaymentSaved={async () => { await Promise.all([fetchDebtsOfUser(), refreshWalletAndStatement()]); }} />
           </div>
@@ -210,6 +214,8 @@ const UserDetails = (props: Props) => {
         </div>
       )}
 
+      {canExchangeWallet && <WalletExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} customerId={user._id}
+        balances={{ walletLyd, walletUsd }} onSaved={refreshWalletAndStatement} />}
       <Dialog
         open={!!dialog}
         onClose={() => { if (!dialogBusy) setDialog(undefined); }}

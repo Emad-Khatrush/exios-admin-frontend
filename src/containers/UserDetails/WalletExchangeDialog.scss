@@ -1,0 +1,35 @@
+.wallet-exchange {
+  border-radius: 12px !important;
+  color: #1c293a;
+
+  > form { display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 64px); }
+  .MuiDialogContent-root { min-height: 0; overflow-y: auto; }
+  .MuiInputLabel-root { color: #526176 !important; }
+  .MuiInputLabel-root.Mui-focused { color: #075e55 !important; }
+
+  .wallet-exchange__title { font-size: 20px; font-weight: 600; padding: 22px 24px 12px; }
+  .wallet-exchange__intro, .wallet-exchange__muted { color: #526176; font-size: 13px; margin: 0 0 22px; line-height: 1.8; }
+  .wallet-exchange__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 16px; padding-top: 6px; }
+  .wallet-exchange__destination { display: flex; align-items: center; gap: 8px; color: #42536b; font-size: 14px; }
+  .wallet-exchange__preview { background: #f0f7f6; color: #164e46; border-radius: 10px; margin: 22px 0 12px; padding: 16px; min-height: 58px; }
+  .wallet-exchange__preview > div { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .wallet-exchange__preview strong { font-size: 19px; font-variant-numeric: tabular-nums; }
+  .wallet-exchange__preview p { margin: 10px 0 0; font-size: 13px; }
+  .wallet-exchange__preview > span { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .wallet-exchange__actions { padding: 12px 24px 22px; gap: 8px; flex-shrink: 0; }
+  .wallet-exchange__actions .MuiButton-contained { background: #08776b; color: #fff; }
+  .wallet-exchange__actions .MuiButton-contained:not(.Mui-disabled) { background-color: #08776b !important; color: #fff !important; opacity: 1 !important; }
+  .wallet-exchange__actions .MuiButton-contained:not(.Mui-disabled):hover { background-color: #075e55 !important; }
+  .wallet-exchange__actions .MuiButton-contained.Mui-disabled { background: #e1e9e7; color: #596b66; }
+  .wallet-exchange__receipt { padding: 12px 0; color: #164e46; line-height: 2; }
+  .wallet-exchange__receipt dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .wallet-exchange__receipt dd { margin: 0; }
+  button:focus-visible { outline: 2px solid #08776b; outline-offset: 3px; }
+
+  @media (max-width: 480px) {
+    .wallet-exchange__fields { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .wallet-exchange__title { font-size: 18px; }
+    .wallet-exchange__destination { margin-top: -8px; }
+    .wallet-exchange__preview strong { font-size: 17px; }
+  }
+}

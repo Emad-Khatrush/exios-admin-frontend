@@ -33,8 +33,8 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const isWithdrawal = isOutflow && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
   // A refund/compensation/cancellation adds to the wallet but no cash came in
   const isCredit = statementFlow(statement || {}) === 'credit';
-  // Admins can correct cash withdrawals. Other outflows keep their own source actions.
-  const canManage = isWithdrawal ? isAdmin : canManageUser && !isOutflow;
+  const isExchange = !!statement?.walletExchangeId || statement?.actionType === 'exchange';
+  const canManage = !isExchange && (isWithdrawal ? isAdmin : canManageUser && !isOutflow);
   const date = moment(statement?.createdAt);
   const office = statement?.office;
   // Money that went to an account (a partner's current account such as Wasl) shows that account, not the office
@@ -69,9 +69,9 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
           <div className="cashflow-row__meta">
             <span className={`cashflow-chip cashflow-chip--office ${office || accountName ? '' : 'is-missing'}`}>
               <Building2 size={12} strokeWidth={2} />
-              {bankLabel(accountName) || (office ? getOfficeLabel(office) : 'No office')}
+              {isExchange ? 'داخل المحفظة' : bankLabel(accountName) || (office ? getOfficeLabel(office) : 'No office')}
             </span>
-            {statement?.actionType && <span className="cashflow-chip">{bankLabel(statement.actionType)}</span>}
+            {statement?.actionType && <span className="cashflow-chip">{isExchange ? 'صرافة داخلية' : bankLabel(statement.actionType)}</span>}
             {isCredit &&
               <Tooltip title="Added to the wallet balance, but no cash was received" arrow enterTouchDelay={0}>
                 <span className="cashflow-chip cashflow-chip--credit">No cash</span>

@@ -9,6 +9,9 @@
 
 # testing
 /coverage
+*.test.*
+*.spec.*
+__tests__/
 
 # production
 /build
