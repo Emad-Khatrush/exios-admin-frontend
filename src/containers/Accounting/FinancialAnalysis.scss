@@ -1,0 +1,10 @@
+.financial-analysis {
+  .analysis-trend__row { display: grid; grid-template-columns: 90px 1fr; gap: 16px; margin-bottom: 18px; align-items: start; }
+  .analysis-trend__bar { display: block; height: 12px; min-width: 2px; border-radius: 4px; background: #78b8d6; margin: 5px 0; }
+  .analysis-trend__bar--profit { background: #138b78; }
+  .analysis-trend__bar--loss { background: #d36060; }
+  .analysis-trend small { display: block; }
+  .analysis-slider { padding: 12px 18px; max-width: 640px; }
+  .analysis-editor { max-height: 430px; overflow: auto; margin: 16px 0; }
+  @media print { .MuiButton-root, .MuiTabs-root, .acc-filter-bar { display: none !important; } .acc-panel { break-inside: avoid; } }
+}

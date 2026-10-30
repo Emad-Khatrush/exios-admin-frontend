@@ -6,11 +6,13 @@ import PrivateRoute from './routes/PrivateRoute';
 import Login from './containers/Login/Login';
 import AllowToAccessApp from './containers/AllowToAccessApp/AllowToAccessApp';
 import AuthChecker from './utils/AuthChecker';
+import QaBanner from './components/QaBanner/QaBanner';
 import { Session } from './models';
 
 import './App.scss';
 import EditTask from './containers/EditTask/EditTask';
 import Settings from './containers/Settings/Settings';
+import TripNumbering from './containers/Settings/TripNumbering';
 import ServicesPrice from './containers/Settings/ServicesPrice';
 import Announcements from './components/Announcements/Announcements';
 import AdminPosts from './containers/AdminPosts/AdminPosts';
@@ -34,6 +36,50 @@ import OdoExport from './containers/OdoExport/OdoExport';
 import DeletedStatements from './containers/DeletedStatements/DeletedStatements';
 import Marketing from './containers/Marketing/Marketing';
 import Analytics from './containers/Analytics/Analytics';
+import AccountingLayout from './containers/Accounting/AccountingLayout';
+import AccountingDashboard from './containers/Accounting/Dashboard';
+import JournalEntries from './containers/Accounting/JournalEntries';
+import EntryForm from './containers/Accounting/EntryForm';
+import EntryDetail from './containers/Accounting/EntryDetail';
+import ChartOfAccounts from './containers/Accounting/ChartOfAccounts';
+import AccountLedger from './containers/Accounting/AccountLedger';
+import TrialBalance from './containers/Accounting/TrialBalance';
+import DailyRates from './containers/Accounting/DailyRates';
+import AccountingSettings from './containers/Accounting/AccountingSettings';
+import AccountingAuditLog from './containers/Accounting/AuditLog';
+import { BillsList, BillDetail } from './containers/Accounting/Bills';
+import BillForm from './containers/Accounting/BillForm';
+import { VendorsList, VendorStatement } from './containers/Accounting/Vendors';
+import { CustomerInvoicePage, CustomerInvoicesList, CustomerPage, CustomersList } from './containers/Accounting/Customers';
+import { PaymentsList, PaymentForm, ReceiptForm } from './containers/Accounting/Payments';
+import BatchPaymentTrial from './containers/Accounting/BatchPaymentTrial';
+import QuickExpenses from './containers/Accounting/QuickExpenses';
+import OfficeExpensesReview from './containers/Accounting/OfficeExpensesReview';
+import TripCosts from './containers/Accounting/TripCosts';
+import Treasury from './containers/Accounting/Treasury';
+import AccountingAssets from './containers/Accounting/Assets';
+import AccountingEmployees from './containers/Accounting/Employees';
+import FinancialAnalysis from './containers/Accounting/FinancialAnalysis';
+import FinancialOperations from './containers/Accounting/FinancialOperations';
+import { Equity as AccountingEquity, Netting as AccountingNetting } from './containers/Accounting/EquityAndNetting';
+import BankReconciliation from './containers/Accounting/BankReconciliation';
+import PurchaseReconciliation from './containers/Accounting/PurchaseReconciliation';
+import UnidentifiedLines from './containers/Accounting/UnidentifiedLines';
+import AccountingMigration from './containers/Accounting/Migration';
+import AccountingGuide from './containers/Accounting/Guide';
+import AccountingSuspense from './containers/Accounting/Suspense';
+import AccountingReports from './containers/Accounting/Reports';
+import ReviewQueue from './containers/Accounting/ReviewQueue';
+import HistoricalCash from './containers/Accounting/HistoricalCash';
+import DailyWork from './containers/Accounting/DailyWork';
+import AccountingExceptions from './containers/Accounting/Exceptions';
+import AccountingClosing from './containers/Accounting/Closing';
+import AccountingVoucher from './containers/Accounting/Voucher';
+import AccountingOdooExport from './containers/Accounting/OdooExport';
+import AccountingAlipay from './containers/Accounting/Alipay';
+import AccountingStartWizard from './containers/Accounting/StartWizard';
+import AccountingAccessControl from './containers/Accounting/AccessControl';
+import AccountingBackups from './containers/Accounting/Backups';
 
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/Goals/EmployeeGoals'));
@@ -41,14 +87,9 @@ const Goals = React.lazy(() => import('./containers/Goals/Goals'));
 const AddInvoice = React.lazy(() => import('./containers/AddInvoice/AddInvoice'));
 const UnsureOrder = React.lazy(() => import('./containers/UnsureOrder/UnsureOrder'));
 const Invoices = React.lazy(() => import('./containers/Invoices/Invoices'));
-const Expenses = React.lazy(() => import('./containers/Expenses/Expenses'));
-const Incomes = React.lazy(() => import('./containers/Incomes/Incomes'));
+const OfficeExpenses = React.lazy(() => import('./containers/OfficeExpenses/OfficeExpenses'));
 const Shippings = React.lazy(() => import('./containers/Shippings/Shippings'));
 const Activities = React.lazy(() => import('./containers/Activities/Activities'));
-const CreateExpense = React.lazy(() => import('./containers/CreateExpense/CreateExpense'));
-const CreateIncome = React.lazy(() => import('./containers/CreateIncome/CreateIncome'));
-const EditExpense = React.lazy(() => import('./containers/EditExpense/EditExpense'));
-const EditIncome = React.lazy(() => import('./containers/EditIncome/EditIncome'));
 const EditInvoice = React.lazy(() => import('./containers/EditInvoice/EditInvoice'));
 // X-Tracking page plus the order control tab (XTrackingPage itself is unchanged)
 const XTrackingPage = React.lazy(() => import('./containers/XTrackingPage/XTrackingHub'));
@@ -70,6 +111,66 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
+// The accounting section: every page checks the person's own accounting permissions (the owner
+// grants them), so staff reach it too and see only what they were given
+const accountingRoutes = (
+  <Route path='/accounting' element={<AccountingLayout />}>
+    <Route index element={<AccountingDashboard />} />
+    <Route path='entries' element={<JournalEntries />} />
+    <Route path='entries/new' element={<EntryForm />} />
+    <Route path='entries/:id' element={<EntryDetail />} />
+    <Route path='accounts' element={<ChartOfAccounts />} />
+    <Route path='accounts/:id' element={<AccountLedger />} />
+    <Route path='trial-balance' element={<TrialBalance />} />
+    <Route path='rates' element={<DailyRates />} />
+    <Route path='settings' element={<AccountingSettings />} />
+    <Route path='audit' element={<AccountingAuditLog />} />
+    <Route path='bills' element={<BillsList />} />
+    <Route path='bills/new' element={<BillForm />} />
+    <Route path='bills/:id' element={<BillDetail />} />
+    <Route path='bills/:id/edit' element={<BillForm />} />
+    <Route path='customers' element={<CustomersList />} />
+    <Route path='customers/:id' element={<CustomerPage />} />
+    <Route path='customer-invoices' element={<CustomerInvoicesList />} />
+    <Route path='customer-invoices/:id' element={<CustomerInvoicePage />} />
+    <Route path='receivables' element={<Navigate to='/accounting/reports?tab=receivables' replace />} />
+    <Route path='vendors' element={<VendorsList />} />
+    <Route path='vendors/:id' element={<VendorStatement />} />
+    <Route path='payments' element={<PaymentsList />} />
+    <Route path='payments/new' element={<PaymentForm />} />
+    <Route path='payments/batch-trial' element={<BatchPaymentTrial />} />
+    <Route path='receipts/new' element={<ReceiptForm />} />
+    <Route path='expenses' element={<QuickExpenses />} />
+    <Route path='office-expenses' element={<OfficeExpensesReview />} />
+    <Route path='trips' element={<TripCosts />} />
+    <Route path='treasury' element={<Treasury />} />
+    <Route path='bank' element={<BankReconciliation />} />
+    <Route path='purchase-reconciliation' element={<PurchaseReconciliation />} />
+    <Route path='unidentified' element={<UnidentifiedLines />} />
+    <Route path='employees' element={<AccountingEmployees />} />
+    <Route path='assets' element={<AccountingAssets />} />
+    <Route path='equity' element={<AccountingEquity />} />
+    <Route path='netting' element={<AccountingNetting />} />
+    <Route path='migration' element={<AccountingMigration />} />
+    <Route path='guide' element={<AccountingGuide />} />
+    <Route path='suspense' element={<AccountingSuspense />} />
+    <Route path='reports' element={<AccountingReports />} />
+    <Route path='financial-analysis' element={<FinancialAnalysis />} />
+    <Route path='financial-operations' element={<FinancialOperations />} />
+    <Route path='review' element={<ReviewQueue />} />
+    <Route path='historical-cash' element={<HistoricalCash />} />
+    <Route path='daily-work' element={<DailyWork />} />
+    <Route path='exceptions' element={<AccountingExceptions />} />
+    <Route path='closing' element={<AccountingClosing />} />
+    <Route path='vouchers/:entryId' element={<AccountingVoucher />} />
+    <Route path='odoo' element={<AccountingOdooExport />} />
+    <Route path='alipay' element={<AccountingAlipay />} />
+    <Route path='start' element={<AccountingStartWizard />} />
+    <Route path='access' element={<AccountingAccessControl />} />
+    <Route path='backups' element={<AccountingBackups />} />
+  </Route>
+);
+
 const getRoutesByRole = (roles: any) => {
   if (roles?.isEmployee) {
     return <>
@@ -78,19 +179,19 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/unsureOrder/add' element={<UnsureOrder />} />
       <Route path='/invoice/add' element={<AddInvoice />} />
       <Route path='/invoice/:id/edit' element={<EditInvoice />} />
-      <Route path='/income/:id/edit' element={<EditIncome />} />
-      <Route path='/expense/add' element={<CreateExpense />} />
-      <Route path='/income/add' element={<CreateIncome />} />
+      <Route path='/expenses' element={<OfficeExpenses />} />
       <Route path='/mytasks' element={<MyTasks />} />
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
-      {roles?.isAccountant && <>
+      {(roles?.isAccountant || roles?.isAdmin) && <>
         <Route path='/settings' element={<Settings />} />
         <Route path='/settings/pricing' element={<ServicesPrice />} />
         <Route path='/settings/announcements' element={<Announcements />} />
         <Route path='/settings/posts' element={<AdminPosts />} />
         <Route path='/settings/popup-ads' element={<PopupAds />} />
+        {roles?.isAdmin && <Route path='/settings/trip-numbering' element={<TripNumbering />} />}
       </>}
+      {accountingRoutes}
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
       <Route path='/special-prices' element={<SpecialPriceCustomers />} />
@@ -106,12 +207,7 @@ const getRoutesByRole = (roles: any) => {
     return <>
       <Route path='/' element={<Home />} />
       <Route path='/activities' element={<Activities />} />
-      <Route path='/expenses' element={<Expenses />} />
-      <Route path='/expenses/add' element={<CreateExpense />} />
-      <Route path='/expenses/:id/edit' element={<EditExpense />} />
-      <Route path='/incomes' element={<Incomes />} />
-      <Route path='/income/add' element={<CreateIncome />} />
-      <Route path='/income/:id/edit' element={<EditIncome />} />
+      <Route path='/expenses' element={<OfficeExpenses />} />
       <Route path='/invoices' element={<Invoices />} />
       <Route path='/dailyReport' element={<IssuedInvoices />} />
       <Route path='/invoice/add' element={<AddInvoice />} />
@@ -128,6 +224,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings/posts' element={<AdminPosts />} />
       <Route path='/settings/popup-ads' element={<PopupAds />} />
       <Route path='/settings/company-notes' element={<CompanyNotes />} />
+      <Route path='/settings/trip-numbering' element={<TripNumbering />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
@@ -144,6 +241,12 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/marketing' element={<Marketing />} />
       <Route path='/analytics' element={<Analytics />} />
       <Route path='/goals' element={<Goals />} />
+      {accountingRoutes}
+    </>
+  } else if (roles?.isAccountant) {
+    return <>
+      <Route path='/' element={<Navigate to='/accounting' replace />} />
+      {accountingRoutes}
     </>
   }
 }
@@ -155,11 +258,14 @@ class App extends React.Component<MyProps> {
     
     const routes = getRoutesByRole(session?.account?.roles);
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    getAnalytics(app);
+    if (process.env.REACT_APP_ENVIRONMENT !== 'qa') {
+      const app = initializeApp(firebaseConfig);
+      getAnalytics(app);
+    }
 
     return (
         <Router>
+          <QaBanner />
           <AuthChecker />
           <Routes>
             <Route path='/shouldAllowToAccessApp' element={<AllowToAccessApp session={session} />} />

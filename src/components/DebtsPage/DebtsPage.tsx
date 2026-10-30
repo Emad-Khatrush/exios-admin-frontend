@@ -15,6 +15,7 @@ const DebtsPage = (props: Props) => {
     onSaved: undefined
   })
   const [toast, setToast] = useState<string>();
+  const [dialogBusy, setDialogBusy] = useState(false);
 
   const Tag = dialog.customComponentTag;
 
@@ -37,14 +38,15 @@ const DebtsPage = (props: Props) => {
         fullWidth
         maxWidth="sm"
         open={dialog.isOpen}
-        onClose={() => setDialog({ customComponentTag: undefined, isOpen: false })}
-        PaperProps={{ sx: { borderRadius: '12px' } }}
+        onClose={() => { if (!dialogBusy) { setDialog({ customComponentTag: undefined, isOpen: false }); dialog.onSaved?.(); } }}
+        PaperProps={{ sx: { borderRadius: '12px', margin: { xs: '8px', sm: '32px' }, width: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' }, maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' } } }}
       >
         {dialog.customComponentTag &&
           <Tag
             setDialog={(state: any) => setDialog({ ...state })}
             item={dialog.item}
             onSaved={dialog.onSaved ? onDialogSaved : undefined}
+            onBusyChange={setDialogBusy}
           />
         }
       </Dialog>

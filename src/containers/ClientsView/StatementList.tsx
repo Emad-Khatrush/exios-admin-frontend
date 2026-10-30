@@ -1,16 +1,21 @@
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Banknote, History, Loader2, Paperclip, Undo2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Banknote, History, Loader2, MapPin, Paperclip, Undo2 } from 'lucide-react';
+import { MenuItem, TextField } from '@mui/material';
 import moment from 'moment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import DashboardPeriodPicker from '../../components/DashboardPeriodPicker/DashboardPeriodPicker';
-import { DashboardPeriod, defaultPeriod, getPeriodRange } from '../Home/period';
+import { DashboardPeriod, getPeriodRange } from '../Home/period';
+import { todayLibya } from '../Accounting/accountingApi';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { statementFlow } from '../UserDetails/statementUtils';
+import { walletActivityType } from './walletActivityType';
 
 interface UserStatement {
   _id: string;
   description: string;
+  note?: string;
+  paymentCategories?: string[];
   amount: number;
   currency: 'USD' | 'LYD';
   total: number;
@@ -18,6 +23,7 @@ interface UserStatement {
   actionType?: string;
   paymentType?: string;
   createdAt: string;
+  office?: string;
   attachments?: { path: string }[];
   user?: {
     _id: string;
@@ -64,9 +70,14 @@ const formatPair = (usd: number, lyd: number, sign = '') => {
 
 // Latest wallet deposits and payments across all clients, newest first, for any period.
 const StatementList = () => {
-  const [isAllTime, setIsAllTime] = useState(true);
-  const [period, setPeriod] = useState<DashboardPeriod>(defaultPeriod());
+  const [isAllTime, setIsAllTime] = useState(false);
+  const [period, setPeriod] = useState<DashboardPeriod>(() => {
+    const today = todayLibya();
+    return { mode: 'custom', date: today, from: moment(today, 'YYYY-MM-DD').subtract(2, 'days').format('YYYY-MM-DD'), to: today };
+  });
   const [direction, setDirection] = useState<Direction>('all');
+  const [office, setOffice] = useState('');
+  const [officeOptions, setOfficeOptions] = useState<{ code: string; name: string }[]>([]);
 
   const [items, setItems] = useState<UserStatement[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -93,6 +104,7 @@ const StatementList = () => {
     if (from) params.startDate = from;
     if (to) params.endDate = to;
     if (direction !== 'all') params.calculationType = direction;
+    if (office) params.office = office;
     if (page === 1) params.withSummary = 'true';
 
     api.get('statements/latest', params)
@@ -105,6 +117,7 @@ const StatementList = () => {
         });
         setHasMore(data.hasMore);
         if (data.summary) setSummary(data.summary);
+        if (data.officeOptions) setOfficeOptions(data.officeOptions);
       })
       .catch(() => {
         if (id !== requestId.current) return;
@@ -112,7 +125,8 @@ const StatementList = () => {
         setHasMore(false);
       })
       .finally(() => { if (id === requestId.current) setLoading(false); });
-  }, [page, from, to, direction]);
+    return () => { if (id === requestId.current) requestId.current++; };
+  }, [page, from, to, direction, office]);
 
   const resetTo = (apply: () => void) => {
     apply();
@@ -120,13 +134,20 @@ const StatementList = () => {
   };
 
   const lastElementRef = useCallback((node: HTMLLIElement | null) => {
-    if (loading) return;
     if (observer.current) observer.current.disconnect();
+    if (loading) return;
+    const activeRequest = requestId.current;
+    let triggered = false;
     observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) setPage(prev => prev + 1);
+      if (activeRequest === requestId.current && !triggered && entries[0].isIntersecting && hasMore) {
+        triggered = true;
+        setPage(prev => prev + 1);
+      }
     });
     if (node) observer.current.observe(node);
   }, [loading, hasMore]);
+
+  useEffect(() => () => observer.current?.disconnect(), []);
 
   const isFirstLoad = loading && page === 1;
 
@@ -205,6 +226,12 @@ const StatementList = () => {
             </button>
           ))}
         </div>
+        <TextField select size="small" label="المكتب" value={office} className="wl-office-filter" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }}
+          onChange={(event) => resetTo(() => setOffice(event.target.value))}>
+          <MenuItem value="">كل المكاتب</MenuItem>
+          {officeOptions.map((item) => <MenuItem key={item.code} value={item.code}>{item.name}</MenuItem>)}
+          <MenuItem value="__unassigned">غير محدد</MenuItem>
+        </TextField>
       </div>
 
       <div className={`cl-stats wl-summary ${isFirstLoad && summary ? 'cl-refreshing' : ''}`}>
@@ -225,8 +252,8 @@ const StatementList = () => {
       {!loading && !error && items.length === 0 ? (
         <div className="cl-empty">
           <History size={26} strokeWidth={1.6} />
-          <strong>{isAllTime && direction === 'all' ? 'No wallet activity yet' : 'Nothing in this period'}</strong>
-          <p>{isAllTime && direction === 'all' ? 'Deposits and payments will appear here.' : 'Try another day, week or month, or choose All time.'}</p>
+          <strong>{isAllTime && direction === 'all' && !office ? 'No wallet activity yet' : 'No activity matches these filters'}</strong>
+          <p>{isAllTime && direction === 'all' && !office ? 'Deposits and payments will appear here.' : 'Try another office, period or activity type.'}</p>
         </div>
       ) : (
         <ul className={`wl-statements ${isFirstLoad && items.length === 0 ? 'wl-statements--empty' : ''}`}>
@@ -249,6 +276,7 @@ const StatementList = () => {
                       ? <Link to={`/user/${item.user._id}`} className="wl-statement__name">{item.user.firstName} {item.user.lastName}</Link>
                       : <span className="wl-statement__name">Unknown client</span>}
                     {item.user?.customerId && <span className="wl-client__id">{item.user.customerId}</span>}
+                    <span className="wl-statement__type" dir="rtl">{walletActivityType(item)}</span>
                     {isCredit && <span className="wl-statement__credit" title="Added to the wallet, but no cash was received">No cash</span>}
                     {isExchange && <span className="wl-statement__credit">صرافة داخلية · دون نقد</span>}
                     {attachment && (
@@ -264,6 +292,7 @@ const StatementList = () => {
                     )}
                   </div>
                   {item.description && <p className="wl-statement__desc" dir="auto">{item.description}</p>}
+                  <span className="wl-statement__office" dir="auto"><MapPin size={12} aria-hidden="true" />{item.office ? officeOptions.find(option => option.code === item.office)?.name || item.office : 'المكتب غير محدد'}</span>
                   <span className="wl-statement__meta" title={created.format('dddd, D MMMM YYYY, HH:mm')}>
                     {created.format('D MMM YYYY, HH:mm')} · by {item.createdBy?.firstName || 'System'}
                   </span>

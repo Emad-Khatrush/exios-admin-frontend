@@ -1,8 +1,9 @@
 import { Debt } from "../../models";
 
+import BulkDebtPayDialog from "./BulkDebtPayDialog";
 import DebtHistory from "./DebtHistory";
 import DebtorInfo from "./DebtorInfo";
-import { formatAmount, toDebtList } from "./wrapper-util";
+import { debtPaidAmount, formatAmount, toDebtList } from "./wrapper-util";
 
 type Props = {
   debt: Debt | Debt[]
@@ -15,9 +16,11 @@ const DebtDetails = (props: Props) => {
   const debts = toDebtList(props.debt);
   const userOwnDebt: Debt = debts.find(d => d.status === 'open') || debts[0];
   const isOwed = userOwnDebt?.status === 'open' || userOwnDebt?.status === 'overdue';
+  const isLost = userOwnDebt?.status === 'lost';
 
   // Open debts show what is still owed, everything else shows what was actually paid
-  const totals = sumByCurrency(debts, isOwed ? 'amount' : 'paid');
+  const totals = sumByCurrency(debts, isOwed || isLost ? 'amount' : 'paid');
+  const openCount = debts.filter((d) => d.status === 'open' && Number(d.amount) > 0).length;
 
   return (
     <article className="debtor-card">
@@ -30,7 +33,7 @@ const DebtDetails = (props: Props) => {
 
       <div className="debtor-total">
         <span className="debtor-total-label">
-          {isOwed ? 'Total owed' : 'Total paid'}
+          {isLost ? 'Written off — still uncollected' : isOwed ? 'Total owed' : 'Total paid'}
           {debts.length > 1 && ` across ${debts.length} debts`}
         </span>
         <span className={`debtor-total-value ${isOwed ? 'is-owed' : 'is-paid'}`}>
@@ -39,6 +42,14 @@ const DebtDetails = (props: Props) => {
           {totals.LYD <= 0 && totals.USD <= 0 && <span>0</span>}
         </span>
       </div>
+
+      {openCount > 1 &&
+        <div className="debt-actions" style={{ marginBottom: 8 }}>
+          <button className="debts-btn is-primary is-small" onClick={() => props.setDialog({ customComponentTag: BulkDebtPayDialog, isOpen: true, item: debts, onSaved: props.fetchData })}>
+            Pay several debts ({openCount})
+          </button>
+        </div>
+      }
 
       <div className="debtor-debts">
         {debts.map((currentDebt: Debt) => (
@@ -61,7 +72,7 @@ const sumByCurrency = (debts: Debt[], field: 'amount' | 'paid') => {
       // A manually closed debt was only paid up to what was written off to lost
       const value = field === 'amount'
         ? Number(debt.amount) || 0
-        : (Number(debt.initialAmount) || 0) - (Number(debt.manualClosure?.writtenOffAmount) || 0);
+        : debtPaidAmount(debt);
       totals[debt.currency] += value;
     }
   });

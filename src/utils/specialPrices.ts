@@ -50,3 +50,36 @@ export const getShippingMode = (measureUnit?: string, shipmentMethod?: string): 
   if (shipmentMethod === 'air' || shipmentMethod === 'sea') return shipmentMethod;
   return undefined;
 };
+
+// Only quote the enabled rates for this shipment's mode, never the customer's
+// other mode or private pricing notes.
+export const specialPriceMessage = (prices?: SpecialPrices, shipmentMethod?: string, country?: string): string => {
+  const mode = getShippingMode(undefined, shipmentMethod);
+  if (!prices?.enabled || !mode) return '';
+  const labels: Record<string, string> = { Normal: 'البضائع العادية', 'Copy + Cosmetic': 'بضائع التجميل، الصحة، والماركات', Medical: 'البضائع الطبية' };
+  const lines = getCategories(prices).filter(category => Number.isFinite(category[mode]) && Number(category[mode]) > 0)
+    .map(category => `${labels[category.name] || category.name}: $${category[mode]} ${mode === 'air' ? 'للكيلو جرام' : 'للمتر المكعب'}.`);
+  if (!lines.length) return '';
+  if (mode === 'air' && country === 'china') return `📦 قائمة أسعار الشحن الجوي من الصين 🇨🇳
+💰 أسعار الشحن الجوي (للخط السريع)
+
+${lines.join('\n')}
+
+🎁 عرض خاص لأصحاب الكميات (تخفيض)
+لأننا ندعم تجارنا، نقدم خصمًا خاصًا عند شحن كميات كبيرة:
+
+⏱️ مدة الوصول المتوقعة
+يتم احتساب المدة من تاريخ وصول الشحنة لمخازننا في الصين:
+
+إلى طرابلس: من 7 إلى 12 أيام.
+إلى بنغازي: من 10 إلى 14 يومًا.
+(ملاحظة: قد يحدث تأخير خارج عن إرادتنا في ظروف استثنائية).
+
+📋 ملاحظات وشروط هامة
+لا يوجد حد أدنى: يمكنك الشحن بأي وزن، لا يوجد أقل قيمة للشحن.
+
+تاريخ التسعير: يُعتمد السعر السائد في تاريخ وصول البضاعة إلى المخزن.
+
+الوزن الحجمي: يتم احتساب الوزن الحجمي فقط في حال تجاوزه نسبة 50% من الوزن الفعلي.`;
+  return `أسعار الشحن ${mode === 'air' ? 'الجوي' : 'البحري'} الخاصة بك:\n${lines.join('\n')}`;
+};

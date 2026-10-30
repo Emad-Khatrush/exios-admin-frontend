@@ -1,0 +1,17 @@
+.inventory-files {
+  color: #18212b;
+  ul { padding: 0; margin: 12px 0 0; list-style: none; }
+  li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-block-end: 1px solid #e3e7ec; min-width: 0; }
+  li:last-child { border-block-end: 0; }
+  &__icon { color: #5b6673; flex-shrink: 0; }
+  &__details { flex: 1 1 170px; min-width: 0; display: grid; gap: 5px; strong { font-size: .85rem; overflow-wrap: anywhere; } small { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: .74rem; color: #5b6673; } }
+  &__permission { display: grid; gap: 5px; min-width: 0; font-size: .76rem; color: #5b6673; > span { overflow-wrap: anywhere; } select { width: 100%; max-width: 240px; padding: 8px 10px; min-height: 38px; border-radius: 7px; border: 1px solid #cdd4dd; background: #fff; color: #18212b; font: inherit; cursor: pointer; } select:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; } select:disabled { cursor: wait; opacity: .65; } }
+  li &__permission { flex: 0 1 220px; > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+  &__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; background: transparent; border-radius: 7px; width: 36px; height: 36px; color: #4b5969; cursor: pointer; &:hover:not(:disabled) { background: #eff4ff; color: #1d4ed8; } &:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; } &:disabled { opacity: .5; cursor: wait; } &.is-danger:hover { color: #b42318; background: #fef3f2; } }
+  &__error { color: #b42318; font-size: .82rem; line-height: 1.6; margin-block: 10px; }
+  &__empty { color: #5b6673; font-size: .83rem; margin-block: 10px; }
+  &__upload-access { max-width: 340px; margin-block: 14px; }
+  &__preview { padding: 16px; header { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding-block-end: 14px; overflow-wrap: anywhere; } button { border: 0; background: transparent; padding: 8px; cursor: pointer; } img { max-width: 100%; max-height: 75vh; object-fit: contain; display: block; margin-inline: auto; } }
+  @media (max-width: 600px) { li &__permission { flex: 1 1 100%; order: 3; select { max-width: none; } } &__details { flex-basis: 120px; } }
+}

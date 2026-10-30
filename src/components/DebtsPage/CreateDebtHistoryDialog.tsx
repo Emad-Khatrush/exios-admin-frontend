@@ -242,7 +242,8 @@ const CreateDebtHistoryDialog = (props: Props) => {
               type={'number'}
               inputProps={{ inputMode: 'decimal', step: .01 }}
               onWheel={(event: any) => event.target.blur()}
-              required={true}
+              required={form.currency !== props.item?.currency}
+              helperText={form.currency === props.item?.currency ? 'No currency conversion needed; 0 is allowed.' : 'Enter a positive exchange rate.'}
               label={'Rate'}
               onChange={onChangeHandler}
             />
@@ -266,14 +267,14 @@ const CreateDebtHistoryDialog = (props: Props) => {
 
           <div className="col-sm-6">
             <FormControl fullWidth required>
-              <InputLabel id="payment-debt-type">اختار نوع الدين</InputLabel>
+              <InputLabel id="payment-debt-type">نوع الدين</InputLabel>
               <Select
                 labelId="payment-debt-type"
-                value={form.debtType || ''}
-                label={'اختار نوع الدين'}
+                value={props.item?.debtType || ''}
+                label={'نوع الدين'}
                 name="debtType"
                 onChange={onChangeHandler}
-                disabled={!!props.item?.debtType && !roles.isAdmin}
+                disabled
                 dir="rtl"
               >
                 <MenuItem dir="rtl" value={'invoice'}>دين لاجل تسديد فاتورة شراء</MenuItem>

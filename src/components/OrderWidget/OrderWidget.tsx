@@ -27,9 +27,11 @@ const OrderWidget = (props: Props) => {
   const [hasCopiedText, setHasCopiedText] = useState<boolean>(false);  
   
   const steps = getOrderSteps(order);
-  const lastActivityOrder = order.activity.slice(-1)[0];  
-  const diffActivityDates = moment(new Date()).diff(moment(lastActivityOrder?.createdAt));
-  const remainingActivityDay = moment(diffActivityDates).format('D');
+  const lastActivityAt = order.activity?.reduce((latest, activity) => {
+    const value = activity.createdAt ? new Date(activity.createdAt).getTime() : NaN;
+    return Number.isFinite(value) ? Math.max(latest, value) : latest;
+  }, new Date(order.createdAt).getTime());
+  const remainingActivityDay = Math.max(0, Math.floor((Date.now() - lastActivityAt) / 86400000));
   const trackingNumber = (order as any).paymentList?.deliveredPackages?.trackingNumber;
 
   return (
@@ -89,7 +91,7 @@ const OrderWidget = (props: Props) => {
                   setHasCopiedText(true);
                 }}
               > 
-                Tracking Number: {order.orderId}
+                رقم الطلبية: {order.orderId}
               </p>
             </div>
 

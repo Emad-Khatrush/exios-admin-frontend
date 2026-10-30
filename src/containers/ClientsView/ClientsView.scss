@@ -570,6 +570,24 @@ $cl-ease: cubic-bezier(0.16, 1, 0.3, 1);
   .wl-direction--minus.is-active { color: $cl-danger; }
 }
 
+.wl-office-filter {
+  width: 180px;
+  max-width: 100%;
+  margin-bottom: 14px !important;
+}
+
+.wl-statement__office {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+  color: $cl-ink;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+
+  svg { flex-shrink: 0; }
+}
+
 .wl-summary {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 
@@ -675,6 +693,15 @@ $cl-ease: cubic-bezier(0.16, 1, 0.3, 1);
   font-size: 0.86rem;
   color: $cl-ink;
   overflow-wrap: anywhere;
+}
+
+.wl-statement__type {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: $cl-accent-soft;
+  color: $cl-accent;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .wl-statement__meta {

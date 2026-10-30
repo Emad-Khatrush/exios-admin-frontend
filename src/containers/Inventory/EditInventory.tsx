@@ -6,16 +6,18 @@ import LocalizationProvider from "@mui/lab/LocalizationProvider";
 import DatePicker from "@mui/lab/DatePicker";
 import AdapterDateFns from "@mui/lab/AdapterDateFns";
 import ImageUploader from "../../components/ImageUploader/ImageUploader";
-import FilesPreviewers from "../../components/FilesPreviewers/FilesPreviewers";
+import InventoryAttachments, { FileVisibility } from '../../components/InventoryAttachments/InventoryAttachments';
 import React from "react";
 import moment from "moment";
 import { Inventory } from "../../models";
 import InventoryOrders from "./InventoryOrders";
 import { useSelector } from "react-redux";
 import InventoryExpenses from "./InventoryExpenses";
+import { TripAccounting } from "../Accounting/AccountingPanels";
+
+import { ChevronDown, ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import FlightPdfButton from './FlightPdfButton';
-import { convertGoogleStorageUrl } from "../../utils/methods";
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { convertGoogleStorageUrl } from '../../utils/methods';
 import {
   ChoiceGroup,
   COUNTRY_OPTIONS,
@@ -26,14 +28,20 @@ import {
   optionLabel,
   READY_DATE_HINT,
   READY_DATE_LABEL,
-  SEA_TYPE_OPTIONS,
   SHIPPING_TYPE_OPTIONS,
+  SEA_LOAD_OPTIONS,
   STATUS_OPTIONS,
 } from "./InventoryFields";
 
 import './InventoryForm.scss';
 
 const formatDate = (value?: string | Date) => (value ? moment(value).format('DD/MM/YYYY') : '');
+const InventoryFold = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <details className="inv-fold">
+    <summary dir="rtl"><strong>{title}</strong><ChevronDown size={18} aria-hidden="true" /></summary>
+    <div className="inv-fold-body">{children}</div>
+  </details>
+);
 
 const EditInventory = () => {
   const { id } = useParams();
@@ -54,7 +62,9 @@ const EditInventory = () => {
     message: ''
   });
   const [ filesInput, setFilesInput ] = useState<any>([]);
-  const [ previewFiles, setPreviewFiles ] = useState<any>([]);
+  const [defaultVisibility, setDefaultVisibility] = useState<FileVisibility>('staff');
+  const [isUploading, setIsUploading] = useState(false);
+  const canManageFiles = !!(roles.isAdmin || roles.isAccountant);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const filesRef = React.createRef();
@@ -64,57 +74,48 @@ const EditInventory = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const applyAttachments = (attachments: any[]) => {
+    setFilesInput(attachments);
+    setInventory((previous: any) => ({ ...previous, attachments }));
+  };
   const fileUploaderHandler = async (event: any) => {
-    const files = event.target.files;
-
-    let allFiles: any = [];
-    const newFiles: any =[];
-
-    for (const file of files) {
-      newFiles.unshift(file)
+    if (isUploading) return;
+    const selected = Array.from<File>(event.target.files || []);
+    if (!selected.length) return;
+    if (selected.length > 20 || selected.some(file => file.size > 25 * 1024 * 1024)) {
+      setAlert({ tint: 'error', message: 'Choose up to 20 files, with each file 25 MB or smaller.' }); return;
     }
-
-    // upload it in the cloudinary
-    const data = new FormData()
-    if (newFiles) {
-      newFiles.forEach((file: any) => {
-        data.append('files', file);
-      });
-    }
-    data.append('id', String(id));
-    await api.fetchFormData('inventory/uploadFiles', 'POST', data)
-
-    allFiles = [
-      ...filesInput,
-      ...newFiles
-    ]
-
-    setFilesInput(allFiles);
-  }
-
-  const deleteImage = async (file: any) => {
-    const fileIndex = previewFiles.indexOf(file);
-    const deletedFile = filesInput[fileIndex];
-
+    setIsUploading(true);
     try {
-      setIsLoading(true);
-      await api.delete('inventory/deleteFiles', { image: deletedFile, id });
-      setFilesInput((prev: any) => prev.filter((_: any, index: number) => index !== fileIndex));
-      setPreviewFiles((prev: any) => prev.filter((_: any, index: number) => index !== fileIndex));
-      setAlert({ tint: 'success', message: 'File deleted' });
-    } catch (error: any) {
-      setAlert({ tint: 'error', message: error?.response?.data?.message || 'Could not delete the file' });
-    } finally {
-      setIsLoading(false);
-    }
-  }
+      const data = new FormData();
+      selected.forEach(file => data.append('files', file));
+      data.append('id', String(id));
+      data.append('attachmentVisibilities', JSON.stringify(selected.map(() => canManageFiles ? defaultVisibility : 'staff')));
+      const response = await api.fetchFormData('inventory/uploadFiles', 'POST', data);
+      if (response.success === false) throw new Error(response.message || 'Unable to upload files.');
+      applyAttachments(response.attachments || []);
+      setAlert({ tint: 'success', message: 'Files uploaded.' });
+      if (event.target.value !== undefined) event.target.value = '';
+    } catch (err: any) { setAlert({ tint: 'error', message: err?.message || 'Unable to upload files.' }); }
+    finally { setIsUploading(false); }
+  };
+  const changeVisibility = async (file: any, visibility: FileVisibility) => {
+    const response = await api.update('inventory/' + id + '/attachments/' + (file._id || file.filename) + '/visibility', { visibility });
+    applyAttachments(response.data.attachments || []);
+    setAlert({ tint: 'success', message: 'File visibility updated.' });
+  };
+  const deleteImage = async (file: any) => {
+    await api.delete('inventory/deleteFiles', { id, attachmentId: file._id || file.filename });
+    const nextFiles = filesInput.filter((item: any) => (item._id || item.filename) !== (file._id || file.filename));
+    applyAttachments(nextFiles);
+    setAlert({ tint: 'success', message: 'File deleted.' });
+  };
 
   const getInventory = async () => {
     try {
       setIsLoading(true);
       const res = await api.get(`inventory/${id}`);
       setInventory(res.data);
-      setPreviewFiles(res.data.attachments.map((img: any) => convertGoogleStorageUrl(img.path) ));
       setFilesInput(res.data.attachments);
     } catch (error: any) {
       setError(error?.response?.data?.message || 'Could not load this inventory');
@@ -151,7 +152,7 @@ const EditInventory = () => {
   }
 
   // Current value of a field: the unsaved edit if there is one, otherwise what is saved
-  const valueOf = (name: string) => (name in form ? form[name] : inventory?.[name]);
+  const valueOf = (name: string) => (name in form ? form[name] : name === 'seaLoadType' ? inventory?.seaLoadType || inventory?.seaType?.toUpperCase() : inventory?.[name]);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -229,6 +230,7 @@ const EditInventory = () => {
 
   const orders = inventory?.orders || [];
   const deliveredCount = orders.filter((order: any) => order?.paymentList?.status?.received).length;
+  const volumetricCount = orders.filter((order: any) => order?.paymentList?.deliveredPackages?.volumetric?.enabled).length;
   const isFinished = inventory?.status === 'finished';
 
   return (
@@ -248,7 +250,7 @@ const EditInventory = () => {
             {[
               optionLabel(COUNTRY_OPTIONS, inventory?.shippedCountry),
               optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType),
-              inventory?.shippingType === 'sea' && inventory?.seaType ? inventory.seaType.toUpperCase() : '',
+              inventory?.shippingType === 'sea' ? (inventory.seaLoadType || inventory.seaType || '').toUpperCase() : '',
               optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace),
             ].filter(Boolean).join(', ')}
           </p>
@@ -282,8 +284,8 @@ const EditInventory = () => {
               <strong>{deliveredCount}<small>of {orders.length}</small></strong>
             </div>
             <div className="inv-tile">
-              <span>Ready date</span>
-              <strong>{formatDate(inventory?.inventoryFinishedDate) || <small>Not set</small>}</strong>
+              <span>Arrival date</span>
+              <strong>{formatDate(inventory?.arrivalDate) || <small>Not set</small>}</strong>
             </div>
           </section>
 
@@ -305,12 +307,7 @@ const EditInventory = () => {
                 <dt>Shipping type</dt>
                 <dd>{optionLabel(SHIPPING_TYPE_OPTIONS, inventory?.shippingType) || <span className="is-empty">Not set</span>}</dd>
               </div>
-              {inventory?.shippingType === 'sea' && (
-                <div>
-                  <dt>نوع الشحن البحري</dt>
-                  <dd>{optionLabel(SEA_TYPE_OPTIONS, inventory?.seaType) || <span className="is-empty">Not set</span>}</dd>
-                </div>
-              )}
+              {inventory?.shippingType === 'sea' && <div><dt>نوع الشحن البحري</dt><dd>{optionLabel(SEA_LOAD_OPTIONS, inventory?.seaLoadType || inventory?.seaType?.toUpperCase() || '')}</dd></div>}
               <div>
                 <dt>Inventory office</dt>
                 <dd>{optionLabel(OFFICE_OPTIONS, inventory?.inventoryPlace) || <span className="is-empty">Not set</span>}</dd>
@@ -327,10 +324,6 @@ const EditInventory = () => {
                 <dt>Status</dt>
                 <dd>{optionLabel(STATUS_OPTIONS, inventory?.status || 'processing')}</dd>
               </div>
-              <div>
-                <dt>Odo reference code</dt>
-                <dd>{inventory?.odoReferenceCode || <span className="is-empty">Not set</span>}</dd>
-              </div>
               <div className="is-wide">
                 <dt>Description</dt>
                 <dd dir="auto" className="is-text">{inventory?.note || <span className="is-empty">No description</span>}</dd>
@@ -338,11 +331,7 @@ const EditInventory = () => {
               <div className="is-wide">
                 <dt>Attachments</dt>
                 <dd>
-                  {previewFiles.length > 0 ?
-                    <FilesPreviewers previewFiles={filesInput} files={previewFiles} />
-                    :
-                    <span className="is-empty">No files</span>
-                  }
+                  <InventoryAttachments files={filesInput} inventoryId={id} canManage={canManageFiles} onVisibilityChange={changeVisibility} />
                 </dd>
               </div>
             </dl>
@@ -359,6 +348,7 @@ const EditInventory = () => {
             </div>
 
             <div className="inv-grid">
+              <div className="inv-voyage-row is-wide">
               <div className="inv-field">
                 <FieldLabel required>Voyage number</FieldLabel>
                 <TextField
@@ -373,20 +363,8 @@ const EditInventory = () => {
                 />
               </div>
 
-              <div className="inv-field">
-                <FieldLabel note="Optional">Odo reference code</FieldLabel>
-                <TextField
-                  size="small"
-                  fullWidth
-                  name="odoReferenceCode"
-                  value={valueOf('odoReferenceCode') ?? ''}
-                  onChange={onChangeHandler}
-                  inputProps={{ 'aria-label': 'Odo reference code' }}
-                />
-              </div>
 
-
-              <div className="is-wide">
+              <div>
                 <ChoiceGroup
                   name="shippedCountry"
                   label="Shipped from"
@@ -396,6 +374,7 @@ const EditInventory = () => {
                   disabled={!isAdmin}
                   required
                 />
+              </div>
               </div>
 
               <ChoiceGroup
@@ -408,17 +387,7 @@ const EditInventory = () => {
                 required
               />
 
-              {valueOf('shippingType') === 'sea' && (
-                <ChoiceGroup
-                  name="seaType"
-                  label="نوع الشحن البحري"
-                  options={SEA_TYPE_OPTIONS}
-                  value={valueOf('seaType')}
-                  disabled={!isAdmin}
-                  onChange={onChangeHandler}
-                  required
-                />
-              )}
+              {valueOf('shippingType') === 'sea' && <ChoiceGroup name="seaLoadType" label="نوع الشحن البحري" options={SEA_LOAD_OPTIONS} value={valueOf('seaLoadType') || ''} onChange={onChangeHandler} disabled={!isAdmin} required />}
 
               <ChoiceGroup
                 name="inventoryPlace"
@@ -499,10 +468,12 @@ const EditInventory = () => {
                 <ImageUploader
                   id={'attachments'}
                   inputFileRef={filesRef}
-                  previewFiles={previewFiles}
+                  previewFiles={[]}
                   fileUploaderHandler={fileUploaderHandler}
                   files={filesInput}
-                  deleteImage={(roles.isAdmin || roles.isAccountant) ? deleteImage : undefined}
+                  disabled={isUploading}
+                  inventoryFileAccess={{ value: defaultVisibility, onChange: setDefaultVisibility, canManage: canManageFiles }}
+                  previewContent={<InventoryAttachments files={filesInput} inventoryId={id} canManage={canManageFiles} disabled={isUploading} onVisibilityChange={changeVisibility} onDelete={canManageFiles ? deleteImage : undefined} />}
                 />
               </div>
             </div>
@@ -520,21 +491,29 @@ const EditInventory = () => {
         </form>
       )}
 
-      {!isEditing && (roles.isAdmin || ['S092', 'A647'].includes(customerId)) && (
+      {!isEditing && (roles.isAdmin || roles.isAccountant || ['S092', 'A647'].includes(customerId)) && (
+        <InventoryFold title="المصاريف">
         <InventoryExpenses
           inventoryId={inventory?._id}
           inventory={inventory}
         />
+        </InventoryFold>
       )}
 
+      {!isEditing && <TripAccounting tripId={inventory?._id} />}
+
       {!isEditing && (
-        <>
-          <h2 className="inv-section-title">Packages</h2>
+        <section aria-label="طرود الرحلة">
+          <h2 className="inv-section-title mb-2" dir="rtl">الطرود ({orders.length})</h2>
+          {volumetricCount > 0 && <Alert severity="warning" role="status" dir="rtl" sx={{ mb: 2, bgcolor: '#fff0ef', color: '#9f2920', border: '1px solid #eab5af', '& .MuiAlert-icon': { color: 'inherit' } }}>
+            <strong>تنبيه: تحتوي هذه الرحلة على {volumetricCount} طرود بوزن حجمي.</strong>
+            <div>هذه الطرود مميزة بالأحمر في قائمة الجرد. راجع الوزن الفعلي ووزن الفوترة عند تجهيز الرحلة.</div>
+          </Alert>}
           <InventoryOrders
             inventory={inventory}
             getInventory={getInventory}
           />
-        </>
+        </section>
       )}
 
       <Snackbar

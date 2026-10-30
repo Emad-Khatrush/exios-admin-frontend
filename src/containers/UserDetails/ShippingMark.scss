@@ -1,0 +1,76 @@
+.sm-card, .sm-dialog {
+  box-sizing: border-box; color: #182b3d; font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Tahoma, sans-serif; font-size: 13px;
+  *, *::before, *::after { box-sizing: border-box; }
+  h2, h3, p { margin: 0; }
+  button, textarea { font: inherit; }
+  button, summary { cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 2px solid #0b6b62; outline-offset: 3px; }
+  svg { flex-shrink: 0; }
+}
+:where(.sm-card *, .sm-dialog *) { font-size: inherit; }
+.sm-card { display: flex; align-items: center; gap: 14px; background: #f6faf9; border: 1px solid #d9e8e4; border-radius: 12px; padding: 18px 24px; margin-bottom: 22px; }
+.sm-card-icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #d9e8e4; background: #fff; border-radius: 9px; color: #0b6b62; }
+.sm-card-copy { flex: 1; min-width: 0; }
+.sm-card h2 { font-size: 14px; font-weight: 600; line-height: 1.7; }
+.sm-card p { color: #586979; font-size: 12px; line-height: 1.8; margin-top: 3px; }
+.sm-card-code { font: 600 16px 'Red Hat Text', sans-serif; color: #0b6b62; }
+.sm-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 12px; border: 1px solid #dfe7ec; border-radius: 7px; background: #fff; color: #182b3d; font-size: 12px !important; font-weight: 500 !important; text-decoration: none; line-height: 1.5; }
+.sm-button:hover:not(:disabled) { border-color: #8fb8b0; background: #f0f6f4; color: #0b6b62; }
+.sm-button--primary { background: #0b6b62; border-color: #0b6b62; color: #fff; }
+.sm-button--primary:hover:not(:disabled) { background: #08564f; border-color: #08564f; color: #fff; }
+.sm-dialog .sm-title { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 24px 16px; gap: 12px; }
+.sm-title h2 { font-size: 18px; font-weight: 600; line-height: 1.6; }
+.sm-title p { color: #586979; font-size: 12px; margin-top: 4px; }
+.sm-title bdi { font-weight: 600; }
+.sm-dialog .sm-content { padding: 20px 24px; border-top: 1px solid #dfe7ec; border-bottom: 1px solid #dfe7ec; }
+.sm-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .8fr); gap: 28px; align-items: start; }
+.sm-settings { min-width: 0; }
+.sm-settings h3 { font-size: 13px; font-weight: 600; }
+.sm-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.sm-methods button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 8px; border: 1px solid #dfe7ec; background: #fff; border-radius: 8px; font-size: 12px; color: #586979; }
+.sm-methods button.is-active { border-color: #0b6b62; background: #edf7f4; color: #0b6b62; }
+.sm-inspection { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #586979; margin-top: 12px; min-height: 36px; cursor: pointer; }
+.sm-inspection input { width: 16px; height: 16px; margin: 0; flex-shrink: 0; accent-color: #0b6b62; }
+.sm-address { margin-top: 22px; padding-top: 18px; border-top: 1px solid #dfe7ec; }
+.sm-address header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sm-text-button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; background: transparent; border: 0; padding: 4px 0; color: #0b6b62; font-size: 12px !important; }
+.sm-text-button:hover { text-decoration: underline; }
+.sm-address-main { margin-top: 10px !important; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; }
+.sm-address details { margin-top: 12px; }
+.sm-dialog summary { color: #586979; font-size: 12px; line-height: 1.8; padding-block: 5px; }
+.sm-address-full { font-size: 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 8px; text-align: left; }
+.sm-guide { margin-top: 16px; padding-top: 12px; border-top: 1px solid #dfe7ec; }
+.sm-guide textarea { display: block; width: 100%; margin-top: 8px; padding: 10px; border: 1px solid #dfe7ec; border-radius: 7px; font-size: 13px; line-height: 1.8; background: #fafbfc; color: #182b3d; resize: vertical; }
+.sm-preview { min-width: 0; padding: 14px; border: 1px solid #dfe7ec; background: #f6f8fa; border-radius: 10px; }
+.sm-preview header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; color: #586979; }
+.sm-preview header span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.sm-preview header small { direction: ltr; font-size: 10px; }
+.sm-label-image { display: block; width: 100%; max-width: 340px; height: auto; margin: 0 auto; background: #fff; -webkit-user-select: auto; user-select: auto; -webkit-touch-callout: default; }
+.sm-save-hint { font-size: 11px; line-height: 1.8; margin-top: 10px !important; color: #586979; }
+.sm-preview-loading { min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #586979; }
+.sm-preview-loading p { font-size: 12px; }
+.sm-qr-source { position: absolute; width: 256px; height: 256px; overflow: hidden; visibility: hidden; pointer-events: none; }
+.sm-alert { margin-bottom: 14px; }
+.sm-send-confirm { margin-top: 18px; padding: 14px; border: 1px solid #c6ddd7; background: #edf7f4; border-radius: 8px; }
+.sm-send-confirm p { font-size: 12px; line-height: 1.8; }
+.sm-send-confirm > div { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.sm-dialog .sm-actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 24px; }
+.sm-actions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 700px) {
+  .sm-card { padding: 16px; flex-wrap: wrap; gap: 10px; }
+  .sm-card-copy { flex-basis: calc(100% - 60px); }
+  .sm-card-code { margin-inline-start: 54px; margin-inline-end: auto; }
+}
+@media (max-width: 600px) {
+  .sm-workspace { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .sm-dialog .sm-title { padding: 16px; }
+  .sm-dialog .sm-content { padding: 16px; }
+  .sm-dialog .sm-actions { padding: 12px 16px; }
+  .sm-button { min-height: 42px; }
+  .sm-actions > div { width: 100%; }
+  .sm-actions > div > .sm-button { flex: 1; }
+  .sm-methods button { min-height: 44px; }
+  .sm-guide textarea { font-size: 16px; }
+  .sm-label-image { max-width: 290px; }
+}

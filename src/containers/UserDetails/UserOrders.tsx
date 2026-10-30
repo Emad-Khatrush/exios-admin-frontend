@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import axios, { CancelTokenSource } from 'axios';
 // The stylesheet is bundled by the frontend build, but TypeScript has no
 // ambient declaration for side-effect SCSS imports in this project.
@@ -20,10 +21,11 @@ import {
   Avatar,
   InputAdornment,
 } from '@mui/material';
-import { Boxes, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
+import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
 import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
+import { usePackageSettings } from '../../utils/usePackageSettings';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -39,6 +41,10 @@ type SelectedPackage = {
   boxesCount?: string | number;
   orderId?: string;
   images?: any;
+  // The fees in dinars (transport to another office, customs clearance), paid from the dinar wallet
+  feeAmount?: number;
+  feeCurrency?: string;
+  feeLydAmounts?: number[];
 };
 
 type PaymentInput = { amountUSD: string; amountLYD: string };
@@ -57,11 +63,19 @@ const calculateRate = (amountLYD: number, remainingUSD: number) => Math.round((a
 
 const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// The fees a package can carry beside its shipping: transport to another office, customs clearance
+const feesOf = (pkg: any) => ['domesticFee', 'customsFee'].map((field) => pkg?.deliveredPackages?.[field]).filter((fee) => Number(fee?.amount) > 0);
+
+// The shipping in dollars, plus the fees set in dollars. A fee in dinars stays in dinars: paid from
+// the dinar wallet on its own, or converted at today's rate (spec v8)
 const getPackageCost = (pkg: Package): number => {
   const weight = pkg?.deliveredPackages?.weight?.total || 0;
   const price = pkg?.deliveredPackages?.exiosPrice || 0;
-  return Number((weight * price).toFixed(2));
+  const feeUsd = feesOf(pkg).filter((fee) => fee.currency === 'USD').reduce((sum, fee) => sum + Number(fee.amount), 0);
+  return Number((weight * price + feeUsd).toFixed(2));
 };
+
+const lydFeesOf = (pkg: any) => feesOf(pkg).filter((fee) => fee.currency === 'LYD').reduce((sum, fee) => sum + Number(fee.amount), 0);
 
 const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   id: pkg._id,
@@ -74,6 +88,9 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   boxesCount: pkg?.deliveredPackages?.boxesCount || '',
   images: pkg?.images || [],
   orderId,
+  feeAmount: lydFeesOf(pkg),
+  feeCurrency: lydFeesOf(pkg) > 0 ? 'LYD' : undefined,
+  feeLydAmounts: feesOf(pkg).filter(fee => fee.currency === 'LYD').map(fee => Number(fee.amount)),
 });
 
 // Received packages were already delivered (and paid for), so they can never be selected again
@@ -85,7 +102,7 @@ const tabs = [
   { value: 'finished', label: 'Finished', tabType: 'finished' },
 ];
 
-const CustomerOrders = ({ customerId, balances }: any) => {
+const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const [orders, setOrders] = useState<Invoice[]>([]);
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackage[]>([]);
   const [filter, setFilter] = useState<string>('active');
@@ -96,7 +113,14 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const [isError, setIsError] = useState<boolean>(false);
   const [resMessage, setResMessage] = useState<string>();
   const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
+  const [allowPartial, setAllowPartial] = useState(false);
+  const [partialRate, setPartialRate] = useState('');
+  const canCredit = useSelector((state: any) => !!(state.session.account?.roles?.isAdmin || state.session.account?.roles?.isAccountant));
   const [previewImages, setPreviewImages] = useState<any>();
+  // Fees in dinars (transport, customs clearance): paid from the dinar wallet on their own, or converted to dollars
+  const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');
+  const effectiveFeeMode = allowPartial ? 'usd' : feeMode;
+  const { rate: todayRate } = usePackageSettings();
 
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const ordersRequest = useRef<CancelTokenSource | null>(null);
@@ -153,6 +177,15 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const tabType = tabs.find(tab => tab.value === newFilter)?.tabType || 'active';
     fetchOrders(tabType);
   };
+
+  // Each flight's packages open on demand (owner's request 2026-10-04): closed by default, so a
+  // customer with many flights is easy to read; selecting a flight works while it is closed
+  const [openFlights, setOpenFlights] = useState<Set<string>>(new Set());
+  const toggleFlight = (id: string) => setOpenFlights((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const groupedFlights = useMemo(() => {
     const map = new Map();
@@ -225,15 +258,19 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     let totalKG = 0;
     let totalCBM = 0;
     let totalFees = 0;
+    let feesLYD = 0;
 
     selectedPackages.forEach(pkg => {
       if (pkg.measureUnit === 'KG') totalKG += pkg.weight;
       if (pkg.measureUnit === 'CBM') totalCBM += pkg.weight;
       totalFees += pkg.cost;
+      if (pkg.feeCurrency === 'LYD' && pkg.feeAmount) feesLYD += pkg.feeAmount;
     });
+    // Converted at today's rate when paid in dollars; otherwise taken from the dinar wallet as is
+    if (effectiveFeeMode === 'usd' && feesLYD && todayRate) totalFees += selectedPackages.reduce((sum, pkg) => sum + (pkg.feeLydAmounts || []).reduce((fees, amount) => fees + round2(amount / todayRate), 0), 0);
 
-    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)) };
-  }, [selectedPackages]);
+    return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)), feesLYD: Number(feesLYD.toFixed(2)), separateLYD: effectiveFeeMode === 'separate' ? Number(feesLYD.toFixed(2)) : 0 };
+  }, [selectedPackages, effectiveFeeMode, todayRate]);
 
   // The rate is calculated, never typed (the server calculates it the same way):
   // USD only -> 0, LYD only -> LYD / total, both -> USD is taken first and LYD pays the rest.
@@ -241,24 +278,29 @@ const CustomerOrders = ({ customerId, balances }: any) => {
     const amountUSD = toNumber(payment.amountUSD);
     const amountLYD = toNumber(payment.amountLYD);
     const remainingUSD = round2(totals.totalFees - amountUSD);
-    const rate = amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
-    const lydInUsd = rate > 0 ? remainingUSD : 0;
+    const rate = allowPartial ? Number(partialRate) : amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
+    const lydInUsd = rate > 0 ? allowPartial ? amountLYD / rate : remainingUSD : 0;
     const covered = round2(amountUSD + lydInUsd);
     const difference = round2(covered - totals.totalFees);
 
     const errors: string[] = [];
     if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
     if (amountUSD > walletUsd + 0.001) errors.push(`USD wallet only has $${formatMoney(walletUsd)}.`);
-    if (amountLYD > walletLyd + 0.001) errors.push(`LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
+    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
     if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
-    if (amountUSD === 0 && amountLYD === 0) errors.push('Enter a USD or LYD amount.');
-    if (amountLYD === 0 && amountUSD > 0) {
+    // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
+    // Separate LYD fees are collected automatically from that wallet, outside these inputs.
+    if (amountUSD === 0 && amountLYD === 0 && totals.totalFees > 0 && !allowPartial) errors.push('Enter a USD or LYD amount.');
+    if (allowPartial && amountLYD > 0 && (!Number.isFinite(rate) || rate <= 0)) errors.push('أدخل سعر صرف صحيحًا للدينار.');
+    if (allowPartial && totals.feesLYD > 0 && !todayRate) errors.push('سجل سعر الدينار أولًا لتحويل رسوم الطرود.');
+    if (allowPartial && difference > 0) errors.push('الدفعة أكبر من إجمالي الطرود المحددة.');
+    if (!allowPartial && amountLYD === 0 && amountUSD > 0) {
       if (difference < -PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(-difference)} short of the total (max $${PAYMENT_TOLERANCE_USD}).`);
       if (difference > PAYMENT_TOLERANCE_USD) errors.push(`Payment is $${formatMoney(difference)} more than the total (max $${PAYMENT_TOLERANCE_USD}).`);
     }
 
     return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
-  }, [payment, totals.totalFees, walletUsd, walletLyd]);
+  }, [payment, totals.totalFees, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd, allowPartial, partialRate, todayRate]);
 
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
@@ -272,14 +314,16 @@ const CustomerOrders = ({ customerId, balances }: any) => {
   const closeDialog = () => {
     setOpenDialog(false);
     setPayment(emptyPayment);
+    setAllowPartial(false);
+    setPartialRate('');
   };
 
   const markAsDelivered = async () => {
-    if (selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
+    if (isPending || selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
 
     try {
       setIsPending(true);
-      await api.post(`user/${customerId}/markAsDelivered`, {
+      const delivery = await api.post(`user/${customerId}/markAsDelivered`, {
         // Images are only needed for the preview, so don't send them
         selectedPackages: selectedPackages.map(({ images, ...pkg }) => pkg),
         payment: {
@@ -288,12 +332,15 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           rate: paymentSummary.rate,
         },
         totalCost: totals.totalFees,
+        feeMode: effectiveFeeMode,
+        allowPartial,
       });
 
       closeDialog();
       handleFilterChange(filter);
+      onDelivered?.();
       setIsError(false);
-      setResMessage('Packages marked as delivered successfully');
+      setResMessage(allowPartial ? `تم التسليم؛ المتبقي $${formatMoney(delivery.data.remainingUSD)} مرتبط بالفاتورة في قسم الديون.` : 'Packages marked as delivered successfully');
     } catch (err: any) {
       console.error(err);
       setIsError(true);
@@ -328,6 +375,12 @@ const CustomerOrders = ({ customerId, balances }: any) => {
             </button>
           ))}
         </div>
+
+        {groupedFlights.length > 1 && !isOrdersLoading && (
+          <button type="button" className="co-btn-ghost" onClick={() => setOpenFlights(openFlights.size ? new Set() : new Set(groupedFlights.map((g: any) => g.id)))}>
+            {openFlights.size ? 'Close all' : 'Open all'}
+          </button>
+        )}
 
         {canSelect && selectablePackages.length > 0 && !isOrdersLoading && (
           <label className="co-check">
@@ -364,7 +417,10 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           {groupedFlights.map((group: any) => (
             <section key={group.id} className="co-flight">
               <header className="co-flight-header">
-                <div className="co-flight-title">
+                <div className="co-flight-title" role="button" tabIndex={0} style={{ cursor: 'pointer' }} aria-expanded={openFlights.has(group.id)}
+                  onClick={(e) => { if (!(e.target as HTMLElement).closest('a')) toggleFlight(group.id); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFlight(group.id); } }}>
+                  <ChevronDown size={18} strokeWidth={2} style={{ transition: 'transform .15s', transform: openFlights.has(group.id) ? 'none' : 'rotate(-90deg)', flexShrink: 0 }} />
                   <span className="co-flight-icon">
                     {group.flight ? <Plane size={18} strokeWidth={2} /> : <PackageIcon size={18} strokeWidth={2} />}
                   </span>
@@ -379,6 +435,13 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     ) : (
                       <span className="co-flight-name">Packages without a flight</span>
                     )}
+                    <small style={{ display: 'block' }}>
+                      {group.packages.length} {group.packages.length === 1 ? 'package' : 'packages'}
+                      {(() => {
+                        const chosen = group.packages.filter((pkg: any) => isPackageSelected(pkg._id)).length;
+                        return chosen ? ` · ${chosen} selected` : '';
+                      })()}
+                    </small>
                   </div>
                 </div>
 
@@ -395,7 +458,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                 </div>
               </header>
 
-              <div className="co-packages">
+              {openFlights.has(group.id) && <div className="co-packages">
                 {group.packages.map((pkg: any) => {
                   const measureValue = pkg?.deliveredPackages?.weight?.total || 0;
                   const measureUnit = pkg?.deliveredPackages?.weight?.measureUnit || '';
@@ -458,7 +521,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
             </section>
           ))}
 
@@ -479,12 +542,24 @@ const CustomerOrders = ({ customerId, balances }: any) => {
         </>
       )}
 
-      <Dialog open={openDialog} onClose={closeDialog} maxWidth="sm" fullWidth PaperProps={{ className: 'co-dialog' }}>
+      <Dialog open={openDialog} onClose={() => { if (!isPending) closeDialog(); }} maxWidth="sm" fullWidth PaperProps={{ className: 'co-dialog' }}>
         <DialogContent>
           <div className="co-dialog-head">
             <h2>Confirm delivery</h2>
             <p>{selectedPackages.length} package{selectedPackages.length === 1 ? '' : 's'}, paid from the customer's wallet.</p>
           </div>
+
+          {canCredit && <div className="co-credit-option" dir="rtl">
+            <div className="co-payment-modes" role="group" aria-label="طريقة السداد">
+              <button type="button" className={!allowPartial ? 'is-active' : ''} aria-pressed={!allowPartial} disabled={isPending} onClick={() => setAllowPartial(false)}>
+                <CircleCheck size={17} aria-hidden="true" /> دفع كامل
+              </button>
+              <button type="button" className={allowPartial ? 'is-active' : ''} aria-pressed={allowPartial} disabled={isPending} onClick={() => setAllowPartial(true)}>
+                <Wallet size={17} aria-hidden="true" /> دفع جزئي
+              </button>
+            </div>
+            {allowPartial && <p>أدخل المدفوع وحدد سعر الصرف عند الدفع بالدينار. يُحسب المتبقي مباشرة ويُسجل كدين على العميل.</p>}
+          </div>}
 
           <div className="co-wallets">
             <div>
@@ -500,6 +575,17 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               <strong>${formatMoney(totals.totalFees)}</strong>
             </div>
           </div>
+
+          {totals.feesLYD > 0 && (
+            <div className="co-fee-box" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, margin: '12px 0' }}>
+              <strong>Fees in LYD (transport, customs clearance): {formatMoney(totals.feesLYD)} LYD</strong>
+              {allowPartial ? <p dir="rtl">تُضاف الرسوم إلى الإجمالي بالدولار بسعر اليوم: {todayRate || '—'} دينار لكل دولار.</p> : <><div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
+                <label><input type="radio" checked={feeMode === 'separate'} disabled={allowPartial} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
+                <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>
+              </div>
+              {feeMode === 'separate' && <small>{formatMoney(totals.feesLYD)} LYD are taken from the LYD wallet on their own; the total above is the shipping only.</small>}</>}
+            </div>
+          )}
 
           <div className="co-payment-grid">
             <TextField
@@ -522,15 +608,20 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               value={payment.amountLYD}
               onChange={updatePayment('amountLYD')}
               onWheel={(event: any) => event.target.blur()}
-              helperText={paymentSummary.amountUSD > 0 ? `Pays the $${formatMoney(Math.max(0, paymentSummary.remainingUSD))} left after USD` : 'Pays the whole total'}
+              helperText={allowPartial ? 'المبلغ المدفوع فعليًا من محفظة الدينار' : paymentSummary.amountUSD > 0 ? `Pays the $${formatMoney(Math.max(0, paymentSummary.remainingUSD))} left after USD` : 'Pays the whole total'}
             />
             <TextField
               fullWidth
-              label="Exchange rate"
-              value={paymentSummary.rate > 0 ? paymentSummary.rate : 0}
-              disabled
+              label={allowPartial ? 'سعر الصرف المتفق عليه' : 'Exchange rate'}
+              type="number"
+              value={allowPartial ? partialRate : paymentSummary.rate > 0 ? paymentSummary.rate : 0}
+              onChange={event => setPartialRate(event.target.value)}
+              disabled={!allowPartial}
+              required={allowPartial && paymentSummary.amountLYD > 0}
+              error={allowPartial && paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0)}
+              inputProps={allowPartial ? { inputMode: 'decimal', min: 0.0001, step: 'any' } : undefined}
               InputProps={{ endAdornment: <InputAdornment position="end">LYD / $</InputAdornment> }}
-              helperText={paymentSummary.rate > 0
+              helperText={allowPartial ? 'أدخل عدد الدنانير مقابل دولار واحد؛ المدفوع بالدينار ÷ السعر = ما تم سداده بالدولار' : paymentSummary.rate > 0
                 ? `${formatMoney(paymentSummary.amountLYD)} LYD / $${formatMoney(paymentSummary.remainingUSD)}`
                 : 'Calculated from the LYD amount'}
             />
@@ -546,6 +637,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               <dt>Covered</dt>
               <dd>${formatMoney(paymentSummary.covered)} of ${formatMoney(totals.totalFees)}</dd>
             </div>
+            {allowPartial && <div className="co-remaining" dir="rtl" aria-live="polite"><dt>المتبقي على العميل</dt><dd dir="ltr">{paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0) ? '—' : `$${formatMoney(Math.max(0, totals.totalFees - paymentSummary.covered))}`}</dd></div>}
           </dl>
 
           {paymentSummary.errors.length > 0 ? (
@@ -555,7 +647,7 @@ const CustomerOrders = ({ customerId, balances }: any) => {
               ))}
             </ul>
           ) : (
-            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> Payment covers the total.</p>
+            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> {allowPartial && paymentSummary.covered < totals.totalFees ? 'المتبقي سيُسجل كدين مرتبط بهذه الفاتورة والطرود.' : 'Payment covers the total.'}</p>
           )}
 
           <details className="co-selected-list">
@@ -576,9 +668,9 @@ const CustomerOrders = ({ customerId, balances }: any) => {
           </details>
         </DialogContent>
         <DialogActions className="co-dialog-actions">
-          <button className="co-btn-ghost" onClick={closeDialog}>Cancel</button>
+          <button className="co-btn-ghost" onClick={closeDialog} disabled={isPending}>Cancel</button>
           <button className="co-btn-primary" onClick={markAsDelivered} disabled={paymentSummary.errors.length > 0 || isPending}>
-            Confirm delivery
+            {isPending ? 'جارٍ الحفظ…' : allowPartial ? 'تسليم وإثبات المتبقي' : 'Confirm delivery'}
           </button>
         </DialogActions>
       </Dialog>

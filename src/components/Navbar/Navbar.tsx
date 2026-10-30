@@ -3,6 +3,8 @@ import { Badge, IconButton } from '@mui/material';
 
 import { IoMdNotificationsOutline } from 'react-icons/io';
 import { GiHamburgerMenu } from 'react-icons/gi';
+import { MdHome } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 import { isMobile } from 'react-device-detect';
 import Logo from '../Logo/Logo';
 
@@ -15,6 +17,8 @@ type MyProps = {
     isSidebarOpen: boolean
     toggleSidebar: () => void
     session: Session
+    // Shows a "Back to home" button in place of the sidebar toggle
+    homeLink?: boolean
 };
 
 type MyState = {
@@ -34,7 +38,13 @@ class Navbar extends Component<MyProps, MyState> {
             <div className='navbar'>
                 <div className="navbar-wrapper">
                     <div className="nav-left">
-                        {isMobile ? 
+                        {/* Accounting hides the sidebar, so the way back to the rest of the admin is here */}
+                        {this.props.homeLink ?
+                          <>
+                            {!isMobile && <img src="https://storage.cloud.google.com/exios-bucket/8424e4c2a34ab9e29b3b.png" alt="Exios" width={'150px'} height={'80px'} />}
+                            <Link className="nav-home" to="/"><MdHome /> Back to home</Link>
+                          </>
+                        : isMobile ?
                           <GiHamburgerMenu 
                             className='hamburger-icon' 
                             size={30}

@@ -4,21 +4,18 @@ import { useSelector } from 'react-redux';
 import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
 import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
-import InfoWidget from '../../components/InfoWidget/InfoWidget';
-import { FaMoneyBillWave } from 'react-icons/fa';
-import { Debt } from '../../models';
-import { checkIfDataArray } from '../../utils/methods';
 import CashflowUser from './CashflowUser';
-import CustomButton from '../../components/CustomButton/CustomButton';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
+import ShippingMarkDialog, { ShippingMarkCard } from './ShippingMarkDialog';
 import WalletExchangeDialog from './WalletExchangeDialog';
-import ShippingMarkDialog from './ShippingMarkDialog';
 import UserOrders from './UserOrders';
 import UserInvoices from './UserInvoices';
 import SpecialPricesTab from './SpecialPricesTab';
 import PassportVerificationTab from './PassportVerificationTab';
 import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
+import { CustomerAccounting } from '../Accounting/AccountingPanels';
+import CustomerWallet from './CustomerWallet';
 
 // The fields the Customer info card edits; the rest of the loaded user stays as it is
 const pickCustomerInfo = (updated: any) => ({
@@ -38,13 +35,16 @@ const UserDetails = (props: Props) => {
 
   const [user, setUser] = useState<any>();
   const [debts, setDebts] = useState<any>();
+  const [debtLoading, setDebtLoading] = useState(true);
+  const [debtError, setDebtError] = useState(false);
   const [wallet, setWallet] = useState<any>();
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [userStatement, setUserStatement] = useState<any>();
   const [isLoading, setIsLoading] = useState(false);
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
-  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings'>('profile');
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings' | 'accounting'>('profile');
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
   useEffect(() => {
@@ -105,14 +105,17 @@ const UserDetails = (props: Props) => {
   }
 
   const fetchDebtsOfUser = async () => {
+    setDebtLoading(true);
+    setDebtError(false);
     try {
-      setIsLoading(true);
       const response = await api.get(`debts/${id}`);
+      if (!Array.isArray(response.data)) throw new Error('Invalid debts response');
       setDebts(response.data);
     } catch (error) {
-      console.log(error);
+      setDebtError(true);
+    } finally {
+      setDebtLoading(false);
     }
-    setIsLoading(false);
   }
 
   if (isLoading || !user) {
@@ -121,7 +124,6 @@ const UserDetails = (props: Props) => {
     )
   }
 
-  const { totalUsd, totalLyd } = calculateTotal(debts);
   const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(wallet);
   const Tag = dialog?.component;
 
@@ -140,54 +142,22 @@ const UserDetails = (props: Props) => {
         <Tab label="Created Invoices" value="invoices" />
         <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
+        {canReviewPassports && <Tab label="Accounting" value="accounting" />}
       </Tabs>
 
       {activeTap === 'profile' ? (
         <div className="row">
-          <div className="col-md-12 mb-2">
-            <CustomButton
-              background='rgb(0, 171, 85)'
-              size="small"
-              disabled={isLoading}
-              onClick={() => setDialog({ component: AddBalanceToWallet })}
-              style={{ marginRight: '8px' }}
-            >
-              Add balance to wallet
-            </CustomButton>
-
-            <CustomButton
-              background='rgb(8, 29, 121)'
-              size="small"
-              disabled={isLoading}
-              onClick={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
-            >
-              سحب من المحفظة كاش
-            </CustomButton>
-            {canExchangeWallet && <CustomButton background='#08776b' size="small" disabled={isLoading} onClick={() => setExchangeOpen(true)} style={{ marginInlineStart: 8 }}>
-              صرافة داخل المحفظة
-            </CustomButton>}
+          <div className="col-12">
+            <CustomerWallet user={user} debts={debts} debtLoading={debtLoading} debtError={debtError} walletUsd={walletUsd} walletLyd={walletLyd}
+              onDeposit={() => setDialog({ component: AddBalanceToWallet })}
+              onWithdraw={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
+              onExchange={canExchangeWallet ? () => setExchangeOpen(true) : undefined}
+              onRefreshDebts={fetchDebtsOfUser}
+              onPaymentSaved={async () => { await Promise.all([fetchDebtsOfUser(), refreshWalletAndStatement()]); }} />
           </div>
 
-          <div className="col-md-4">
-            <InfoWidget title="Debts" value={`${totalUsd} $, ${totalLyd} LYD`} icon={<FaMoneyBillWave />} />
-          </div>
-          <div className="col-md-4">
-            <InfoWidget title="Wallet" value={`${walletUsd} $, ${walletLyd} LYD`} icon={<FaMoneyBillWave />} />
-          </div>
-
-          <UserWidget client={user} index={1} />
-
-          <div className="col-md-4 mb-2">
-            <CustomButton
-              background='rgb(0, 171, 85)'
-              size="small"
-              disabled={isLoading}
-              onClick={() => setDialog({ component: ShippingMarkDialog })}
-              style={{ marginRight: '8px' }}
-            >
-              Shipping mark & Address
-            </CustomButton>
-          </div>
+          <div className="col-12"><UserWidget client={user} onEdit={() => setActiveTap('settings')} /></div>
+          <div className="col-12"><ShippingMarkCard customerCode={user.customerId} onOpen={() => setDialog({ component: ShippingMarkDialog })} /></div>
 
           <CashflowUser
             userStatement={userStatement}
@@ -196,11 +166,16 @@ const UserDetails = (props: Props) => {
             isLoading={isStatementLoading}
           />
         </div>
+      ) : activeTap === 'accounting' ? (
+        <div className="col-md-12">
+          <CustomerAccounting customerId={user._id} />
+        </div>
       ) : activeTap === 'orders' ? (
         <div className="col-md-12">
           <UserOrders
             customerId={user._id}
             balances={{ walletLyd, walletUsd }}
+            onDelivered={() => { refreshWalletAndStatement(); fetchDebtsOfUser(); }}
           />
         </div>
       ) : activeTap === 'specialPrices' ? (
@@ -235,44 +210,32 @@ const UserDetails = (props: Props) => {
         </div>
       ) : activeTap === 'invoices' && (
         <div className="col-md-12">
-          <UserInvoices customerId={user._id} onInvoiceCanceled={refreshWalletAndStatement} />
+          <UserInvoices customerId={user._id} onInvoiceCanceled={() => { refreshWalletAndStatement(); fetchDebtsOfUser(); }} />
         </div>
       )}
 
       {canExchangeWallet && <WalletExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} customerId={user._id}
         balances={{ walletLyd, walletUsd }} onSaved={refreshWalletAndStatement} />}
       <Dialog
-        open={dialog}
-        onClose={() => setDialog(undefined)}
+        open={!!dialog}
+        onClose={() => { if (!dialogBusy) setDialog(undefined); }}
+        disableEscapeKeyDown={dialogBusy}
+        fullWidth
+        maxWidth={dialog?.component === ShippingMarkDialog ? 'md' : 'sm'}
+        PaperProps={{ sx: { borderRadius: 2, maxHeight: 'calc(100% - 32px)', margin: { xs: '12px', sm: '32px' }, width: { xs: 'calc(100% - 24px)', sm: 'calc(100% - 64px)' } } }}
       >
         {dialog?.component &&
           <Tag
             balances={{ walletLyd, walletUsd }}
             user={user}
             actionType={dialog?.actionType}
+            onClose={() => setDialog(undefined)}
+            onBusyChange={setDialogBusy}
           />
         }
       </Dialog>
     </div>
   )
-}
-
-const calculateTotal = (debts: Debt[]) => {
-  let totalUsd = 0, totalLyd = 0;
-  (debts || []).forEach(debt => {
-    const isDebtArray = checkIfDataArray(debt);
-    if (isDebtArray) {
-      (debt as any || []).forEach((d: Debt) => {
-        if (d.currency === 'USD') totalUsd += d.amount
-        else if (d.currency === 'LYD') totalLyd += d.amount;
-      })
-    } else {
-      if (debt.currency === 'USD') totalUsd += debt.amount
-      else if (debt.currency === 'LYD') totalLyd += debt.amount;
-    }
-  })
-
-  return { totalUsd, totalLyd }
 }
 
 const calculateTotalWallet = (wallet: any) => {

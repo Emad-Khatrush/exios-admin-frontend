@@ -1,0 +1,304 @@
+// The office Expenses screen: a form on one side, the person's own expenses by day on the other.
+$oe-ink: #1f2933;
+$oe-muted: #5b6673;
+$oe-line: #e3e8ee;
+$oe-surface: #ffffff;
+$oe-page: #f6f8fa;
+$oe-accent: #00ab55;
+$oe-danger: #d14343;
+$oe-radius: 12px;
+
+.oe-page {
+  padding: 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  color: $oe-ink;
+
+  @media (max-width: 600px) {
+    padding: 16px;
+  }
+}
+
+.oe-loading {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+}
+
+.oe-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+
+  p {
+    margin: 0;
+    color: $oe-muted;
+    font-size: 0.92rem;
+  }
+}
+
+.oe-office-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba($oe-accent, 0.1);
+  color: darken($oe-accent, 12%);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.oe-office-select {
+  min-width: 200px;
+}
+
+.oe-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.oe-card {
+  background: $oe-surface;
+  border: 1px solid $oe-line;
+  border-radius: $oe-radius;
+  padding: 20px;
+}
+
+.oe-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+
+  h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+  }
+}
+
+.oe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 16px;
+
+  &.is-editing {
+    border-color: $oe-accent;
+    box-shadow: 0 0 0 3px rgba($oe-accent, 0.12);
+  }
+
+  @media (max-width: 860px) {
+    position: static;
+  }
+}
+
+.oe-row {
+  display: flex;
+  gap: 10px;
+}
+
+.oe-currency {
+  min-width: 110px;
+}
+
+.oe-receipt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.oe-file {
+  font-size: 0.82rem;
+  color: $oe-muted;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.oe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &.is-primary {
+    background: $oe-accent;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: darken($oe-accent, 6%);
+    }
+  }
+
+  &.is-ghost {
+    background: transparent;
+    border-color: $oe-line;
+    color: $oe-ink;
+
+    &:hover:not(:disabled) {
+      background: $oe-page;
+    }
+  }
+
+  &.is-danger {
+    background: $oe-danger;
+    color: #fff;
+  }
+}
+
+.oe-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  color: $oe-muted;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.oe-list {
+  min-height: 240px;
+}
+
+.oe-day {
+  margin-top: 16px;
+}
+
+.oe-day__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $oe-muted;
+  margin-bottom: 6px;
+}
+
+.oe-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+
+  & + & {
+    border-top-color: $oe-line;
+    border-radius: 0;
+  }
+
+  &.is-editing {
+    background: rgba($oe-accent, 0.06);
+  }
+}
+
+.oe-item__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  strong {
+    font-size: 0.93rem;
+  }
+
+  span {
+    color: $oe-muted;
+    font-size: 0.84rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.oe-item__amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  small {
+    color: $oe-muted;
+    font-weight: 600;
+  }
+}
+
+.oe-item__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.oe-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  color: $oe-muted;
+  cursor: pointer;
+
+  &:hover {
+    background: $oe-page;
+    color: $oe-ink;
+  }
+
+  &.is-danger:hover {
+    color: $oe-danger;
+  }
+}
+
+.oe-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 48px 16px;
+  color: $oe-muted;
+
+  strong {
+    color: $oe-ink;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.88rem;
+  }
+}
+
+.oe-hint {
+  margin: 16px 0 0;
+  font-size: 0.8rem;
+  color: $oe-muted;
+}

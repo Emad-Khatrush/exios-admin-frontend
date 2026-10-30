@@ -15,12 +15,10 @@ __tests__/
 
 # production
 /build
-/build-local-review/
-/build-qa/
-
-# Firebase local artifacts
-/.firebase/
+/build-qa
+/build-local-review
 firebase-debug.log*
+/.firebase/
 
 # misc
 .DS_Store

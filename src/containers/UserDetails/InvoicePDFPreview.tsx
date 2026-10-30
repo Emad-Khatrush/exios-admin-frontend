@@ -3,6 +3,7 @@
 import { forwardRef } from 'react';
 import moment from 'moment';
 import { User } from '../../models';
+import { invoiceDeliverySummary } from './invoiceDeliverySummary';
 // @ts-ignore
 import './InvoicePDFPreview.scss';
 
@@ -18,6 +19,8 @@ type Invoice = {
   referenceId: number;
   amountUSD?: number;
   amountLYD?: number;
+  partialDelivery?: boolean;
+  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
   customer: User
   isCanceled?: boolean;
 };
@@ -31,8 +34,10 @@ const money = (value: number) =>
 
 const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) => {
   const list = invoice.list || [];
+  const paidUSD = invoice.partialDelivery ? invoice.settlement?.paidUSD || 0 : invoice.amountUSD || 0;
+  const paidLYD = invoice.partialDelivery ? invoice.settlement?.paidLYD || 0 : invoice.amountLYD || 0;
   const fullName = `${invoice.customer?.firstName || ''} ${invoice.customer?.lastName || ''}`.trim();
-  const boxesTotal = list.reduce((sum: number, item: any) => sum + (Number(item.boxesCount) || 0), 0);
+  const delivery = invoiceDeliverySummary(invoice);
 
   return (
     <div ref={ref} className={`invoice-doc ${invoice.isCanceled ? 'is-canceled' : ''}`}>
@@ -68,10 +73,9 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
         <div>
           <p className="invoice-doc__label">Paid from wallet</p>
           <p className="invoice-doc__strong">
-            {money(invoice.amountUSD || 0)} USD
-            {(invoice.amountLYD || 0) > 0 && <span className="invoice-doc__plus"> + {money(invoice.amountLYD || 0)} LYD</span>}
+            {money(paidUSD)} USD
+            {paidLYD > 0 && <span className="invoice-doc__plus"> + {money(paidLYD)} LYD</span>}
           </p>
-          {(invoice.amountLYD || 0) > 0 && <p className="invoice-doc__muted">Exchange rate {invoice.rate}</p>}
         </div>
       </section>
 
@@ -89,10 +93,10 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
           </thead>
           <tbody>
             {list.map((item: any, index: number) => (
-              <tr key={item.packageId || index}>
+              <tr key={item.packageId || index} style={item.canceledAt && !invoice.isCanceled ? { textDecoration: 'line-through', opacity: 0.55 } : undefined}>
                 <td className="invoice-doc__muted">{index + 1}</td>
                 <td className="invoice-doc__mono">{item.orderId || '-'}</td>
-                <td className="invoice-doc__mono">{item.trackingNumber || 'N/A'}</td>
+                <td className="invoice-doc__mono">{item.trackingNumber || 'N/A'}{item.canceledAt && !invoice.isCanceled ? ' · ملغى' : ''}</td>
                 <td className="is-num">{item.weight?.total ?? '-'} {item.weight?.measureUnit || ''}</td>
                 <td className="is-num">{item.boxesCount || '-'}</td>
                 <td className="is-num invoice-doc__strong">{money(item.cost)} {invoice.currency}</td>
@@ -114,9 +118,11 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
           }
         </div>
         <dl className="invoice-doc__totals">
-          <div><dt>Packages</dt><dd>{list.length}</dd></div>
-          {boxesTotal > 0 && <div><dt>Boxes</dt><dd>{boxesTotal}</dd></div>}
+          <div><dt>Delivered packages</dt><dd>{delivery.packages}</dd></div>
+          <div><dt>Delivered boxes</dt><dd>{delivery.boxes}</dd></div>
+          {delivery.canceledPackages > 0 && <div><dt>Cancelled packages</dt><dd>{delivery.canceledPackages}</dd></div>}
           <div className="is-total"><dt>Total</dt><dd>{money(invoice.total)} {invoice.currency}</dd></div>
+          {invoice.partialDelivery && <div className="is-total"><dt>Remaining / المتبقي</dt><dd>{money(invoice.settlement?.remainingUSD || 0)} USD</dd></div>}
         </dl>
       </section>
 

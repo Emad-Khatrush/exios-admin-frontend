@@ -14,6 +14,32 @@
         align-items: center;
     }
     
+    .nav-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .nav-home {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border: 1px solid #cfd6de;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1c2530;
+        text-decoration: none;
+        white-space: nowrap;
+
+        svg { font-size: 18px; color: #007b3d; }
+        &:hover { border-color: #007b3d; color: #00602f; }
+        &:focus-visible { outline: 2px solid #007b3d; outline-offset: 2px; }
+        &:active { transform: translateY(1px); }
+    }
+
     .nav-right {
         display: flex;
         align-items: baseline;

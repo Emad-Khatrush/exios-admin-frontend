@@ -5,6 +5,7 @@ export type ChoiceOption = { value: string, label: string }
 export const COUNTRY_OPTIONS: ChoiceOption[] = [
   { value: 'CN', label: 'China' },
   { value: 'UAE', label: 'UAE' },
+  { value: 'SA', label: 'Saudi Arabia' },
   { value: 'TR', label: 'Turkey' },
   { value: 'USA', label: 'USA' },
   { value: 'UK', label: 'UK' },
@@ -18,10 +19,13 @@ export const SHIPPING_TYPE_OPTIONS: ChoiceOption[] = [
   { value: 'domestic', label: 'شحن داخلي' },
 ];
 
-// Sea trips only, so sales goals can tell shared freight (by CBM) from full containers (by count)
+export const SEA_LOAD_OPTIONS: ChoiceOption[] = [
+  { value: 'FCL', label: 'FCL — حاوية كاملة' },
+  { value: 'LCL', label: 'LCL — شحن مشترك' },
+];
 export const SEA_TYPE_OPTIONS: ChoiceOption[] = [
   { value: 'lcl', label: 'LCL - شحن مشترك' },
-  { value: 'fcl', label: 'FCL - شحن حاوية كاملة لعميل' },
+  { value: 'fcl', label: 'FCL - حاوية كاملة' },
 ];
 
 export const OFFICE_OPTIONS: ChoiceOption[] = [

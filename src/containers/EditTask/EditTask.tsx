@@ -151,7 +151,7 @@ export class EditTask extends Component<Props, State> {
       بعنوان '${task.title}'
       والحالة: ${labels[task.label]}
       يرجى دخول على التاسك وتحقق من ان تم اكتمال العمل كما يجب وموافقه عليه
-      https://exios-admin-frontend.web.app/mytasks?id=${task._id}
+      ${window.location.origin}/mytasks?id=${task._id}
       شكرا لكم
     `;
     const phoneNumber = (task.createdBy.phone as any) === "5535728209" ? '5535728209@s.whatsapp.net' : `${task.createdBy.phone}@s.whatsapp.net`

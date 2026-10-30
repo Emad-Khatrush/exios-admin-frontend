@@ -1,8 +1,14 @@
-import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInput, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaMoneyCheckAlt, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBullseye } from 'react-icons/fa';
-import { FiPackage, FiSettings } from 'react-icons/fi';
+import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale, FaBullseye } from 'react-icons/fa';
+import { FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
+
+// Shown only to whoever has some accounting permission (the owner decides who); see Sidebar
+const accountingRoutes = [
+  { mainTitle: 'Accounting', accountingGate: true },
+  { title: 'Accounting', path: '/accounting', icon: <FaBalanceScale className="sidebar-icon" />, accountingGate: true },
+];
 
 const adminRoutes = [
     {
@@ -28,11 +34,6 @@ const adminRoutes = [
         path: '/expenses',      
         icon: <RiBillFill className="sidebar-icon" />,
      },
-     {   
-        title: 'Incomes',
-        path: '/incomes',      
-        icon: <MdOutlineInput className="sidebar-icon" />,
-     },
      {
       title: 'Debts',
       path: '/balances',
@@ -43,6 +44,7 @@ const adminRoutes = [
       path: '/clients',
       icon: <FaUsers className="sidebar-icon" />,
      },
+     ...accountingRoutes,
      {
       mainTitle: 'Management'
      },
@@ -51,7 +53,7 @@ const adminRoutes = [
         path: '/xtracking',
         icon: <FaArchive className="sidebar-icon" />,
      },
-     {   
+     {
       title: 'My Tasks',
       path: '/mytasks',
       icon: <FaTasks className="sidebar-icon" />,
@@ -160,14 +162,9 @@ const adminRoutes = [
         icon: <FaFileInvoice className="sidebar-icon" />,
      },
      {   
-        title: 'Expense',
-        path: '/expense/add',      
+        title: 'Expenses',
+        path: '/expenses',      
         icon: <RiBillFill className="sidebar-icon" />,
-     },
-     {   
-        title: 'Incomes',
-        path: '/income/add',      
-        icon: <MdOutlineInput className="sidebar-icon" />,
      },
      {   
       title: 'My Tasks',
@@ -201,11 +198,7 @@ const getRoutes = (roles: any) => {
       if (roles?.isAccountant) {
         return [
           ...employeeRoutes,
-         {
-            title: 'Odo Export',
-            path: '/odo-export',
-            icon: <FaFileInvoiceDollar className="sidebar-icon" />,
-         },
+          ...accountingRoutes,
          {
             mainTitle: 'Settings'
          },
@@ -216,7 +209,7 @@ const getRoutes = (roles: any) => {
          }
         ];
       }
-        return employeeRoutes;
+        return [...employeeRoutes, ...accountingRoutes];
     }
 }
 

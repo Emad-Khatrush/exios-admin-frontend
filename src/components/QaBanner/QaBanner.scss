@@ -1,0 +1,32 @@
+.qa-banner {
+  // Normal flow avoids offsets on the root, sticky navigation and dialogs.
+  // The notice scrolls away while navigation stays at the top.
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-height: 28px;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  color: #78551b;
+  background: #fff8e7;
+  border-bottom: 1px solid #efdfb9;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  line-height: 18px;
+  font-size: 11px;
+  text-align: center;
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  &__message { color: #806b43; }
+
+  @media print { display: none; }
+}

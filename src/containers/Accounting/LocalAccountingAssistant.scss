@@ -1,0 +1,268 @@
+// The floating «اسأل المساعد» launcher and its chat panel. It lives inside .acc-root, so it uses
+// the section's colour and radius tokens. Pixels, not rem: the admin's root font is 20px.
+.acc-assist {
+  --assist-gap: 24px;
+  --assist-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --assist-shadow: 0 1px 2px rgb(15 118 110 / 0.08), 0 12px 32px -8px rgb(31 42 55 / 0.22);
+  font-family: inherit;
+}
+
+.acc-assist__launcher {
+  position: fixed;
+  left: var(--assist-gap);
+  bottom: var(--assist-gap);
+  z-index: 1250;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--assist-shadow), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  transition: transform 0.25s var(--assist-ease), opacity 0.2s ease, background-color 0.2s ease, box-shadow 0.25s var(--assist-ease);
+
+  &:hover {
+    background: var(--accent-ink);
+    transform: translateY(-2px);
+    box-shadow: 0 1px 2px rgb(15 118 110 / 0.1), 0 16px 36px -8px rgb(31 42 55 / 0.28), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  }
+  &:active { transform: translateY(0) scale(0.98); }
+  &:focus-visible { outline: 3px solid rgb(15 118 110 / 0.35); outline-offset: 3px; }
+
+  &[data-hidden='true'] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+    pointer-events: none;
+  }
+}
+
+.acc-assist__launcher-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+}
+
+.acc-assist__panel {
+  position: fixed;
+  left: var(--assist-gap);
+  bottom: var(--assist-gap);
+  z-index: 1260;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  height: min(660px, calc(100dvh - 2 * var(--assist-gap)));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgb(31 42 55 / 0.06), 0 28px 64px -16px rgb(31 42 55 / 0.3);
+  transform-origin: bottom left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.32s var(--assist-ease), visibility 0s linear 0.32s;
+
+  &[data-open='true'] {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity 0.2s ease, transform 0.32s var(--assist-ease), visibility 0s;
+  }
+}
+
+.acc-assist__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+
+.acc-assist__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.acc-assist__title {
+  flex: 1;
+  min-width: 0;
+  h2 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; color: var(--ink); }
+  p { margin: 1px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+}
+
+.acc-assist__icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover { background: var(--soft); color: var(--ink); }
+  &:active { transform: scale(0.95); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+}
+
+.acc-assist__context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 16px 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+  font-size: 12px;
+  color: var(--muted);
+  svg { flex: none; color: var(--faint); }
+  strong { color: var(--ink-2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.acc-assist__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+
+  iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    &[data-ready='true'] { opacity: 1; }
+  }
+}
+
+// Shaped like the chat it stands in for: two answer bubbles, a question and the composer
+.acc-assist__skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px;
+  background: var(--surface);
+}
+
+.acc-assist__bone {
+  display: block;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--soft) 0%, #eef1f4 50%, var(--soft) 100%);
+  background-size: 200% 100%;
+  animation: acc-assist-shimmer 1.4s ease-in-out infinite;
+
+  &--in { width: 78%; align-self: flex-end; }
+  &--short { width: 52%; height: 28px; }
+  &--out { width: 60%; align-self: flex-start; height: 36px; }
+  &--composer { margin-top: auto; width: 100%; height: 52px; }
+}
+
+@keyframes acc-assist-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.acc-assist__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px 28px;
+  text-align: center;
+
+  h3 { margin: 14px 0 4px; font-size: 15px; font-weight: 700; color: var(--ink); }
+  p { margin: 0 0 12px; max-width: 30ch; font-size: 13px; line-height: 1.7; color: var(--muted); }
+  code {
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--soft);
+    border: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--ink-2);
+  }
+}
+
+.acc-assist__state-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.acc-assist__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 9px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  &:hover { background: var(--soft); }
+  &:active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+
+@media (max-width: 640px) {
+  .acc-assist { --assist-gap: 16px; }
+  .acc-assist__launcher {
+    padding: 7px;
+    // Icon only on phones, the label stays for screen readers
+    > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .acc-assist__launcher-icon { width: 38px; height: 38px; }
+  }
+  .acc-assist__panel {
+    inset: 0;
+    width: auto;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    transform-origin: bottom center;
+  }
+}
+
+@media print {
+  .acc-assist { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acc-assist__launcher,
+  .acc-assist__panel,
+  .acc-assist__panel[data-open='true'] { transition: opacity 0.12s linear, visibility 0s; transform: none; }
+  .acc-assist__launcher:hover { transform: none; }
+  .acc-assist__bone { animation: none; }
+}

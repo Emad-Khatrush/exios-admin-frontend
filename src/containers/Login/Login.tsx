@@ -49,7 +49,8 @@ class Login extends Component<Props, State> {
   render() {
     const { session } = this.props;
     // redirect user if authenticated
-		if (localStorage.getItem("authToken")) {
+		// Same test as the private routes (token and user), so a half-saved session cannot bounce between pages
+		if (localStorage.getItem("authToken") && localStorage.getItem("user")) {
 			return (
 				<Navigate to={'/'} />
 			);

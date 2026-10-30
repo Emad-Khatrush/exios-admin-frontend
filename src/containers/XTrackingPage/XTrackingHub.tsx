@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { ClipboardCheck, ListOrdered } from 'lucide-react';
-import XTrackingPage from './XTrackingPage';
+import XTrackingPage from './XTrackingDashboard';
 import OrdersControl from './OrdersControl/OrdersControl';
 
 import './OrdersControl/OrdersControl.scss';
@@ -18,8 +18,7 @@ const readTab = (): HubTab => {
   }
 };
 
-// /xtracking: the original X-Tracking page (unchanged) plus the order control section as a second tab.
-// Order control is admin only (its API is admin only); everyone else gets the original page as before.
+// Order control is admin only; the tracking dashboard is available to employees too.
 const XTrackingHub = () => {
   const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
   const [tab, setTab] = useState<HubTab>(readTab);

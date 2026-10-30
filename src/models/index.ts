@@ -32,9 +32,13 @@ export type Invoice = {
   quantity: string,
   isShipment: boolean,
   isPayment: boolean,
+  // An Alipay transfer for the customer (remittance revenue in accounting)
+  isRemittance?: boolean,
   unsureOrder: boolean,
   hasRemainingPayment: boolean
   hasProblem: boolean
+  shippingBlocked?: boolean
+  shippingBlockReason?: string
   orderStatus: number,
   isFinished: boolean,
   netIncome: {
@@ -420,6 +424,10 @@ export type Account = {
 }
 
 export type Debt = {
+  accountingWriteOff?: { amountUsd: number; collectible: boolean };
+  orderHasWriteOff?: boolean;
+  deliveryInvoiceId?: string;
+  deliveryPackageId?: string;
   _id: string
   order: Invoice,
   owner: User,
@@ -429,7 +437,7 @@ export type Debt = {
   amount: number,
   initialAmount: number,
   currency: 'LYD' | 'USD',
-  status: 'open' | 'closed' | 'overdue' | 'lost' | 'waitingApproval'
+  status: 'open' | 'closed' | 'overdue' | 'lost' | 'waitingApproval' | 'canceled'
   notes: string,
   paymentHistory: [
     {
@@ -527,7 +535,7 @@ export type Inventory = {
     description: string
   }[],
   voyage: string,
-  shippedCountry: 'CN' | 'UAE' | 'TR' | 'USA' | 'UK' | 'LY',
+  shippedCountry: 'CN' | 'UAE' | 'SA' | 'TR' | 'USA' | 'UK' | 'LY',
   inventoryPlace: 'tripoli' | 'benghazi',
   inventoryFinishedDate: Date,
   voyageAmount: number,

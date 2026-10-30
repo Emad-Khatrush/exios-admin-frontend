@@ -1,5 +1,10 @@
 import { GET_ACTIVITIES, STATUS_ERROR, STATUS_LOADING, STATUS_START, STATUS_SUCCESS } from "../constants/actions";
-import { IStatus } from "./expenses";
+export interface IStatus {
+  isError: boolean
+  isLoading: boolean
+  isSuccess: boolean
+  message: string | null
+}
 
 export interface IActivities{
   listStatus: IStatus

@@ -1,7 +1,9 @@
-import { Alert, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import { useState } from "react";
+import { Alert, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import { useEffect, useState } from "react";
 import api from "../../api";
+import { sys } from "../../containers/Accounting/accountingApi";
 import { getErrorMessage } from "../../utils/errorHandler";
+import { useOffices } from '../../utils/useOffices';
 
 import './Debts.scss';
 
@@ -13,6 +15,7 @@ type Props = {
 }
 
 const CreateDebtDialog = (props: Props) => {
+  const offices = useOffices().filter((o) => ['tripoli', 'benghazi'].includes(o.code));
   const [form, setForm] = useState<any>({ debtType: props.debtType });
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -22,6 +25,17 @@ const CreateDebtDialog = (props: Props) => {
   }
 
   const hasOrder = !!(props.orderId || form.orderId?.trim());
+  // Service selling prices do not move a funding account. Linked invoice/shipping
+  // debts remain reminders of their original claim.
+  const isServiceSale = form.debtType === 'general';
+  const needsSource = !hasOrder && !isServiceSale;
+  const [sources, setSources] = useState<any[]>([]);
+  useEffect(() => {
+    if (!needsSource || !form.currency) return setSources([]);
+    sys.get('acc/money-accounts', { currency: form.currency })
+      .then((res: any) => setSources(res.data.results || []))
+      .catch(() => setSources([]));
+  }, [needsSource, form.currency]);
 
   const closeDialog = () => props.setDialog({ customComponentTag: undefined, isOpen: false });
 
@@ -31,7 +45,7 @@ const CreateDebtDialog = (props: Props) => {
     try {
       setIsLoading(true);
       setError(undefined);
-      await api.post('balances', { ...form, balanceType: 'debt', orderId: props.orderId || form.orderId, customerId: props.customerId || form.customerId });
+      await api.post('balances', { ...form, sourceAccountId: needsSource ? form.sourceAccountId : undefined, balanceType: 'debt', orderId: props.orderId || form.orderId, customerId: props.customerId || form.customerId });
       window.location.reload();
     } catch (error: any) {
       setError(error?.response?.data?.message || 'Something went wrong')
@@ -123,8 +137,7 @@ const CreateDebtDialog = (props: Props) => {
                 name="createdOffice"
                 onChange={onChangeHandler}
               >
-                <MenuItem value={'tripoli'}>Tripoli office</MenuItem>
-                <MenuItem value={'benghazi'}>Benghazi office</MenuItem>
+                {offices.map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
               </Select>
             </FormControl>
           </div>
@@ -142,10 +155,30 @@ const CreateDebtDialog = (props: Props) => {
               >
                 <MenuItem dir="rtl" value={'invoice'}>دين لاجل تسديد فاتورة شراء</MenuItem>
                 <MenuItem dir="rtl" value={'receivedGoods'}>دين لاجل تسديد شحن</MenuItem>
-                <MenuItem dir="rtl" value={'general'}>دين عام لا يتعلق بطلبية</MenuItem>
+                <MenuItem dir="rtl" value={'general'}>دين خدمة — سعر البيع للعميل</MenuItem>
               </Select>
             </FormControl>
           </div>
+
+          {needsSource && (
+            <div className="col-12">
+              <FormControl fullWidth required disabled={!form.currency}>
+                <InputLabel id="create-debt-source">Money came from</InputLabel>
+                <Select
+                  labelId="create-debt-source"
+                  value={form.sourceAccountId || ''}
+                  label={'Money came from'}
+                  name="sourceAccountId"
+                  onChange={onChangeHandler}
+                >
+                  {sources.map((account) => (
+                    <MenuItem key={account._id} value={account._id}>{account.name} · {account.kindLabel}</MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{form.currency ? 'The cash box, bank or partner that paid this money for the customer.' : 'Choose the currency first.'}</FormHelperText>
+              </FormControl>
+            </div>
+          )}
 
           <div className="col-12">
             <TextField

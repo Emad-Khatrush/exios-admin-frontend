@@ -45,8 +45,9 @@ export const getActivityLink = (activity: ActivityType): string | null => {
   if (!activity.recordExists || (status === 'deleted' && !isImageActivity(activity))) return null;
   switch (type) {
     case 'order': return `/invoice/${actionId}/edit`;
-    case 'expense': return `/expenses/${actionId}/edit`;
-    case 'income': return `/income/${actionId}/edit`;
+    // Old expense and income records have no page of their own any more
+    case 'expense':
+    case 'income': return null;
     case 'inventory': return `/inventory/${actionId}/edit`;
     default: return path ? `${path}?id=${actionId}` : null;
   }

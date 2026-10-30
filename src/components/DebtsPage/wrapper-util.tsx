@@ -1,6 +1,9 @@
 import { Debt } from "../../models"
 import { checkIfDataArray } from "../../utils/methods"
 
+export const debtPaidAmount = (debt: Pick<Debt, 'initialAmount' | 'amount' | 'manualClosure'>) =>
+  Math.max(0, (Number(debt.initialAmount) || 0) - (Number(debt.amount) || 0) - (Number(debt.manualClosure?.writtenOffAmount) || 0));
+
 type DebtsCounter = {
   openedDebtsCount: number
   closedDebtsCount: number
@@ -35,6 +38,7 @@ export const getTabsOfDebts = (countList: DebtsCounter, isAdminOrAccountant: boo
 }
 
 export const DEBT_STATUS_LABELS: Record<Debt['status'], string> = {
+  canceled: 'ملغى',
   open: 'Open',
   waitingApproval: 'Waiting approval',
   closed: 'Closed',

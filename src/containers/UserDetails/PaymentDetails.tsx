@@ -1,5 +1,6 @@
 import { Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from "@mui/material"
 import { useState } from "react"
+import { useSelector } from 'react-redux';
 import { Building2, History, Info, Pencil, Trash2 } from "lucide-react"
 import api from "../../api"
 import { useParams } from "react-router-dom"
@@ -22,25 +23,30 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
 
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteRevision, setDeleteRevision] = useState<number | undefined>();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [previewImages, setPreviewImages] = useState<any>(undefined);
 
   const isOutflow = statement?.calculationType === '-';
+  const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const isWithdrawal = isOutflow && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
   // A refund/compensation/cancellation adds to the wallet but no cash came in
   const isCredit = statementFlow(statement || {}) === 'credit';
-  // Outgoing payments are linked to orders and debts, so only incoming ones can be edited or deleted
   const isExchange = !!statement?.walletExchangeId || statement?.actionType === 'exchange';
-  const canManage = canManageUser && !isOutflow && !isExchange;
+  const canManage = !isExchange && (isWithdrawal ? isAdmin : canManageUser && !isOutflow);
   const date = moment(statement?.createdAt);
   const office = statement?.office;
+  // Money that went to an account (a partner's current account such as Wasl) shows that account, not the office
+  const accountName = statement?.accountId?.name;
+  const bankLabel = (value?: string) => office === 'bank' && value?.toLowerCase() === 'bank' ? 'Libyan bank' : value;
   const walletEffect = `${isOutflow ? '+' : '−'}${formatMoney(statement?.amount, statement?.currency)}`;
 
   const deleteStatement = async () => {
     try {
       setIsDeleting(true);
       setDeleteError('');
-      await api.delete(`user/${id}/statement/${statement._id}`, {});
+      await api.delete(`user/${id}/statement/${statement._id}`, isWithdrawal ? { expectedEditCount: deleteRevision ?? statement?.editHistory?.length ?? 0 } : {});
       setConfirmDelete(false);
       onChanged?.();
     } catch (error: any) {
@@ -61,18 +67,18 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         <div className="cashflow-row__main">
           <p className="cashflow-row__description" dir="rtl" dangerouslySetInnerHTML={{ __html: statement?.description }} />
           <div className="cashflow-row__meta">
-            <span className={`cashflow-chip cashflow-chip--office ${office ? '' : 'is-missing'}`}>
+            <span className={`cashflow-chip cashflow-chip--office ${office || accountName ? '' : 'is-missing'}`}>
               <Building2 size={12} strokeWidth={2} />
-              {isExchange ? 'داخل المحفظة' : office ? getOfficeLabel(office) : 'No office'}
+              {isExchange ? 'داخل المحفظة' : bankLabel(accountName) || (office ? getOfficeLabel(office) : 'No office')}
             </span>
-            {statement?.actionType && <span className="cashflow-chip" title={isExchange ? `مرجع الصرافة: ${statement.walletExchangeId}` : undefined}>{isExchange ? 'صرافة داخلية' : statement.actionType}</span>}
+            {statement?.actionType && <span className="cashflow-chip">{isExchange ? 'صرافة داخلية' : bankLabel(statement.actionType)}</span>}
             {isCredit &&
               <Tooltip title="Added to the wallet balance, but no cash was received" arrow enterTouchDelay={0}>
                 <span className="cashflow-chip cashflow-chip--credit">No cash</span>
               </Tooltip>
             }
             {statement?.paymentType && statement?.paymentType !== statement?.actionType &&
-              <span className="cashflow-chip cashflow-chip--muted">{statement.paymentType}</span>
+              <span className="cashflow-chip cashflow-chip--muted">{bankLabel(statement.paymentType)}</span>
             }
             {statement?.note &&
               <Tooltip title={<span dir="rtl">{statement.note}</span>} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
@@ -123,11 +129,11 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         <div className="cashflow-row__actions">
           <StatementReceipt statement={statement} />
           {canManage &&
-            <Tooltip title="Edit payment" arrow>
+            <Tooltip title={isWithdrawal ? 'Edit cash withdrawal' : 'Edit payment'} arrow>
               <button
                 type="button"
                 className="cashflow-icon-btn"
-                aria-label="Edit payment"
+                aria-label={isWithdrawal ? 'Edit cash withdrawal' : 'Edit payment'}
                 onClick={() => setEditOpen(true)}
               >
                 <Pencil size={14} strokeWidth={2} />
@@ -135,13 +141,14 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
             </Tooltip>
           }
           {canManage &&
-            <Tooltip title="Delete payment" arrow>
+            <Tooltip title={isWithdrawal ? 'Delete cash withdrawal' : 'Delete payment'} arrow>
               <button
                 type="button"
                 className="cashflow-icon-btn cashflow-icon-btn--danger"
-                aria-label="Delete payment"
+                aria-label={isWithdrawal ? 'Delete cash withdrawal' : 'Delete payment'}
                 onClick={() => {
                   setDeleteError('');
+                  setDeleteRevision(statement?.editHistory?.length || 0);
                   setConfirmDelete(true);
                 }}
               >
@@ -153,7 +160,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
       </article>
 
       <Dialog open={confirmDelete} onClose={() => !isDeleting && setConfirmDelete(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, fontSize: '1.05rem' }}>Delete this payment?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, fontSize: '1.05rem' }}>{isWithdrawal ? 'Delete this cash withdrawal?' : 'Delete this payment?'}</DialogTitle>
         <DialogContent>
           <p className="cashflow-confirm__description" dir="rtl" dangerouslySetInnerHTML={{ __html: statement?.description }} />
           <dl className="cashflow-confirm">
@@ -165,14 +172,14 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
             <dd>{walletEffect}</dd>
           </dl>
           <p className="cashflow-confirm__hint">
-            The payment is removed from the statement and the {statement?.currency} wallet balance is adjusted by {walletEffect}. A copy is kept in Deleted payments with your name.
+            {isWithdrawal ? `ستعود قيمة السحب إلى محفظة العميل (${walletEffect}) ويُعكس القيد المحاسبي المرتبط بها. تُحفظ نسخة في العمليات المحذوفة باسمك.` : `The payment is removed from the statement and the ${statement?.currency} wallet balance is adjusted by ${walletEffect}. A copy is kept in Deleted payments with your name.`}
           </p>
           {deleteError && <p className="cashflow-confirm__error" role="alert">{deleteError}</p>}
         </DialogContent>
         <DialogActions>
           <Button disabled={isDeleting} onClick={() => setConfirmDelete(false)}>Cancel</Button>
           <Button disabled={isDeleting} color="error" variant="contained" disableElevation onClick={deleteStatement}>
-            {isDeleting ? 'Deleting…' : 'Delete payment'}
+            {isDeleting ? 'Deleting…' : isWithdrawal ? 'Delete withdrawal' : 'Delete payment'}
           </Button>
         </DialogActions>
       </Dialog>

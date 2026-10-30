@@ -1,4 +1,4 @@
-import { Alert, Backdrop, CircularProgress, DialogContent, FormControl, InputLabel, MenuItem, Select, Snackbar, TextField } from '@mui/material';
+import { Alert, Backdrop, Box, CircularProgress, DialogContent, FormControl, InputLabel, MenuItem, Select, Snackbar, TextField } from '@mui/material';
 import React from 'react'
 import CustomButton from '../CustomButton/CustomButton';
 import api from '../../api';
@@ -15,13 +15,15 @@ const EditPackageWeight = (props: Props) => {
   const [ deliveredPackages, setDeliveredPackages ] = React.useState(props?.package?.paymentList?.deliveredPackages);
   const [ isSucceed, setIsSucceed ] = React.useState<boolean>(false);
   const [ showResponseMessage, setShowResponseMessage ] = React.useState<String | undefined>();
+  const delivered = !!props.package?.paymentList?.status?.received;
 
   const updatePackage = async (event: any) => {
     event.preventDefault();
+    if (delivered) return;
 
     try {
       setLoading(true);
-      await api.update(`order/${props.package._id}/package`, { ...props.package, paymentList: { ...props.package.paymentList, deliveredPackages } })
+      await api.update(`order/${props.package._id}/package`, { paymentList: { ...props.package.paymentList, deliveredPackages } })
       if (props.fetchSelectedOrders) {
         props.fetchSelectedOrders();
         if (props.setChecked) {
@@ -47,7 +49,7 @@ const EditPackageWeight = (props: Props) => {
           onSubmit={(event: any) => updatePackage(event)}
         >
           <h5 className='mb-3'> Update Weight </h5>
-          <div className="row">
+          <Box component="fieldset" disabled={delivered || isLoading} sx={{ border: '0 !important', borderRadius: '0 !important', p: 0, m: 0, minWidth: 0 }}><div className="row">
             <div className="col-md-6 mb-4 d-flex">
               <TextField
                 id={deliveredPackages._id}
@@ -71,10 +73,11 @@ const EditPackageWeight = (props: Props) => {
                 name="packageWeight"
                 type={'number'}
                 inputProps={{ inputMode: 'numeric', step: .01 }}
-                label={'Weight'}
+                label={deliveredPackages?.volumetric?.enabled && deliveredPackages?.weight?.measureUnit !== 'CBM' ? 'Chargeable weight (KG)' : 'Weight'}
                 onChange={(event: any) => {
                   setDeliveredPackages({
                     ...deliveredPackages,
+                    ...(deliveredPackages?.volumetric?.enabled && deliveredPackages?.weight?.measureUnit !== 'CBM' ? { volumetric: { ...deliveredPackages.volumetric, chargeableWeight: event.target.value } } : {}),
                     weight: {
                       ...deliveredPackages.weight,
                       total: Number(event.target.value)
@@ -147,6 +150,31 @@ const EditPackageWeight = (props: Props) => {
               />
             </div>
 
+            {/* The transport fee to another office, in the currency it is charged in (spec v8) */}
+            <div className="col-md-6 mb-4 d-flex">
+              <TextField
+                className='connect-field-right'
+                label={'Transport fee'}
+                type={'number'}
+                inputProps={{ inputMode: 'numeric', step: .01, min: 0 }}
+                defaultValue={deliveredPackages?.domesticFee?.amount ?? ''}
+                onChange={(event: any) => setDeliveredPackages({ ...deliveredPackages, domesticFee: { currency: deliveredPackages?.domesticFee?.currency || 'LYD', amount: event.target.value === '' ? 0 : Number(event.target.value) } })}
+                onWheel={(event: any) => event.target.blur()}
+              />
+              <FormControl style={{ width: '100%' }}>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  className='connect-field-left'
+                  value={deliveredPackages?.domesticFee?.currency || 'LYD'}
+                  label={'Currency'}
+                  onChange={(event: any) => setDeliveredPackages({ ...deliveredPackages, domesticFee: { amount: deliveredPackages?.domesticFee?.amount || 0, currency: event.target.value } })}
+                >
+                  <MenuItem value={'LYD'}>LYD</MenuItem>
+                  <MenuItem value={'USD'}>USD</MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
             <div className="col-md-6 mb-4 d-flex">
               <TextField
                 id={deliveredPackages.id}
@@ -183,12 +211,12 @@ const EditPackageWeight = (props: Props) => {
               <CustomButton 
                 background='rgb(0, 171, 85)' 
                 size="small"
-                disabled={isLoading}
+                disabled={isLoading || delivered}
               >
                 Update
               </CustomButton>
             </div>
-          </div>
+          </div></Box>
         </form>
       </DialogContent>
 

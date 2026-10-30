@@ -1,3 +1,7 @@
+// The rules down to ".total" are the old invoice styles. They are written without a scope, so
+// tables across the admin have come to rely on them; they are kept exactly as they were.
+// The invoice itself is styled by the ".inv-*" rules below.
+
 .invoice {
   font-family: Arial, sans-serif;
   max-width: 800px;
@@ -48,4 +52,171 @@ th {
 
 .total {
   margin-top: 20px;
+}
+
+// ---------- Invoice preview ----------
+
+// The admin's global rule gives every element 20px; here text follows its parent
+:where(.inv-view *) { font-size: inherit; }
+
+.inv-view {
+  font-size: 14px;
+  color: #1c2530;
+}
+
+.inv-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 4px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e4e8ee;
+
+  h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  p { margin: 2px 0 0; font-size: 13px; color: #5d6875; }
+
+  &__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+}
+
+.inv-alert { margin-top: 12px; }
+
+// The page sits on a grey desk and scrolls sideways on a narrow screen instead of squeezing
+.inv-stage {
+  overflow-x: auto;
+  padding: 24px 12px 32px;
+  background: #eef1f4;
+}
+
+.inv-doc {
+  width: 794px;
+  min-height: 1123px;
+  margin: 0 auto;
+  padding: 44px 48px 36px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(28, 37, 48, 0.12);
+  font-family: Arial, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1c2530;
+
+  h2 { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #5d6875; }
+  p { margin: 0 0 2px; }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 20px;
+    border-bottom: 3px solid #007b3d;
+
+    img { width: 170px; height: auto; }
+  }
+
+  &__title {
+    text-align: right;
+
+    h1 { margin: 0 0 8px; font-size: 30px; font-weight: 700; letter-spacing: 2px; color: #007b3d; }
+    dl { margin: 0; }
+    dl div { display: flex; justify-content: flex-end; gap: 10px; }
+    dt { font-weight: 400; color: #5d6875; }
+    dd { margin: 0; min-width: 96px; font-weight: 700; }
+  }
+
+  &__parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 24px;
+    padding: 22px 0 24px;
+  }
+
+  &__name { font-size: 16px; font-weight: 700; }
+
+  &__qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+
+    span { font-size: 10.5px; color: #5d6875; }
+  }
+
+  // Own table look, whatever the global table rules say
+  table.inv-doc__items {
+    width: 100%;
+    border-collapse: collapse;
+
+    th, td { border: 0 !important; border-bottom: 1px solid #e4e8ee !important; padding: 9px 10px; text-align: left; vertical-align: top; }
+    th { background: #f2f5f7; color: #3d4756; font-size: 11.5px; font-weight: 700; border-bottom: 1px solid #cfd6de !important; }
+    .inv-num { width: 46px; text-align: center; }
+    .inv-amount { width: 118px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .inv-empty { text-align: center; color: #5d6875; padding: 22px; }
+  }
+
+  &__totals {
+    align-self: flex-end;
+    width: 300px;
+    margin-top: 16px;
+  }
+
+  &__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 12px;
+    background: #007b3d;
+    color: #fff;
+
+    span { font-weight: 700; }
+    strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+  }
+
+  &__received {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 14px 12px 0;
+
+    span { white-space: nowrap; color: #5d6875; }
+    i { flex: 1; border-bottom: 1px dotted #5d6875; }
+  }
+
+  &__signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    margin-top: 56px;
+
+    div { display: flex; flex-direction: column; gap: 34px; }
+    span { font-weight: 700; }
+    i { border-bottom: 1px dotted #5d6875; }
+  }
+
+  &__notes {
+    margin-top: 36px;
+    padding: 12px 14px;
+    background: #f6f8fa;
+    border-right: 3px solid #007b3d;
+
+    h2 { letter-spacing: 0; font-size: 12.5px; color: #1c2530; }
+    ol { margin: 0; padding: 0 18px 0 0; }
+    li { font-size: 12.5px; }
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid #e4e8ee;
+
+    span { font-size: 11.5px; color: #5d6875; }
+  }
 }

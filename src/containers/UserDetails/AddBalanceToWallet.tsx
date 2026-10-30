@@ -2,23 +2,17 @@ import { Textarea } from '@mui/joy';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DatePicker from '@mui/lab/DatePicker';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
-import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
-import React, { useState } from 'react'
+import { Alert, Box, Button, CircularProgress, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, ListSubheader, MenuItem, Select, Stack, TextField } from '@mui/material';
+import React, { useEffect, useState } from 'react'
 import api from '../../api';
+import { sys } from '../Accounting/accountingApi';
 import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
+import { useDepositPlaces } from './statementUtils';
+import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
 
 type Props = {}
-
-const offices = [
-  { value: 'tripoli', label: 'مكتب طرابلس' },
-  { value: 'benghazi', label: 'مكتب بنغازي' },
-  { value: 'bank', label: 'بنك الليبي' },
-  { value: 'almutahidaTrBank', label: 'حساب الشركة المتحدة تركيا' },
-  // { value: 'alipayCompany1', label: 'محفظة Alipay - الشركة' },
-  // { value: 'alipayCompany2', label: 'محفظة Alipay - الشخصي' },
-];
 
 const actionTypes = [
   { value: 'cash', label: 'كاش' },
@@ -31,15 +25,29 @@ const AddBalanceToWallet = (props: Props) => {
   const { id } = useParams();
 
   const [currency, setCurrency] = useState<string>('');
+  // Only the offices and banks with a box in the chosen currency (no dinars into a dollar-only office)
+  const offices = useDepositPlaces(currency) || [];
   const [office, setOffice] = useState<string>('');
-  const [, setActionType] = useState<string>('cash');
   const [date, setDate] = useState(new Date());
   const [form, setForm] = useState<any>({
     createdAt: date,
     actionType: 'cash',
   });
   const [error, setError] = useState<string>();
+  // Cash dated before the count was in the counted box: accounting does not add it again
+  const count = useCountDay();
+  const beforeCount = ['cash', 'bank'].includes(form.actionType) && isBeforeCount(count, date);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Partners' current accounts (e.g. Wasl) in the deposit's currency: money they hold for us
+  // stands for the customer's payment (spec 19.4)
+  const [currentAccounts, setCurrentAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    if (!currency) return setCurrentAccounts([]);
+    sys.get('acc/money-accounts', { currency })
+      .then((res: any) => setCurrentAccounts((res.data.results || []).filter((a: any) => a.kind === 'current')))
+      .catch(() => setCurrentAccounts([]));
+  }, [currency]);
 
   const [previewFiles, setPreviewFiles] = useState<any>([]);
   const [files, setFiles] = useState<any>([]);
@@ -150,6 +158,7 @@ const AddBalanceToWallet = (props: Props) => {
             {error}
           </Alert>
         }
+        {beforeCount && count && <Alert className="mb-2" severity="info">{beforeCountText(count)}</Alert>}
         <form className="row" onSubmit={onSubmit}>
           <h6 className="mb-3">Wallet</h6>
           <div className='col-md-6 mb-3'>
@@ -191,7 +200,12 @@ const AddBalanceToWallet = (props: Props) => {
                 name="currency"
                 onChange={(event: any) => {
                   setCurrency(event.target.value);
-                  return onChangeHandler(event);
+                  // The place is chosen again for the new currency
+                  setOffice('');
+                  const rest = { ...form };
+                  delete rest.office;
+                  delete rest.accountId;
+                  return setForm({ ...rest, currency: event.target.value });
                 }}
               >
                 <MenuItem value={'USD'}>
@@ -213,14 +227,30 @@ const AddBalanceToWallet = (props: Props) => {
                 value={office}
                 label="Office"
                 name="office"
+                disabled={!currency}
                 onChange={(event: any) => {
-                  setOffice(event.target.value);
-                  return onChangeHandler(event);
+                  const value = String(event.target.value);
+                  setOffice(value);
+                  // A partner's current account: the deposit goes to that account (its office is
+                  // only the place it is recorded)
+                  if (value.startsWith('account:')) {
+                    const account = currentAccounts.find((a) => `account:${a._id}` === value);
+                    return setForm({ ...form, office: account?.office || 'tripoli', accountId: account?._id });
+                  }
+                  const rest = { ...form };
+                  delete rest.accountId;
+                  return setForm({ ...rest, office: value });
                 }}
               >
                 {offices.map((item) => (
                   <MenuItem key={item.value} value={item.value}>
                     {item.label}
+                  </MenuItem>
+                ))}
+                {currentAccounts.length > 0 && <ListSubheader>حسابات جارية</ListSubheader>}
+                {currentAccounts.map((account) => (
+                  <MenuItem key={account._id} value={`account:${account._id}`}>
+                    {account.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -233,10 +263,10 @@ const AddBalanceToWallet = (props: Props) => {
               <Select
                 labelId="action-type-label"
                 id="actionType"
+                value={form.actionType}
                 label="نوع العملية"
                 name="actionType"
                 onChange={(event: any) => {
-                  setActionType(event.target.value);
                   return onChangeHandler(event);
                 }}
               >

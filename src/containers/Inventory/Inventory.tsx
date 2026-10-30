@@ -1,5 +1,5 @@
 import { Alert } from '@mui/material';
-import { Boxes, CheckCircle2, ChevronRight, Layers, Loader2, Plane, Plus, PlaneTakeoff, Search, Ship, Truck, X } from 'lucide-react';
+import { Boxes, CheckCircle2, ChevronDown, ChevronRight, Layers, ListFilter, Loader2, Plane, Plus, PlaneTakeoff, ScanLine, Search, Ship, Truck, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -44,6 +44,7 @@ const FILTERS: { value: ListFilter, label: string, icon: typeof Plane }[] = [
 const ShipmentsList = () => {
   const [filter, setFilter] = useState<ListFilter>('all');
   const [search, setSearch] = useState('');
+  const [searchMode, setSearchMode] = useState<'normal' | 'tracking'>('normal');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [countList, setCountList] = useState<CountList>({});
@@ -63,15 +64,18 @@ const ShipmentsList = () => {
 
   const fetchPage = useCallback(async (skip: number) => {
     const params: Record<string, string | number> = { skip, limit: PAGE_SIZE };
-    if (debouncedSearch) params.searchValue = debouncedSearch;
+    if (debouncedSearch) { params.searchValue = debouncedSearch; params.searchMode = searchMode; }
     else params.searchType = filter;
     const { data } = await api.get('inventory', params);
     return data as { results: InventoryItem[], countList: CountList };
-  }, [debouncedSearch, filter]);
+  }, [debouncedSearch, filter, searchMode]);
+  const activeFetch = useRef(fetchPage);
+  activeFetch.current = fetchPage;
 
   useEffect(() => {
     const id = ++requestId.current;
     setIsLoading(true);
+    setIsLoadingMore(false);
     setError('');
     fetchPage(0)
       .then((data) => {
@@ -86,12 +90,12 @@ const ShipmentsList = () => {
   }, [fetchPage, debouncedSearch]);
 
   const loadMore = useCallback(async () => {
-    if (isLoading || isLoadingMore || !hasMore) return;
+    if (activeFetch.current !== fetchPage || isLoading || isLoadingMore || !hasMore) return;
     const id = requestId.current;
     setIsLoadingMore(true);
     try {
       const data = await fetchPage(items.length);
-      if (id !== requestId.current) return;
+      if (id !== requestId.current || activeFetch.current !== fetchPage) return;
       setItems((prev) => {
         const seen = new Set(prev.map((i) => i._id));
         return [...prev, ...data.results.filter((i) => !seen.has(i._id))];
@@ -100,18 +104,19 @@ const ShipmentsList = () => {
     } catch {
       if (id === requestId.current) setError('Could not load more.');
     } finally {
-      setIsLoadingMore(false);
+      if (id === requestId.current) setIsLoadingMore(false);
     }
   }, [fetchPage, hasMore, isLoading, isLoadingMore, items.length]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !('IntersectionObserver' in window)) return;
+    let active = true;
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) loadMore();
+      if (active && entries[0].isIntersecting) loadMore();
     }, { rootMargin: '400px' });
     observer.observe(sentinel);
-    return () => observer.disconnect();
+    return () => { active = false; observer.disconnect(); };
   }, [loadMore]);
 
   return (
@@ -132,14 +137,25 @@ const ShipmentsList = () => {
             </button>
           ))}
         </div>
+        <div className="ivl-search-group">
+          <label className="ivl-search-mode">
+            {searchMode === 'tracking' ? <ScanLine size={15} className="ivl-search-mode__icon" aria-hidden="true" /> : <ListFilter size={15} className="ivl-search-mode__icon" aria-hidden="true" />}
+            <select aria-label="طريقة البحث في الرحلات" value={searchMode} onChange={e => { requestId.current++; setSearchMode(e.target.value as 'normal' | 'tracking'); }} dir="rtl">
+              <option value="normal">بالاسم</option>
+              <option value="tracking">التتبع / الطلبية</option>
+            </select>
+            <ChevronDown size={13} className="ivl-search-mode__arrow" aria-hidden="true" />
+          </label>
         <div className="ivl-search">
           <Search size={16} className="ivl-search__icon" />
           <input
             type="search"
-            placeholder="Voyage, order ID or tracking number"
+            placeholder={searchMode === 'tracking' ? 'رقم التتبع أو رقم الطلبية' : 'ابحث باسم الرحلة'}
+            dir="auto"
+            maxLength={120}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search inventory"
+            aria-label={searchMode === 'tracking' ? 'بحث برقم التتبع أو رقم الطلبية' : 'بحث باسم الرحلة'}
           />
           {search && (
             <button type="button" className="ivl-search__clear" aria-label="Clear search" onClick={() => setSearch('')}>
@@ -147,10 +163,11 @@ const ShipmentsList = () => {
             </button>
           )}
         </div>
+        </div>
       </div>
 
       {debouncedSearch && !isLoading && (
-        <p className="ivl-search-note">Results for “{debouncedSearch}” across open and finished shipments.</p>
+        <p className="ivl-search-note">{searchMode === 'tracking' ? `نتائج التتبع أو الطلبية «${debouncedSearch}» في الرحلات المفتوحة والمكتملة.` : `نتائج اسم الرحلة «${debouncedSearch}» في الرحلات المفتوحة والمكتملة.`}</p>
       )}
 
       {error && <Alert severity="error" className="ivl-error">{error}</Alert>}
@@ -172,7 +189,7 @@ const ShipmentsList = () => {
           <div className="ivl-empty">
             <Boxes size={28} strokeWidth={1.6} />
             <strong>{debouncedSearch ? `Nothing matches “${debouncedSearch}”` : 'No shipments here'}</strong>
-            <p>{debouncedSearch ? 'Try the full voyage number, an order ID or a tracking number.' : 'New shipments you add will show up here.'}</p>
+            <p>{debouncedSearch ? searchMode === 'tracking' ? 'تحقق من رقم التتبع أو رقم الطلبية، أو جرّب جزءًا منه.' : 'جرّب اسم الرحلة أو جزءًا منه.' : 'New shipments you add will show up here.'}</p>
           </div>
         ) : (
           <ul className="ivl-list">

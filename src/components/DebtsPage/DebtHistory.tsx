@@ -9,7 +9,7 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import { convertGoogleStorageUrl } from '../../utils/methods';
-import { DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, formatAmount } from './wrapper-util';
+import { DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, debtPaidAmount, formatAmount } from './wrapper-util';
 import { Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, HandCoins, Lock, ShieldCheck, Trash2 } from 'lucide-react';
 
 type Props = {
@@ -80,7 +80,7 @@ const DebtHistory = (props: Props) => {
 
   const isOpen = debt.status === 'open';
   const isOwed = isOpen || debt.status === 'overdue';
-  const canCloseManually = allowViewHiddenFields && isOwed;
+  const canCloseManually = allowViewHiddenFields && isOwed && !debt.deliveryInvoiceId;
   const closure = debt.manualClosure;
   const closedBy = closure?.closedBy && typeof closure.closedBy === 'object'
     ? `${closure.closedBy.firstName || ''} ${closure.closedBy.lastName || ''}`.trim()
@@ -94,7 +94,10 @@ const DebtHistory = (props: Props) => {
     <div className='debt-item'>
       <div className='debt-item-top'>
         <div className='debt-tags'>
+          {debt.deliveryInvoiceId && <span className='debt-tag' dir='rtl'>متبقي فاتورة تسليم</span>}
           <span className={`debt-status is-${debt.status}`}>{DEBT_STATUS_LABELS[debt.status] || debt.status}</span>
+          {debt.accountingWriteOff && <span className="debt-tag" dir="rtl">مشطوب محاسبيًا — للمتابعة والتحصيل لاحقًا</span>}
+          {debt.orderHasWriteOff && <span className="debt-tag" dir="rtl">الطلبية بها شطب محاسبي — راجع تفاصيل المطالبات</span>}
           <span className='debt-tag'>
             <Building2 size={12} strokeWidth={2} />
             {debt?.createdOffice}
@@ -114,7 +117,7 @@ const DebtHistory = (props: Props) => {
         </div>
 
         <div className='debt-actions'>
-        {isOpen &&
+        {isOwed &&
           <button
             className='debts-btn is-primary is-small'
             onClick={() => props.setDialog({ customComponentTag: CreateDebtHistoryDialog, isOpen: true, item: debt, onSaved: props.fetchData })}
@@ -134,12 +137,12 @@ const DebtHistory = (props: Props) => {
           </button>
         }
         {debt.status === 'waitingApproval' && isAdmin &&
-          <button className='debts-btn is-primary is-small' onClick={() => setConfirmOpen(true)}>
+          <button className='debts-btn is-primary is-small' onClick={() => setConfirmOpen(true)} disabled={Number(debt.amount) !== 0}>
             <ShieldCheck size={15} strokeWidth={2} />
-            Confirm debt
+            Confirm settlement
           </button>
         }
-        {isAdmin &&
+        {isAdmin && !debt.deliveryInvoiceId &&
           <button
             className='debts-icon-btn'
             onClick={() => setDeleteOpen(true)}
@@ -155,7 +158,8 @@ const DebtHistory = (props: Props) => {
 
       <div className='debt-amount'>
         <div className={`debt-amount-main ${isOwed ? 'is-owed' : 'is-paid'}`}>
-          <strong>{formatAmount(isOwed ? remaining : initialAmount - writtenOff)} {debt.currency}</strong>
+          <strong>{formatAmount(isOwed || debt.status === 'lost' ? remaining : debtPaidAmount(debt))} {debt.currency}</strong>
+          {debt.status === 'lost' && <span dir="rtl">مشطوب وغير محصل{debtPaidAmount(debt) > 0 ? ` — حُصّل لاحقًا ${formatAmount(debtPaidAmount(debt))} ${debt.currency}` : ''}</span>}
           {isOwed && paidShare > 0 &&
             <span>left of {formatAmount(initialAmount)} {debt.currency}</span>
           }
@@ -349,7 +353,7 @@ const DebtHistory = (props: Props) => {
       >
         <DialogTitle>
           <span className='debt-dialog-title'>
-            <strong>Confirm this debt?</strong>
+            <strong>Confirm this settlement?</strong>
             <span>{debt.owner?.firstName} {debt.owner?.lastName} ({debt.owner?.customerId})</span>
           </span>
         </DialogTitle>
@@ -365,13 +369,13 @@ const DebtHistory = (props: Props) => {
             </div>
           </div>
           <p style={{ fontSize: '0.85rem', color: '#5b6673', margin: 0 }}>
-            Once confirmed, the debt moves to the open list and payments can be recorded against it.
+            Confirm that this debt has been fully paid. It will move to the closed list.
           </p>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <button className='debts-btn is-ghost' onClick={() => setConfirmOpen(false)} disabled={isConfirming}>Cancel</button>
           <button className='debts-btn is-primary' onClick={confirmDebt} disabled={isConfirming}>
-            {isConfirming ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirm debt'}
+            {isConfirming ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirm settlement'}
           </button>
         </DialogActions>
       </Dialog>

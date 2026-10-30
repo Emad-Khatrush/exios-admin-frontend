@@ -128,10 +128,16 @@ class APIBase {
           authorization: "Bearer " + localStorage.getItem('authToken')
         },
       })
+      const ok = response.ok;
       response = await response.json();
+      if (!ok) {
+        response = { ...response, success: false };
+      }
       
     } catch (error) {
-      response = error;
+      // Multipart callers inspect success before reloading. A network Error must also
+      // carry failure explicitly, so a missing response cannot look like a saved payment.
+      response = Object.assign(error instanceof Error ? error : new Error('Request failed'), { success: false });
     }
     return response;
   }

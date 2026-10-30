@@ -1,0 +1,49 @@
+.trip-numbering {
+  --trip-line: #e3e7ec;
+  --trip-muted: #5b6673;
+  --trip-accent: #1d4ed8;
+  --trip-soft: #eff4ff;
+  color-scheme: light;
+  &__alert { margin-block-end: 14px; }
+  &__loading { display: flex; align-items: center; gap: 10px; padding: 36px 8px; color: var(--trip-muted); }
+  &__country { display: flex; align-items: center; gap: 14px; font-size: .85rem; font-weight: 600; }
+  select, input:not([type='checkbox']):not([type='radio']) {
+    min-height: 40px; border: 1px solid #cdd4dd; border-radius: 8px; padding: 8px 11px;
+    background: #fff; color: #18212b; font: inherit; caret-color: var(--trip-accent); min-width: 0;
+    &:focus-visible { outline: 2px solid var(--trip-accent); outline-offset: 2px; }
+    &:disabled { background: #f6f7f9; color: var(--trip-muted); }
+  }
+  select { min-width: 170px; }
+  input[type='checkbox'], input[type='radio'] { accent-color: var(--trip-accent); width: 17px; height: 17px; flex-shrink: 0; }
+  input[type='checkbox']:focus-visible, input[type='radio']:focus-visible { outline: 2px solid var(--trip-accent); outline-offset: 3px; }
+  input[inputmode='numeric'] { direction: ltr; text-align: start; font-variant-numeric: tabular-nums; }
+  ::selection { background: #dbe6ff; color: #18212b; }
+  &__layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); }
+  &__types {
+    padding: 14px; border-inline-end: 1px solid var(--trip-line); background: #f8f9fb;
+    display: flex; flex-direction: column; gap: 5px; border-end-start-radius: 12px;
+    button { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 11px 12px; text-align: start; color: #18212b; cursor: pointer; display: grid; gap: 4px; font: inherit; font-size: .86rem; }
+    button small { font-size: .75rem; color: var(--trip-muted); font-variant-numeric: tabular-nums; }
+    button[aria-pressed='true'] { background: #fff; border-color: #b7c9f5; color: var(--trip-accent); font-weight: 600; }
+    button:hover:not(:disabled) { background: var(--trip-soft); }
+    button:focus-visible { outline: 2px solid var(--trip-accent); outline-offset: 1px; }
+    button:disabled { cursor: wait; opacity: .65; }
+  }
+  &__form { padding: 22px 24px; display: grid; gap: 22px; min-width: 0; }
+  &__toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; input { margin-block-start: 4px; } span { display: grid; gap: 5px; } strong { font-size: .91rem; } small { color: var(--trip-muted); font-size: .78rem; line-height: 1.6; } }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; legend { margin-block-end: 9px; font-size: .82rem; font-weight: 600; } }
+  &__formats { display: flex; flex-wrap: wrap; gap: 10px; label { display: flex; gap: 8px; align-items: center; padding: 9px 12px; border: 1px solid var(--trip-line); border-radius: 8px; font-size: .84rem; cursor: pointer; } small { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--trip-muted); display: inline-block; } }
+  &__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  &__grid label, &__template { display: grid; gap: 8px; min-width: 0; > span { font-size: .82rem; font-weight: 600; } small { font-size: .76rem; color: var(--trip-muted); line-height: 1.65; } input { width: 100%; box-sizing: border-box; } }
+  &__preview { border-block: 1px solid var(--trip-line); padding-block: 17px; display: grid; gap: 10px; overflow-wrap: anywhere; span { display: flex; gap: 6px; align-items: center; font-size: .79rem; color: var(--trip-muted); } strong { font-size: 1.13rem; font-variant-numeric: tabular-nums; justify-self: start; } small { font-size: .79rem; color: var(--trip-muted); } }
+  &__note { margin: 0; color: var(--trip-muted); font-size: .78rem; line-height: 1.8; max-width: 75ch; }
+  footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-block-start: 1px solid var(--trip-line); padding-block-start: 16px; }
+  @media (max-width: 700px) {
+    &__layout { grid-template-columns: minmax(0, 1fr); }
+    &__types { flex-direction: row; overflow-x: auto; border-inline-end: 0; border-block-end: 1px solid var(--trip-line); border-radius: 0; scrollbar-width: thin; scrollbar-color: #bdc8d8 #f8f9fb; button { flex: 0 0 auto; min-width: 122px; } }
+    &__form { padding: 18px 15px; }
+    &__grid { grid-template-columns: minmax(0, 1fr); }
+    &__country { width: 100%; justify-content: space-between; }
+    footer .settings-btn { width: 100%; }
+  }
+}
