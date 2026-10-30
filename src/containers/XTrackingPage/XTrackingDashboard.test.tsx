@@ -89,6 +89,14 @@ test('payment selection keeps the chosen category, including the former Unpaid c
   await waitFor(() => expect(listCalls().slice(-1)[0][1].params).toMatchObject({ stage: 'waitingPurchase', payment: 'unpaid' }));
 });
 
+test('purchase follow-up is available alongside purchase categories and keeps payment filtering', async () => {
+  show(); await screen.findByRole('article');
+  fireEvent.click(within(screen.getByRole('group', { name: 'فئات الطلبيات' })).getByText('متابعة المشتريات'));
+  await waitFor(() => expect(listCalls().slice(-1)[0][1].params).toMatchObject({ stage: 'purchaseFollowUp', payment: 'all', skip: 0 }));
+  fireEvent.click(within(screen.getByRole('group', { name: 'حالة السداد' })).getByText('متبقي عليها'));
+  await waitFor(() => expect(listCalls().slice(-1)[0][1].params).toMatchObject({ stage: 'purchaseFollowUp', payment: 'partial', skip: 0 }));
+});
+
 test('approaching the bottom loads once and merges duplicate IDs without replacing prior orders', async () => {
   get.mockImplementation((_url, config) => Promise.resolve(config.params.countsOnly ? counts : config.params.skip === 0
     ? rows([order('ONE'), order('TWO')], 4) : rows([order('TWO'), order('THREE'), order('FOUR')], 4)));

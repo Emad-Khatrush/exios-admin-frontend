@@ -30,7 +30,7 @@ const PAGE_SIZE = 10;
 const COUNTS_REFRESH_MS = 60_000;
 const sameCounts = (previous: Record<string, number>, next: Record<string, number>) =>
   Object.keys(previous).length === Object.keys(next).length && Object.keys(next).every(key => previous[key] === next[key]);
-const FILTERS = [ ['all', 'الطلبيات النشطة'], ['purchase', 'شراء'], ['shipping', 'شحن'], ['combined', 'شراء وشحن'], ['waitingPurchase', 'شراء بانتظار الدفع'], ['blocked', 'ممنوعة من الشحن'], ['hasProblem', 'فيها مشكلة'], ['finished', 'مكتملة'] ];
+const FILTERS = [ ['all', 'الطلبيات النشطة'], ['purchase', 'شراء'], ['shipping', 'شحن'], ['combined', 'شراء وشحن'], ['waitingPurchase', 'شراء بانتظار الدفع'], ['purchaseFollowUp', 'متابعة المشتريات'], ['blocked', 'ممنوعة من الشحن'], ['hasProblem', 'فيها مشكلة'], ['finished', 'مكتملة'] ];
 const PAYMENT_OPTIONS = [['all', 'كل حالات السداد'], ['paid', 'مدفوعة بالكامل'], ['unpaid', 'غير مدفوعة'], ['partial', 'متبقي عليها'], ['unknown', 'تحتاج مراجعة']];
 const PAYMENT: Record<string, string> = { paid: 'مدفوعة بالكامل', unpaid: 'لم تدفع بعد', partial: 'مدفوعة جزئيًا', pending: 'لا يوجد مبلغ مستحق مسجل', unknown: 'السداد يحتاج مراجعة' };
 const SUMMARY = [
