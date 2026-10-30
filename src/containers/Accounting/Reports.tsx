@@ -40,8 +40,18 @@ const Actions = ({ onExport }: { onExport: () => void | Promise<void> }) => {
 };
 
 const year = () => todayLibya().slice(0, 4);
+const dayOffset = (day: string, offset: number) => {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+};
+const todayPeriod = () => { const day = todayLibya(); return { from: day, to: day }; };
 const PRESETS: { label: string; range: () => { from: string; to: string } }[] = [
+  { label: 'اليوم', range: todayPeriod },
+  { label: 'أمس', range: () => { const day = dayOffset(todayLibya(), -1); return { from: day, to: day }; } },
+  { label: 'آخر 7 أيام', range: () => { const day = todayLibya(); return { from: dayOffset(day, -6), to: day }; } },
   { label: 'هذا الشهر', range: () => ({ from: `${todayLibya().slice(0, 7)}-01`, to: todayLibya() }) },
+  { label: 'الشهر الماضي', range: () => { const last = dayOffset(`${todayLibya().slice(0, 7)}-01`, -1); return { from: `${last.slice(0, 7)}-01`, to: last }; } },
   { label: 'هذه السنة', range: () => ({ from: `${year()}-01-01`, to: todayLibya() }) },
   { label: 'السنة الماضية', range: () => ({ from: `${Number(year()) - 1}-01-01`, to: `${Number(year()) - 1}-12-31` }) },
   { label: 'كل الفترات', range: () => ({ from: '', to: '' }) },
@@ -55,7 +65,12 @@ const PeriodBar = ({ value, onChange, onApply, children }: { value: Period; onCh
       <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
       {children}
       <Button variant="contained" onClick={() => onApply()}>عرض</Button>
-      {PRESETS.map((preset) => <Button key={preset.label} size="small" onClick={() => { const next = preset.range(); onChange(next); onApply(next); }}>{preset.label}</Button>)}
+      {PRESETS.map((preset) => {
+        const range = preset.range();
+        const selected = value.from === range.from && value.to === range.to;
+        return <Button key={preset.label} size="small" variant={selected ? 'outlined' : 'text'} aria-pressed={selected}
+          onClick={() => { const next = preset.range(); onChange(next); onApply(next); }}>{preset.label}</Button>;
+      })}
     </FilterBar>
   </div>
 );
@@ -178,7 +193,8 @@ const IncomeStatement = () => {
         rows={rows}
         rowKey={(_: any, index: number) => String(index)}
         rowTone={(row: any) => (row.kind === 'row' ? undefined : 'group')}
-        onRowClick={(row: any) => { if (row.kind === 'row') navigate(ledgerLink(row.accountId, period)); }}
+        getRowHref={(row: any) => row.kind === 'row' ? ledgerLink(row.accountId, period) : undefined}
+          onRowClick={(row: any) => { if (row.kind === 'row') navigate(ledgerLink(row.accountId, period)); }}
         empty={{ title: 'لا إيرادات ولا مصروفات في هذه الفترة' }}
         columns={[
           { key: 'account', header: 'البند', render: (row: any) => (row.kind === 'row' ? <span style={{ paddingInlineStart: 14 }}><AccountRef code={row.code} name={row.name} /></span> : row.title) },
@@ -205,6 +221,7 @@ const BalanceSheet = () => {
     <DataTable
       dense loading={isLoading} rows={rows} rowKey={(row: any, index: number) => String(row.accountId || index)}
       indent={(row: any) => row.depth || 0} rowTone={(row: any) => (row.isGroup || row.title ? 'group' : undefined)}
+      getRowHref={(row: any) => row.accountId ? ledgerLink(row.accountId, { from: '', to: asOf }) : undefined}
       onRowClick={(row: any) => { if (row.accountId) navigate(ledgerLink(row.accountId, { from: '', to: asOf })); }}
       columns={columns}
     />
@@ -254,7 +271,7 @@ const BalanceSheet = () => {
 
 const CashFlow = () => {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<Period>(thisYear());
+  const [period, setPeriod] = useState<Period>(todayPeriod);
   const flow = useReport('reports/cash-flow', period);
   const boxes = useReport('reports/cash-movements', period);
   const apply = (next: Period = period) => { flow.load(next); boxes.load(next); };
@@ -281,6 +298,7 @@ const CashFlow = () => {
         )}
         <DataTable
           dense loading={flow.isLoading} rows={rows} rowKey={(_: any, index: number) => String(index)} rowTone={(row: any) => (row.head ? 'group' : undefined)}
+          getRowHref={(row: any) => row.accountId ? ledgerLink(row.accountId, period) : undefined}
           onRowClick={(row: any) => { if (row.accountId) navigate(ledgerLink(row.accountId, period)); }}
           empty={{ title: 'لا حركة نقدية في هذه الفترة' }}
           columns={[
@@ -299,6 +317,7 @@ const CashFlow = () => {
       >
         <DataTable
           dense loading={boxes.isLoading} rows={boxes.data?.results || []} rowKey={(row: any) => row.accountId}
+          getRowHref={(row: any) => ledgerLink(row.accountId, period)}
           onRowClick={(row: any) => navigate(ledgerLink(row.accountId, period))}
           rowTone={(row: any) => (row.isActive ? undefined : 'muted')}
           columns={[
@@ -702,6 +721,7 @@ const CustomerStatement = ({ initial }: { initial: any }) => {
       {customer && (
         <DataTable
           dense loading={isLoading} rows={data?.movements || []} rowKey={(row: any, index: number) => `${row.entryId}-${index}`} maxHeight="65vh"
+          getRowHref={(row: any) => `/accounting/entries/${row.entryId}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row.entryId}`)} empty={{ title: 'لا حركات لهذا العميل في الدفاتر' }}
           columns={[
             { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
@@ -741,6 +761,7 @@ const Payables = () => {
       {error && <Alert severity="error" className="mx-3 mb-2">{error}</Alert>}
         <DataTable
           dense loading={isLoading} rows={data?.vendors || []} rowKey={(row: any) => String(row.vendorId)}
+          getRowHref={(row: any) => row.vendorId ? `/accounting/vendors/${row.vendorId}` : undefined}
           onRowClick={(row: any) => row.vendorId && navigate(`/accounting/vendors/${row.vendorId}`)} empty={{ title: 'لا مستحقات للموردين' }}
           columns={[
             { key: 'vendor', header: 'المورد', render: (row: any) => <>{row.vendor || 'غير معروف'}<Sub>{row.bills} بند</Sub></>, sortValue: (row: any) => row.vendor || '' },
@@ -753,6 +774,7 @@ const Payables = () => {
       <Panel flush title="الفواتير المفتوحة">
         <DataTable
           dense loading={isLoading} rows={data?.items || []} rowKey={(row: any, index: number) => `${row.apKey}-${index}`} maxHeight="60vh" empty={{ title: 'لا فواتير مفتوحة' }}
+          getRowHref={(row: any) => row.billId ? `/accounting/bills/${row.billId}` : undefined}
           onRowClick={(row: any) => row.billId && navigate(`/accounting/bills/${row.billId}`)}
           columns={[
             { key: 'vendor', header: 'المورد', render: (row: any) => row.vendor },
@@ -782,6 +804,7 @@ const Fx = () => {
         {data && <div className="px-3 pb-2"><StatGrid><Stat label="صافي فروقات الصرف" value={<Money value={data.total} />} tone={data.total < 0 ? 'danger' : 'accent'} hint={data.total < 0 ? 'خسارة' : 'ربح'} /></StatGrid></div>}
         <DataTable
           dense loading={isLoading} rows={data?.byEvent || []} rowKey={(row: any) => row.eventType} empty={{ title: 'لا فروقات صرف في هذه الفترة' }}
+          getRowHref={() => data?.accountId ? ledgerLink(data.accountId, period) : undefined}
           onRowClick={() => data?.accountId && navigate(ledgerLink(data.accountId, period))}
           columns={[
             { key: 'event', header: 'مصدر الفرق', render: (row: any) => EVENT_LABELS[row.eventType] || row.eventType },
@@ -819,7 +842,7 @@ const Reports = () => {
 
   return (
     <>
-      <PageHeader title="التقارير" subtitle="كل الأرقام من دفتر الأستاذ مباشرة، بالدولار. اضغط أي حساب أو سطر للوصول إلى القيود التي كوّنته." />
+      <PageHeader title="التقارير" subtitle="كل الأرقام من دفتر الأستاذ مباشرة، بالدولار. اضغط أي حساب أو سطر للوصول إلى القيود التي كوّنته." actions={<Open to="/accounting/historical-cash">الحركة النقدية التاريخية — تقرير مستقل</Open>} />
       <div className="acc-tabs acc-noprint">
         <Tabs value={tab} onChange={(_, value) => go(value)} variant="scrollable" scrollButtons="auto">
           {TABS.map(([key, label]) => <Tab key={key} value={key} label={label} />)}

@@ -60,6 +60,7 @@ const TrialBalance = () => {
           rowKey={(row: any) => row._id}
           indent={(row: any) => depthOf.get(row._id) || 0}
           rowTone={(row: any) => (row.isGroup ? 'group' : undefined)}
+          getRowHref={(row: any) => `/accounting/accounts/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/accounts/${row._id}`)}
           empty={{ title: 'لا توجد أرصدة', hint: 'فعّل «إظهار الحسابات الصفرية» لرؤية كل الشجرة.' }}
           columns={[

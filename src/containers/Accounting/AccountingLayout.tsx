@@ -57,7 +57,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
   {
     label: 'المراجعة والتسويات',
     links: [
-      { to: '/accounting/daily-work', label: 'العمل اليومي', icon: CalendarCheck2, perms: ['reports', 'treasury'] },
+      { to: '/accounting/daily-work', label: 'العمل اليومي والدوري', icon: CalendarCheck2, perms: ['reports', 'treasury'] },
       { to: '/accounting/review', label: 'قائمة المراجعة المحاسبية', icon: ListChecks, perms: ['reports', 'treasury'] },
       { to: '/accounting/purchase-reconciliation', label: 'متابعة مشتريات الطلبيات', icon: ListChecks, perms: ['treasury', 'reports'] },
       { to: '/accounting/unidentified', label: 'حركات قيد التحديد', icon: ListChecks, perms: ['treasury', 'reports'] },
@@ -70,6 +70,7 @@ const NAV: { label: string | null, links: NavItem[] }[] = [
     label: 'الدفاتر والتقارير',
     links: [
       { to: '/accounting/reports', label: 'التقارير', icon: ChartColumn, perms: ['reports'] },
+      { to: '/accounting/historical-cash', label: 'الحركة النقدية التاريخية', icon: FileSpreadsheet, perms: ['reports', 'treasury'] },
       { to: '/accounting/financial-analysis', label: 'التحليل المالي', icon: ChartColumn, perms: ['reports'] },
       { to: '/accounting/entries', label: 'القيود', icon: BookOpen, perms: ['entries', 'entries_view'] },
       { to: '/accounting/accounts', label: 'شجرة الحسابات', icon: ListTree, perms: ['setup', 'reports', 'treasury'] },

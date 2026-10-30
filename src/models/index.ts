@@ -424,6 +424,8 @@ export type Account = {
 }
 
 export type Debt = {
+  accountingWriteOff?: { amountUsd: number; collectible: boolean };
+  orderHasWriteOff?: boolean;
   deliveryInvoiceId?: string;
   deliveryPackageId?: string;
   _id: string

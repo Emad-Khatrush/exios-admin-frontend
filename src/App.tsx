@@ -70,6 +70,7 @@ import AccountingGuide from './containers/Accounting/Guide';
 import AccountingSuspense from './containers/Accounting/Suspense';
 import AccountingReports from './containers/Accounting/Reports';
 import ReviewQueue from './containers/Accounting/ReviewQueue';
+import HistoricalCash from './containers/Accounting/HistoricalCash';
 import DailyWork from './containers/Accounting/DailyWork';
 import AccountingExceptions from './containers/Accounting/Exceptions';
 import AccountingClosing from './containers/Accounting/Closing';
@@ -156,6 +157,7 @@ const accountingRoutes = (
     <Route path='financial-analysis' element={<FinancialAnalysis />} />
     <Route path='financial-operations' element={<FinancialOperations />} />
     <Route path='review' element={<ReviewQueue />} />
+    <Route path='historical-cash' element={<HistoricalCash />} />
     <Route path='daily-work' element={<DailyWork />} />
     <Route path='exceptions' element={<AccountingExceptions />} />
     <Route path='closing' element={<AccountingClosing />} />

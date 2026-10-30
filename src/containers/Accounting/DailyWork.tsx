@@ -3,6 +3,7 @@ import { Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
 import { acc, errorText, todayLibya } from './accountingApi';
 import { Amount, Badge, DataTable, FilterBar, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
+import EmployeeOperations from './EmployeeOperations';
 
 // One place for the accountant's day: review today's operations by office, work the open backlog,
 // then close the day with a saved report (several reports a day are allowed).
@@ -15,7 +16,7 @@ const TALLY_STATES: Record<string, { text: string; tone: 'ok' | 'warn' | 'danger
 const REVIEW_STATES: Record<string, string> = { open: 'تحتاج معالجة', deferred: 'مؤجلة للمتابعة', independent: 'مستقلة موثقة' };
 const userName = (u: any) => [u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.customerId || u?._id;
 
-const DailyWork = () => {
+const PeriodicWork = () => {
   const access = useAccountingAccess();
   const canWork = access.can('treasury', 'closing');
   const [tab, setTab] = useState(0);
@@ -79,7 +80,7 @@ const DailyWork = () => {
     && (!filters.q || `${r.title} ${r.description}`.toLowerCase().includes(filters.q.toLowerCase())));
 
   return <>
-    <PageHeader title="العمل اليومي" subtitle="راجع يومك حسب المكتب، عالج المتراكم من مكان واحد، ثم أغلق اليوم بتقرير. يمكنك إصدار أكثر من تقرير في اليوم نفسه، والإقفال لا يمنع أي تعديل."
+    <PageHeader title="الأعمال الأسبوعية والدورية" subtitle="أدوات الجرد والمتابعة والتقارير للمراجعة الدورية. اختر يوم الجرد؛ كل تقرير يحفظ بيانات ذلك اليوم والمتراكم وقت إصداره، ولا يقفل التعديل."
       actions={<>
         <TextField type="date" size="small" label="اليوم" InputLabelProps={{ shrink: true }} value={day} inputProps={{ max: todayLibya() }} onChange={e => setDay(e.target.value)} />
         <Button onClick={refresh}>تحديث</Button>
@@ -93,7 +94,7 @@ const DailyWork = () => {
     </Alert>}
 
     <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-3">
-      <Tab label={`اليوم${s ? ` (${s.pending} للمراجعة)` : ''}`} />
+      <Tab label={`الجرد والمتابعة${s ? ` (${s.pending} للمراجعة)` : ''}`} />
       <Tab label={`المتراكم${backlog ? ` (${backlog.summary.total})` : ''}`} />
       <Tab label={`التقارير (${closes.length})`} />
     </Tabs>
@@ -269,4 +270,15 @@ const CloseReport = ({ report }: { report: any }) => {
   </div>;
 };
 
+const DailyWork = () => {
+  const [section, setSection] = useState('daily');
+  return <>
+    <PageHeader title="العمل اليومي والدوري" subtitle="مراجعة عمليات الموظفين يوميًا، والجرد والمتابعة في قسم مستقل." />
+    <Tabs value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto" className="mb-3" aria-label="أقسام المراجعة">
+      <Tab value="daily" label="عمليات الموظفين — يومي" />
+      <Tab value="periodic" label="الأعمال الأسبوعية والدورية" />
+    </Tabs>
+    {section === 'daily' ? <EmployeeOperations /> : <PeriodicWork />}
+  </>;
+};
 export default DailyWork;

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, TextField } from '@mui/material';
 import moment from 'moment';
 import { CURRENCY_DECIMALS, EVENT_LABELS, acc, errorText, todayLibya } from './accountingApi';
-import { AccountRef, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, ShowCanceled, Stat, StatGrid, Sub } from './ui';
+import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, ShowCanceled, Stat, StatGrid, Sub } from './ui';
 
 const AccountLedger = () => {
   const { id } = useParams();
@@ -63,15 +63,20 @@ const AccountLedger = () => {
           loading={isLoading}
           rows={data?.movements || []}
           rowKey={(row: any, index: number) => `${row._id}-${index}`}
+          getRowHref={(row: any) => `/accounting/entries/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row._id}`)}
+          rowTone={(row: any) => row.reversalOf ? 'reversal' : row.status === 'reversed' ? 'canceled' : undefined}
           empty={{ title: 'لا توجد حركات في هذه الفترة' }}
           columns={[
             { key: 'day', header: 'التاريخ', width: 110, sortValue: (row: any) => `${row.day}:${row.createdAt || ''}:${row._id}:${String(row.sequence ?? 0).padStart(8, '0')}`, render: (row: any) => <Ltr>{row.day}</Ltr> },
             {
               key: 'description', header: 'البيان', render: (row: any) => (
                 <>
+                  {row.reversalOf ? <div className="mb-1"><Badge tone="warn">قيد إلغاء — عكس العملية الأصلية</Badge></div>
+                    : row.status === 'reversed' ? <div className="mb-1"><Badge tone="danger">قيد مُلغى</Badge></div> : null}
                   <div>{row.line.label || row.description}</div>
                   <Sub><Ltr>{row.number}</Ltr> · {EVENT_LABELS[row.eventType] || row.eventType}</Sub>
+                  {row.reversalOf && <Sub><Open to={`/accounting/entries/${row.reversalOf}`}>عرض القيد الأصلي</Open></Sub>}
                 </>
               ),
             },
@@ -84,8 +89,8 @@ const AccountLedger = () => {
                 key: 'original', header: 'بعملة العملية', numeric: true, hideOnMobile: true,
                 render: (row: any) => (row.original?.amount ? <><Money value={row.original.amount} currency={row.original.currency} decimals={CURRENCY_DECIMALS[row.original.currency]} tone="plain" />{row.original.rate ? <Sub>بسعر <Ltr>{row.original.rate}</Ltr></Sub> : null}</> : null),
               }] : []),
-            { key: 'balance', header: foreign ? 'الرصيد بالدولار' : 'الرصيد', numeric: true, render: (row: any) => <Money value={row.balanceUsd} strong /> },
-            ...(foreign ? [{ key: 'balanceForeign', header: `الرصيد (${account.currency})`, numeric: true, render: (row: any) => <Money value={row.balanceForeign} currency={account.currency} decimals={decimals} strong /> }] : []),
+            { key: 'balance', header: foreign ? 'الرصيد بالدولار' : 'الرصيد', numeric: true, render: (row: any) => <span className="acc-ledger-balance"><Money value={row.balanceUsd} strong /></span> },
+            ...(foreign ? [{ key: 'balanceForeign', header: `الرصيد (${account.currency})`, numeric: true, render: (row: any) => <span className="acc-ledger-balance"><Money value={row.balanceForeign} currency={account.currency} decimals={decimals} strong /></span> }] : []),
           ]}
         />
       </Panel>

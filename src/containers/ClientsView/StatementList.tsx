@@ -9,10 +9,13 @@ import { DashboardPeriod, getPeriodRange } from '../Home/period';
 import { todayLibya } from '../Accounting/accountingApi';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { statementFlow } from '../UserDetails/statementUtils';
+import { walletActivityType } from './walletActivityType';
 
 interface UserStatement {
   _id: string;
   description: string;
+  note?: string;
+  paymentCategories?: string[];
   amount: number;
   currency: 'USD' | 'LYD';
   total: number;
@@ -258,6 +261,7 @@ const StatementList = () => {
                       ? <Link to={`/user/${item.user._id}`} className="wl-statement__name">{item.user.firstName} {item.user.lastName}</Link>
                       : <span className="wl-statement__name">Unknown client</span>}
                     {item.user?.customerId && <span className="wl-client__id">{item.user.customerId}</span>}
+                    <span className="wl-statement__type" dir="rtl">{walletActivityType(item)}</span>
                     {isCredit && <span className="wl-statement__credit" title="Added to the wallet, but no cash was received">No cash</span>}
                     {attachment && (
                       <a

@@ -73,6 +73,7 @@ const JournalEntries = () => {
           loading={isLoading}
           rows={data.results}
           rowKey={(row: any) => row._id}
+          getRowHref={(row: any) => `/accounting/entries/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row._id}`)}
           rowTone={(row: any) => (row.status === 'reversed' ? 'canceled' : undefined)}
           empty={{ title: 'لا توجد قيود', hint: 'القيود تظهر هنا عند ترحيل أي عملية من قسم المحاسبة أو من المنظومة.' }}

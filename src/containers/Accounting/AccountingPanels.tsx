@@ -8,6 +8,7 @@ import { AlipaySendPanel } from './AlipaySend';
 import OrderCostBreakdown from './OrderCostBreakdown';
 import AccountingFold from './AccountingFold';
 import PreviousWalletRefundPicker from './PreviousWalletRefundPicker';
+import LegacyPurchaseCosts from './LegacyPurchaseCosts';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
@@ -530,14 +531,7 @@ export const OrderCosts = ({ orderId, orderNumber, legacyPurchases = [] }: { ord
   const { canSee, data, error, reload } = useSummary(`summary/order/${orderId}`);
   return <Frame title="إضافة التكاليف" error={error} loading={false}>
     <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={reload} />
-    {legacyPurchases.length > 0 && <Panel flush title="المشتريات المسجلة داخل الطلبية" subtitle="هذه بنود المشتريات القديمة، وتظهر مستقلة عن فواتير الموردين. راجعها قبل تسجيل تكلفة جديدة؛ وجود البند لا يعني وحده أنه رُحّل في الدفاتر.">
-      <DataTable rows={legacyPurchases} rowKey={(row: any, index: number) => row._id || String(index)} columns={[
-        { key: 'date', header: 'التاريخ', render: (row: any) => <Ltr>{row.date ? String(row.date).slice(0, 10) : '—'}</Ltr> },
-        { key: 'description', header: 'الوصف', render: (row: any) => row.description || '—' },
-        { key: 'amount', header: 'المبلغ', numeric: true, render: (row: any) => <Ltr>{Number(row.unitPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {row.currency || 'USD'}</Ltr> },
-      ]} />
-      <div className="p-3"><Open to={`/invoice/${orderId}/edit`}>لمراجعة أو تعديل هذه البنود، افتح تفاصيل الطلبية ثم قسم Purchase costs</Open></div>
-    </Panel>}
+    <LegacyPurchaseCosts orderId={orderId} fallbackRows={legacyPurchases} onSaved={reload} />
     {canSee && data && <BillsTable bills={data.bills} empty="لا فواتير موردين مسجلة على هذه الطلبية" />}
   </Frame>;
 };
@@ -572,23 +566,36 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActio
       <AbandonedPanel orderId={orderId} onChanged={reload} />
       {(isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
       {empty && <NoEntries />}
+      {data?.order?.isCanceled && totals?.costInProgress > 0 && <Alert severity="warning" className="mb-3">
+        <strong>طلبية ملغاة وتكلفة المورد ما زالت قائمة: <Money value={totals.costInProgress} /></strong>
+        <div>إلغاء طلبية العميل لا يعني أن المورد أعاد المال. اختر الإجراء حسب ما حصل فعليًا؛ لن تُخفى التكلفة أو تُلغى تلقائيًا.</div>
+        <ul className="mb-1">
+          <li>إذا أعاد المورد المبلغ: سجّل استرداد المورد من قسم الريفاند، واجعل المضاف لمحفظة العميل صفرًا إذا سبق رد قيمة العميل.</li>
+          <li>إذا ألغى المورد الفاتورة أو خفّضها: افتح فاتورته وسجّل الإشعار الدائن المناسب.</li>
+          <li>إذا تخص التكلفة طلبية أخرى أو أصبحت خسارة مؤكدة: أعد تصنيفها بقيد موثّق إلى الطلبية الصحيحة أو حساب المصروف المناسب.</li>
+        </ul>
+        {(data.bills || []).map((bill: any) => <span key={bill.billId} className="me-3"><Open to={`/accounting/bills/${bill.billId}`}>{bill.number} — مراجعة فاتورة المورد</Open></span>)}
+        {access.can('entries') && <div><Open to="/accounting/entries/new">فتح إنشاء قيد إعادة تصنيف</Open></div>}
+      </Alert>}
       {empty && data.bills.length > 0 && <BillsTable bills={data.bills} empty="" />}
       {data && !empty && (
         <>
           <StatGrid>
             <Stat label="مطالبات على العميل" value={<Money value={totals.billed} />} hint={<>مدفوع <Money value={totals.paid} /></>} />
-            <Stat label="المتبقي على العميل" value={<Money value={totals.open} />} tone={totals.open > 0 ? 'warn' : undefined} />
+            <Stat label="المتبقي على العميل" value={<Money value={totals.open} />} hint={totals.writtenOff > 0 ? 'رصيد الذمة بعد الشطب؛ تظل المتابعة والتحصيل اللاحق في قسم الديون.' : undefined} tone={totals.open > 0 ? 'warn' : undefined} />
+            {totals.writtenOff > 0 && <Stat label="المشطوب — ليس تحصيلًا" value={<Money value={totals.writtenOff} />} hint="مفصول عن المدفوع؛ أي تحصيل لاحق يخفض المشطوب." tone="warn" />}
             <Stat label="إيراد معترف به" value={<Money value={totals.recognized} />} hint={totals.deferred ? <>مؤجل <Money value={totals.deferred} /></> : 'لا إيراد مؤجل'} />
             <Stat label="التكلفة" value={<Money value={totals.cost} />} hint={totals.costInProgress ? <>قيد التنفيذ <Money value={totals.costInProgress} /></> : undefined} />
             <Stat label="ربح الطلب" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint="المعترف به ناقص تكلفته" />
           </StatGrid>
-          <Panel flush title="المطالبات" subtitle="إيراد الطرد يُعترف به عند تسليمه وسداده كاملاً. فاتورة الشراء: يُعترف من إيرادها وتكلفتها بقدر ما دُفع منها (أقساط)، والباقي يُعترف عند السداد الكامل.">
+          <Panel flush title="المطالبات" subtitle="فاتورة الشراء: يُعترف بقيمتها وكامل تكلفتها عند حالة «تم الشراء» أو ما بعدها، وغير المسدد يبقى ذمة على العميل. الربح المحاسبي هو الإيراد ناقص التكلفة، وقد يختلف عن النقد المحصل.">
             <DataTable
               dense rows={data.claims} rowKey={(row: any) => row.arKey} empty={{ title: 'لا مطالبات' }}
               columns={[
                 { key: 'claim', header: 'المطالبة', render: (row: any) => <>{CLAIM_KIND[row.kind] || row.kind} {row.tracking && <Ltr>{row.tracking}</Ltr>} {(row.kind === 'SHP' || row.kind === 'DOM') && (row.delivered ? <Badge tone="ok">مسلَّم</Badge> : <Badge tone="muted">لم يُسلَّم</Badge>)}</> },
                 { key: 'billed', header: 'المطالبة', numeric: true, render: (row: any) => <Money value={row.billed} /> },
                 { key: 'paid', header: 'المدفوع', numeric: true, render: (row: any) => <Money value={row.paid} tone="plain" /> },
+                { key: 'writtenOff', header: 'المشطوب', numeric: true, render: (row: any) => row.writtenOff > 0 ? <><Money value={row.writtenOff} /><Sub>ليس مبلغًا مدفوعًا</Sub></> : null },
                 { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => <Money value={row.open} strong={row.open !== 0} hideZero /> },
                 { key: 'recognized', header: 'إيراد معترف به', numeric: true, render: (row: any) => (row.recognized ? <Money value={row.recognized} /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null) },
                 { key: 'cost', header: 'التكلفة', numeric: true, hideOnMobile: true, render: (row: any) => <Money value={row.cost} hideZero tone="plain" /> },
@@ -637,11 +644,12 @@ export const TripAccounting = ({ tripId }: { tripId?: string }) => {
             <Stat label="المتبقي على العملاء" value={<Money value={totals.open} />} tone={totals.open > 0 ? 'warn' : undefined} hint="ذمم العملاء؛ مستقلة عن الاعتراف بالإيراد" />
             <Stat label="تكلفة محمَّلة" value={<Money value={totals.cost} />} hint={<>قيد التنفيذ <Money value={totals.costInProgress} /></>} />
             <Stat label="إجمالي تكاليف الرحلة" value={<Money value={totals.totalCost} />} hint="تُوزَّع على الطرود حسب الوزن المحتسب" />
-            <Stat label="الربح المحاسبي" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={totals.margin !== null ? `${totals.margin}%` : SHIPPING_TYPES[data.trip.shippingType]} />
+            <Stat label="الربح المحاسبي" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={<>{totals.margin !== null && <>{totals.margin}% · </>}{data.profitStatus === 'reviewed' ? 'تكاليف مراجعة والطرود مسلّمة' : 'مبدئي حتى مراجعة التكاليف واكتمال التسليم'}</>} />
           </StatGrid>
+          {!data.costReview?.complete && <Alert severity="info" className="mb-3">{data.costReview?.changedSinceReview ? 'تغيّرت بيانات تكلفة الرحلة بعد مراجعتها. أعد مراجعة التكاليف من قائمة المراجعة المحاسبية.' : 'راجع اكتمال فواتير الناقل والتكاليف المستحقة من قائمة المراجعة المحاسبية. الربح المعروض يعتمد على التكاليف المسجلة حتى الآن.'}<Open to="/accounting/review"> فتح قائمة المراجعة</Open></Alert>}
           <BillsTable bills={data.bills} empty="لا مصاريف مسجلة على هذه الرحلة" />
           <AccountingFold title="الطرود" summary={`${data.packages.length} طرد`}>
-          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="عند التسليم يُحتسب الإيراد وحصة الطرد من التكلفة. السداد اللاحق يخفض الدين فقط. الأرقام تخص أجرة الشحن لهذه الرحلة دون رسوم الخدمات الأخرى.">
+          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="عند التسليم يُحتسب كامل إيراد الطرد وحصته الكاملة من التكلفة، حتى مع السداد الجزئي. المتبقي دين على العميل، والسداد اللاحق يخفضه دون ربح جديد. تكلفة الطرود غير المسلّمة تبقى قيد التنفيذ.">
             <DataTable
               dense maxHeight={420} rows={data.packages} rowKey={(row: any) => String(row.packageId)} empty={{ title: 'لا طرود في الرحلة' }}
               rowTone={(row: any) => (row.isCanceled ? 'canceled' : undefined)}

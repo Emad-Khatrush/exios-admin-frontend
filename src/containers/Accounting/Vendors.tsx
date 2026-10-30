@@ -11,7 +11,9 @@ import { Amount, Badge, DataTable, FilterBar, Ltr, Money, PageHeader, Panel, Sta
 export const VendorsList = () => {
   const navigate = useNavigate();
   const { currencies } = useAccountingData();
-  const [vendors, setVendors] = useState<any[]>([]);
+  const [allVendors, setVendors] = useState<any[]>([]);
+  const [showBankVendors, setShowBankVendors] = useState(false);
+  const vendors = allVendors.filter(vendor => showBankVendors || !vendor.bankNameKey);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState<any>(null);
   const [message, setMessage] = useState<any>(null);
@@ -93,6 +95,7 @@ export const VendorsList = () => {
           <FilterBar>
             <TextField placeholder="ابحث بالاسم" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} />
             <Button variant="outlined" onClick={load}>بحث</Button>
+            <FormControlLabel control={<Checkbox checked={showBankVendors} onChange={(_, checked) => setShowBankVendors(checked)} />} label="إظهار موردي مطابقة البنوك" />
           </FilterBar>
         </div>
         {bulk.bar}
@@ -101,9 +104,10 @@ export const VendorsList = () => {
           loading={isLoading}
           rows={vendors}
           rowKey={(row: any) => row._id}
+          getRowHref={(row: any) => `/accounting/vendors/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/vendors/${row._id}`)}
           rowTone={(row: any) => (row.isActive ? undefined : 'muted')}
-          empty={{ title: 'لا يوجد موردون', hint: 'أضف مورداً، أو أضفه مباشرة من داخل الفاتورة.' }}
+          empty={{ title: 'لا يوجد موردون', hint: showBankVendors ? 'أضف مورداً، أو عدّل البحث.' : 'عدّل البحث أو فعّل إظهار موردي مطابقة البنوك.' }}
           columns={[
             {
               key: 'name', header: 'المورد', sortValue: (row: any) => row.name, render: (row: any) => (
@@ -112,6 +116,7 @@ export const VendorsList = () => {
                   <Sub>
                     {VENDOR_TYPES[row.type]}
                     {row.seedKey && <> · <Badge tone="muted">من النظام</Badge></>}
+                    {row.bankNameKey && <> · <Badge tone="muted">من مطابقة البنوك</Badge></>}
                     {row.linkedCustomer && <> · <Badge tone="info">عميل أيضاً {row.linkedCustomer.customerId}</Badge></>}
                     {!row.isActive && <> · <Badge tone="muted">مؤرشف</Badge></>}
                   </Sub>
@@ -133,7 +138,7 @@ export const VendorsList = () => {
               ),
             },
           ]}
-          footer={vendors.length ? { name: 'إجمالي المستحق للموردين', owed: <Money value={totalOwed} strong /> } : undefined}
+          footer={vendors.length ? { name: 'إجمالي المستحق للموردين المعروضين', owed: <Money value={totalOwed} strong /> } : undefined}
         />
       </Panel>
 
@@ -207,6 +212,7 @@ export const VendorStatement = () => {
           <DataTable
             rows={data.openBills}
             rowKey={(row: any) => row._id}
+            getRowHref={(row: any) => `/accounting/bills/${row._id}`}
             onRowClick={(row: any) => navigate(`/accounting/bills/${row._id}`)}
             columns={[
               { key: 'number', header: 'الفاتورة', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.vendorRef && <Sub>رقم المورد <Ltr>{row.vendorRef}</Ltr></Sub>}</> },
@@ -222,6 +228,7 @@ export const VendorStatement = () => {
           loading={!data}
           rows={data?.movements || []}
           rowKey={(row: any, index: number) => `${row._id}-${index}`}
+          getRowHref={(row: any) => `/accounting/entries/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row._id}`)}
           empty={{ title: 'لا توجد حركات بعد' }}
           columns={[

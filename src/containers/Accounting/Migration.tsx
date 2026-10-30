@@ -569,6 +569,7 @@ const Migration = () => {
               maxHeight={320}
               rows={report.fallbacks || []}
               rowKey={(row: any, index: number) => String(index)}
+              getRowHref={(row: any) => `/accounting/entries/${row.entryId}`}
               onRowClick={(row: any) => navigate(`/accounting/entries/${row.entryId}`)}
               empty={{ title: 'لم يُستخدم أي افتراض' }}
               columns={[

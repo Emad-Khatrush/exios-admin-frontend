@@ -132,6 +132,7 @@ const QuickExpenses = () => {
           loading={isLoading}
           rows={recent}
           rowKey={(row: any) => row._id}
+          getRowHref={(row: any) => `/accounting/bills/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/bills/${row._id}`)}
           rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
           empty={{ title: 'لا توجد مصروفات بعد', hint: 'سجّل أول مصروف من النموذج أعلاه.' }}

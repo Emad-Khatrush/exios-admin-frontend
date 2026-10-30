@@ -1,6 +1,34 @@
 // Accounting section: Arabic, right to left, calm and number-first.
 // One accent (deep teal), neutral greys, one radius scale: 14 panels / 8 controls / pill badges.
 
+.acc-history-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.acc-history-error { display: block; color: var(--danger, #b42318); margin-top: 4px; }
+.acc-history .acc-history-bulk { min-width: min(100%, 280px); width: 280px; max-width: 100%; }
+.acc-history .acc-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  align-items: start;
+  > .MuiFormControl-root { width: 100%; min-width: 0; }
+  > button { justify-self: start; }
+}
+
+.acc-ops-list { padding: 0 14px; }
+.acc-ops-item {
+  padding: 14px 0;
+  overflow-wrap: anywhere;
+  & + & { border-top: 1px solid var(--line); }
+  &__line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+  &__pick { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+}
+@media (max-width: 640px) {
+  .acc-employee-operations .acc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .acc-root {
   --ink: #1f2a37;
   --ink-2: #3d4756;
@@ -500,6 +528,11 @@
   &-sort-idle { opacity: 0.35; }
 
   .dt-row--link { cursor: pointer; }
+  .dt-cell--linked { position: relative; }
+  .dt-cell-link { position: absolute; inset: 0; z-index: 1; }
+  .dt-cell-link:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .dt-cell-content { position: relative; z-index: 2; pointer-events: none; }
+  .dt-cell-content :is(a, button, input, select, textarea, label, [role="button"]) { pointer-events: auto; }
   .dt-row--link:hover td, .dt-row--link:focus-visible td { background: #f3f8f7; }
   .dt-row--link:focus-visible { outline: none; }
 
@@ -515,7 +548,10 @@
   .dt-row--group td { background: var(--soft); font-weight: 700; }
   .dt-row--muted td { color: var(--faint); }
   .dt-row--canceled td { color: var(--faint); }
+  .dt-row--reversal td { background: #fff8ed; }
+  .dt-row--reversal:hover td { background: #fff1da; }
   .dt-row--canceled .money { text-decoration: line-through; text-decoration-color: rgba(0, 0, 0, 0.25); }
+  .dt-row--canceled .acc-ledger-balance .money { text-decoration: none; }
 
   tfoot td {
     padding: 11px 14px;

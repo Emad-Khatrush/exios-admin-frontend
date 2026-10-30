@@ -95,10 +95,12 @@ const Suspense = () => {
       {data?.closedAtMigration && <Alert severity="info" className="mb-3">معلّق الفترة التاريخية أُقفل في الرصيد الافتتاحي عند الترحيل؛ تظهر هنا البنود التي جاءت بعده فقط.</Alert>}
 
       <StatGrid>
+        <Stat label="رصيد المعلّق في الدفاتر" value={<Money value={data?.ledgerNet} />} />
         <Stat label="بنود مفتوحة" value={data?.count ?? '-'} tone={data?.count ? 'warn' : undefined} />
         <Stat label="صافي رصيد المعلّق المفتوح" value={<Money value={data?.net} />} hint="مدين ناقص دائن" />
         <Stat label="المحدد الآن" value={selected.size} hint={selected.size ? <Money value={pickedNet} /> : 'حدّد بنوداً من الجدول'} tone={selected.size ? 'accent' : undefined} />
       </StatGrid>
+      {!!data?.unlistedNet && <Alert severity="warning" className="mb-3">يوجد فرق بين رصيد الدفاتر وصافي البنود المعروضة: <Money value={data.unlistedNet} />. راجع كشف حساب المعلّق؛ خلو القائمة وحده لا يعني أن الرصيد صفر.</Alert>}
 
       <Panel flush title="الأسباب" subtitle="اضغط سبباً لعرض بنوده فقط؛ البنود ذات السبب الواحد تُسوّى غالباً إلى الحساب نفسه.">
         <DataTable
@@ -167,6 +169,7 @@ const Suspense = () => {
           loading={isLoading}
           rows={rows}
           rowKey={(row: any) => row.id}
+          getRowHref={(row: any) => `/accounting/entries/${row.entryId}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row.entryId}`)}
           maxHeight="60vh"
           empty={{ title: 'لا توجد بنود مفتوحة' }}

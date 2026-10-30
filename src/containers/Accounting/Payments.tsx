@@ -75,6 +75,7 @@ export const PaymentsList = () => {
           rowKey={(row: any) => row._id}
           rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
           // The payment's journal entry shows its details and the payment voucher
+          getRowHref={(row: any) => row.entryId ? `/accounting/entries/${row.entryId?._id || row.entryId}` : undefined}
           onRowClick={(row: any) => row.entryId && navigate(`/accounting/entries/${row.entryId?._id || row.entryId}`)}
           empty={{ title: 'لا توجد دفعات بعد', action: <Button variant="outlined" onClick={() => navigate('/accounting/payments/new')}>دفعة جديدة</Button> }}
           columns={[

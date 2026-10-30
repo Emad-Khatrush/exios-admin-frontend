@@ -119,6 +119,7 @@ const Dashboard = () => {
           loading={!data}
           rows={(data?.cash || []).filter((row: any) => showEmpty || row.foreign !== 0 || row.usd !== 0)}
           rowKey={(row: any) => row._id}
+          getRowHref={(row: any) => `/accounting/accounts/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/accounts/${row._id}`)}
           rowTone={(row: any) => (row.isActive ? undefined : 'muted')}
           empty={{ title: 'لا توجد خزائن', hint: 'أضف خزينة من شجرة الحسابات أو من إعدادات المكاتب.' }}

@@ -39,6 +39,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const office = statement?.office;
   // Money that went to an account (a partner's current account such as Wasl) shows that account, not the office
   const accountName = statement?.accountId?.name;
+  const bankLabel = (value?: string) => office === 'bank' && value?.toLowerCase() === 'bank' ? 'Libyan bank' : value;
   const walletEffect = `${isOutflow ? '+' : '−'}${formatMoney(statement?.amount, statement?.currency)}`;
 
   const deleteStatement = async () => {
@@ -68,16 +69,16 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
           <div className="cashflow-row__meta">
             <span className={`cashflow-chip cashflow-chip--office ${office || accountName ? '' : 'is-missing'}`}>
               <Building2 size={12} strokeWidth={2} />
-              {accountName || (office ? getOfficeLabel(office) : 'No office')}
+              {bankLabel(accountName) || (office ? getOfficeLabel(office) : 'No office')}
             </span>
-            {statement?.actionType && <span className="cashflow-chip">{statement.actionType}</span>}
+            {statement?.actionType && <span className="cashflow-chip">{bankLabel(statement.actionType)}</span>}
             {isCredit &&
               <Tooltip title="Added to the wallet balance, but no cash was received" arrow enterTouchDelay={0}>
                 <span className="cashflow-chip cashflow-chip--credit">No cash</span>
               </Tooltip>
             }
             {statement?.paymentType && statement?.paymentType !== statement?.actionType &&
-              <span className="cashflow-chip cashflow-chip--muted">{statement.paymentType}</span>
+              <span className="cashflow-chip cashflow-chip--muted">{bankLabel(statement.paymentType)}</span>
             }
             {statement?.note &&
               <Tooltip title={<span dir="rtl">{statement.note}</span>} arrow enterTouchDelay={0} leaveTouchDelay={4000}>

@@ -20,11 +20,12 @@ type Props<T> = {
   rows: T[];
   rowKey: (row: T, index: number) => string;
   onRowClick?: (row: T) => void;
+  getRowHref?: (row: T) => string | undefined;
   loading?: boolean;
   empty?: { title: string; hint?: string; action?: ReactNode };
   // Cells for a totals row, by column key
   footer?: Record<string, ReactNode>;
-  rowTone?: (row: T) => 'group' | 'muted' | 'canceled' | 'selected' | undefined;
+  rowTone?: (row: T) => 'group' | 'muted' | 'canceled' | 'reversal' | 'selected' | undefined;
   // Indentation (levels) of the first column, for trees
   indent?: (row: T) => number;
   caption?: ReactNode;
@@ -47,7 +48,7 @@ const dateValue = (row: any, key: string): number => {
 // The one table used across accounting: sticky header, calm separators, numbers aligned and in
 // tabular figures, readable empty and loading states, optional sorting.
 export function DataTable<T>({
-  columns, rows, rowKey, onRowClick, loading, empty, footer, rowTone, indent, caption, maxHeight, dense, selection,
+  columns, rows, rowKey, onRowClick, getRowHref, loading, empty, footer, rowTone, indent, caption, maxHeight, dense, selection,
 }: Props<T>) {
   // A date column sorts without its own sortValue, and the table opens with the newest date first
   const columnsWithDates = useMemo(() => columns.map((column) => (
@@ -127,13 +128,17 @@ export function DataTable<T>({
               const tone = rowTone?.(row);
               const key = rowKey(row, index);
               const picked = !!selection?.selected.has(key);
+              const href = getRowHref?.(row);
               return (
                 <tr
                   key={key}
                   className={[tone ? `dt-row--${tone}` : '', onRowClick ? 'dt-row--link' : '', picked ? 'dt-row--picked' : ''].filter(Boolean).join(' ')}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
-                  onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined}
+                  onClick={onRowClick ? (e) => {
+                    if ((e.target as HTMLElement).closest('a, button, input, select, textarea, [role="button"]')) return;
+                    onRowClick(row);
+                  } : undefined}
+                  tabIndex={onRowClick && !href ? 0 : undefined}
+                  onKeyDown={onRowClick && !href ? (e) => { if (e.target === e.currentTarget && e.key === 'Enter') onRowClick(row); } : undefined}
                 >
                   {selection && (
                     <td className="dt-cell dt-check" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -143,10 +148,17 @@ export function DataTable<T>({
                   {columns.map((column, columnIndex) => (
                     <td
                       key={column.key}
-                      className={cellClass(column)}
+                      className={`${cellClass(column)}${href ? ' dt-cell--linked' : ''}`}
                       style={columnIndex === 0 && indent ? { paddingInlineStart: 14 + indent(row) * 20 } : undefined}
                     >
-                      {column.render ? column.render(row, index) : (row as any)[column.key]}
+                      {href && <a className="dt-cell-link" href={href} tabIndex={columnIndex === 0 ? 0 : -1}
+                        aria-label="فتح التفاصيل" onClick={e => {
+                          e.stopPropagation();
+                          if (onRowClick && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                            e.preventDefault(); onRowClick(row);
+                          }
+                        }} />}
+                      <span className={href ? 'dt-cell-content' : undefined}>{column.render ? column.render(row, index) : (row as any)[column.key]}</span>
                     </td>
                   ))}
                 </tr>

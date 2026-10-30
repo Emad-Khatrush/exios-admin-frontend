@@ -9,7 +9,7 @@ import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableT
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import { convertGoogleStorageUrl } from '../../utils/methods';
-import { DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, formatAmount } from './wrapper-util';
+import { DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, debtPaidAmount, formatAmount } from './wrapper-util';
 import { Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, HandCoins, Lock, ShieldCheck, Trash2 } from 'lucide-react';
 
 type Props = {
@@ -96,6 +96,8 @@ const DebtHistory = (props: Props) => {
         <div className='debt-tags'>
           {debt.deliveryInvoiceId && <span className='debt-tag' dir='rtl'>متبقي فاتورة تسليم</span>}
           <span className={`debt-status is-${debt.status}`}>{DEBT_STATUS_LABELS[debt.status] || debt.status}</span>
+          {debt.accountingWriteOff && <span className="debt-tag" dir="rtl">مشطوب محاسبيًا — للمتابعة والتحصيل لاحقًا</span>}
+          {debt.orderHasWriteOff && <span className="debt-tag" dir="rtl">الطلبية بها شطب محاسبي — راجع تفاصيل المطالبات</span>}
           <span className='debt-tag'>
             <Building2 size={12} strokeWidth={2} />
             {debt?.createdOffice}
@@ -156,7 +158,8 @@ const DebtHistory = (props: Props) => {
 
       <div className='debt-amount'>
         <div className={`debt-amount-main ${isOwed ? 'is-owed' : 'is-paid'}`}>
-          <strong>{formatAmount(isOwed ? remaining : initialAmount - writtenOff)} {debt.currency}</strong>
+          <strong>{formatAmount(isOwed || debt.status === 'lost' ? remaining : debtPaidAmount(debt))} {debt.currency}</strong>
+          {debt.status === 'lost' && <span dir="rtl">مشطوب وغير محصل{debtPaidAmount(debt) > 0 ? ` — حُصّل لاحقًا ${formatAmount(debtPaidAmount(debt))} ${debt.currency}` : ''}</span>}
           {isOwed && paidShare > 0 &&
             <span>left of {formatAmount(initialAmount)} {debt.currency}</span>
           }

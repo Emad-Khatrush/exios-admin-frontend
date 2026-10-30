@@ -15,10 +15,14 @@ const ACTION_GROUPS: [string, string][] = [
 const PAGE_SIZE = 50;
 
 const ACTIONS: Record<string, string> = {
+  'historicalCash.create': 'إضافة كشف نقدي تاريخي', 'historicalCash.update': 'تعديل كشف نقدي تاريخي',
+  'historicalCash.approve': 'اعتماد كشف نقدي تاريخي', 'historicalCash.reopen': 'إعادة فتح كشف نقدي تاريخي', 'historicalCash.void': 'إلغاء كشف نقدي تاريخي',
+  'historicalCash.sourceReview': 'مراجعة وربط سجل عادي بالتقرير التاريخي',
   'account.create': 'إضافة حساب', 'account.update': 'تعديل حساب', 'account.archive': 'أرشفة حساب', 'account.unarchive': 'إلغاء أرشفة حساب', 'account.delete': 'حذف حساب',
   'exception.reviewed': 'تمت مراجعة بند', 'exception.unreviewed': 'إرجاع بند للمراجعة', 'backup.download': 'تنزيل نسخة احتياطية',
   'entry.manual': 'قيد يدوي', 'entry.cancel': 'إلغاء قيد', 'document.cancel': 'إلغاء مستند', 'document.attach': 'إرفاق ملف',
   'bill.post': 'ترحيل فاتورة', 'bill.draft': 'حفظ مسودة فاتورة', 'bill.updateDraft': 'تعديل مسودة', 'bill.deleteDraft': 'حذف مسودة',
+  'bill.link.purchaseItem': 'ربط بند مشتريات بفاتورة مورد',
   'payment.post': 'دفعة لمورد', 'transfer.post': 'تحويل خزينة', 'cashcount.post': 'جرد خزينة', 'salary.post': 'صرف راتب',
   'equity.post': 'رأس مال / قرض', 'netting.post': 'مقاصة', 'asset.dispose': 'بيع أصل',
   'rate.create': 'إدخال سعر', 'rate.update': 'تعديل سعر', 'rate.delete': 'حذف سعر',

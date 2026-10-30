@@ -75,6 +75,7 @@ export const CustomersList = () => {
         </div>
         <DataTable
           dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => String(row.partnerId)} maxHeight="65vh"
+          getRowHref={(row: any) => `/accounting/customers/${row.partnerId}`}
           onRowClick={(row: any) => navigate(`/accounting/customers/${row.partnerId}`)}
           empty={{ title: 'لا عملاء', hint: filters.search ? 'لا أحد بهذا البحث.' : 'تظهر حركات العملاء بعد اعتماد الترحيل التاريخي.' }}
           columns={[
@@ -113,6 +114,7 @@ const STATUS: Record<string, { text: string, tone: any }> = {
   paid: { text: 'مسددة', tone: 'ok' }, partial: { text: 'مسددة جزئياً', tone: 'warn' }, unpaid: { text: 'غير مسددة', tone: 'danger' },
   none: { text: 'لا قيود بعد', tone: 'muted' }, canceled: { text: 'ملغاة', tone: 'muted' },
   deleted: { text: 'محذوفة', tone: 'muted' },
+  written_off: { text: 'بها مبلغ مشطوب', tone: 'warn' },
 };
 
 const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) => {
@@ -127,6 +129,7 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
         <StatGrid>
           <Stat label="مطالبات على العملاء" value={<Money value={totals.billed} />} hint={`${totals.count} فاتورة`} />
           <Stat label="المسدد" value={<Money value={totals.paid} />} />
+          {totals.writtenOff > 0 && <Stat label="المشطوب — ليس تحصيلًا" value={<Money value={totals.writtenOff} />} tone="warn" />}
           <Stat label="المتبقي" value={<Money value={totals.open} />} tone={totals.open > 0 ? 'warn' : undefined} />
           <Stat label="إيراد معترف به" value={<Money value={totals.recognized} />} hint={<>مؤجل <Money value={totals.deferred} /></>} />
           <Stat label="الربح" value={<Money value={totals.profit} />} tone={totals.profit < 0 ? 'danger' : 'accent'} hint={<>التكلفة <Money value={totals.cost} /></>} />
@@ -158,6 +161,7 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
         </div>
         <DataTable
           dense loading={isLoading} rows={data?.results || []} rowKey={(row: any) => row._id} maxHeight="65vh"
+          getRowHref={(row: any) => `/accounting/customer-invoices/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/customer-invoices/${row._id}`)}
           rowTone={(row: any) => (row.status === 'canceled' || row.status === 'deleted' ? 'canceled' : undefined)}
           empty={{ title: 'لا فواتير بهذا البحث' }}
@@ -174,6 +178,7 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
             ...(userId ? [] : [{ key: 'customer', header: 'العميل', sortValue: (row: any) => customerName(row), render: (row: any) => customerName(row) }]),
             { key: 'billed', header: 'المطالبة', numeric: true, sortValue: (row: any) => row.billed, render: (row: any) => <Money value={row.billed} hideZero /> },
             { key: 'paid', header: 'المسدد', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.paid, render: (row: any) => <Money value={row.paid} tone="plain" hideZero /> },
+            { key: 'writtenOff', header: 'المشطوب', numeric: true, render: (row: any) => row.writtenOff > 0 ? <><Money value={row.writtenOff} /><Sub>ليس تحصيلًا</Sub></> : null },
             { key: 'open', header: 'المتبقي', numeric: true, sortValue: (row: any) => row.open, render: (row: any) => <Money value={row.open} strong={row.open > 0} hideZero /> },
             { key: 'cost', header: 'التكلفة', numeric: true, hideOnMobile: true, sortValue: (row: any) => row.cost + row.costInProgress, render: (row: any) => <><Money value={row.cost} tone="plain" hideZero />{row.costInProgress > 0 && <Sub>قيد التنفيذ <Money value={row.costInProgress} tone="plain" /></Sub>}</> },
             { key: 'profit', header: 'الربح', numeric: true, sortValue: (row: any) => row.profit, render: (row: any) => (row.recognized ? <Money value={row.profit} strong /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null) },

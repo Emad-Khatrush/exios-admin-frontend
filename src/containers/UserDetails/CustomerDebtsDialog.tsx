@@ -37,7 +37,7 @@ export default function CustomerDebtsDialog(props: Props) {
             const paidAmount = Math.max(0, Number(debt.initialAmount || debt.amount) - Number(debt.amount));
             return <li key={debt._id}>
               <div className="cw-debt-description"><span className="cw-debt-type">{debtTypes[(debt as any).debtType] || 'دين'}</span><h3 dir="auto">{debt.notes?.trim() || 'بدون بيان إضافي'}</h3><div className="cw-debt-meta">{Number.isFinite(created.getTime()) && <time dateTime={created.toISOString()}>{created.toLocaleDateString('en-GB')}</time>}{orderId && <Link to={`/invoice/${orderId}/edit`}>{order?.orderId ? <>رقم الطلبية <bdi dir="ltr">{order.orderId}</bdi></> : 'فتح الطلبية'}<ExternalLink size={12} aria-hidden="true" /></Link>}</div></div>
-              <div className="cw-debt-amount"><span>المتبقي</span><strong dir="ltr">{money(debt.amount)} <small>{debt.currency}</small></strong>{paidAmount > 0 && <small>المسدّد: <bdi dir="ltr">{money(paidAmount)} {debt.currency}</bdi></small>}</div>
+              <div className="cw-debt-amount"><span>{debt.accountingWriteOff ? 'متبقي للمتابعة بعد الشطب المحاسبي' : 'المتبقي'}</span><strong dir="ltr">{money(debt.amount)} <small>{debt.currency}</small></strong>{paidAmount > 0 && <small>المسدّد: <bdi dir="ltr">{money(paidAmount)} {debt.currency}</bdi></small>}</div>
               <button className="cw-button cw-button--primary" type="button" aria-label={`سداد ${debt.notes || 'الدين'} ${money(debt.amount)} ${debt.currency}`} onClick={() => { setSuccess(false); setSelected(debt); }}><HandCoins size={16} aria-hidden="true" />سداد</button>
             </li>;
           })}</ul>

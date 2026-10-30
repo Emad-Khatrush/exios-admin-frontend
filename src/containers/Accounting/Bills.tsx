@@ -119,6 +119,7 @@ export const BillsList = () => {
           loading={isLoading}
           rows={data.results}
           rowKey={(row: any) => row._id}
+          getRowHref={(row: any) => `/accounting/bills/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/bills/${row._id}`)}
           rowTone={(row: any) => (row.status === 'canceled' ? 'canceled' : undefined)}
           empty={{ title: 'لا توجد فواتير', hint: 'أضف فاتورة مورد أو مصروفاً سريعاً ليظهر هنا.', action: <Button variant="outlined" onClick={() => navigate('/accounting/bills/new')}>فاتورة جديدة</Button> }}
