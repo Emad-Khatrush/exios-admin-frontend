@@ -39,6 +39,7 @@ const BillForm = () => {
   const [editLock, setEditLock] = useState('');
   const [editReason, setEditReason] = useState('');
   const [financialReview, setFinancialReview] = useState<any>(null);
+  const [historicalPayment, setHistoricalPayment] = useState('preserve');
   const commitBusy = useRef(false);
 
   const expenseAccounts = useMemo(() => accounts.filter((a) => a.type === 'expense' && !a.isGroup && a.isActive), [accounts]);
@@ -127,7 +128,7 @@ const BillForm = () => {
       asset: line.target === 'asset' ? { name: line.asset.name, usefulLifeMonths: Number(line.asset.usefulLifeMonths), salvageValue: Number(line.asset.salvageValue) || 0 } : undefined,
       prepaid: line.target === 'prepaid' ? { expenseAccountId: line.prepaid.expenseAccountId, months: Number(line.prepaid.months), startMonth: line.prepaid.startMonth || undefined } : undefined,
     })),
-    ...(postedBill ? { updatedAt: postedBill.updatedAt, reason: editReason } : {}),
+    ...(postedBill ? { updatedAt: postedBill.updatedAt, reason: editReason, historicalPayment } : {}),
   });
 
   const save = async (asDraft: boolean, decision?: any) => {
@@ -209,11 +210,20 @@ const BillForm = () => {
         <DialogContent>
           {error && <Alert severity="error" className="mb-3">{error}</Alert>}
           {financialReview && <>
-            <Alert severity="info" className="mb-3">يُحفظ التعديل وسببه وتُحدّث تكلفة الرحلات والطلبات. المدفوع سابقًا يبقى كما هو، وأي دفع أو استرداد جديد يُسجَّل بشكل مستقل.</Alert>
+            <Alert severity="info" className="mb-3">{financialReview.historicalPayment === 'unpaid'
+              ? 'سيُلغى أثر السداد التاريخي المفترض وتبقى التكلفة على الفاتورة. لا تتحرك الخزينة أو البنك؛ تسجل الدفعة الحقيقية لاحقًا على نفس الفاتورة.'
+              : 'يُحفظ التعديل وسببه وتُحدّث التكلفة. مبالغ الدفعات السابقة وعملاتها وحساباتها تبقى كما هي؛ قد ينتج متبقٍ للمورد أو رصيد لنا عنده.'}</Alert>
             <dl className="mb-3">
               <dt>القيمة الحالية</dt><dd><Amount value={financialReview.oldTotal} currency={financialReview.oldCurrency} /></dd>
               <dt>القيمة بعد التعديل</dt><dd><Amount value={financialReview.newTotal} currency={financialReview.newCurrency} /></dd>
               <dt>المسدّد والتسويات السابقة</dt><dd><Money value={financialReview.settledUsd} /></dd>
+              {!!financialReview.removedSettlementUsd && <>
+                <dt>السداد التاريخي المفترض المراد تصحيحه</dt><dd><Money value={financialReview.removedSettlementUsd} /></dd>
+                <dt>المسدّد بعد التصحيح</dt><dd><Money value={financialReview.remainingSettlementUsd} /></dd>
+                <dt>الحساب المقابل لتصحيح السداد</dt><dd>{financialReview.settlementCounterpart}{financialReview.settlementFromOpening ? ' · أُقفل المعلّق سابقًا في الافتتاحي' : ''}</dd>
+                <dt>تاريخ قيد تصحيح السداد</dt><dd><Ltr>{financialReview.settlementCorrectionDay}</Ltr></dd>
+                <dt>أثر التصحيح على الخزينة والبنك</dt><dd><Money value={0} /></dd>
+              </>}
               <dt>{financialReview.newOpen < 0 ? 'رصيد لنا عند المورد بعد التعديل' : 'المتبقي للمورد بعد التعديل'}</dt><dd><Money value={Math.abs(financialReview.newOpen)} strong /></dd>
               <dt>التغير في التكلفة بالدولار</dt><dd><Money value={financialReview.costDelta} /></dd>
               <dt>تاريخ الفاتورة بعد التعديل</dt><dd><Ltr>{financialReview.day}</Ltr></dd>
@@ -357,6 +367,13 @@ const BillForm = () => {
       </Panel>
 
       <Panel>
+        {postedBill?.isHistorical && postedBill?.paymentId && !postedBill?.paidBeforeCount && <div className="mb-3">
+          <TextField select fullWidth label="معالجة السداد التاريخي" value={historicalPayment} onChange={e => setHistoricalPayment(e.target.value)}>
+            <MenuItem value="preserve">الاحتفاظ بالسداد المسجل</MenuItem>
+            <MenuItem value="unpaid">لم تُدفع فعليًا — إظهار المستحق للمورد</MenuItem>
+          </TextField>
+          <p className="acc-muted mt-2 mb-0">اختر حسب هذه الفاتورة. الاحتفاظ بالسداد لا يغيّر المبلغ المدفوع؛ يظهر فرق القيمة أو العملة في المعاينة. تحويلها إلى غير مدفوعة متاح للسداد الافتراضي من المعلّق فقط؛ أي حركة بنك أو خزينة فعلية تحتاج مراجعة مستقلة.</p>
+        </div>}
         {!form.isCreditNote && !postedBill && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
             <FormControlLabel control={<Checkbox checked={form.payNow} disabled={form.withoutVendor} onChange={(e) => setForm({ ...form, payNow: e.target.checked, paidBeforeCount: false })} />} label="دُفعت الآن من" />
