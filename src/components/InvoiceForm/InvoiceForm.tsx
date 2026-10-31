@@ -181,6 +181,7 @@ const InvoiceForm = (props: Props) => {
     const method = String(event.target.value);
     setShipmentMethod(method);
     handleChange(event);
+    if (!hasShipping) return;
     const defaults = packageDefaults(method);
     if (!defaults.shipmentMethod) return;
     paymentList.forEach((payment: any, index: number) => {
@@ -330,12 +331,11 @@ const InvoiceForm = (props: Props) => {
             label="Order status" name="orderStatus" required disabled={isCanceled} defaultValue={invoice?.orderStatus || 0} onChange={handleChange}
             options={steps.map((step: any, index: number) => [index as any, step.label])}
           />
-          {hasShipping && <>
           <SelectField
-            label="Shipping method" name="method" options={SHIPMENT_METHODS} required disabled={isCanceled} defaultValue={invoice?.shipment?.method}
+            label="Shipping method" name="method" options={SHIPMENT_METHODS} required={hasShipping} disabled={isCanceled} defaultValue={invoice?.shipment?.method}
             onChange={changeShipmentMethod}
           />
-          <div>
+          {hasShipping && <div>
             <TextField
               label="Exios price" name="exiosShipmentPrice" required type="number" inputProps={NUMBER_INPUT} onWheel={blurOnWheel} disabled={isCanceled}
               value={shipmentPrice} onChange={(event) => changeShipmentPrice(event.target.value)}
@@ -343,8 +343,7 @@ const InvoiceForm = (props: Props) => {
               helperText="What the customer pays per KG or CBM"
             />
             <SpecialPricePicker prices={specialPrices} mode={getShippingMode(undefined, shipmentMethod)} selected={shipmentPrice} onPick={changeShipmentPrice} disabled={isCanceled} />
-          </div>
-          </>}
+          </div>}
           {!props.isEmployee && (
             <TextField
               label="Net income" name="netIncome" type="number" inputProps={{ ...NUMBER_INPUT, min: undefined }} onChange={handleChange} onWheel={blurOnWheel} disabled={isCanceled}

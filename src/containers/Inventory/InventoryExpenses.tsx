@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Alert,
   Autocomplete,
+  Checkbox,
+  FormControlLabel,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -84,6 +86,7 @@ interface Props {
 }
 
 const emptyForm = () => ({
+  withoutVendor: false,
   vendor: null as any,
   vendorText: '',
   description: '',
@@ -384,11 +387,15 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const amount = parseFloat(form.amount);
-    if (!form.vendor && !typedNewVendor) {
+    if (!form.withoutVendor && !form.vendor && !typedNewVendor) {
       setFormError("Choose the supplier, or type the name of a new one.");
       return;
     }
-    if (!amount || amount <= 0) {
+    if (form.withoutVendor && !form.payFrom) {
+      setFormError("Choose the account that paid this expense. Unpaid costs need a supplier.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
       setFormError("Amount must be more than 0.");
       return;
     }
@@ -396,8 +403,9 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
     setSaving(true);
     try {
       await sys.post(`acc/trips/${inventoryId}/costs`, {
-        vendorId: form.vendor?._id,
-        vendorName: form.vendor ? undefined : form.vendorText.trim(),
+        withoutVendor: form.withoutVendor,
+        vendorId: form.withoutVendor ? undefined : form.vendor?._id,
+        vendorName: form.withoutVendor || form.vendor ? undefined : form.vendorText.trim(),
         description: form.description.trim(),
         costCategory: form.costCategory,
         amount,
@@ -409,7 +417,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       });
       key.current = newKey();
       setToast({ message: form.payFrom ? 'Cost added and paid' : 'Cost added, owed to the supplier' });
-      setForm({ ...emptyForm(), payFrom: form.payFrom, currency: form.currency, costCategory: form.costCategory });
+      setForm({ ...emptyForm(), withoutVendor: form.withoutVendor, payFrom: form.payFrom, currency: form.currency, costCategory: form.costCategory });
       if (!form.vendor) fetchOptions();
       await fetchCosts();
     } catch (err) {
@@ -486,7 +494,12 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       }
 
       <form className="inv-exp-form" onSubmit={handleSubmit} noValidate>
-        <div className="inv-field">
+        <div style={{ gridColumn: '1 / -1' }}>
+          <FormControlLabel control={<Checkbox size="small" checked={form.withoutVendor}
+            onChange={(e) => { setForm({ ...form, withoutVendor: e.target.checked, vendor: null, vendorText: '' }); setFormError(undefined); }} />}
+            label="Paid expense without a specific supplier" />
+        </div>
+        {!form.withoutVendor && <div className="inv-field">
           <FieldLabel required>Supplier</FieldLabel>
           <Autocomplete
             size="small"
@@ -500,8 +513,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
             onChange={(_, vendor: any) => setForm((f) => ({ ...f, vendor: vendor && typeof vendor !== 'string' ? vendor : null }))}
             renderInput={(params) => <TextField {...params} placeholder="Carrier, customs agent..." helperText={typedNewVendor ? 'Will be added as a new supplier' : undefined} />}
           />
-        </div>
-
+        </div>}
         <div className="inv-field">
           <FieldLabel required>Kind of cost</FieldLabel>
           <FormControl size="small" fullWidth>
@@ -527,7 +539,7 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
           <FieldLabel required>Paid from</FieldLabel>
           <FormControl size="small" fullWidth>
             <Select value={form.payFrom} displayEmpty onChange={(e) => setForm({ ...form, payFrom: String(e.target.value) })} inputProps={{ 'aria-label': 'Paid from' }}>
-              <MenuItem value="">Not paid yet (owed to the supplier)</MenuItem>
+              <MenuItem value="" disabled={form.withoutVendor}>{form.withoutVendor ? 'Choose the payment account' : 'Not paid yet (owed to the supplier)'}</MenuItem>
               {accounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
             </Select>
           </FormControl>

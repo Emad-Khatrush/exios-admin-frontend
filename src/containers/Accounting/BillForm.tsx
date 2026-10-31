@@ -24,7 +24,7 @@ const BillForm = () => {
   const { accounts, offices, currencies } = useAccountingData();
   const { vendors, reload: reloadVendors } = useVendors();
   const [form, setForm] = useState<any>({
-    vendorId: '', vendorRef: '', day: today(), currency: 'USD', rate: '', note: '',
+    vendorId: '', withoutVendor: false, vendorRef: '', day: today(), currency: 'USD', rate: '', note: '',
     isCreditNote: !!params.get('creditFor'), originalBillId: params.get('creditFor') || '', payNow: false, paidBeforeCount: false, paidImmediatelyFrom: '', employee: null,
   });
   const [lines, setLines] = useState<any[]>([blankLine(params.get('tripId') ? 'trip' : params.get('orderId') ? 'order' : 'expense')]);
@@ -107,6 +107,7 @@ const BillForm = () => {
   const rateValue = Number(form.rate) || (form.currency === 'USD' ? 1 : 0);
 
   const body = () => ({
+    withoutVendor: form.withoutVendor || undefined,
     vendorId: form.vendorId, vendorRef: form.vendorRef || undefined, day: form.day, currency: form.currency,
     rate: Number(form.rate) || undefined, note: form.note || undefined, idempotencyKey: idempotencyKey.current,
     isCreditNote: form.isCreditNote || undefined, originalBillId: form.isCreditNote ? form.originalBillId : undefined,
@@ -131,6 +132,10 @@ const BillForm = () => {
 
   const save = async (asDraft: boolean, decision?: any) => {
     if (loadingBill || editLock || (postedBill && !editReason.trim())) return;
+    if (form.withoutVendor && (!form.payNow || !form.paidImmediatelyFrom || form.paidBeforeCount)) {
+      setError('اختر حساب الدفع الفعلي للمصروف بدون مورد محدد. المصروف الآجل يحتاج موردًا.');
+      return;
+    }
     try {
       setIsSaving(true);
       setError('');
@@ -241,15 +246,19 @@ const BillForm = () => {
 
       <fieldset disabled={isSaving || loadingBill || !!editLock} className="border-0 p-0 m-0 w-100">
       <Panel title="بيانات الفاتورة">
+        {!id && !form.isCreditNote && <FormControlLabel control={<Checkbox checked={form.withoutVendor}
+          onChange={(e) => { setForm({ ...form, withoutVendor: e.target.checked, vendorId: '', payNow: e.target.checked || form.payNow, paidBeforeCount: false }); setError(''); }} />}
+          label="مصروف مباشر بدون مورد محدد" />}
+        {form.withoutVendor && <Alert severity="info" className="mb-3">للمصاريف المدفوعة فقط. اختر حساب الدفع ووجهة كل سطر؛ أما المبلغ المستحق لجهة لاحقًا فيحتاج تحديد المورد.</Alert>}
         <div className="acc-form-grid">
-          <div className="d-flex gap-1 align-items-start" style={{ gridColumn: 'span 2' }}>
+          {!form.withoutVendor && <div className="d-flex gap-1 align-items-start" style={{ gridColumn: 'span 2' }}>
             <Autocomplete size="small" style={{ flex: 1 }} options={vendors} disabled={form.isCreditNote && !id}
               value={vendors.find((v) => v._id === form.vendorId) || null}
               getOptionLabel={(v: any) => `${v.name} · ${VENDOR_TYPES[v.type] || v.type}`} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
               onChange={(_, v: any) => setForm({ ...form, vendorId: v?._id || '', currency: postedBill ? form.currency : v?.defaultCurrency || form.currency })}
               renderInput={(p) => <TextField {...p} label="المورد" />} />
             {!form.isCreditNote && <Button onClick={() => setNewVendor({ name: '', type: 'supplier', defaultCurrency: 'USD' })}>جديد</Button>}
-          </div>
+          </div>}
           <TextField label="رقم فاتورة المورد" value={form.vendorRef} onChange={(e) => setForm({ ...form, vendorRef: e.target.value })} />
           <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="العملة" value={form.currency} disabled={form.isCreditNote && !id} onChange={(e) => setForm({ ...form, currency: e.target.value, paidImmediatelyFrom: '' })}>
@@ -350,7 +359,7 @@ const BillForm = () => {
       <Panel>
         {!form.isCreditNote && !postedBill && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
-            <FormControlLabel control={<Checkbox checked={form.payNow} onChange={(e) => setForm({ ...form, payNow: e.target.checked, paidBeforeCount: false })} />} label="دُفعت الآن من" />
+            <FormControlLabel control={<Checkbox checked={form.payNow} disabled={form.withoutVendor} onChange={(e) => setForm({ ...form, payNow: e.target.checked, paidBeforeCount: false })} />} label="دُفعت الآن من" />
             {form.payNow && (
               <>
                 <TextField select value={form.paidImmediatelyFrom} onChange={(e) => setForm({ ...form, paidImmediatelyFrom: e.target.value })} style={{ minWidth: 280 }} label="حساب الدفع">
@@ -370,7 +379,7 @@ const BillForm = () => {
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>
           {!form.isCreditNote && !postedBill && <Button variant="outlined" disabled={isSaving} onClick={() => save(true)}>حفظ كمسودة</Button>}
-          <Button variant="contained" disabled={isSaving || loadingBill || !!editLock || !form.vendorId || (!!postedBill && !editReason.trim())} onClick={() => save(false)}>{isSaving ? 'جارٍ المعالجة…' : postedBill ? 'معاينة التعديل' : 'ترحيل'}</Button>
+          <Button variant="contained" disabled={isSaving || loadingBill || !!editLock || (!form.vendorId && !form.withoutVendor) || (!!postedBill && !editReason.trim())} onClick={() => save(false)}>{isSaving ? 'جارٍ المعالجة…' : postedBill ? 'معاينة التعديل' : 'ترحيل'}</Button>
         </div>
       </Panel>
 
