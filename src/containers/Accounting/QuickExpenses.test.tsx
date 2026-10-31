@@ -3,9 +3,10 @@ import '@testing-library/jest-dom';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import QuickExpenses from './QuickExpenses';
 import BillForm from './BillForm';
+import AccountingSettings from './AccountingSettings';
 import { acc } from './accountingApi';
 
-jest.mock('./accountingApi', () => ({ acc: { get: jest.fn(), post: jest.fn() }, OFFICE_LABELS: {}, newKey: () => 'expense-request', errorText: () => 'راجع المصروف الموجود' }));
+jest.mock('./accountingApi', () => ({ acc: { get: jest.fn(), post: jest.fn(), patch: jest.fn() }, OFFICE_LABELS: {}, newKey: () => 'expense-request', errorText: () => 'راجع المصروف الموجود' }));
 jest.mock('./BillExcelImport', () => () => null);
 jest.mock('./ListFilters', () => ({ ListFilters: () => null, queryOf: () => ({}), recentFrom: () => '2026-09-01' }));
 jest.mock('../../utils/useCountDay', () => ({ useCountDay: () => null, isBeforeCount: () => false }));
@@ -17,9 +18,10 @@ jest.mock('./useAccountingData', () => ({ accountLabel: (a: any) => a.name, useA
     { _id: 'expense', name: 'Hospitality', code: '531300', type: 'expense', isActive: true }],
   offices: [{ code: 'tripoli', name: 'Tripoli', isActive: true }],
   currencies: [{ code: 'USD', name: 'Dollar', isActive: true }, { code: 'LYD', name: 'Dinar', isActive: true }],
+  reload: jest.fn().mockResolvedValue(undefined),
 }) }));
 jest.mock('./ui', () => ({ Panel: ({ title, children }: any) => <section><div>{title}</div>{children}</section>,
-  PageHeader: () => null, DataTable: () => null, Amount: () => null, Ltr: ({ children }: any) => <span>{children}</span>, Money: () => null, StatusBadge: () => null, Sub: () => null }));
+  PageHeader: () => null, DataTable: ({ rows, columns }: any) => <>{(rows || []).map((row: any, index: number) => <div key={index}>{columns?.find((column: any) => column.key === 'apply')?.render(row)}</div>)}</>, Amount: () => null, Ltr: ({ children }: any) => <span>{children}</span>, Money: () => null, StatusBadge: () => null, Sub: () => null }));
 
 const review = { fingerprint: 'review-version', canConfirmIndependent: true,
   results: [{ key: 'bill:one', number: 'BILL/2026/1', amount: 100, currency: 'USD', day: '2026-09-20', reason: 'نفس الحساب والمبلغ', url: '/accounting/bills/one' }] };
@@ -121,4 +123,51 @@ test('historical bill edits preview currency and unpaid choice before a separate
   expect(screen.getByText('الحساب المقابل لتصحيح السداد')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'اعتماد التعديل' }));
   await waitFor(() => expect(acc.post).toHaveBeenCalledWith('bills/historical-bill/edit-posted', expect.objectContaining({ historicalPayment: 'unpaid', currency: 'LYD', fingerprint: 'review-historical' })));
+});
+
+test('opening valuation settings offer a weighted window and read-only preview before saving', async () => {
+  (acc.get as jest.Mock).mockImplementation((path: string) => Promise.resolve({ data: path === 'settings'
+    ? { settings: { openingCashRateMethod: 'legacy', migrationDate: '2026-10-31' } }
+    : path === 'settings/opening-cash-valuation-preview' ? { day: '2026-10-30', readOnly: true, results: [] } : { results: [] } }));
+  (acc.patch as jest.Mock).mockResolvedValue({ data: { success: true } });
+  render(<MemoryRouter><AccountingSettings /></MemoryRouter>);
+  await screen.findByLabelText('مدة متوسط تقييم افتتاح الخزائن التاريخي');
+  fireEvent.mouseDown(screen.getByLabelText('مدة متوسط تقييم افتتاح الخزائن التاريخي'));
+  expect(await screen.findByRole('option', { name: 'آخر شهرين' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'آخر سنة' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'كامل الفترة' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('option', { name: 'آخر شهر' }));
+  fireEvent.click(screen.getByRole('button', { name: 'معاينة تقييم الافتتاحي' }));
+  await screen.findByRole('dialog');
+  expect(acc.get).toHaveBeenCalledWith('settings/opening-cash-valuation-preview', { method: 'receipts_1m' });
+  expect(acc.patch).not.toHaveBeenCalled();
+  expect(acc.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'إغلاق' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+  await waitFor(() => expect(acc.patch).toHaveBeenCalledWith('settings', expect.objectContaining({ openingCashRateMethod: 'receipts_1m' })));
+});
+
+test('current cash valuation requires a reviewed account and reason before applying once', async () => {
+  const row = { accountId: 'cash', code: '110102', name: 'Tripoli LYD', amount: 10000, currency: 'LYD', currentRate: 9,
+    currentUsd: 111111, proposedUsd: 100000, differenceUsd: -11111, fingerprint: 'review-current', canApply: true,
+    valuation: { rate: 10, sampleCount: 3, source: 'receipts' }, counterpart: { code: '710400', name: 'Valuation loss' } };
+  (acc.get as jest.Mock).mockImplementation((path: string) => Promise.resolve({ data: path === 'settings'
+    ? { settings: { openingCashRateMethod: 'receipts_1m' } }
+    : path === 'settings/current-cash-valuation-preview' ? { scope: 'current', method: 'receipts_1m', day: '2026-10-31', results: [row] } : { results: [] } }));
+  (acc.post as jest.Mock).mockReset().mockResolvedValue({ data: { number: 'JV/current', entryId: 'new-entry' } });
+  render(<MemoryRouter><AccountingSettings /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'معالجة الخزائن الحالية' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'تطبيق المتوسط' }));
+  const apply = await screen.findByRole('button', { name: 'اعتماد وتطبيق المتوسط' });
+  expect(apply).toBeDisabled();
+  expect(acc.post).not.toHaveBeenCalled();
+  expect(screen.getByText('الرصيد بالعملة — يبقى كما هو')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/سبب معالجة تقييم الخزينة/), { target: { value: 'Review the current cash basis' } });
+  fireEvent.click(apply);
+  fireEvent.click(apply);
+  await waitFor(() => expect(acc.post).toHaveBeenCalledTimes(1));
+  expect(acc.post).toHaveBeenCalledWith('settings/current-cash-valuation-apply', {
+    accountId: 'cash', method: 'receipts_1m', fingerprint: 'review-current', reason: 'Review the current cash basis', idempotencyKey: 'expense-request',
+  });
 });

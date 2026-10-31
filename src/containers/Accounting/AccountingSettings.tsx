@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -6,9 +6,9 @@ import {
 } from '@mui/material';
 import { Archive, ArchiveRestore, RotateCw, Trash2 } from 'lucide-react';
 import moment from 'moment';
-import { acc, errorText, OFFICE_LABELS } from './accountingApi';
+import { acc, errorText, newKey, OFFICE_LABELS } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { AccountRef, Badge, DataTable, Ltr, PageHeader, Panel, Stat, StatGrid, StatusBadge } from './ui';
+import { AccountRef, Badge, DataTable, Ltr, Money, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 
 type Message = { type: 'error' | 'success'; text: string } | null;
 
@@ -34,6 +34,36 @@ const AccountingSettings = () => {
   const [officeDialog, setOfficeDialog] = useState<any>(null);
   const [currencyDialog, setCurrencyDialog] = useState<any>(null);
   const [journalDialog, setJournalDialog] = useState<any>(null);
+  const [valuationPreview, setValuationPreview] = useState<any>(null);
+  const [loadingValuation, setLoadingValuation] = useState(false);
+  const [valuationTarget, setValuationTarget] = useState<any>(null);
+  const [valuationReason, setValuationReason] = useState('');
+  const [valuationError, setValuationError] = useState('');
+  const [applyingValuation, setApplyingValuation] = useState(false);
+  const valuationBusy = useRef(false);
+  const valuationKey = useRef(newKey());
+
+  const previewValuation = async (scope: 'opening' | 'current' = 'opening') => {
+    setLoadingValuation(true);
+    try {
+      const res = await acc.get(scope === 'current' ? 'settings/current-cash-valuation-preview' : 'settings/opening-cash-valuation-preview', { method: general.openingCashRateMethod || 'legacy' });
+      setValuationPreview(res.data);
+    } catch (err) { setMessage({ type: 'error', text: errorText(err) }); }
+    finally { setLoadingValuation(false); }
+  };
+
+  const applyValuation = async () => {
+    if (valuationBusy.current || !valuationTarget || !valuationReason.trim()) return;
+    valuationBusy.current = true; setApplyingValuation(true); setValuationError('');
+    try {
+      const res = await acc.post('settings/current-cash-valuation-apply', { accountId: valuationTarget.accountId,
+        method: valuationPreview.method, fingerprint: valuationTarget.fingerprint, reason: valuationReason, idempotencyKey: valuationKey.current });
+      setValuationTarget(null);
+      setMessage({ type: 'success', text: `تم تطبيق متوسط الخزينة بقيد ${res.data.number}. مبلغ العملة بقي كما هو.` });
+      await previewValuation('current');
+    } catch (err) { setValuationError(errorText(err)); }
+    finally { valuationBusy.current = false; setApplyingValuation(false); }
+  };
 
   const load = async () => {
     try {
@@ -100,10 +130,25 @@ const AccountingSettings = () => {
               onChange={(e) => setGeneral({ ...general, abandonAfterDays: Number(e.target.value) })} inputProps={{ min: 30, step: 1 }} />
             <FormControlLabel className="mt-2" label="عملية بلا سعر في يومها أو قبله: يُستخدم أقرب سعر بعدها (ويُذكر ذلك على القيد)"
               control={<Checkbox checked={general.rateFallbackNext !== false} onChange={(e) => setGeneral({ ...general, rateFallbackNext: e.target.checked })} />} />
+            <TextField select fullWidth className="mt-3" label="مدة متوسط تقييم افتتاح الخزائن التاريخي" value={general.openingCashRateMethod || 'legacy'}
+              onChange={e => setGeneral({ ...general, openingCashRateMethod: e.target.value })}
+              helperText="متوسط موزون للوارد الفعّال لكل خزينة حتى تاريخ الجرد. لا يشمل الصرف أو الحركات الملغاة أو قيود الجرد والتسويات اليدوية.">
+              <MenuItem value="legacy">الطريقة الحالية — الحفاظ على تقييم الرصيد</MenuItem>
+              <MenuItem value="receipts_1m">آخر شهر</MenuItem>
+              <MenuItem value="receipts_2m">آخر شهرين</MenuItem>
+              <MenuItem value="receipts_12m">آخر سنة</MenuItem>
+              <MenuItem value="receipts_all">كامل الفترة</MenuItem>
+            </TextField>
+            <p className="acc-muted small mt-2">إذا لم يوجد وارد صالح في المدة يُستخدم سعر تاريخ الجرد، ويظهر ذلك في التقرير. هذا تقدير لافتتاح الترحيل، وليس إعادة تقييم دورية بسعر الإقفال.</p>
+            <Alert severity="info" className="mt-2">حفظ الاختيار لا يغيّر الأرصدة. يمكنك معاينة الافتتاحي، أو معالجة الخزائن الحالية بقيد مستقل بعد مراجعة المتوسط والفرق. المعالجة الحالية لا تعيد كتابة الدفعات أو فروقات الصرف السابقة.</Alert>
+            <div className="d-flex gap-2 flex-wrap mt-2">
+              <Button variant="outlined" disabled={loadingValuation} onClick={() => previewValuation()}>{loadingValuation ? 'جارٍ احتساب المتوسط…' : 'معاينة تقييم الافتتاحي'}</Button>
+              <Button variant="outlined" disabled={loadingValuation || !general.openingCashRateMethod || general.openingCashRateMethod === 'legacy'} onClick={() => previewValuation('current')}>معالجة الخزائن الحالية</Button>
+            </div>
             {general.cutoffAt && <p className="acc-muted small mt-3">لحظة الانتقال من التاريخي إلى الحي: <bdi dir="ltr">{new Date(general.cutoffAt).toLocaleString('en-GB', { timeZone: 'Africa/Tripoli' })}</bdi></p>}
             <div className="d-flex gap-2 mt-3">
               <Button variant="contained" onClick={() => run(() => acc.patch('settings', {
-                lockDate: general.lockDate || null, fiscalYearStartMonth: general.fiscalYearStartMonth, writeOffAfterDays: general.writeOffAfterDays ?? 180, volumetricFactor: general.volumetricFactor ?? 167, abandonAfterDays: general.abandonAfterDays ?? 365, rateFallbackNext: general.rateFallbackNext !== false,
+                lockDate: general.lockDate || null, fiscalYearStartMonth: general.fiscalYearStartMonth, writeOffAfterDays: general.writeOffAfterDays ?? 180, volumetricFactor: general.volumetricFactor ?? 167, abandonAfterDays: general.abandonAfterDays ?? 365, rateFallbackNext: general.rateFallbackNext !== false, openingCashRateMethod: general.openingCashRateMethod || 'legacy',
               }), 'تم حفظ الإعدادات.')}>حفظ</Button>
               <Button variant="outlined" onClick={() => run(() => acc.post('setup/run'), 'تم فحص الإعداد وإضافة الناقص.')}>إعادة تشغيل الإعداد</Button>
             </div>
@@ -112,6 +157,45 @@ const AccountingSettings = () => {
         )}
 
         {data && tab === 'live' && <LivePosting />}
+        <Dialog open={!!valuationPreview} onClose={() => setValuationPreview(null)} fullWidth maxWidth="lg" dir="rtl">
+          <DialogTitle>{valuationPreview?.scope === 'current' ? 'تطبيق متوسط الوارد على الخزائن الحالية' : 'معاينة تقييم افتتاح الخزائن'}</DialogTitle>
+          <DialogContent>
+            <Alert severity="info" className="mb-3">{valuationPreview?.scope === 'current' ? 'اختر الخزينة وراجع الفرق قبل الاعتماد. القيد يغيّر قيمتها بالدولار فقط، وتبقى كميتها بالعملة والدفعات السابقة كما هي.' : <>معاينة فقط بتاريخ <Ltr>{valuationPreview?.day}</Ltr>. لا تغيّر الأرصدة أو القيود أو الدفعات السابقة.</>}</Alert>
+            <DataTable rows={valuationPreview?.results || []} rowKey={(row: any) => row.accountId}
+              empty={{ title: 'لا توجد أرصدة بعملات أجنبية لمراجعتها' }} columns={[
+                { key: 'account', header: 'الخزينة', render: (row: any) => <AccountRef code={row.code} name={row.name} /> },
+                { key: 'amount', header: 'الرصيد بالعملة', numeric: true, render: (row: any) => <Ltr>{row.amount?.toLocaleString('en-US') || '—'} {row.currency}</Ltr> },
+                { key: 'rate', header: 'المتوسط والعينة', render: (row: any) => row.blockedReason ? <Sub>{row.blockedReason}</Sub> : <><Ltr>{row.valuation.rate?.toFixed(6) || '—'}</Ltr><Sub>{row.valuation.source === 'legacy' ? 'التقييم الحالي' : `${row.valuation.sampleCount} حركة وارد`}</Sub><Sub>{row.valuation.from || 'بداية السجلات'} ← {row.valuation.to || valuationPreview.day}</Sub>{row.valuation.source === 'count_day_fallback' && <Sub>لا وارد صالح؛ سعر تاريخ الجرد</Sub>}</> },
+                { key: 'current', header: 'القيمة المسجلة USD', numeric: true, render: (row: any) => <Money value={row.currentUsd} /> },
+                { key: 'proposed', header: 'القيمة المقترحة USD', numeric: true, render: (row: any) => <Money value={row.proposedUsd} /> },
+                { key: 'difference', header: 'فرق التقييم USD', numeric: true, render: (row: any) => <Money value={row.differenceUsd} /> },
+                ...(valuationPreview?.scope === 'current' ? [{ key: 'apply', header: 'المعالجة', render: (row: any) => <Button disabled={!row.canApply || loadingValuation} onClick={() => {
+                  valuationKey.current = newKey(); setValuationTarget(row); setValuationReason(''); setValuationError('');
+                }}>تطبيق المتوسط</Button> }] : []),
+              ]} />
+          </DialogContent>
+          <DialogActions><Button onClick={() => setValuationPreview(null)}>إغلاق</Button></DialogActions>
+        </Dialog>
+        <Dialog open={!!valuationTarget} onClose={() => !valuationBusy.current && setValuationTarget(null)} fullWidth maxWidth="sm" dir="rtl">
+          <DialogTitle>اعتماد متوسط الخزينة الحالية</DialogTitle>
+          <DialogContent>
+            {valuationError && <Alert severity="error" className="mb-3">{valuationError}</Alert>}
+            {valuationTarget && <>
+              <p>{valuationTarget.name} · <Ltr>{valuationTarget.code}</Ltr></p>
+              <dl>
+                <dt>الرصيد بالعملة — يبقى كما هو</dt><dd><Ltr>{valuationTarget.amount.toLocaleString('en-US')} {valuationTarget.currency}</Ltr></dd>
+                <dt>المتوسط الحالي ← المتوسط المقترح</dt><dd><Ltr>{valuationTarget.currentRate?.toFixed(6)} ← {valuationTarget.valuation.rate.toFixed(6)}</Ltr></dd>
+                <dt>القيمة الحالية ← القيمة بعد المعالجة</dt><dd><Money value={valuationTarget.currentUsd} /> ← <Money value={valuationTarget.proposedUsd} /></dd>
+                <dt>فرق التقييم</dt><dd><Money value={valuationTarget.differenceUsd} /></dd>
+                <dt>الحساب المقابل</dt><dd>{valuationTarget.counterpart.name} · <Ltr>{valuationTarget.counterpart.code}</Ltr></dd>
+              </dl>
+              <Alert severity="info" className="mb-3">يسجل فرق التقييم بتاريخ اليوم في الحساب المعروض. العمليات القادمة تستخدم القيمة الجديدة؛ القيود السابقة لا تتغير.</Alert>
+              <TextField fullWidth required multiline minRows={2} label="سبب معالجة تقييم الخزينة" value={valuationReason} disabled={applyingValuation} inputProps={{ maxLength: 1000 }} onChange={e => setValuationReason(e.target.value)} />
+            </>}
+          </DialogContent>
+          <DialogActions><Button disabled={applyingValuation} onClick={() => setValuationTarget(null)}>رجوع</Button>
+            <Button variant="contained" disabled={applyingValuation || !valuationReason.trim()} onClick={applyValuation}>{applyingValuation ? 'جارٍ الاعتماد…' : 'اعتماد وتطبيق المتوسط'}</Button></DialogActions>
+        </Dialog>
 
         {data && tab === 'roles' && (
           <>

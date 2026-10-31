@@ -172,7 +172,7 @@ const Migration = () => {
   const committed = !!overview?.migrationDate;
   const active = run && ACTIVE.includes(run.status);
   const report = run?.report;
-  const incompleteOpenings = report?.openingCash?.filter((row: any) => !row.uncounted && row.opening && !row.entryId) || [];
+  const incompleteOpenings = report?.openingCash?.filter((row: any) => !row.uncounted && (row.opening || row.valuationUsdDelta) && !row.entryId) || [];
   const commitBlocked = !report?.balanced || !!run?.problems?.length || incompleteOpenings.length > 0;
   const warnings = overview?.warnings || {};
   const progress = run?.progress;
@@ -404,7 +404,8 @@ const Migration = () => {
                   { key: 'booked', header: 'حسب حركات المنظومة', numeric: true, render: (row: any) => <Money value={row.booked} currency={row.currency} tone="plain" /> },
                   { key: 'opening', header: 'فرق الجرد المطلوب', numeric: true, render: (row: any) => (row.opening ? <Money value={row.opening} currency={row.currency} /> : <span className="acc-muted">مطابق</span>) },
                   { key: 'counted', header: 'الجرد الذي أدخلته', numeric: true, render: (row: any) => <Money value={row.counted} currency={row.currency} strong /> },
-                  { key: 'result', header: 'نتيجة قيد الجرد', render: (row: any) => row.opening && !row.entryId ? <span className="text-danger">فشل — لم يُرحّل الفرق</span> : row.entryId ? 'تم إنشاء القيد' : 'مطابق دون قيد' },
+                  { key: 'valuation', header: 'تقييم الافتتاحي', render: (row: any) => row.valuation ? <>{row.valuation.source === 'zero_balance' ? 'تصفير الرصيد بالعملتين' : <><Ltr>{row.valuation.rate.toFixed(6)}</Ltr><Sub>{row.valuation.sampleCount} حركة وارد · {row.valuation.source === 'count_day_fallback' ? 'لا وارد في المدة؛ سعر تاريخ الجرد' : 'متوسط موزون'}</Sub></>}<Money value={row.countedUsd} /></> : <span className="acc-muted">الطريقة الحالية</span> },
+                  { key: 'result', header: 'نتيجة قيد الجرد', render: (row: any) => (row.opening || row.valuationUsdDelta) && !row.entryId ? <span className="text-danger">فشل — لم يُرحّل الفرق</span> : row.entryId ? 'تم إنشاء القيد' : 'مطابق دون قيد' },
                   { key: 'sheet', header: 'ورقة الجرد', align: 'end', render: (row: any) => (row.entryId ? <AttachSheet entryId={row.entryId} /> : null) },
                 ]}
               />
