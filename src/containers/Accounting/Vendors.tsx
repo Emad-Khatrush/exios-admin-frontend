@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, TextField, Tooltip } from '@mui/material';
+import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Tab, Tabs, TextField, Tooltip } from '@mui/material';
 import { Archive, ArchiveRestore, HandCoins, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
@@ -183,10 +183,20 @@ export const VendorStatement = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
+  const [showCanceled, setShowCanceled] = useState(false);
+  const [view, setView] = useState('original');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    acc.get(`vendors/${id}/statement`).then((res: any) => setData(res.data)).catch((err: any) => setError(errorText(err)));
-  }, [id]);
+    let active = true;
+    setData((previous: any) => previous?.vendor?._id === id ? previous : null);
+    setLoading(true); setError('');
+    acc.get(`vendors/${id}/statement`, showCanceled ? { showCanceled: 'true' } : undefined)
+      .then((res: any) => { if (active) setData(res.data); })
+      .catch((err: any) => { if (active) setError(errorText(err)); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id, showCanceled]);
 
   if (error) return <Alert severity="error">{error}</Alert>;
 
@@ -207,6 +217,17 @@ export const VendorStatement = () => {
           <Stat label="دفعة مقدمة لدى المورد" value={<Money value={data.advance} />} />
         </StatGrid>
       )}
+      <Panel>
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <Tabs value={view} onChange={(_, value) => setView(value)} variant="scrollable">
+            <Tab value="original" label="بعملات المستندات" />
+            <Tab value="ledger" label="الدفتر بالدولار" />
+          </Tabs>
+          <FormControlLabel control={<Checkbox size="small" checked={showCanceled} onChange={event => setShowCanceled(event.target.checked)} />} label="إظهار الملغى" />
+        </div>
+      </Panel>
+      {view === 'original' && <VendorCurrencyReport key={id} report={data?.currencyReport} loading={loading} />}
+      {view === 'ledger' && <>
       {data?.openBills.length > 0 && (
         <Panel flush title="الفواتير المفتوحة">
           <DataTable
@@ -225,21 +246,66 @@ export const VendorStatement = () => {
       )}
       <Panel flush title="الحركات">
         <DataTable
-          loading={!data}
+          loading={loading}
           rows={data?.movements || []}
+          rowTone={(row: any) => row.status === 'reversed' || row.reversalOf ? 'canceled' : undefined}
           rowKey={(row: any, index: number) => `${row._id}-${index}`}
           getRowHref={(row: any) => `/accounting/entries/${row._id}`}
           onRowClick={(row: any) => navigate(`/accounting/entries/${row._id}`)}
           empty={{ title: 'لا توجد حركات بعد' }}
           columns={[
             { key: 'day', header: 'التاريخ', width: 110, render: (row: any) => <Ltr>{row.day}</Ltr> },
-            { key: 'description', header: 'البيان', render: (row: any) => <><div>{row.line.label || row.description}</div><Sub><Ltr>{row.number}</Ltr> · {EVENT_LABELS[row.eventType] || row.eventType}</Sub></> },
-            { key: 'billed', header: 'مطالبات', numeric: true, render: (row: any) => <Money value={row.line.credit} hideZero /> },
-            { key: 'paid', header: 'مدفوعات', numeric: true, render: (row: any) => <Money value={row.line.debit} hideZero /> },
+            { key: 'description', header: 'البيان', render: (row: any) => <><div>{row.line.label || row.description}</div><Sub><Ltr>{row.number}</Ltr> · {EVENT_LABELS[row.eventType] || row.eventType}</Sub>{row.reversalOf ? <Badge tone="muted">قيد عكسي</Badge> : row.status === 'reversed' ? <Badge tone="muted">ملغى</Badge> : row.eventType === 'BILL_VENDOR_CORRECTION' ? <Badge tone="info">تصحيح مورد</Badge> : null}</> },
+            { key: 'billed', header: 'مطالبات / تسويات', numeric: true, render: (row: any) => <Money value={row.line.credit} hideZero /> },
+            { key: 'paid', header: 'مدفوعات / تسويات', numeric: true, render: (row: any) => <Money value={row.line.debit} hideZero /> },
             { key: 'owed', header: 'الرصيد المستحق', numeric: true, render: (row: any) => <Money value={row.owed} strong /> },
           ]}
         />
       </Panel>
+      </>}
     </>
   );
+};
+
+export const VendorCurrencyReport = ({ report, loading }: { report: any; loading: boolean }) => {
+  const [currency, setCurrency] = useState('');
+  const filter = (rows: any[]) => (rows || []).filter(row => !currency || row.currency === currency);
+  const canceled = (row: any) => row.status === 'canceled' ? 'canceled' as const : undefined;
+  return <>
+    <Panel title="تقرير المورد بعملات المستندات">
+      <TextField select size="small" fullWidth label="عملة التقرير" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} value={currency} onChange={event => setCurrency(event.target.value)} sx={{ maxWidth: 280 }}>
+        <MenuItem value="">كل عملة بشكل مستقل</MenuItem>
+        {(report?.currencies || []).map((code: string) => <MenuItem key={code} value={code}>{code}</MenuItem>)}
+      </TextField>
+      <p className="acc-muted mt-2 mb-0">الفاتورة والدفعة تظهران بعملتيهما الأصليتين؛ لا تُطرح العملات المختلفة من بعضها. المتبقي المعادل بعملة الفاتورة محسوب بقيمتها الدفترية المسجلة، وليس بسعر اليوم. الملغى لا يدخل في الإجماليات.</p>
+    </Panel>
+    <Panel title="الإجماليات حسب العملة" flush>
+      <DataTable loading={loading} rows={filter(report?.totals)} rowKey={(row: any) => row.currency} empty={{ title: 'لا توجد مستندات فعّالة بهذه العملة' }} columns={[
+        { key: 'currency', header: 'العملة', render: (row: any) => <Ltr>{row.currency}</Ltr> },
+        { key: 'billed', header: 'الفواتير', numeric: true, render: (row: any) => <Amount value={row.billed} currency={row.currency} /> },
+        { key: 'open', header: 'المتبقي المعادل بعملة الفاتورة', numeric: true, render: (row: any) => <Amount value={row.openEquivalent} currency={row.currency} /> },
+        { key: 'payments', header: 'الدفعات المسجلة', numeric: true, render: (row: any) => <Amount value={row.payments} currency={row.currency} /> },
+        { key: 'credits', header: 'إشعارات دائنة', numeric: true, render: (row: any) => <Amount value={row.creditNotes} currency={row.currency} /> },
+        { key: 'receipts', header: 'المسترد من المورد', numeric: true, render: (row: any) => <Amount value={row.receipts} currency={row.currency} /> },
+      ]} />
+    </Panel>
+    <Panel title="الفواتير بعملتها" flush>
+      <DataTable loading={loading} rows={filter(report?.invoices)} rowKey={(row: any) => row._id} rowTone={canceled} getRowHref={(row: any) => row.url} empty={{ title: 'لا توجد فواتير بهذه العملة' }} columns={[
+        { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
+        { key: 'number', header: 'الفاتورة', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.isCreditNote && <Sub>إشعار دائن</Sub>}{row.paidBeforeCount && <Sub>مسددة قبل الجرد</Sub>}{row.status === 'canceled' && <Badge tone="muted">ملغاة</Badge>}</> },
+        { key: 'amount', header: 'المبلغ الأصلي', numeric: true, render: (row: any) => <Amount value={row.total} currency={row.currency} /> },
+        { key: 'open', header: 'المتبقي المعادل بعملتها', numeric: true, render: (row: any) => row.openEquivalent == null ? '—' : <Amount value={row.openEquivalent} currency={row.currency} /> },
+        { key: 'usd', header: 'المتبقي الدفتري USD', numeric: true, hideOnMobile: true, render: (row: any) => row.openUsd == null ? '—' : <Money value={row.openUsd} /> },
+      ]} />
+    </Panel>
+    <Panel title="الدفعات والاستردادات بعملتها" flush>
+      <DataTable loading={loading} rows={filter(report?.settlements)} rowKey={(row: any) => row._id} rowTone={canceled} getRowHref={(row: any) => row.url || undefined} empty={{ title: 'لا توجد دفعات أو استردادات بهذه العملة' }} columns={[
+        { key: 'day', header: 'التاريخ', render: (row: any) => <Ltr>{row.day}</Ltr> },
+        { key: 'number', header: 'المستند', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.status === 'canceled' && <Badge tone="muted">ملغى</Badge>}{row.isHistorical && <Sub>سداد تاريخي</Sub>}</> },
+        { key: 'kind', header: 'النوع', render: (row: any) => row.kind === 'receipt' ? 'استرداد من المورد' : row.kind === 'advance_allocation' ? 'استخدام دفعة مقدمة — ليس دفعًا جديدًا' : 'دفعة للمورد' },
+        { key: 'amount', header: 'المبلغ الأصلي', numeric: true, render: (row: any) => Number.isFinite(row.amount) ? <Amount value={row.amount} currency={row.currency} /> : '—' },
+        { key: 'note', header: 'الملاحظة', render: (row: any) => row.note || '—' },
+      ]} />
+    </Panel>
+  </>;
 };

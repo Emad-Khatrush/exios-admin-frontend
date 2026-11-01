@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import QuickExpenses from './QuickExpenses';
 import BillForm from './BillForm';
 import AccountingSettings from './AccountingSettings';
+import { VendorStatement } from './Vendors';
 import { acc } from './accountingApi';
 
 jest.mock('./accountingApi', () => ({ acc: { get: jest.fn(), post: jest.fn(), patch: jest.fn() }, OFFICE_LABELS: {}, newKey: () => 'expense-request', errorText: () => 'راجع المصروف الموجود' }));
@@ -21,7 +22,8 @@ jest.mock('./useAccountingData', () => ({ accountLabel: (a: any) => a.name, useA
   reload: jest.fn().mockResolvedValue(undefined),
 }) }));
 jest.mock('./ui', () => ({ Panel: ({ title, children }: any) => <section><div>{title}</div>{children}</section>,
-  PageHeader: () => null, DataTable: ({ rows, columns }: any) => <>{(rows || []).map((row: any, index: number) => <div key={index}>{columns?.find((column: any) => column.key === 'apply')?.render(row)}</div>)}</>, Amount: () => null, Ltr: ({ children }: any) => <span>{children}</span>, Money: () => null, StatusBadge: () => null, Sub: () => null }));
+  StatGrid: ({ children }: any) => <div>{children}</div>, Stat: ({ label }: any) => <span>{label}</span>,
+  PageHeader: () => null, DataTable: ({ rows, columns }: any) => <>{(rows || []).map((row: any, index: number) => <div key={index} data-testid={`row-${row._id || row.currency || index}`}>{columns?.find((column: any) => column.key === 'number')?.render(row)}{columns?.find((column: any) => column.key === 'apply')?.render(row)}</div>)}</>, Amount: () => null, Ltr: ({ children }: any) => <span>{children}</span>, Money: () => null, Badge: ({ children }: any) => <span>{children}</span>, StatusBadge: () => null, Sub: () => null }));
 
 const review = { fingerprint: 'review-version', canConfirmIndependent: true,
   results: [{ key: 'bill:one', number: 'BILL/2026/1', amount: 100, currency: 'USD', day: '2026-09-20', reason: 'نفس الحساب والمبلغ', url: '/accounting/bills/one' }] };
@@ -170,4 +172,28 @@ test('current cash valuation requires a reviewed account and reason before apply
   expect(acc.post).toHaveBeenCalledWith('settings/current-cash-valuation-apply', {
     accountId: 'cash', method: 'receipts_1m', fingerprint: 'review-current', reason: 'Review the current cash basis', idempotencyKey: 'expense-request',
   });
+});
+
+test('supplier native report filters document currencies and includes canceled documents only on request', async () => {
+  const invoice = { _id: 'invoice-cny', number: 'BILL/CNY', currency: 'CNY', status: 'posted', day: '2026-10-01', total: 700, openEquivalent: 420, openUsd: 6000 };
+  const canceled = { ...invoice, _id: 'invoice-canceled', number: 'BILL/CANCELED', status: 'canceled', openEquivalent: null };
+  const settlement = { _id: 'payment-usd', number: 'PAY/USD', day: '2026-10-02', currency: 'USD', amount: 40, kind: 'payment', status: 'posted' };
+  (acc.get as jest.Mock).mockImplementation((path: string, params?: any) => Promise.resolve({ data: {
+    vendor: { _id: 'supplier', name: 'Supplier', type: 'supplier' }, openBills: [], owed: 6000, advance: 0, movements: [],
+    currencyReport: { totals: [], currencies: ['CNY', 'USD'], invoices: params?.showCanceled ? [invoice, canceled] : [invoice], settlements: [settlement] },
+  } }));
+  render(<MemoryRouter initialEntries={['/vendor/supplier']}><Routes><Route path="/vendor/:id" element={<VendorStatement />} /></Routes></MemoryRouter>);
+  expect(await screen.findByTestId('row-invoice-cny')).toBeInTheDocument();
+  expect(screen.getByTestId('row-payment-usd')).toBeInTheDocument();
+  expect(screen.queryByTestId('row-invoice-canceled')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('إظهار الملغى')).not.toBeChecked();
+  fireEvent.click(screen.getByLabelText('إظهار الملغى'));
+  expect(await screen.findByTestId('row-invoice-canceled')).toBeInTheDocument();
+  expect(screen.getByText('ملغاة')).toBeInTheDocument();
+  expect(acc.get).toHaveBeenLastCalledWith('vendors/supplier/statement', { showCanceled: 'true' });
+  fireEvent.mouseDown(screen.getByLabelText('عملة التقرير'));
+  fireEvent.click(await screen.findByRole('option', { name: 'USD' }));
+  expect(screen.queryByTestId('row-invoice-cny')).not.toBeInTheDocument();
+  expect(screen.queryByTestId('row-invoice-canceled')).not.toBeInTheDocument();
+  expect(screen.getByTestId('row-payment-usd')).toBeInTheDocument();
 });
