@@ -1,0 +1,77 @@
+.statement-preview {
+  .MuiDialog-paper { border-radius: 12px; background: #f2f5f7; display: flex; flex-direction: column; }
+  &__toolbar, &__options, &__actions { flex-shrink: 0; background: #fff; padding: 16px 24px; }
+  &__toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #dfe7ec; }
+  &__toolbar h2 { margin: 0; font-size: 20px; font-weight: 600; color: #182b3d; }
+  &__toolbar p, &__options p, &__actions p { margin: 4px 0 0; color: #586979; font-size: 13px; line-height: 1.7; }
+  &__options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; padding-block: 14px; }
+  &__options label { font-size: 12px; color: #586979; display: grid; gap: 5px; }
+  &__options select, &__options input { width: 100%; min-width: 0; min-height: 40px; border: 1px solid #cdd9df; border-radius: 6px; color: #182b3d; background: #fff; padding: 8px 12px; font-size: 14px; }
+  &__options input { direction: ltr; text-align: end; }
+  &__options p { grid-column: 1 / -1; }
+  &__quick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+  &__quick button { border: 0; background: #edf6f3; color: #0b6b62; border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  &__canvas { flex: 1; min-height: 0; overflow: auto; padding: 24px; }
+  &__actions { border-top: 1px solid #dfe7ec; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  &__actions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  &__actions button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #cdd9df; border-radius: 7px; font-size: 14px; padding: 9px 14px; color: #182b3d; background: #fff; cursor: pointer; }
+  &__actions .cashflow__print-trigger { border-color: #0b6b62; background: #0b6b62; color: #fff; }
+  &__actions button:disabled { opacity: .5; cursor: default; }
+  &__error { margin: 0; padding: 10px 24px; background: #fff1ef; color: #b42318; font-size: 13px; }
+  @media (max-width: 700px) {
+    .MuiDialog-paper { border-radius: 0; }
+    &__toolbar, &__options, &__actions { padding-inline: 16px; }
+    &__actions { align-items: stretch; flex-direction: column; gap: 8px; }
+    &__options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    &__options label:nth-child(3) { grid-column: 1 / -1; }
+    &__options p { font-size: 12px; } &__options select, &__options input { font-size: 16px; }
+    &__canvas { padding: 12px; }
+    &__actions > div { display: grid; grid-template-columns: 1fr 1.3fr; }
+    &__actions button { justify-content: center; padding: 10px 8px; }
+  }
+}
+.statement-paper {
+  box-sizing: border-box; width: 100%; max-width: 1000px; margin: 0 auto; padding: 32px; color: #182b3d; background: white;
+  font: 13px/1.7 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif; border: 1px solid #dfe7ec;
+  *, *::before, *::after { box-sizing: border-box; font-size: inherit; }
+  p, h1, dl, dd { margin: 0; } bdi { font-variant-numeric: tabular-nums; }
+  &__brand { display: flex; justify-content: space-between; align-items: start; gap: 20px; padding-bottom: 22px; border-bottom: 2px solid #0b6b62; }
+  &__brand img { display: block; width: 135px; height: auto; object-fit: contain; margin-bottom: 8px; }
+  &__brand p { font-size: 12px; color: #586979; }
+  &__brand h1 { font-size: 25px; font-weight: 650; margin-bottom: 5px; }
+  &__brand > div:last-child { text-align: end; } &__brand small { display: block; margin-top: 5px; color: #586979; }
+  &__identity { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding-block: 22px; }
+  &__identity > div { display: grid; gap: 4px; } &__identity > div:last-child { text-align: end; }
+  &__identity span, &__identity small { color: #586979; font-size: 12px; }
+  &__identity strong { font-size: 15px; font-weight: 600; }
+  &__balance { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; width: fit-content; min-width: 220px; margin: 0 0 22px; margin-inline-start: auto; padding: 12px 16px; border: 1px solid #cdded9; background: #edf6f3; color: #075c53; }
+  &__balance span { font-size: 12px; } &__balance strong { font-size: 21px; font-weight: 650; }
+  &__table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; }
+  caption { caption-side: top; text-align: start; color: #586979; padding: 0 0 9px; font-size: 12px; }
+  th, td { padding: 10px 8px; text-align: start; vertical-align: top; line-height: 1.7; border: 0; border-bottom: 1px solid #e0e7eb; }
+  thead th { background: #eff4f5; color: #405361; font-size: 12px; white-space: nowrap; font-weight: 600; }
+  thead th:nth-last-child(-n+3) { text-align: end; }
+  td:first-child bdi { white-space: nowrap; }
+  td:nth-last-child(-n+3), tfoot td { white-space: nowrap; text-align: end; font-variant-numeric: tabular-nums; }
+  &__description { overflow-wrap: anywhere; }
+  &__description p { margin: 0; white-space: pre-line; line-height: inherit; }
+  &__opening { color: #586979; background: #fafcfc; }
+  tfoot th, tfoot td { font-weight: 650; border-top: 2px solid #cdded9; background: #f3f8f6; }
+  &__footer { border-top: 1px solid #dfe7ec; margin-top: 24px; padding-top: 12px; font-size: 11px; color: #586979; }
+  &__footer span { display: block; margin-top: 8px; color: #0b6b62; }
+  @media screen and (max-width: 700px) {
+    padding: 18px 14px; &__brand img { width: 95px; } &__brand h1 { font-size: 20px; }
+    &__identity { flex-direction: column; gap: 14px; } &__identity > div:last-child { text-align: start; }
+    &__balance { width: 100%; min-width: 0; } table { min-width: 620px; }
+  }
+  @media print {
+    max-width: none; width: 100%; padding: 0; border: 0; font-size: 10pt;
+    &, * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    &__table-wrap { overflow: visible; } table { width: 100%; min-width: 0; }
+    thead { display: table-header-group; } tfoot { display: table-row-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; } th, td { padding: 7px 5px; }
+    &__identity, &__brand, &__balance { break-inside: avoid; }
+    &__brand h1 { font-size: 20pt; } &__footer { break-inside: avoid; }
+  }
+}
