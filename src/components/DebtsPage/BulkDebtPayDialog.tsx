@@ -15,7 +15,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const fullAmount = (amount: number, currency: Currency, debtCurrency: Currency, rate: number) => currency === debtCurrency ? amount : rate > 0 && Number.isFinite(rate) ? round2(amount * rate) : 0;
 
 export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChange }: Props) {
-  const open = useMemo(() => item.filter(d => d.status === 'open' && Number(d.amount) > 0), [item]);
+  const open = useMemo(() => item.filter(d => ['open', 'overdue'].includes(d.status) && Number(d.amount) > 0), [item]);
   const owner = item[0]?.owner;
   const [chosen, setChosen] = useState(() => open.map(d => d._id));
   const [currency, setCurrency] = useState<Currency>('USD');
@@ -29,6 +29,7 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<Record<string, { amount: number; currency: Currency }>>({});
   const lock = useRef(false);
+  const changeAmount = (id: string, value: string) => setAmounts(prev => ({ ...prev, [id]: value }));
   useEffect(() => {
     let active = true; setWalletLoading(true); setWalletError(false);
     api.get(`wallet/${owner?._id}`).then(res => { if (active) { if (!Array.isArray(res.data?.results)) throw new Error('Invalid wallet'); setWallet(res.data.results); } })
@@ -67,6 +68,7 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
     if (lock.current || problems.length || walletLoading || walletError) return;
     lock.current = true; setSaving(true); onBusyChange?.(true); setError('');
     const paid = { ...done };
+    let completed = false;
     try {
       for (const row of plan) {
         const body = new FormData();
@@ -77,9 +79,10 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
         if (res?.success === false) throw new Error(res.message);
         paid[row.debt._id] = { amount: row.amount, currency: row.currency }; setDone({ ...paid });
       }
-      onSaved?.(`تم تسجيل ${Object.keys(paid).length} دفعات للعميل ${owner?.customerId || ''}`);
+      completed = true;
     } catch (err: any) { setError(`توقف السداد. الدفعات المؤكدة محفوظة ولن تُرسل مجددًا. ${getErrorMessage(err?.message || 'تعذر تسجيل الدفعة')}`); }
     finally { lock.current = false; setSaving(false); onBusyChange?.(false); }
+    if (completed) onSaved?.(`تم تسجيل ${Object.keys(paid).length} دفعات للعميل ${owner?.customerId || ''}`);
   };
 
   return <div className="bulk-debt-pay" dir="rtl">
@@ -98,7 +101,7 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
         const row = plan.find(r => r.debt._id === debt._id), completed = done[debt._id], checked = chosen.includes(debt._id), paidCurrency = rowCurrency(debt);
         return <article className={`bdp-row ${completed ? 'is-done' : ''}`} key={debt._id}>
           <label className="bdp-debt"><input type="checkbox" checked={checked} disabled={saving || !!completed} onChange={() => setChosen(prev => prev.includes(debt._id) ? prev.filter(id => id !== debt._id) : [...prev, debt._id])} /><span><strong>{debt.notes || 'دين بدون وصف'}</strong><small>{moment(debt.createdAt).format('DD/MM/YYYY')}{debt.order?.orderId && <> · طلبية <bdi>{debt.order.orderId}</bdi></>}</small></span><bdi className="bdp-debt-balance">{formatAmount(debt.amount)} {debt.currency}</bdi></label>
-          {completed ? <p className="bdp-confirmed"><CheckCircle2 size={16} />تم تسجيل <bdi>{formatAmount(completed.amount)} {completed.currency}</bdi></p> : checked && row && <div className="bdp-payment"><label>المبلغ الذي سيُخصم <span className="bdp-amount"><input aria-label={`مبلغ سداد ${debt.notes || debt._id}`} type="number" inputMode="decimal" min="0.01" step="0.01" value={amounts[debt._id] ?? (row.maximum || '')} disabled={saving || (paidCurrency !== debt.currency && !(Number(rate) > 0))} onChange={e => setAmounts(prev => ({ ...prev, [debt._id]: e.target.value }))} /><bdi>{paidCurrency}</bdi></span></label><div className="bdp-remainder"><span>المتبقي بعد هذه الدفعة</span><strong><bdi>{Number.isFinite(row.settled) ? formatAmount(Math.max(0, round2(Number(debt.amount) - row.settled))) : '—'} {debt.currency}</bdi></strong><button type="button" disabled={saving} onClick={() => setAmounts(prev => { const next = { ...prev }; delete next[debt._id]; return next; })}>سداد كامل المتبقي</button></div></div>}
+          {completed ? <p className="bdp-confirmed"><CheckCircle2 size={16} />تم تسجيل <bdi>{formatAmount(completed.amount)} {completed.currency}</bdi></p> : checked && row && <div className="bdp-payment"><label>المبلغ الذي سيُخصم <span className="bdp-amount"><input aria-label={`مبلغ سداد ${debt.notes || debt._id}`} type="number" inputMode="decimal" min="0.01" step="0.01" value={amounts[debt._id] ?? (row.maximum || '')} disabled={saving || (paidCurrency !== debt.currency && !(Number(rate) > 0))} onChange={e => changeAmount(debt._id, e.target.value)} /><bdi>{paidCurrency}</bdi></span></label><div className="bdp-remainder"><span>المتبقي بعد هذه الدفعة</span><strong><bdi>{Number.isFinite(row.settled) ? formatAmount(Math.max(0, round2(Number(debt.amount) - row.settled))) : '—'} {debt.currency}</bdi></strong><button type="button" disabled={saving} onClick={() => setAmounts(prev => { const next = { ...prev }; delete next[debt._id]; return next; })}>سداد كامل المتبقي</button></div></div>}
         </article>;
       })}</div>
       {!saving && problems.length > 0 && <Alert severity="warning">{problems.join(' ')}</Alert>}

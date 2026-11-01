@@ -4,6 +4,7 @@ import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTi
 import { CheckCircle2, ExternalLink, HandCoins, ReceiptText, X } from 'lucide-react';
 import { Debt } from '../../models';
 import CreateDebtHistoryDialog from '../../components/DebtsPage/CreateDebtHistoryDialog';
+import BulkDebtPayDialog from '../../components/DebtsPage/BulkDebtPayDialog';
 
 const money = (value: number) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const debtTypes: Record<string, string> = { invoice: 'فاتورة شراء', receivedGoods: 'شحن', general: 'دين عام' };
@@ -14,22 +15,29 @@ type Props = {
 
 export default function CustomerDebtsDialog(props: Props) {
   const [selected, setSelected] = useState<Debt | null>(null);
+  const [bulk, setBulk] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const mobile = useMediaQuery('(max-width:600px)');
-  useEffect(() => { if (!props.open) { setSelected(null); setSuccess(false); } }, [props.open]);
+  useEffect(() => { if (!props.open) { setSelected(null); setBulk(false); setSuccess(false); } }, [props.open]);
+  const payableDebts = props.debts.filter(debt => ['open', 'overdue'].includes(debt.status) && Number(debt.amount) > 0);
   const paid = async () => {
-    setSelected(null); setSuccess(true); setRefreshing(true);
+    setSelected(null); setBulk(false); setSuccess(true); setRefreshing(true);
     try { await props.onPaymentSaved(); } finally { setRefreshing(false); }
   };
-  return <Dialog open={props.open} onClose={selected || refreshing ? undefined : props.onClose} disableEscapeKeyDown={!!selected || refreshing}
+  return <Dialog open={props.open} onClose={selected || bulk || refreshing || paymentBusy ? undefined : props.onClose} disableEscapeKeyDown={!!selected || bulk || refreshing || paymentBusy}
     fullWidth maxWidth="md" fullScreen={mobile} className="cw-dialog" aria-labelledby={selected ? undefined : 'cw-debts-title'} PaperProps={{ dir: selected ? 'ltr' : 'rtl' }}>
-    {selected ? <CreateDebtHistoryDialog key={selected._id} item={{ ...selected, owner: props.user }} setDialog={() => setSelected(null)} onSaved={() => { void paid(); }} /> : <>
+    {bulk ? <BulkDebtPayDialog item={payableDebts.map(debt => ({ ...debt, owner: props.user }))}
+      setDialog={() => { if (!paymentBusy) setBulk(false); }} onBusyChange={setPaymentBusy} onSaved={() => { void paid(); }} />
+      : selected ? <CreateDebtHistoryDialog key={selected._id} item={{ ...selected, owner: props.user }} setDialog={() => setSelected(null)} onSaved={() => { void paid(); }} /> : <>
       <DialogTitle id="cw-debts-title" className="cw-dialog-title"><div><strong>الديون المتبقية</strong><p><bdi dir="auto">{[props.user?.firstName, props.user?.lastName].filter(Boolean).join(' ')}</bdi><bdi dir="ltr">{props.user?.customerId}</bdi></p></div><IconButton onClick={props.onClose} disabled={refreshing} aria-label="إغلاق الديون"><X size={20} /></IconButton></DialogTitle>
       <DialogContent dividers className="cw-dialog-content">
         {success && <Alert severity="success" className="cw-payment-success">تم تسجيل السداد بنجاح.</Alert>}
         {props.loading || refreshing ? <div className="cw-dialog-state" role="status"><CircularProgress size={26} /><p>جاري تحديث الديون…</p></div> : props.error ? <div className="cw-dialog-state" role="alert"><ReceiptText size={30} /><h3>تعذر تحميل الديون</h3><p>أعد المحاولة لعرض المبالغ المتبقية.</p><button type="button" className="cw-button" onClick={() => void props.onRetry()}>إعادة المحاولة</button></div> : !props.debts.length ? <div className="cw-dialog-state"><CheckCircle2 size={34} /><h3>لا توجد ديون متبقية</h3><p>لا توجد مبالغ مستحقة ضمن الديون المفتوحة.</p></div> : <>
-          <p className="cw-list-hint">{props.debts.length} ديون مفتوحة · اختر الدين لسداد قيمته كاملة أو جزء منها من المحفظة.</p>
+          <div className="cw-debt-toolbar"><p className="cw-list-hint">{props.debts.length} ديون مفتوحة · اختر الدين لسداد قيمته كاملة أو جزء منها من المحفظة.</p>
+            {payableDebts.length > 1 && <button type="button" className="cw-button cw-button--primary" onClick={() => { setSuccess(false); setBulk(true); }}><HandCoins size={16} aria-hidden="true" />سداد جماعي ({payableDebts.length})</button>}
+          </div>
           <ul className="cw-debt-list">{props.debts.map(debt => {
             const created = new Date(debt.createdAt);
             const order: any = debt.order;

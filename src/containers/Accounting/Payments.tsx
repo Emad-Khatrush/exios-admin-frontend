@@ -234,9 +234,10 @@ export const PaymentForm = () => {
   const { accounts } = useAccountingData();
   const { vendors } = useVendors();
   const [vendorId, setVendorId] = useState(params.get('vendorId') || '');
-  const [form, setForm] = useState<any>({ day: today(), fromAccountId: '', amount: '', rate: '', note: '', fromAdvance: false, employee: null, differenceTo: 'cost' });
+  const [form, setForm] = useState<any>({ day: today(), fromAccountId: '', amount: '', rate: '', note: '', fromAdvance: false, advancePaymentId: '', employee: null, differenceTo: 'cost' });
   const [openBills, setOpenBills] = useState<any[]>([]);
   const [advance, setAdvance] = useState(0);
+  const [advanceSources, setAdvanceSources] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -246,17 +247,42 @@ export const PaymentForm = () => {
   const from = payAccounts.find((a) => a._id === form.fromAccountId);
 
   useEffect(() => {
-    if (!vendorId) { setOpenBills([]); return; }
+    let active = true;
+    setOpenBills([]); setAdvance(0); setAdvanceSources([]); setAllocations({});
+    setForm((previous: any) => ({ ...previous, fromAdvance: false, advancePaymentId: '' }));
+    if (!vendorId) return;
     acc.get(`vendors/${vendorId}/open-bills`).then((res: any) => {
+      if (!active) return;
       setOpenBills(res.data.results);
       setAdvance(res.data.advance);
+      setAdvanceSources(res.data.advanceSources || []);
       const bill = res.data.results.find((b: any) => b._id === params.get('billId'));
       setAllocations(bill ? { [bill._id]: (bill.open / 100).toFixed(2) } : {});
     }).catch(() => {});
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorId]);
 
   const allocatedUsd = Object.values(allocations).reduce((sum, value) => sum + Math.round((Number(value) || 0) * 100), 0);
+  const advanceSource = advanceSources.find(source => source._id === form.advancePaymentId);
+  const advanceCurrencyTotals = Object.values(advanceSources.reduce((totals: Record<string, { currency: string; amount: number; usd: number }>, source) => {
+    const group = totals[source.currency] || (totals[source.currency] = { currency: source.currency, amount: 0, usd: 0 });
+    group.amount += source.remainingAmount;
+    group.usd += source.remainingUsd;
+    return totals;
+  }, {}));
+  const currencyName = (currency: string) => ({ LYD: 'دينار ليبي', TRY: 'ليرة تركية', USD: 'دولار أمريكي' }[currency] || currency);
+  const settlementCurrency = form.fromAdvance ? advanceSource?.currency : from?.currency || 'USD';
+  const nativeRow = (row: any) => settlementCurrency && row.currency === settlementCurrency && row.totalUsd > 0;
+  const nativeAmount = (row: any, usd: number) => row.total * usd / row.totalUsd;
+  const sameCurrency = !!settlementCurrency && openBills.some(row => Number(allocations[row._id]) > 0)
+    && openBills.filter(row => Number(allocations[row._id]) > 0).every(nativeRow);
+  const setAllocationAmount = (row: any, value: string) => {
+    const amount = Number(value);
+    const fullNative = nativeAmount(row, row.open);
+    const usd = nativeRow(row) ? Math.abs(amount - fullNative) < 0.005 ? row.open : Math.round(amount * row.totalUsd / row.total) : Math.round(amount * 100);
+    setAllocations(previous => ({ ...previous, [row._id]: value === '' ? '' : (usd / 100).toFixed(2) }));
+  };
   // What the payment is worth in dollars when it can be known here (a dollar box, or a typed rate)
   const paidUsd = !(Number(form.amount) > 0) ? null : (from?.currency || 'USD') === 'USD' ? Math.round(Number(form.amount) * 100) : Number(form.rate) > 0 ? Math.round((Number(form.amount) / Number(form.rate)) * 100) : null;
   const difference = paidUsd === null ? null : paidUsd - allocatedUsd;
@@ -267,6 +293,7 @@ export const PaymentForm = () => {
       setError('');
       await acc.post('payments', {
         vendorId, day: form.day, fromAdvance: form.fromAdvance || undefined,
+        advancePaymentId: form.fromAdvance ? form.advancePaymentId || undefined : undefined,
         fromAccountId: form.fromAdvance ? undefined : form.fromAccountId,
         employeeId: from?.requires?.includes('employee') ? form.employee?._id : undefined,
         amount: form.fromAdvance ? undefined : Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
@@ -283,7 +310,7 @@ export const PaymentForm = () => {
 
   return (
     <>
-      <PageHeader title="دفعة لمورد" subtitle="اكتب ما خرج من الخزينة بعملتها وسعره، ثم وزّعه على الفواتير بالدولار. الفرق بين المدفوع والموزَّع يذهب افتراضياً على تكلفة الفواتير، فتصبح التكلفة ما دُفع فعلاً." />
+      <PageHeader title="دفعة لمورد" subtitle="وزّع السداد على الفواتير. عند تساوي عملة الفاتورة والدفعة يُقفل المبلغ بعملته، ويُسجّل فرق التقييم كفرق صرف." />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       <Panel title="الدفعة">
         <div className="acc-form-grid">
@@ -298,7 +325,7 @@ export const PaymentForm = () => {
             <TextField type="number" label={`المبلغ (${from?.currency || 'USD'})`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
             {from?.currency && from.currency !== 'USD' && (
               <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })}
-                helperText={allocatedUsd > 0 && Number(form.amount) > 0 ? (
+                helperText={sameCurrency ? 'اترك سعر تاريخ العملية أو أدخل سعر الدفع الفعلي. لا يلزم تغييره لإغلاق فاتورة بنفس العملة.' : allocatedUsd > 0 && Number(form.amount) > 0 ? (
                   <span>المقترح: المدفوع ÷ الموزَّع = <Ltr>{(Number(form.amount) / (allocatedUsd / 100)).toFixed(4)}</Ltr>{' '}
                     <Button size="small" onClick={() => setForm({ ...form, rate: (Number(form.amount) / (allocatedUsd / 100)).toFixed(6) })}>استخدمه</Button>
                   </span>
@@ -307,7 +334,7 @@ export const PaymentForm = () => {
             {from?.requires?.includes('employee') && <RemotePicker endpoint="lookup/users" label="الموظف صاحب العهدة" value={form.employee} getLabel={userLabel} onChange={(employee) => setForm({ ...form, employee })} />}
           </>}
         </div>
-        {!form.fromAdvance && allocatedUsd > 0 && (
+        {!form.fromAdvance && allocatedUsd > 0 && !sameCurrency && (
           <div className="mt-3">
             <TextField select size="small" label="الفرق بين المدفوع والموزَّع" value={form.differenceTo} onChange={(e) => setForm({ ...form, differenceTo: e.target.value })} style={{ minWidth: 320 }}
               helperText={difference !== null ? <>المدفوع <Money value={paidUsd} /> والموزَّع <Money value={allocatedUsd} />: الفرق <Money value={difference} /></> : 'يُحسب الفرق بسعر الدفعة (أو سعر يومها إن تُرك فارغاً)'}>
@@ -316,10 +343,29 @@ export const PaymentForm = () => {
             </TextField>
           </div>
         )}
-        {advance > 0 && <FormControlLabel className="mt-2" control={<Checkbox checked={form.fromAdvance} onChange={(e) => setForm({ ...form, fromAdvance: e.target.checked })} />} label={<>استخدام الدفعة المقدمة لدى المورد (<Money value={advance} />)</>} />}
+        {advance > 0 && <FormControlLabel className="mt-2" control={<Checkbox checked={form.fromAdvance} onChange={(e) => {
+          setForm({ ...form, fromAdvance: e.target.checked, advancePaymentId: advanceSources.length === 1 ? advanceSources[0]._id : '' });
+          setAllocations({});
+        }} />} label={<span>استخدام الدفعة المقدمة لدى المورد
+          {advanceCurrencyTotals.length ? advanceCurrencyTotals.map(group => <span key={group.currency} className="d-block">
+            <Amount value={group.amount} currency={group.currency} /> {currencyName(group.currency)} — ما يعادل <Money value={group.usd} />
+          </span>) : <> (<Money value={advance} />)</>}
+          {advanceCurrencyTotals.length > 0 && advanceCurrencyTotals.reduce((sum, group) => sum + group.usd, 0) !== advance
+            && <span className="d-block">إجمالي الرصيد الدفتري: <Money value={advance} /></span>}
+        </span>} />}
+        {form.fromAdvance && advanceSources.length > 0 && <TextField select fullWidth className="mt-2" label="الدفعة السابقة" value={form.advancePaymentId}
+          onChange={e => { setForm({ ...form, advancePaymentId: e.target.value }); setAllocations({}); }}
+          helperText="المعادل بالدولار هو القيمة الدفترية المسجلة، وليس سعر اليوم. استخدام الدفعة لا يسحب أموالًا جديدة.">
+          <MenuItem value="">الرصيد المجمع بالدولار</MenuItem>
+          {advanceSources.map(source => <MenuItem key={source._id} value={source._id}><span>
+            <Ltr>{source.number}</Ltr> · {source.day}
+            <span className="d-block"><Amount value={source.remainingAmount} currency={source.currency} /> {currencyName(source.currency)} — ما يعادل <Money value={source.remainingUsd} /></span>
+          </span></MenuItem>)}
+        </TextField>}
+        {sameCurrency && <Alert severity="info" className="mt-2">السداد بنفس العملة يغلق المبلغ المستحق. فرق الصرف لا يغيّر تكلفة الفاتورة ولا يُترك كرصيد للمورد.</Alert>}
       </Panel>
 
-      <Panel flush title="الفواتير المفتوحة" subtitle="اكتب ما يُسدَّد من كل فاتورة بالدولار، أو اضغط «الكل».">
+      <Panel flush title="الفواتير المفتوحة" subtitle="يُكتب السداد بعملة الفاتورة إذا كانت نفس عملة الدفع؛ وعند اختلاف العملتين يُوزّع بالدولار. اضغط «الكل» لتسديد المتبقي.">
         <DataTable
           rows={openBills}
           rowKey={(row: any) => row._id}
@@ -328,11 +374,13 @@ export const PaymentForm = () => {
             { key: 'number', header: 'الفاتورة', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.vendorRef && <Sub>رقم المورد <Ltr>{row.vendorRef}</Ltr></Sub>}</> },
             { key: 'day', header: 'التاريخ', hideOnMobile: true, render: (row: any) => <Ltr>{row.day}</Ltr> },
             { key: 'total', header: 'الإجمالي', numeric: true, hideOnMobile: true, render: (row: any) => <Amount value={row.total} currency={row.currency} /> },
-            { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => <Money value={row.open} strong /> },
+            { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => nativeRow(row) ? <Amount value={nativeAmount(row, row.open)} currency={row.currency} /> : <Money value={row.open} strong /> },
             {
-              key: 'pay', header: 'يُسدَّد الآن ($)', align: 'end', width: 220, render: (row: any) => (
+              key: 'pay', header: 'يُسدَّد الآن', align: 'end', width: 220, render: (row: any) => (
                 <span className="d-inline-flex gap-1">
-                  <TextField type="number" value={allocations[row._id] || ''} onChange={(e) => setAllocations({ ...allocations, [row._id]: e.target.value })} style={{ width: 120 }} />
+                  <TextField type="number" inputProps={{ 'aria-label': `سداد ${row.number}`, min: 0 }} helperText={nativeRow(row) ? row.currency : 'USD'}
+                    value={!allocations[row._id] ? '' : nativeRow(row) ? Number(nativeAmount(row, Math.round(Number(allocations[row._id]) * 100)).toFixed(2)) : allocations[row._id]}
+                    onChange={(e) => setAllocationAmount(row, e.target.value)} style={{ width: 120 }} />
                   <Button size="small" onClick={() => setAllocations({ ...allocations, [row._id]: (row.open / 100).toFixed(2) })}>الكل</Button>
                 </span>
               ),

@@ -15,7 +15,7 @@ export const AccountingTheme = ({ children }: { children: ReactNode }) => {
   const theme = useMemo(() => createTheme({
     direction: 'rtl',
     // The admin's global CSS makes the root font 20px; MUI sizes in rem, so it must know that
-    typography: { fontFamily: FONT, fontSize: 13.5, htmlFontSize: 20, button: { textTransform: 'none', fontWeight: 600 } },
+    typography: { fontFamily: FONT, fontSize: 15, htmlFontSize: 20, button: { textTransform: 'none', fontWeight: 600 } },
     palette: {
       primary: { main: '#0f766e', dark: '#115e59', light: '#5eaaa3', contrastText: '#ffffff' },
       error: { main: '#b42318' },
@@ -33,7 +33,7 @@ export const AccountingTheme = ({ children }: { children: ReactNode }) => {
       MuiDialog: { defaultProps: { dir: 'rtl', className: 'acc-root' } as any, styleOverrides: { paper: { borderRadius: 14 } } },
       MuiPopover: { defaultProps: { dir: 'rtl', className: 'acc-root' } as any },
       MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
-      MuiTooltip: { styleOverrides: { tooltip: { fontFamily: FONT, fontSize: 12 } } },
+      MuiTooltip: { styleOverrides: { tooltip: { fontFamily: FONT, fontSize: 13 } } },
     },
   }), []);
 
