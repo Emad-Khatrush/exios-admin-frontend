@@ -490,6 +490,8 @@ const InvoiceForm = (props: Props) => {
                   {details.trackingNumber ? <span className="of-package__tracking">{details.trackingNumber}</span> : <span className="of-package__missing">No tracking number yet</span>}
                   {details.shipmentMethod && <Badge text={String(details.shipmentMethod).toUpperCase()} color="primary" />}
                   {payment.freeShippingOffer?.enabled && <Badge text="شحن مجاني ضمن عرض الشراء" color="success" />}
+                  {/* Compensated from the order's accounting tab: lost (closed), or damaged, closed or still open */}
+                  {details.compensation?.type && <Badge text={`تم التعويض · ${details.compensation.type === 'lost' ? 'مفقود' : 'تالف جزئياً'}${details.compensation.closed ? ' · مُقفل' : ''}`} color={details.compensation.type === 'lost' ? 'danger' : 'warning'} />}
                   {details.locationPlace && <Badge text={details.locationPlace} color="warning" />}
                   {payment?.flight && <a href={`/inventory/${payment.flight._id}/edit`} target="_blank" rel="noreferrer"><Badge text={payment.flight.voyage} color="sky" /></a>}
                   {hidden && <Badge text="Hidden from customer" color="danger" />}

@@ -43,7 +43,7 @@ type FlightsResponse = {
 // What each flag means and what to do about it
 const FLAG_INFO: Record<FlightFlag, { label: string, hint: string, tone: 'ok' | 'warn' | 'danger' }> = {
   readyToClose: { label: 'Ready to close', hint: 'Every package reached its customer. Close the flight.', tone: 'ok' },
-  missingPackages: { label: 'Missing packages', hint: 'Some packages are marked missing. Follow up or compensate.', tone: 'danger' },
+  missingPackages: { label: 'Missing packages', hint: 'Some packages are marked missing. Follow up, or compensate from the order page (Accounting, lost / damaged).', tone: 'danger' },
   noPackages: { label: 'No packages', hint: 'Added over a week ago and still empty. Add the packages or delete it.', tone: 'warn' },
   noArrivalDate: { label: 'No arrival date', hint: 'Set the day it arrived in Libya.', tone: 'warn' },
   noExpenses: { label: 'No expenses', hint: 'No costs recorded yet, so cost per KG and profit are unknown.', tone: 'warn' },

@@ -7,7 +7,8 @@ import {
 import { Plus, X } from 'lucide-react';
 import { acc, errorText, newKey, sys } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { RemotePicker, VENDOR_TYPES, orderLabel, today, tripLabel, userLabel, useVendors } from './shared';
+import { RemotePicker, VENDOR_TYPES, orderLabel, today, tripLabel, useVendors } from './shared';
+import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
 import { Amount, Ltr, Money, PageHeader, Panel } from './ui';
 import { TARGET_LABELS } from './Bills';
 import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
@@ -383,7 +384,7 @@ const BillForm = () => {
                   {payAccounts.filter((a) => !a.currency || a.currency === form.currency).map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
                 </TextField>
                 {payAccount?.requires?.includes('employee') && (
-                  <div style={{ minWidth: 240 }}><RemotePicker endpoint="lookup/users" label="الموظف صاحب العهدة" value={form.employee} getLabel={userLabel} onChange={(employee) => setForm({ ...form, employee })} /></div>
+                  <CustodyHolderPicker accountId={form.paidImmediatelyFrom} value={form.employee} amount={total} billCurrency={form.currency} onChange={(employee) => setForm((f: any) => ({ ...f, employee }))} />
                 )}
               </>
             )}
@@ -396,7 +397,8 @@ const BillForm = () => {
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>
           {!form.isCreditNote && !postedBill && <Button variant="outlined" disabled={isSaving} onClick={() => save(true)}>حفظ كمسودة</Button>}
-          <Button variant="contained" disabled={isSaving || loadingBill || !!editLock || (!form.vendorId && !form.withoutVendor) || (!!postedBill && !editReason.trim())} onClick={() => save(false)}>{isSaving ? 'جارٍ المعالجة…' : postedBill ? 'معاينة التعديل' : 'ترحيل'}</Button>
+          <Button variant="contained" disabled={isSaving || loadingBill || !!editLock || (!form.vendorId && !form.withoutVendor) || (!!postedBill && !editReason.trim())
+            || (form.payNow && !form.paidBeforeCount && !form.isCreditNote && !!payAccount?.requires?.includes('employee') && (!form.employee || custodyExceeded(form.employee, total)))} onClick={() => save(false)}>{isSaving ? 'جارٍ المعالجة…' : postedBill ? 'معاينة التعديل' : 'ترحيل'}</Button>
         </div>
       </Panel>
 

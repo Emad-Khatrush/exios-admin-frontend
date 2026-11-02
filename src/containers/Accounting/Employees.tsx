@@ -11,7 +11,7 @@ import EmployeeDirectory from './EmployeeDirectory';
 import { useAccountingAccess } from './useAccountingAccess';
 
 // Custody (عهدة): money given to a staff member to spend for the company, settled by the expenses
-// they pay from it (the Expenses screen, "from my custody") or returned. Loan (سلفة): money lent
+// they pay from it (the Expenses screen, "from my custody", or recorded here by the accountant) or returned. Loan (سلفة): money lent
 // to them, taken back from their salary or returned. Kept apart, per employee, each in its own
 // currency: what is given in dinars is settled in dinars, so no exchange difference appears.
 type Kind = 'custody' | 'loan';
@@ -26,7 +26,7 @@ const Balances = ({ value, strong }: { value?: Held; strong?: boolean }) => {
   return <span className={strong ? 'fw-semibold' : undefined}>{shown.map((c, i) => <span key={c}>{i > 0 && ' · '}<Amount value={held(value, c)} currency={c} /></span>)}</span>;
 };
 const KIND_TEXT: Record<Kind, { title: string; one: string; hint: string }> = {
-  custody: { title: 'العهد', one: 'عهدة', hint: 'مبلغ يصرفه الموظف على مصاريف الشركة (من شاشة المصاريف ← «من عهدتي») ويُرجع الباقي.' },
+  custody: { title: 'العهد', one: 'عهدة', hint: 'مبلغ يصرفه الموظف على مصاريف الشركة (من شاشة المصاريف ← «من عهدتي»، أو يسجله المحاسب هنا ← «صرف من العهدة») ويُرجع الباقي.' },
   loan: { title: 'السلف', one: 'سلفة', hint: 'مبلغ مُقرض للموظف، يُخصم من راتبه أو يرجعه.' },
 };
 const MOVEMENT_TEXT: Record<string, { label: string; tone: 'ok' | 'warn' | 'info' | 'muted' | 'danger' }> = {
@@ -42,6 +42,9 @@ const Employees = () => {
   const [accountIds, setAccountIds] = useState<Record<Kind, Record<string, string>>>({ custody: {}, loan: {} });
   const [salaries, setSalaries] = useState<any[]>([]);
   const [move, setMove] = useState<any>(null);
+  // An expense the employee paid from their custody, recorded by the accountant to settle it
+  const [spend, setSpend] = useState<any>(null);
+  const [expenseTypes, setExpenseTypes] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
   const [salary, setSalary] = useState<any>(null);
   const [salaryPreview, setSalaryPreview] = useState<any>(null);
@@ -129,10 +132,39 @@ const Employees = () => {
     key.current = newKey();
     setSalaryPreview(null); setSalaryPreviewError('');
     const paymentCurrency = paymentKind === 'commission' ? 'USD' : employee.salaryCurrency || 'USD';
-    setSalary({ employee, paymentKind, paymentCurrency, commissionAmount: '', closeCommissions: false, commissionCloseReason: 'تسوية نهائية للعمولة وإلغاء المتبقي', month: today().slice(0, 7), day: today(), office: employee.office || '',
+    setSalary({ employee, paymentKind, paymentCurrency, commissionAmount: '', closeCommissions: false, commissionCloseReason: 'تسوية نهائية للعمولة وإلغاء المتبقي', month: today().slice(0, 7), day: today(),
+      // An office that is not one of the accounting offices (an old city name) is left for the user to pick
+      office: offices.some((o) => o.isActive && o.code === employee.office) ? employee.office : '',
       paidFromAccountId: cashAccounts.find(a => (a.currency || 'USD') === paymentCurrency)?._id || '', baseSalary: employee.baseSalary || '', advanceDeduction: '', rate: '' });
+    // A commission is paid by the month it was earned in: open on the oldest month still unpaid,
+    // and keep the months that have some, to say where to look when the chosen one has none
+    if (paymentKind === 'commission') {
+      acc.get(`employees/${employee._id}`).then((res: any) => {
+        const pending = (res.data.adjustments || []).filter((a: any) => a.kind === 'commission' && !a.isCanceled && !a.salaryId && a.remainingAmount > 0);
+        const months = Array.from(new Set<string>(pending.map((a: any) => a.month))).sort();
+        setSalary((current: any) => (current && current.employee._id === employee._id
+          ? { ...current, pendingMonths: months, pendingLatestDay: pending.map((a: any) => a.day).sort().pop(), month: months[0] || current.month }
+          : current));
+      }).catch(() => {});
+    }
   };
+  // Why the payment cannot be confirmed yet, in words (the button is disabled without it)
+  const otherMonths = (salary?.pendingMonths || []).filter((m: string) => m !== salary?.month);
+  const payBlocked = !salary || posting || salaryPreviewError ? '' : !salary.office ? 'اختر المكتب.' : !salary.paidFromAccountId ? 'اختر الخزينة التي صُرف منها.'
+    : !salaryPreview ? '' : commissionPayment && !(Number(salaryPreview.availableAmount) > 0)
+      ? (otherMonths.length ? `لا توجد عمولة غير مصروفة لشهر ${salary.month}. اختر شهراً فيه عمولة: ${otherMonths.join('، ')}.`
+        : salary.pendingLatestDay && salary.pendingLatestDay > salary.day ? `العمولة مسجلة بتاريخ ${salary.pendingLatestDay}، بعد تاريخ الصرف. غيّر تاريخ الصرف.`
+        : 'لا توجد عمولة غير مصروفة لهذا الموظف: كل عمولاته مصروفة أو مقفلة. أضف العمولة أولاً من تفاصيل الموظف ← «إضافة عمولة».')
+      : '';
   const moveCash = move && cashAccounts.find((a) => a._id === move.cashId);
+  const openSpend = (employee: any) => {
+    setMessage(null);
+    key.current = newKey();
+    const currency = CURRENCIES.find((c) => held(employee.custody, c) > 0) || 'USD';
+    setSpend({ employee, currency, day: today(), office: employee.office || '', expenseTypeId: '', amount: '', note: '' });
+    if (!expenseTypes.length) acc.get('expense-types', { active: true }).then((res: any) => setExpenseTypes(res.data.results || [])).catch(() => {});
+  };
+  const spendHeld = spend ? held(spend.employee.custody, spend.currency) : 0;
   const name = (row: any) => `${row.firstName || ''} ${row.lastName || ''}`.trim();
   const visible = (kind: Kind) => employees.filter((row) => row.hasLogin && row.isActive !== false && (!filters.onlyHolding || holds(row[kind]))
     && (!filters.search || name(row).toLowerCase().includes(filters.search.toLowerCase()) || String(row.customerId || '').toLowerCase().includes(filters.search.toLowerCase())));
@@ -156,6 +188,7 @@ const Employees = () => {
               <span className="d-inline-flex gap-1 flex-wrap justify-content-end">
                 <Button size="small" onClick={() => openReport(row, kind)}>التقرير</Button>
                 <Button size="small" disabled={!Object.keys(accountIds[kind]).length} onClick={() => setMove({ employee: row, kind, direction: 'give', day: today(), cashId: '', amount: '' })}>تسليم {KIND_TEXT[kind].one}</Button>
+                {kind === 'custody' && <Button size="small" disabled={!CURRENCIES.some((c) => held(row.custody, c) > 0)} onClick={() => openSpend(row)}>صرف من العهدة</Button>}
                 <Button size="small" disabled={!CURRENCIES.some((c) => held(row[kind], c) > 0)} onClick={() => setMove({ employee: row, kind, direction: 'return', day: today(), cashId: '', amount: '' })}>إرجاع</Button>
                 {kind === 'loan' && access.can('payroll') && <Button size="small" variant="outlined" onClick={() => openSalary(row)}>صرف راتب</Button>}
               </span>
@@ -245,6 +278,36 @@ const Employees = () => {
               note: give ? `${one} ${move.employee.firstName}` : `إرجاع ${one} ${move.employee.firstName}`,
             }, () => setMove(null));
           }}>ترحيل</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!spend} onClose={() => !posting && setSpend(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>صرف من عهدة {spend && name(spend.employee)}</DialogTitle>
+        {spend && (
+          <DialogContent>
+            {message?.type === 'error' && <Alert severity="error">{message.text}</Alert>}
+            <p className="acc-muted">مصروف دفعه الموظف من عهدته (فواتير، وقود، ضيافة...). يُخصم من عهدته ويُسجَّل مصروفاً على الشركة. في عهدته <Balances value={spend.employee.custody} />.</p>
+            <TextField select label="عملة العهدة" value={spend.currency} onChange={(e) => setSpend({ ...spend, currency: e.target.value })} fullWidth className="mt-2">
+              {CURRENCIES.filter((c) => held(spend.employee.custody, c) > 0).map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>
+            <TextField select label="نوع المصروف" value={spend.expenseTypeId} onChange={(e) => setSpend({ ...spend, expenseTypeId: e.target.value })} fullWidth className="mt-3">
+              {expenseTypes.map((t) => <MenuItem key={t._id} value={t._id}>{t.name}</MenuItem>)}
+            </TextField>
+            <TextField type="number" label={amountLabel(spend.currency)} value={spend.amount} onChange={(e) => setSpend({ ...spend, amount: e.target.value })} fullWidth className="mt-3"
+              error={Number(spend.amount) > spendHeld} helperText={<>المتاح <Amount value={spendHeld} currency={spend.currency} /></>} />
+            <TextField select label="المكتب" value={spend.office} onChange={(e) => setSpend({ ...spend, office: e.target.value })} fullWidth className="mt-3">
+              {offices.filter((o: any) => o.isActive !== false).map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
+            </TextField>
+            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={spend.day} onChange={(e) => setSpend({ ...spend, day: e.target.value })} fullWidth className="mt-3" />
+            <TextField label="البيان" value={spend.note} onChange={(e) => setSpend({ ...spend, note: e.target.value })} fullWidth className="mt-3" />
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button onClick={() => setSpend(null)} disabled={posting}>إلغاء</Button>
+          <Button variant="contained" disabled={posting || !spend?.expenseTypeId || !spend?.office || !(Number(spend?.amount) > 0) || Number(spend?.amount) > spendHeld}
+            onClick={() => submit(`employees/${spend.employee._id}/custody-expense`, {
+              expenseTypeId: spend.expenseTypeId, amount: Number(spend.amount), currency: spend.currency, office: spend.office, day: spend.day, note: spend.note,
+            }, () => setSpend(null))}>ترحيل</Button>
         </DialogActions>
       </Dialog>
 
@@ -341,11 +404,12 @@ const Employees = () => {
               helperText={<>عليه سلفة <Balances value={salary.employee.loan} />. يُخصم من السلفة بعملة الخزينة فقط (العهدة لا تُخصم من الراتب)</>} />
             </>}
             {salaryCash?.currency && salaryCash.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={salary.rate} onChange={(e) => setSalary({ ...salary, rate: e.target.value })} fullWidth className="mt-3" />}
+            {payBlocked && <Alert severity="warning" className="mt-3">{payBlocked}</Alert>}
           </DialogContent>
         )}
         <DialogActions>
           <Button disabled={posting} onClick={() => setSalary(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={posting || !salaryPreview || !!salaryPreviewError || !salary?.office || !salary?.paidFromAccountId || !Number.isFinite(salaryGross) || !(salaryGross > 0) || (commissionPayment ? salaryGross > Number(salaryPreview?.availableAmount || 0) || (salary?.closeCommissions && !salary?.commissionCloseReason?.trim()) : salaryCurrency !== salary?.employee.salaryCurrency || Number(salary?.advanceDeduction || 0) > salaryGross)} onClick={() => submit('salaries', {
+          <Button variant="contained" disabled={!!payBlocked ||posting || !salaryPreview || !!salaryPreviewError || !salary?.office || !salary?.paidFromAccountId || !Number.isFinite(salaryGross) || !(salaryGross > 0) || (commissionPayment ? salaryGross > Number(salaryPreview?.availableAmount || 0) || (salary?.closeCommissions && !salary?.commissionCloseReason?.trim()) : salaryCurrency !== salary?.employee.salaryCurrency || Number(salary?.advanceDeduction || 0) > salaryGross)} onClick={() => submit('salaries', {
             employeeId: salary.employee._id, month: salary.month, day: salary.day, office: salary.office, paidFromAccountId: salary.paidFromAccountId,
             paymentKind: commissionPayment ? 'commission' : 'salary', grossAmount: commissionPayment ? salaryGross : undefined,
             expectedCommissionPreview: commissionPayment ? salaryPreview.fingerprint : undefined,

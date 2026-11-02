@@ -93,6 +93,7 @@ const emptyForm = () => ({
   costCategory: 'shipping',
   amount: '',
   payFrom: '',
+  employeeId: '',
   currency: 'USD',
   rate: '',
   day: todayLibya(),
@@ -115,6 +116,8 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  // Custody accounts with who holds what (owner's request 2026-11-02): staff see their own only
+  const [custodyAccounts, setCustodyAccounts] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -148,11 +151,13 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
     setAccounts(res.data.accounts || []);
     setCurrencies(res.data.currencies || []);
   }).catch(() => {});
+  const fetchCustody = () => sys.get('acc/custody-options').then((res: any) => setCustodyAccounts(res.data.results || [])).catch(() => setCustodyAccounts([]));
 
   useEffect(() => {
     if (!inventoryId) return;
     fetchCosts();
     fetchOptions();
+    fetchCustody();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inventoryId]);
 
@@ -379,7 +384,10 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
     }
   };
 
-  const payAccount = accounts.find((a) => a._id === form.payFrom);
+  const custodyAccount = custodyAccounts.find((a) => a._id === form.payFrom);
+  const holder = custodyAccount?.holders.find((h: any) => h._id === form.employeeId);
+  const holderName = (h: any) => `${h.firstName || ''} ${h.lastName || ''}`.trim();
+  const payAccount = accounts.find((a) => a._id === form.payFrom) || custodyAccount;
   // Paid on the spot: the cost is in the currency of the account that paid it
   const currency = payAccount ? payAccount.currency : form.currency;
   const typedNewVendor = !form.vendor && form.vendorText.trim().length > 1;
@@ -399,6 +407,14 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
       setFormError("Amount must be more than 0.");
       return;
     }
+    if (custodyAccount && !holder) {
+      setFormError("Choose the employee whose custody paid this.");
+      return;
+    }
+    if (holder && amount > holder.held + 0.000001) {
+      setFormError(`${holderName(holder)} holds only ${holder.held} ${custodyAccount.currency} in custody.`);
+      return;
+    }
     setFormError(undefined);
     setSaving(true);
     try {
@@ -411,13 +427,15 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
         amount,
         currency,
         payFromAccountId: form.payFrom || undefined,
+        employeeId: custodyAccount ? form.employeeId : undefined,
         rate: !payAccount && currency !== 'USD' && Number(form.rate) > 0 ? Number(form.rate) : undefined,
         day: form.day,
         idempotencyKey: key.current,
       });
       key.current = newKey();
       setToast({ message: form.payFrom ? 'Cost added and paid' : 'Cost added, owed to the supplier' });
-      setForm({ ...emptyForm(), withoutVendor: form.withoutVendor, payFrom: form.payFrom, currency: form.currency, costCategory: form.costCategory });
+      setForm({ ...emptyForm(), withoutVendor: form.withoutVendor, payFrom: form.payFrom, employeeId: form.employeeId, currency: form.currency, costCategory: form.costCategory });
+      if (custodyAccount) fetchCustody();
       if (!form.vendor) fetchOptions();
       await fetchCosts();
     } catch (err) {
@@ -538,12 +556,29 @@ const InventoryExpenses: React.FC<Props> = ({ inventoryId, inventory }) => {
         <div className="inv-field">
           <FieldLabel required>Paid from</FieldLabel>
           <FormControl size="small" fullWidth>
-            <Select value={form.payFrom} displayEmpty onChange={(e) => setForm({ ...form, payFrom: String(e.target.value) })} inputProps={{ 'aria-label': 'Paid from' }}>
+            <Select value={form.payFrom} displayEmpty onChange={(e) => {
+              const picked = custodyAccounts.find((a) => a._id === e.target.value);
+              // A custody account: its only holder is picked already (an employee paying from their own)
+              setForm({ ...form, payFrom: String(e.target.value), employeeId: picked?.holders.length === 1 ? picked.holders[0]._id : '' });
+            }} inputProps={{ 'aria-label': 'Paid from' }}>
               <MenuItem value="" disabled={form.withoutVendor}>{form.withoutVendor ? 'Choose the payment account' : 'Not paid yet (owed to the supplier)'}</MenuItem>
               {accounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency})</MenuItem>)}
+              {custodyAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{a.name} ({a.currency}) · custody</MenuItem>)}
             </Select>
           </FormControl>
         </div>
+
+        {custodyAccount && (
+          <div className="inv-field">
+            <FieldLabel required note={holder ? `holds ${holder.held} ${custodyAccount.currency}` : undefined}>Employee (custody)</FieldLabel>
+            <FormControl size="small" fullWidth error={!!holder && Number(form.amount) > holder.held + 0.000001}>
+              <Select value={form.employeeId} displayEmpty onChange={(e) => setForm({ ...form, employeeId: String(e.target.value) })} inputProps={{ 'aria-label': 'Employee (custody)' }}
+                renderValue={(id) => { const h = custodyAccount.holders.find((x: any) => x._id === id); return h ? holderName(h) : 'Choose the employee'; }}>
+                {custodyAccount.holders.map((h: any) => <MenuItem key={h._id} value={h._id}>{holderName(h)} · {h.held} {custodyAccount.currency}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </div>
+        )}
 
         <div className="inv-field">
           <FieldLabel required>Amount</FieldLabel>

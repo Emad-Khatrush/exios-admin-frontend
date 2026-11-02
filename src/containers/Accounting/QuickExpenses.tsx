@@ -9,6 +9,7 @@ import { Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } fr
 import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
 import { LateExpenseNotice } from './BankMatchTools';
+import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
 
 const RECENT_FILTERS: ListFilterValue = { status: '', from: recentFrom(), to: '', search: '' };
 
@@ -19,7 +20,7 @@ const QuickExpenses = () => {
   const [types, setTypes] = useState<any[]>([]);
   const [cashVendor, setCashVendor] = useState<any>(null);
   const [recent, setRecent] = useState<any[]>([]);
-  const [form, setForm] = useState<any>({ typeId: '', description: '', amount: '', fromAccountId: '', office: '', day: today(), rate: '' });
+  const [form, setForm] = useState<any>({ typeId: '', description: '', amount: '', fromAccountId: '', employee: null, office: '', day: today(), rate: '' });
   const [message, setMessage] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,13 +29,16 @@ const QuickExpenses = () => {
   const [savedBillId, setSavedBillId] = useState('');
   const idempotencyKey = useRef(newKey());
 
-  const cashAccounts = useMemo(() => accounts.filter((a) => a.isCash && a.isActive), [accounts]);
+  // Boxes and banks, and the employees' custody accounts (dollar and dinar): an expense an employee
+  // paid from their custody (owner's request 2026-11-02). Loans are never spent from.
+  const cashAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && (a.isCash || (a.requires?.includes('employee') && String(a.code).startsWith('1401')))), [accounts]);
   const from = cashAccounts.find((a) => a._id === form.fromAccountId);
   // An old expense dated on or before the count day is already out of the counted box: accounting
   // takes it from the opening balance by itself, this only says so
   const count = useCountDay();
   const beforeCount = isBeforeCount(count, form.day);
   const type = types.find((t) => t._id === form.typeId);
+  const fromCustody = !!from?.requires?.includes('employee');
 
   const [filters, setFilters] = useState<ListFilterValue>(RECENT_FILTERS);
   const loadRecent = (current: ListFilterValue = filters) => acc.get('bills', { quick: 'true', limit: 100, ...queryOf(current) }).then((res: any) => setRecent(res.data.results)).catch(() => {}).finally(() => setIsLoading(false));
@@ -51,7 +55,7 @@ const QuickExpenses = () => {
       setIsSaving(true);
       const saved = await acc.post('bills', {
         vendorId: cashVendor._id, day: form.day, currency: from?.currency || 'USD', rate: Number(form.rate) || undefined,
-        isQuickExpense: true, paidImmediatelyFrom: form.fromAccountId, idempotencyKey: idempotencyKey.current,
+        isQuickExpense: true, paidImmediatelyFrom: form.fromAccountId, employeeId: fromCustody ? form.employee?._id : undefined, idempotencyKey: idempotencyKey.current,
         lines: [{ description: form.description || type?.name, amount: Number(form.amount), target: 'expense', accountId: type.accountId?._id || type.accountId, office: form.office }],
         ...(decision || {}),
       });
@@ -100,10 +104,11 @@ const QuickExpenses = () => {
           <TextField label="الوصف" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={type?.name} />
           <TextField select label="دُفع من" value={form.fromAccountId} onChange={(e) => {
             const account = cashAccounts.find((a) => a._id === e.target.value);
-            setForm({ ...form, fromAccountId: e.target.value, office: account?.office || form.office });
+            setForm({ ...form, fromAccountId: e.target.value, employee: null, office: account?.office || form.office });
           }}>
             {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
           </TextField>
+          {fromCustody && <CustodyHolderPicker inGrid accountId={form.fromAccountId} value={form.employee} amount={Number(form.amount) || 0} onChange={(employee) => setForm((f: any) => ({ ...f, employee }))} />}
           <TextField type="number" label={amountLabel(from?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           {from?.currency && from.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />}
           <TextField select label="المكتب" value={form.office} onChange={(e) => setForm({ ...form, office: e.target.value })}>
@@ -113,7 +118,8 @@ const QuickExpenses = () => {
         </div>
         {beforeCount && count && <Alert severity="info" className="mt-3">{beforeCountText(count)}</Alert>}
         <div className="d-flex justify-content-end mt-3">
-          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !from || !form.office || !(Number(form.amount) > 0)} onClick={() => save()}>تسجيل المصروف</Button>
+          <Button variant="contained" disabled={isSaving || !cashVendor || !type || !from || !form.office || !(Number(form.amount) > 0)
+            || (fromCustody && (!form.employee || custodyExceeded(form.employee, Number(form.amount))))} onClick={() => save()}>تسجيل المصروف</Button>
         </div>
       </Panel>
 

@@ -4,7 +4,8 @@ import { Alert, Autocomplete, Button, Checkbox, FormControlLabel, MenuItem, Text
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
-import { CancelDialog, RemotePicker, today, userLabel, useVendors } from './shared';
+import { CancelDialog, today, useVendors } from './shared';
+import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, queryOf, recentFrom } from './ListFilters';
@@ -331,7 +332,7 @@ export const PaymentForm = () => {
                   </span>
                 ) : 'وزّع المبلغ على الفواتير ليُقترح السعر الذي يُقفلها على صفر'} />
             )}
-            {from?.requires?.includes('employee') && <RemotePicker endpoint="lookup/users" label="الموظف صاحب العهدة" value={form.employee} getLabel={userLabel} onChange={(employee) => setForm({ ...form, employee })} />}
+            {from?.requires?.includes('employee') && <CustodyHolderPicker inGrid accountId={form.fromAccountId} value={form.employee} amount={Number(form.amount) || 0} onChange={(employee) => setForm((f: any) => ({ ...f, employee }))} />}
           </>}
         </div>
         {!form.fromAdvance && allocatedUsd > 0 && !sameCurrency && (
@@ -394,7 +395,8 @@ export const PaymentForm = () => {
         <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth />
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>
-          <Button variant="contained" disabled={isSaving || !vendorId || (form.fromAdvance ? !allocatedUsd : !(form.fromAccountId && Number(form.amount) > 0))} onClick={save}>ترحيل الدفعة</Button>
+          <Button variant="contained" disabled={isSaving || !vendorId || (form.fromAdvance ? !allocatedUsd : !(form.fromAccountId && Number(form.amount) > 0))
+            || (!form.fromAdvance && !!from?.requires?.includes('employee') && (!form.employee || custodyExceeded(form.employee, Number(form.amount))))} onClick={save}>ترحيل الدفعة</Button>
         </div>
       </Panel>
     </>

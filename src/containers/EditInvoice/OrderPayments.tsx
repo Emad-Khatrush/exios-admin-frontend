@@ -34,7 +34,7 @@ const money = (value: number) => Number(value || 0).toLocaleString('en-US', { mi
 const usd = (value: number) => `$${money(value)}`;
 
 // Total, paid and remaining of one thing the customer pays for, with a bar for the paid part
-const Balance = ({ title, total, paid, lydWithoutRate, empty }: { title: string, total: number, paid: number, lydWithoutRate: number, empty: string }) => {
+const Balance = ({ title, total, paid, lydWithoutRate, empty, note }: { title: string, total: number, paid: number, lydWithoutRate: number, empty: string, note?: string }) => {
   const remaining = total - paid;
   const share = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
   const settled = total > 0 && remaining <= 0.005;
@@ -52,6 +52,7 @@ const Balance = ({ title, total, paid, lydWithoutRate, empty }: { title: string,
           <span className="op-stat__line">{usd(paid)} paid of {usd(total)}</span>
         </>
       ) : <span className="op-stat__line">{empty}</span>}
+      {note && <span className="op-stat__line">{note}</span>}
       {lydWithoutRate > 0 && <span className="op-stat__warn">{money(lydWithoutRate)} LYD was paid with no rate and is not counted here.</span>}
     </div>
   );
@@ -175,7 +176,13 @@ const OrderPayments = (props: Props) => {
   const invoicePaid = paidInUsd(payments, 'invoice');
   const shippingPaid = paidInUsd(payments, 'receivedGoods');
   const invoiceTotal = Number(order.totalInvoice || 0);
-  const shippingTotal = packages.reduce((sum, row) => sum + packageCharge(row), 0);
+  // A package closed after a compensation is billed only the shipping already paid; the rest was
+  // cancelled (as in the accounting). Payments are kept per order, so they go to the open packages first.
+  const isClosed = (row: any) => !!row?.deliveredPackages?.compensation?.closed;
+  const openCharge = packages.filter((row) => !isClosed(row)).reduce((sum, row) => sum + packageCharge(row), 0);
+  const closedCharge = packages.filter(isClosed).reduce((sum, row) => sum + packageCharge(row), 0);
+  const shippingTotal = openCharge + Math.min(closedCharge, Math.max(0, shippingPaid.usd - openCharge));
+  const cancelledShipping = closedCharge - (shippingTotal - openCharge);
   const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd);
 
   const onOrder = debts.filter((debt) => String(debt.order?._id || debt.order || '') === String(order._id));
@@ -215,7 +222,9 @@ const OrderPayments = (props: Props) => {
     <div className="op-payments-grid">
       <section className="op-stats op-panel--wide">
         {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." />}
-        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate} empty="No package has a weight and a price yet." />
+        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate}
+          empty={closedCharge > 0 ? 'Compensated and closed: nothing left to pay.' : 'No package has a weight and a price yet.'}
+          note={cancelledShipping > 0.005 ? `${usd(cancelledShipping)} of unpaid shipping cancelled: the package was compensated and closed.` : undefined} />
         <div className="op-stat">
           <div className="op-stat__head"><span className="op-stat__title">Customer wallet</span></div>
           <strong className="op-stat__value">{usd(wallet.walletUsd)}</strong>

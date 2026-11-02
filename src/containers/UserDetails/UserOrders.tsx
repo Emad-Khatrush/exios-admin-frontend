@@ -93,8 +93,9 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   feeLydAmounts: feesOf(pkg).filter(fee => fee.currency === 'LYD').map(fee => Number(fee.amount)),
 });
 
-// Received packages were already delivered (and paid for), so they can never be selected again
-const isSelectable = (pkg: any) => !pkg?.status?.received;
+// Received packages were already delivered (and paid for), so they can never be selected again;
+// a package closed after a compensation is never handed over
+const isSelectable = (pkg: any) => !pkg?.status?.received && !pkg?.deliveredPackages?.compensation?.closed;
 
 const tabs = [
   { value: 'active', label: 'Active', tabType: 'active' },

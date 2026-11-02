@@ -9,6 +9,7 @@ import OrderCostBreakdown from './OrderCostBreakdown';
 import AccountingFold from './AccountingFold';
 import PreviousWalletRefundPicker from './PreviousWalletRefundPicker';
 import LegacyPurchaseCosts from './LegacyPurchaseCosts';
+import { PackageCompensationPanel } from './PackageCompensation';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
@@ -419,7 +420,7 @@ const AbandonedPanel = ({ orderId, onChanged }: { orderId: string; onChanged: ()
   }, [orderId]);
   useEffect(load, [load]);
   if (!data) return null;
-  const rows = (data.results || []).filter((p: any) => !p.received && (p.arrivedLibya || p.abandoned));
+  const rows = (data.results || []).filter((p: any) => !p.received && !p.compensation && (p.arrivedLibya || p.abandoned));
   if (!rows.length) return null;
   const act = async (row: any, action: 'abandon' | 'restore', confirmText: string) => {
     if (!window.confirm(confirmText)) return;
@@ -552,6 +553,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActio
         <PreviousCustomerLines orderId={orderId} onMoved={() => {}} />
         {!separateActions && isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
         <AbandonedPanel orderId={orderId} onChanged={() => {}} />
+        <PackageCompensationPanel orderId={orderId} onChanged={() => {}} />
         {isPayment && <AlipaySendPanel orderId={orderId} />}
       </Frame>
     );
@@ -564,6 +566,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActio
       <PreviousCustomerLines orderId={orderId} onMoved={reload} />
       {!separateActions && (isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
       <AbandonedPanel orderId={orderId} onChanged={reload} />
+      <PackageCompensationPanel orderId={orderId} onChanged={reload} />
       {(isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
       {empty && <NoEntries />}
       {data?.order?.isCanceled && totals?.costInProgress > 0 && <Alert severity="warning" className="mb-3">
