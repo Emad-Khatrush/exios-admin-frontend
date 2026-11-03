@@ -214,7 +214,7 @@ const ChartOfAccounts = () => {
                 </div>
                 {!editing && (
                   <div className="d-flex gap-2 align-items-center mt-2">
-                    <FormControlLabel control={<Checkbox checked={form.isCash} onChange={(e) => setForm({ ...form, isCash: e.target.checked, type: e.target.checked ? 'asset' : form.type })} />} label="خزينة / بنك / محفظة إلكترونية" />
+                    <FormControlLabel control={<Checkbox checked={form.isCash} onChange={(e) => setForm({ ...form, isCash: e.target.checked, type: e.target.checked && form.type !== 'liability' ? 'asset' : form.type, cashKind: e.target.checked && form.type === 'liability' ? 'bank' : form.cashKind })} />} label="خزينة / بنك / محفظة إلكترونية" />
                     {form.isCash && (
                       <TextField select value={form.cashKind} onChange={(e) => setForm({ ...form, cashKind: e.target.value })} style={{ width: 170 }}>
                         <MenuItem value="cash">خزينة نقدية</MenuItem>

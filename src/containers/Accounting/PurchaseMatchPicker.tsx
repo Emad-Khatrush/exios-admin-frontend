@@ -11,9 +11,9 @@ const offsetDay = (day: string, offset: number) => {
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 };
-const states: Record<string, string> = { recorded: 'مسجل في فاتورة مورد', historical_settlement: 'سداد تاريخي — متاح للتسوية', recorded_refund: 'ريفاند مسجل؛ مطابقة فقط', refundable: 'مشتريات أصلية للاسترداد', draft: 'مسودة', open: 'مستحقة', paid: 'مسددة', linked: 'مرتبطة بكشف', unrecorded: 'لم تُسجّل فاتورة لها' };
+const states: Record<string, string> = { recorded: 'مسجل في فاتورة مورد', historical_settlement: 'سداد تاريخي — متاح للتسوية', recorded_refund: 'ريفاند مسجل؛ مطابقة فقط', recorded_credit: 'إشعار دائن مسجل بانتظار المطابقة', refundable: 'مشتريات أصلية للاسترداد', draft: 'مسودة', open: 'مستحقة', paid: 'مسددة', linked: 'مرتبطة بكشف', unrecorded: 'لم تُسجّل فاتورة لها' };
 
-export default function PurchaseMatchPicker({ open, accountId, line, paid, currency, bankName, onClose, onConfirm, embedded = false, suggestedBillId, suggestedItemId, onBusyChange, refund = false, settlementOnly = false }: any) {
+export default function PurchaseMatchPicker({ open, accountId, line, paid, currency, bankName, onClose, onConfirm, embedded = false, suggestedBillId, suggestedItemId, suggestedRefundId, suggestedRefundLineId, onBusyChange, refund = false, settlementOnly = false }: any) {
   const [filters, setFilters] = useState({ from: '', to: '', source: 'all', status: 'open', q: '' });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<any>(null);
@@ -25,7 +25,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   useEffect(() => { setConfirmTripDifference(false); }, [open, line?._id, selected?._id]);
   // The bill's vendor differs from the merchant the statement names: approved after review, and corrected
   const [confirmMerchant, setConfirmMerchant] = useState(false);
-  const [browsing, setBrowsing] = useState(!suggestedBillId && !suggestedItemId);
+  const [browsing, setBrowsing] = useState(!suggestedBillId && !suggestedItemId && !suggestedRefundId);
   const initialChoice = useRef(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -54,9 +54,9 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
     setWalletUsd('0'); setBillLineId(''); setRefundOriginalAmount('');
     setPreviousRefund(null); setBrowsePrevious(false); setConfirmWalletImpact(false);
     setDirectPrevious(true); setConfirmSameRefund(false);
-    setPage(1); setSelected(null); setOriginal(null); setBrowsing(!suggestedBillId && !suggestedItemId); initialChoice.current = true; setConfirmDifference(false); setError(''); setData(null);
+    setPage(1); setSelected(null); setOriginal(null); setBrowsing(!suggestedBillId && !suggestedItemId && !suggestedRefundId); initialChoice.current = true; setConfirmDifference(false); setError(''); setData(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, line?._id, line?.day, accountId, refund, settlementOnly, suggestedBillId, suggestedItemId]);
+  }, [open, line?._id, line?.day, accountId, refund, settlementOnly, suggestedBillId, suggestedItemId, suggestedRefundId, suggestedRefundLineId]);
   useEffect(() => {
     if (!open || !line?.day || (previousRefund && directPrevious)) { setBusy(false); return undefined; }
     let stale = false;
@@ -64,13 +64,17 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
       setBusy(true);
       acc.get(refund ? 'bank/refunds' : 'bank/purchases', { accountId, lineId: line._id || undefined, paid, description: line.description, partnerId: previousRefund?.partnerId,
         statementAmount: line.amount, movementKind: line.movementKind, day: line.day,
-        originalAmount: line.originalAmount, originalCurrency: line.originalCurrency, suggestedBillId, suggestedItemId,
+        originalAmount: line.originalAmount, originalCurrency: line.originalCurrency, suggestedBillId, suggestedItemId, suggestedRefundId,
         includeProposal: initialChoice.current ? 'true' : 'false', settlementOnly: settlementOnly ? 'true' : undefined, ...filters, page })
         .then((res: any) => { if (!stale) {
           setData(res.data); setOriginal(res.data.original); setError('');
           if (initialChoice.current) {
-            const proposal = res.data.proposal || res.data.results.find((row: any) => ((suggestedBillId && String(row.billId) === String(suggestedBillId)) || (suggestedItemId && String(row.itemId) === String(suggestedItemId))));
-            if (proposal) { setSelected({ ...proposal, isSuggestion: true }); setBrowsing(false); } else setBrowsing(true);
+            const proposal = res.data.proposal || res.data.results.find((row: any) => ((suggestedRefundId && row.kind === 'existing_refund' && String(row.refundId) === String(suggestedRefundId)) || (suggestedBillId && String(row.billId) === String(suggestedBillId)) || (suggestedItemId && String(row.itemId) === String(suggestedItemId))));
+            if (proposal) {
+              setSelected({ ...proposal, isSuggestion: true });
+              if (suggestedRefundLineId && proposal.refundLines?.some((item: any) => String(item._id) === String(suggestedRefundLineId))) setBillLineId(String(suggestedRefundLineId));
+              setBrowsing(false);
+            } else setBrowsing(true);
             initialChoice.current = false;
           }
         } })
@@ -78,7 +82,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
         .finally(() => { if (!stale) setBusy(false); });
     }, 250);
     return () => { stale = true; window.clearTimeout(timer); };
-  }, [open, accountId, line?._id, line?.day, line?.amount, line?.movementKind, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, refund, settlementOnly, previousRefund?.partnerId, directPrevious]);
+  }, [open, accountId, line?._id, line?.day, line?.amount, line?.movementKind, line?.description, line?.originalAmount, line?.originalCurrency, paid, filters, page, suggestedBillId, suggestedItemId, suggestedRefundId, suggestedRefundLineId, refund, settlementOnly, previousRefund?.partnerId, directPrevious]);
   useEffect(() => { onBusyChange?.(submitting); return () => onBusyChange?.(false); }, [submitting, onBusyChange]);
   useEffect(() => { contentRef.current?.closest('.MuiDialogContent-root')?.scrollTo({ top: 0 }); }, [browsing]);
   // The bank page mounts this picker before any row is selected. Keep all hooks
@@ -128,7 +132,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   const partialRefund = refund && selected?.kind !== 'existing_refund' && amountDifferent && original.amount < selected.amount;
   const refundAmount = original?.known ? Number(original.amount) : Number(refundOriginalAmount);
   const refundTooLarge = refund && selected && selected.kind !== 'existing_refund' && refundAmount > 0
-    && (refundAmount > Number(selected.refundableAmount) + 0.0005 || (selectedRefundLine && refundAmount > Number(selectedRefundLine.amount) + 0.0005));
+    && ((!selected.hasUnreceivedCredit && refundAmount > Number(selected.refundableAmount) + 0.0005) || (selectedRefundLine && refundAmount > Number(selectedRefundLine.amount) + 0.0005));
   const directionWrong = refund ? (line.amount !== undefined && Number(line.amount) <= 0) || line.movementKind === 'card_payment' : line.amount !== undefined && Number(line.amount) >= 0;
   const futureRefundBill = refund && selected?.kind !== 'existing_refund' && selected?.day > line.day;
   const recordedBankMismatch = refund && selected?.kind === 'existing_refund' && (selected.bankCurrency !== currency || Math.abs(Number(selected.bankAmount) - Number(paid)) > 0.0005);
@@ -185,6 +189,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
           <ReviewField label="المورد">{selected.vendorName || 'حسب مشتريات الطلبية'}</ReviewField>
           {selected.orders.map((order: any, i: number) => <ReviewField key={`${order._id}-${i}`} label="الطلبية"><Open to={`/invoice/${order._id}/edit`}><Ltr>{order.number}</Ltr></Open> · {order.description}</ReviewField>)}
           {selected.trips?.map((trip: any, i: number) => <ReviewField key={`${trip._id}-${i}`} label="الرحلة"><Ltr>{trip.number}</Ltr> · {trip.description}</ReviewField>)}
+          {refund && selected.hasUnreceivedCredit && <Alert severity="info" className="my-2">يوجد إشعار دائن مسجل وغير مستلم بقيمة مطابقة. ستُربط حركة الكشف به ويُعاد استخدامه دون إنشاء إشعار دائن مكرر.</Alert>}
           {selected.historicalSettlement && <>
             <ReviewField label="السداد التاريخي"><Ltr>{selected.historicalSettlement.paymentNumber} · {selected.historicalSettlement.paymentDay}</Ltr></ReviewField>
             <ReviewField label="حساب السداد السابق">{selected.historicalSettlement.accountName}</ReviewField>
@@ -195,7 +200,7 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
             <FormControlLabel control={<Checkbox checked={confirmHistoricalSettlement} onChange={e => { setConfirmHistoricalSettlement(e.target.checked); setConfirmDifference(e.target.checked); }} />} label="راجعت المورد ومرجع الحوالة وأؤكد أنها تسوية السداد التاريخي نفسه" />
           </>}
           {!refund && selected.amount > 0 && <ReviewField label="سعر التصريف حسب الفاتورة">{selected.currency === currency ? 'نفس العملة؛ بدون تصريف' : <Ltr>1 {selected.currency} = {(paid / selected.amount).toFixed(6)} {currency}</Ltr>}</ReviewField>}
-          {refund && selected.refundableAmount != null && <ReviewField label="المتبقي القابل للاسترداد"><Ltr>{selected.refundableAmount} {selected.currency}</Ltr></ReviewField>}
+          {refund && selected.refundableAmount != null && <ReviewField label={selected.hasUnreceivedCredit ? 'قيمة الإشعار الدائن غير المستلم' : 'المتبقي القابل للاسترداد'}><Ltr>{selected.hasUnreceivedCredit ? selected.amount : selected.refundableAmount} {selected.currency}</Ltr></ReviewField>}
           {refund && selected.kind === 'existing_refund' && <ReviewField label="أُضيف لمحفظة العميل سابقاً"><Ltr>{selected.walletUsd} USD</Ltr></ReviewField>}
           {selected.openUsd != null && <ReviewField label="المتبقي على الفاتورة"><Ltr>{selected.openUsd} USD</Ltr></ReviewField>}
           <div className="acc-sub mt-2">{selected.description}</div>

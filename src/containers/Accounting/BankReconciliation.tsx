@@ -39,6 +39,10 @@ type Preview = {
   // A credit card statement prints spending as + and payments as -: the opposite of an account
   flipAll: boolean
   creditCard: boolean
+  statementCurrency?: string
+  cardNumber?: string | null
+  statementAccountNumber?: string | null
+  statementIban?: string | null
   // The account chosen for each row (by position); rows without one are imported and left for later
   choices: Record<number, Choice>
   alipay?: boolean
@@ -51,7 +55,7 @@ type Choice = { accountId?: string, office?: string, notDuplicate?: boolean, byH
 const billLabel = (bill: any) => `${bill.number} · ${bill.orders?.map((o: any) => o.number).filter(Boolean).join('، ') || bill.vendorName || ''} · ${bill.amount} ${bill.currency} · ${bill.day}`;
 
 // Where a suggestion came from, in words
-const sourceTextBase = (item: any) => (({ exchange: 'صرف بين حسابي البنك', own_transfer: 'تحويل بين حسابات الشركة', card_transfer: 'سداد بطاقة البنك', funder_settlement: 'سداد جاري يوسف — دون تكلفة جديدة', cash_deposit: 'إيداع من خزينة الشركة — بنفس العملة', cash_withdrawal: 'استلام كاش — خزينة تركيا دولار', bank_fee: 'عمولة سحب أو تحويل — المتحدة', investment_transfer: 'استثمار صندوق أو حساب مشاركة', owner_loan: 'قرض عماد — استلام أو سداد دون إيراد أو مصروف', professional_fee: 'رسوم محاسبة أو غرفة تجارة' } as Record<string, string>)[item.source] || (item.source === 'bill' ? 'سداد فاتورة مورد موجودة' : item.source === 'order' ? 'مربوط بطلبية' : item.source === 'yuan' ? 'شراء يوان — الربط من Alipay' : item.source === 'service' ? 'خدمات الصين' : item.source === 'purchase_default' ? 'تكلفة شراء — لا توجد فاتورة مرتبطة' : item.source === 'vendor' ? 'مورد معروف' : item.source === 'rule' ? `قاعدة: ${item.keyword}` : 'مثل آخر مرة'));
+const sourceTextBase = (item: any) => (({ exchange: 'صرف بين حسابي البنك', own_transfer: 'تحويل بين حسابات الشركة', card_transfer: 'سداد بطاقة البنك', bank_transfer_in: 'حوالة واردة — تحتاج تحديد الطرف المقابل', funder_settlement: 'سداد جاري يوسف — دون تكلفة جديدة', cash_deposit: 'إيداع من خزينة الشركة — بنفس العملة', cash_withdrawal: 'استلام كاش — خزينة تركيا دولار', bank_fee: 'عمولة مصرفية', investment_transfer: 'استثمار صندوق أو حساب مشاركة', owner_loan: 'قرض عماد — استلام أو سداد دون إيراد أو مصروف', professional_fee: 'رسوم محاسبة أو غرفة تجارة' } as Record<string, string>)[item.source] || (item.source === 'bill' ? 'سداد فاتورة مورد موجودة' : item.source === 'order' ? 'مربوط بطلبية' : item.source === 'yuan' ? 'شراء يوان — الربط من Alipay' : item.source === 'service' ? 'خدمات الصين' : item.source === 'purchase_default' ? 'تكلفة شراء — لا توجد فاتورة مرتبطة' : item.source === 'vendor' ? 'مورد معروف' : item.source === 'rule' ? `قاعدة: ${item.keyword}` : 'مثل آخر مرة'));
 
 // Every row with the sign it will be imported with (skipped rows included, for the table)
 const sourceText = (item: any) => item.source === 'service_invoice' ? 'تكلفة خدمات — فاتورة خدمية' : bankSourceTextOverride(item, sourceTextBase(item));
@@ -202,7 +206,17 @@ const BankReconciliation = () => {
         // try to read it as such. fetchFormData never throws; a refusal comes back as the body.
         const res: any = await api.fetchFormData('accounting/bank/parse-pdf', 'POST', form);
         if (res instanceof Error || !Array.isArray(res?.rows)) throw new Error(res?.message || 'تعذّرت قراءة الملف');
-        setPreview({ fileName: file.name, kind: 'pdf', headerRow: 0, mapping: {}, rows: res.rows, skip: new Set(), flip: new Set(), creditCard: !!res.creditCard, flipAll: !!res.creditCard, choices: {} });
+        if (res.format === 'Garanti BBVA - Bonus Business credit card' && res.currency) {
+          const targetCode = res.currency === 'USD' ? '250400' : '250300';
+          const target = banks.find((a: any) => a.code === targetCode && a.currency === res.currency);
+          if (target) setAccountId(target._id);
+        }
+        if (res.format === 'Garanti BBVA - bank account statement' && res.currency) {
+          const targetCode = res.currency === 'USD' ? '110207' : '110208';
+          const target = banks.find((a: any) => a.code === targetCode && a.currency === res.currency);
+          if (target) setAccountId(target._id);
+        }
+        setPreview({ fileName: file.name, kind: 'pdf', headerRow: 0, mapping: {}, rows: res.rows, skip: new Set(), flip: new Set(), creditCard: !!res.creditCard, flipAll: !!res.creditCard, statementCurrency: res.currency || undefined, cardNumber: res.cardNumber || null, statementAccountNumber: res.accountNumber || null, statementIban: res.iban || null, choices: {} });
       } else {
         const cells = await readSheet(file);
         const { headerRow, mapping } = detect(cells);
@@ -356,10 +370,10 @@ const BankReconciliation = () => {
     const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id))
       .sort((a: any, b: any) => Math.abs(Date.parse(a.day) - Date.parse(row.day)) - Math.abs(Date.parse(b.day) - Date.parse(row.day)) || String(a._id).localeCompare(String(b._id)));
     setEntryFor({
-      mode: row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : possible.length ? 'ledger' : row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
+      mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
       selected: possible.length && !(row.sourceProvider === 'alipay' && possible.length > 1) ? [possible[0]._id] : [],
       changeLedger: !possible.length || (row.sourceProvider === 'alipay' && possible.length > 1),
-      line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '', billId: hint?.tripCandidates?.[0]?.billId || hint?.suggestedBillId || hint?.billId || '', billAccepted: false, confirmNewBill: false,
+      line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '', billId: hint?.tripCandidates?.[0]?.billId || hint?.suggestedBillId || hint?.billId || '', refundId: hint?.suggestedRefundId || '', billAccepted: false, confirmNewBill: false,
       remember: false, keyword: keywordOf(row.description), confirmNotDuplicate: !!row.postingAttempt,
     });
   };
@@ -817,7 +831,10 @@ const BankReconciliation = () => {
         <DialogTitle>مراجعة الكشف قبل الاستيراد<Sub>{preview?.fileName} · {account ? accountLabel(account) : ''}</Sub></DialogTitle>
         {preview && (
           <DialogContent dividers>
+            {preview.statementAccountNumber && <Alert severity="info" className="mb-3">كشف Garanti للحساب {preview.statementAccountNumber} {preview.statementIban ? `· ${preview.statementIban}` : ''} بعملة {preview.statementCurrency}. ستُصنّف الحوالات والصرف والرسوم وسداد البطاقة للمراجعة، ولن تُرحّل تلقائيًا.</Alert>}
             {preview.creditCard && <Alert severity="warning" className="mb-3">هذا كشف بطاقة ائتمان: المشتريات فيه موجبة والسداد سالب، فعُكست الإشارات لتصبح المشتريات صادرة (سالبة) وسداد البطاقة وارداً (موجباً). اختر في الحساب أعلاه حساب البطاقة نفسها.</Alert>}
+            {preview.statementCurrency && account?.currency !== preview.statementCurrency && <Alert severity="error" className="mb-3">عملة الكشف {preview.statementCurrency}، بينما الحساب المحدد {account?.currency || 'غير محدد'}. اختر حساب Garanti بالعملة المطابقة قبل الاستيراد؛ لا تخلط رصيد الدولار والليرة في حساب واحد.</Alert>}
+            {preview.creditCard && preview.statementCurrency && account?.currency === preview.statementCurrency && <Alert severity="info" className="mb-3">كشف Garanti للبطاقة المنتهية بـ {preview.cardNumber?.slice(-4) || '—'} بعملة التسوية {preview.statementCurrency}. ستُراجع المشتريات والريفاندات مع الفواتير وإشعاراتها الدائنة قبل اعتماد الترحيل.</Alert>}
             {!preview.alipay && <FormControlLabel className="mb-2" control={<Checkbox size="small" checked={preview.flipAll} onChange={(e) => { setPurchaseReview(null); setPreview({ ...preview, flipAll: e.target.checked, choices: {} }); }} />} label="عكس إشارة كل السطور (كشوف بطاقات الائتمان)" />}
             {preview.kind === 'pdf' && <Alert severity="info" className="mb-3">قُرئ الكشف من ملف PDF. راجع الإشارات: الوارد موجب والصادر سالب. غيّر إشارة أي سطر بزر السهم، واستبعد ما ليس حركة.</Alert>}
             {preview.kind === 'sheet' && !preview.alipay && (
@@ -927,7 +944,7 @@ const BankReconciliation = () => {
                     const selectedBill = item.billCandidates?.find((bill: any) => bill._id === selectedBillId);
                     return (
                       <>
-                        {item.isRefund && <Sub><Badge tone="info">Refund — استرداد</Badge>{item.vendorName && <Sub>المورد: {item.vendorName}</Sub>}<Sub>يُحفظ غير مرحّل حتى اعتماد الفاتورة أو الريفاند الأصلي.</Sub></Sub>}
+                        {item.isRefund && <Sub><Badge tone="info">Refund — استرداد</Badge>{item.vendorName && <Sub>المورد: {item.vendorName}</Sub>}{item.refundMatchReason && <Sub>{item.refundMatchReason}</Sub>}<Sub>يُحفظ غير مرحّل حتى اعتماد الفاتورة أو إشعارها الدائن.</Sub></Sub>}
                         {!item.semanticTransfer && (row.amount < 0 || (row.amount > 0 && item.isRefund)) && <Button size="small" disabled={row.walletImpact === 'unknown'} onClick={() => setPurchaseReview({ line: row, paid: Math.abs(row.amount), index: row.index, refund: row.amount > 0 && !!item.isRefund })}>{choice.purchaseSelection ? 'تغيير المطابقة' : row.amount > 0 && item.isRefund ? 'ربط استرداد المشتريات' : 'مراجعة واعتماد'}</Button>}
                         {item.semanticTransfer && item.requiresConfirmation && <FormControlLabel control={<Checkbox size="small" checked={!!choice.settlementReviewed} onChange={e => setPreview(current => current ? { ...current, choices: { ...current.choices, [row.index]: { ...current.choices[row.index], settlementReviewed: e.target.checked } } } : current)} />} label={item.source === 'funder_settlement' ? 'راجعت أنها تسوية ليوسف وليست تكلفة شراء جديدة' : item.source === 'owner_loan' ? 'راجعت أنها استلام أو رد قرض عماد' : item.source === 'cash_deposit' ? 'راجعت مصدر النقد وسحب الدولار وعملية الصرف السابقة' : 'راجعت حساب الاستثمار وأصل المبلغ'} />}
                         {choice.purchaseSelection && <Alert severity="success" className="my-2">
@@ -942,7 +959,8 @@ const BankReconciliation = () => {
                           onChange={(_, a: any) => choose(row.index, a?._id || '')}
                           renderInput={(params) => <TextField {...params} placeholder="اختر الحساب" />}
                         />}
-                        {!item.semanticTransfer && !choice.accountId && row.sourceProvider !== 'alipay' && row.amount * (preview.flip.has(row.index) ? -1 : 1) * (preview.flipAll ? -1 : 1) > 0 && (
+                        {!item.semanticTransfer && !choice.accountId && item.source === 'bank_transfer_in' && <Sub>الحوالة الواردة تحتاج تحديد الحساب أو الطرف المقابل، أو مطابقتها مع قيد موجود؛ لا تسجلها كإيراد تلقائي.</Sub>}
+                        {!item.semanticTransfer && !choice.accountId && row.sourceProvider !== 'alipay' && item.source !== 'bank_transfer_in' && row.amount * (preview.flip.has(row.index) ? -1 : 1) * (preview.flipAll ? -1 : 1) > 0 && (
                           <Sub>وارد بلا حساب: يُستورد ويُطابق تلقائياً مع إيداع محفظة العميل عند إدخاله على هذا البنك</Sub>
                         )}
                         {choice.link ? (
@@ -1019,6 +1037,9 @@ const BankReconciliation = () => {
               }}>ترحيل إلى الاستردادات قيد التحديد</Button>
             </>}
             {entryFor.mode === 'refund' && <PurchaseMatchPicker embedded open refund accountId={accountId} line={entryFor.line}
+              suggestedBillId={entryFor.billId || suggested[entryFor.line._id]?.suggestedBillId}
+              suggestedRefundId={entryFor.refundId || suggested[entryFor.line._id]?.suggestedRefundId}
+              suggestedRefundLineId={suggested[entryFor.line._id]?.suggestedRefundLineId}
               paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency} bankName={account?.name} onBusyChange={setReviewSaving}
               onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
                 await acc.post(`bank/lines/${entryFor.line._id}/refund-match`, { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId });
@@ -1217,6 +1238,8 @@ const BankReconciliation = () => {
       <PurchaseMatchPicker open={!!purchaseReview} accountId={accountId} line={purchaseReview?.line} paid={purchaseReview?.paid} currency={currency}
         refund={!!purchaseReview?.refund}
         suggestedBillId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.suggestedBillId : undefined}
+        suggestedRefundId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.suggestedRefundId : undefined}
+        suggestedRefundLineId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.suggestedRefundLineId : undefined}
         suggestedItemId={purchaseReview?.index !== undefined ? classes?.[purchaseReview.index]?.link?.itemId : undefined}
         onClose={() => setPurchaseReview(null)} onConfirm={async (selected: any, options: any) => {
           const selection = { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId, orderId: selected.orderId, itemId: selected.itemId, confirmDifference: !!options.confirmDifference };
