@@ -531,6 +531,7 @@ const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () =>
 export const OrderCosts = ({ orderId, orderNumber, legacyPurchases = [] }: { orderId: string; orderNumber?: string; legacyPurchases?: any[] }) => {
   const { canSee, data, error, reload } = useSummary(`summary/order/${orderId}`);
   return <Frame title="إضافة التكاليف" error={error} loading={false}>
+    <AlipaySendPanel orderId={orderId} onSent={reload} />
     <QuickOrderBill orderId={orderId} orderNumber={orderNumber || ''} onSaved={reload} />
     <LegacyPurchaseCosts orderId={orderId} fallbackRows={legacyPurchases} onSaved={reload} />
     {canSee && data && <BillsTable bills={data.bills} empty="لا فواتير موردين مسجلة على هذه الطلبية" />}
@@ -554,7 +555,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActio
         {!separateActions && isPayment && <CustomerRefundPanel orderId={orderId} onSaved={() => {}} />}
         <AbandonedPanel orderId={orderId} onChanged={() => {}} />
         <PackageCompensationPanel orderId={orderId} onChanged={() => {}} />
-        {isPayment && <AlipaySendPanel orderId={orderId} />}
+        {!separateActions && isPayment && <AlipaySendPanel orderId={orderId} />}
       </Frame>
     );
   }
@@ -567,7 +568,7 @@ export const OrderAccounting = ({ orderId, orderNumber, isPayment, separateActio
       {!separateActions && (isPayment || data?.order?.isPayment) && <CustomerRefundPanel orderId={orderId} onSaved={reload} />}
       <AbandonedPanel orderId={orderId} onChanged={reload} />
       <PackageCompensationPanel orderId={orderId} onChanged={reload} />
-      {(isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
+      {!separateActions && (isPayment || data?.order?.isPayment) && <AlipaySendPanel orderId={orderId} onSent={reload} />}
       {empty && <NoEntries />}
       {data?.order?.isCanceled && totals?.costInProgress > 0 && <Alert severity="warning" className="mb-3">
         <strong>طلبية ملغاة وتكلفة المورد ما زالت قائمة: <Money value={totals.costInProgress} /></strong>
