@@ -25,6 +25,7 @@ import { bankSourceTextOverride } from './bankSourceTextOverride';
 import StatementDescriptionTranslation, { canTranslateDescription } from './StatementDescriptionTranslation';
 import { BankDuplicateReview, BankGroupMatch, BankIntegrityDialog, MatchQuality } from './BankMatchTools';
 import LocalBankReset, { localBankResetHost } from './LocalBankReset';
+import BankImportProgress, { ImportProgressState } from './BankImportProgress';
 
 type Preview = {
   fileName: string
@@ -134,6 +135,13 @@ const BankReconciliation = () => {
   // Several lines for one purchase typed on an order (spec v8)
   const [group, setGroup] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // The helpers (suggestions, rules, partner hints) failed while the lines loaded: the page still opens
+  const [hintsError, setHintsError] = useState('');
+  // A statement being read or imported in the background (the dimmed progress screen)
+  const [importProgress, setImportProgress] = useState<ImportProgressState | null>(null);
+  const importJobId = useRef<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const account = banks.find((a) => a._id === accountId);
   // A partner's current account holding money for us (Wasl): its own matching helpers
   const partnerAccount = (account as any)?.cashKind === 'current' && account?.type === 'asset';
@@ -156,7 +164,9 @@ const BankReconciliation = () => {
     try {
       setIsLoading(true);
       setData(null);
-      const [lines, hints, ruleList, partner, transfers, yuan] = await Promise.all([
+      // Only the lines are required. A helper that fails or times out (a 503 from a slow
+      // suggestions request) must not hide the whole statement; it is reported instead.
+      const [lines, hints, ruleList, partner, transfers, yuan] = await Promise.allSettled([
         acc.get('bank/lines', { accountId, lineStatus: filter || undefined, linkage: linkage || undefined, direction: direction || undefined, from: from || undefined, to: to || undefined, search: searchQuery || undefined }),
         acc.get('bank/suggestions', { accountId, matchingSettings: JSON.stringify(matchingSettings) }),
         acc.get('bank/rules', { accountId }),
@@ -165,12 +175,16 @@ const BankReconciliation = () => {
         matchingEnabled('yuan') ? acc.get('bank/yuan-lines', { accountId }) : Promise.resolve({ data: {} }),
       ]);
       if (version !== loadVersion.current) return;
-      setData(lines.data);
-      setSuggested(hints.data);
-      setPartnerHints(partner.data || {});
-      setTransferHints(transfers.data || {});
-      setYuanHints(yuan.data || {});
-      setRules(ruleList.data.results);
+      if (lines.status === 'rejected') throw lines.reason;
+      const value = (result: PromiseSettledResult<any>, fallback: any) => (result.status === 'fulfilled' ? result.value?.data || fallback : fallback);
+      setData(lines.value.data);
+      setSuggested(value(hints, {}));
+      setPartnerHints(value(partner, {}));
+      setTransferHints(value(transfers, {}));
+      setYuanHints(value(yuan, {}));
+      setRules(value(ruleList, { results: [] }).results || []);
+      const failed = [hints, ruleList, partner, transfers, yuan].find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined;
+      setHintsError(failed ? `تعذر تحميل اقتراحات المطابقة (${errorText(failed.reason)}). السطور ظاهرة ويمكنك العمل عليها يدويًا، أو أعد المحاولة.` : '');
     } catch (err) {
       if (version !== loadVersion.current) return;
       setMessage({ type: 'error', text: errorText(err) });
@@ -198,6 +212,7 @@ const BankReconciliation = () => {
   const openFile = async (file?: File) => {
     if (!file) return;
     setMessage(null);
+    setImportProgress({ status: 'reading', startedAt: Date.now(), lastChange: Date.now(), fileName: file.name });
     try {
       if (/\.pdf$/i.test(file.name)) {
         const form = new FormData();
@@ -226,6 +241,8 @@ const BankReconciliation = () => {
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.response ? errorText(err) : `تعذّرت قراءة الملف: ${err.message}` });
+    } finally {
+      setImportProgress((current) => (current?.status === 'reading' ? null : current));
     }
   };
 
@@ -319,14 +336,80 @@ const BankReconciliation = () => {
       };
     });
     if (!rows.length) return setMessage({ type: 'error', text: 'لا سطور للاستيراد.' });
-    const ok = await run(() => acc.post('bank/import', { accountId, rows, matchingSettings }), (d) => [
-      `استُورد ${d.count} سطراً`,
-      d.skipped ? `تُجوهل ${d.skipped} مستورداً من قبل` : '',
-      d.matched ? `طُوبق ${d.matched} مع ما في الدفاتر` : '',
-      d.posted ? `رُحِّل ${d.posted} على حساباتها` : '',
-      d.notPosted?.length ? `لم يُرحَّل ${d.notPosted.length}: ${d.notPosted.slice(0, 3).map((n: any) => `${n.description} (${n.reason})`).join('؛ ')}` : '',
-    ].filter(Boolean).join('، ') + '.');
-    if (ok) { setPreview(null); setClasses(null); }
+    if (importProgress && !['failed', 'lost'].includes(importProgress.status)) return; // already importing
+    const fileName = preview?.fileName;
+    const startedAt = Date.now();
+    setImportProgress({ status: 'starting', startedAt, lastChange: startedAt, rows: rows.length, fileName });
+    try {
+      // Runs in the background on the server: a large file outlasts the hosting request timeout
+      const res = await acc.post('bank/import', { accountId, rows, matchingSettings, background: true });
+      importJobId.current = res.data.jobId;
+      await followImport(res.data, { startedAt, fileName, joined: !!res.data.alreadyRunning });
+    } catch (err) {
+      if (mounted.current) setImportProgress({ status: 'failed', startedAt, lastChange: Date.now(), error: errorText(err), fileName });
+    }
+  };
+
+  const importSummary = (d: any) => [
+    `استُورد ${d.count} سطراً`,
+    d.skipped ? `تُجوهل ${d.skipped} مستورداً من قبل` : '',
+    d.matched ? `طُوبق ${d.matched} مع ما في الدفاتر` : '',
+    d.posted ? `رُحِّل ${d.posted} على حساباتها` : '',
+    d.notPosted?.length ? `لم يُرحَّل ${d.notPosted.length}: ${d.notPosted.slice(0, 3).map((n: any) => `${n.description} (${n.reason})`).join('؛ ')}` : '',
+  ].filter(Boolean).join('، ') + '.';
+
+  // Asks the server every second how far the import is, until it is done, fails, or cannot be reached
+  const followImport = async (first: any, { startedAt, fileName, joined }: { startedAt: number, fileName?: string, joined?: boolean }) => {
+    let job = first;
+    let lastKey = '';
+    let lastChange = Date.now();
+    let misses = 0;
+    while (mounted.current && importJobId.current === job.jobId) {
+      const key = `${job.status}:${job.phase}:${job.done}:${job.total}`;
+      if (key !== lastKey) { lastKey = key; lastChange = Date.now(); }
+      if (job.status === 'done') {
+        importJobId.current = null;
+        setImportProgress(null);
+        setPreview(null);
+        setClasses(null);
+        setMessage({ type: job.result?.notPosted?.length ? 'warning' : 'success', text: importSummary(job.result || {}) });
+        await load();
+        return;
+      }
+      if (job.status === 'failed') {
+        importJobId.current = null;
+        setImportProgress({ status: 'failed', phase: job.phase, startedAt, lastChange, error: job.error, fileName });
+        await load();
+        return;
+      }
+      setImportProgress({ status: 'running', phase: job.phase, done: job.done, total: job.total, rows: job.rows, startedAt, lastChange, joined, fileName });
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      try {
+        job = (await acc.get(`bank/import/${job.jobId}`)).data;
+        misses = 0;
+      } catch (err: any) {
+        // The server no longer knows the job (restarted): say so rather than wait forever
+        if (err?.response?.status === 404 || ++misses >= 5) {
+          if (mounted.current) setImportProgress({ status: 'lost', phase: job.phase, done: job.done, total: job.total, startedAt, lastChange, error: errorText(err), fileName, joined });
+          return;
+        }
+      }
+    }
+  };
+
+  const keepWaiting = () => {
+    const jobId = importJobId.current;
+    if (!jobId || !importProgress) return;
+    const { startedAt, fileName, joined } = importProgress;
+    setImportProgress({ ...importProgress, status: 'running', lastChange: Date.now() });
+    acc.get(`bank/import/${jobId}`).then((res: any) => followImport(res.data, { startedAt, fileName, joined }))
+      .catch((err: any) => setImportProgress((current) => current && { ...current, status: 'lost', error: errorText(err) }));
+  };
+
+  const closeImportProgress = () => {
+    importJobId.current = null;
+    setImportProgress(null);
+    load();
   };
 
   // ---- Posting ----
@@ -573,6 +656,8 @@ const BankReconciliation = () => {
         subtitle="ارفع كشف الحساب Excel أو PDF. ما هو مسجل في الدفاتر يُطابق تلقائياً، والباقي يُرحَّل إلى حسابه. السطر المستورد من قبل لا يُستورد مرتين، والسطر الذي أدخلته يدوياً لا يُسجَّل مرة ثانية."
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
+      {hintsError && <Alert severity="warning" className="mb-3" action={<Button color="inherit" size="small" disabled={isLoading} onClick={load}>إعادة المحاولة</Button>}>{hintsError}</Alert>}
+      <BankImportProgress state={importProgress} onClose={closeImportProgress} onKeepWaiting={keepWaiting} />
       {settlingDuplicates && accountId && <BankDuplicateSettlement key={accountId} accountId={accountId} onClose={() => setSettlingDuplicates(false)} onDone={text => { setSettlingDuplicates(false); setMessage({ type: 'success', text }); load(); }} />}
       {data?.bankTrialRunId && <Alert severity="info" className="mb-3">
         تجربة كشف ضمن التشغيل <Ltr>{data.bankTrialRunId}</Ltr>: الترحيل يؤثر على التقارير الآن. الإلغاء يزيل آثار التجربة ويُبقي السطور للمراجعة؛ الاعتماد يحفظ النتائج.
@@ -1005,7 +1090,7 @@ const BankReconciliation = () => {
         <DialogActions>
           <span className="acc-sub me-auto ps-2">المستورد من قبل يُتجاهل، والمسجل في الدفاتر يُطابق، والجديد الذي له حساب يُرحَّل. الباقي يبقى في «غير مطابق».</span>
           <Button onClick={() => setPreview(null)}>إلغاء</Button>
-          <Button variant="contained" onClick={importPreview} disabled={!previewRows.length}>استيراد {previewRows.length} سطراً</Button>
+          <Button variant="contained" onClick={importPreview} disabled={!previewRows.length || (!!importProgress && !['failed', 'lost'].includes(importProgress.status))}>استيراد {previewRows.length} سطراً</Button>
         </DialogActions>
       </Dialog>
 
