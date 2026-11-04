@@ -1,0 +1,14 @@
+// Two overlapping previews and a count. Unscoped so the strip also works outside X-Tracking
+// (inventory trips); the X-Tracking page still sets its own colours through --xt-* variables.
+.xt-image-strip { display: flex; align-items: center; flex-wrap: nowrap; gap: 0; min-width: 0; flex-shrink: 0; isolation: isolate; }
+.xt-image-button { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--xt-primary, #0b6b62); cursor: pointer; }
+.xt-image-button + .xt-image-button { margin-inline-start: -7px; }
+.xt-image-circle { position: relative; display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border: 2px solid var(--xt-surface, #fff); border-radius: 50%; background: var(--xt-sunken, #f5f8fb); }
+.xt-image-circle img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.xt-image-button:hover, .xt-image-button:focus-visible { z-index: 1; }
+.xt-image-button:focus-visible { outline: 2px solid var(--xt-primary, #0b6b62); outline-offset: 1px; }
+.xt-image-more { font-size: 12px; font-weight: 600; }
+// Icon-only mode: a small pill with the photo count, no image downloaded
+.xt-image-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 2px 9px; border: 1px solid var(--xt-line, #d6e2ea); border-radius: 999px; background: var(--xt-sunken, #f5f8fb); color: var(--xt-primary, #0b6b62); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; }
+.xt-image-chip:hover { background: var(--xt-surface, #fff); }
+.xt-image-chip:focus-visible { outline: 2px solid var(--xt-primary, #0b6b62); outline-offset: 1px; }

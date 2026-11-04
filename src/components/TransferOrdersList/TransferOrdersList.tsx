@@ -26,6 +26,7 @@ import { Inventory } from '../../models';
 import { Alert, Backdrop, CircularProgress, Dialog, Snackbar } from '@mui/material';
 import { FaArrowLeft, FaArrowRight, FaBuilding, FaFileExcel, FaSortAlphaDown, FaSortAlphaUp, FaWarehouse, FaWhatsapp, FaWeight } from "react-icons/fa";
 import { downloadInventoryExcel } from './inventoryExcel';
+import TrackingImages from '../../containers/XTrackingPage/TrackingImages';
 import moment from 'moment';
 import { IoIosCloseCircle, IoIosListBox } from 'react-icons/io';
 import { AiOutlineInbox, AiOutlineSearch } from 'react-icons/ai';
@@ -281,9 +282,16 @@ const OrderRow = ({ order, checked, onToggle, labelId, detailed }: OrderRowProps
           )}
         </Stack>
 
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ mt: 0.5, rowGap: 0.25 }}>
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" alignItems="center" sx={{ mt: 0.5, rowGap: 0.25 }}>
           <IdField label="تتبع الصين" value={pkg?.trackingNumber} />
           <IdField label="رقم المصدر" value={pkg?.receiptNo} />
+          {!!order?.paymentList?.images?.length && (
+            // Opening or browsing the photos must not tick the row (React events also bubble out of the dialog)
+            <Box sx={{ display: 'inline-flex' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              onMouseDown={(e: React.MouseEvent) => e.stopPropagation()} onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}>
+              <TrackingImages images={order.paymentList.images} iconOnly label={`صور الشحنة ${pkg?.trackingNumber || order?.orderId || ''}`} />
+            </Box>
+          )}
         </Stack>
 
         {meta.length > 0 && (
