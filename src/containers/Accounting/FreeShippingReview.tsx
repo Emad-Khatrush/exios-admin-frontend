@@ -7,7 +7,7 @@ import { Badge, DataTable, FilterBar, Ltr, Money, Open, Panel, Sub } from './ui'
 type Row = {
   key: string; orderId: string; packageId: string; orderNumber: string; tracking: string; customer: any;
   date: string; invoiceMinor: number; chargeMinor: number; billedMinor: number; openMinor: number; paidMinor: number;
-  revenueMinor: number; purchaseCostMinor: number; profitImpactMinor: number; blocked: string;
+  revenueMinor: number; purchaseCostMinor: number; profitImpactMinor: number; restoredChargeMinor: number; blocked: string;
   enabled: boolean; offerReason: string; delivered: boolean; postingDay: string; fingerprint: string;
   invoiceType: 'purchase' | 'combined';
 };
@@ -31,6 +31,7 @@ export default function FreeShippingReview({ orderId, disabled = false, onApplie
   const [invoiceType, setInvoiceType] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [review, setReview] = useState<Row[] | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const request = useRef(0);
@@ -132,7 +133,7 @@ export default function FreeShippingReview({ orderId, disabled = false, onApplie
               { key: 'remaining', header: 'المتبقي', numeric: true, render: (row: Row) => money(row.openMinor) },
               { key: 'revenue', header: 'إيراد سيُعكس', numeric: true, render: (row: Row) => money(row.revenueMinor) },
               { key: 'cost', header: 'تكلفة على الفاتورة', numeric: true, render: (row: Row) => money(row.purchaseCostMinor) },
-              { key: 'state', header: 'الحالة', render: (row: Row) => <>{row.enabled ? <Badge tone="ok">عرض معتمد</Badge> : row.blocked ? <Badge tone="warn">تحتاج مراجعة</Badge> : <Badge tone="muted">متاح للاختيار</Badge>}<Sub>{row.blocked || (row.delivered ? 'تم تسليم الطرد' : 'قبل التسليم')}{row.offerReason ? ` · ${row.offerReason}` : ''}</Sub></> },
+              { key: 'state', header: 'الحالة', render: (row: Row) => <>{row.enabled ? <Badge tone="ok">عرض معتمد</Badge> : row.blocked ? <Badge tone="warn">تحتاج مراجعة</Badge> : <Badge tone="muted">متاح للاختيار</Badge>}<Sub>{row.blocked || (row.delivered ? 'تم تسليم الطرد' : 'قبل التسليم')}{row.offerReason ? ` · ${row.offerReason}` : ''}</Sub>{row.enabled && orderId && access.isOwner && <Button size="small" color="error" disabled={saving} onClick={() => setCancelTarget(row)}>إلغاء العرض</Button>}</> },
             ]} />
           {chosen.length > 0 && <p>المختار: {chosen.length} طرد · إلغاء مطالبات {money(total(chosen, 'openMinor'))} · عكس إيراد {money(total(chosen, 'revenueMinor'))} · تكلفة على فواتير الشراء {money(total(chosen, 'purchaseCostMinor'))}</p>}
         </> : <>
@@ -157,5 +158,39 @@ export default function FreeShippingReview({ orderId, disabled = false, onApplie
           : access.isOwner && <Button variant="contained" disabled={loading || saving || !!error || !chosen.length} onClick={() => { setReview(chosen); setReason(''); setConfirmed(false); }}>مراجعة المختار ({chosen.length})</Button>}
       </DialogActions>
     </Dialog>
+    {cancelTarget && <FreeShippingCancelDialog row={cancelTarget} onClose={() => setCancelTarget(null)} onCanceled={async () => {
+      setCancelTarget(null); setSuccess('تم إلغاء العرض وإعادة سعر الشحن وتحديث المطالبات والقيود المرتبطة.');
+      onApplied?.(); await load();
+    }} />}
   </>;
+}
+
+function FreeShippingCancelDialog({ row, onClose, onCanceled }: { row: Row; onClose: () => void; onCanceled: () => Promise<void> }) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cancel = async () => {
+    if (busy || !reason.trim()) return;
+    setBusy(true); setError('');
+    try {
+      await acc.post('free-shipping/cancel', { orderId: row.orderId, packageId: row.packageId, reason: reason.trim() });
+      await onCanceled();
+    } catch (err) { setError(errorText(err)); }
+    finally { setBusy(false); }
+  };
+  return <Dialog open onClose={() => !busy && onClose()} fullWidth maxWidth="sm" dir="rtl">
+    <DialogTitle>إلغاء عرض الشحن المجاني</DialogTitle>
+    <DialogContent>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        سيُعاد سعر الشحن السابق للطرد <Ltr>{row.tracking || row.packageId}</Ltr>، ويعيد النظام احتساب مطالبة العميل والإيراد وتكلفة الرحلة. قيمة الشحن المحسوبة: <strong>{money(row.restoredChargeMinor)}</strong>.
+      </Alert>
+      <TextField fullWidth required label="سبب الإلغاء" multiline minRows={2} value={reason} disabled={busy}
+        onChange={event => setReason(event.target.value)} inputProps={{ maxLength: 1000 }} />
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} disabled={busy}>رجوع</Button>
+      <Button variant="contained" color="error" disabled={busy || !reason.trim()} onClick={cancel}>{busy ? 'جارٍ الإلغاء…' : 'تأكيد الإلغاء'}</Button>
+    </DialogActions>
+  </Dialog>;
 }
