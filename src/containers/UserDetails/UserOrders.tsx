@@ -15,6 +15,7 @@ import {
   TextField,
   Backdrop,
   CircularProgress,
+  LinearProgress,
   Snackbar,
   Alert,
   AvatarGroup,
@@ -123,6 +124,10 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const effectiveFeeMode = allowPartial ? 'usd' : feeMode;
   const { rate: todayRate } = usePackageSettings();
 
+  // A delivery in batches (see runDelivery): its progress, and one left unfinished to resume
+  const [progress, setProgress] = useState<{ done: number, total: number } | null>(null);
+  const [openDelivery, setOpenDelivery] = useState<any>(null);
+
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const ordersRequest = useRef<CancelTokenSource | null>(null);
   const latestRequestId = useRef(0);
@@ -167,6 +172,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     setFilter('active');
     setSelectedPackages([]);
     fetchOrders('active');
+    loadOpenDelivery();
     return () => invalidateRequests();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
@@ -319,8 +325,122 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     setPartialRate('');
   };
 
+  // An unfinished delivery of this customer (the page was closed or the connection cut)
+  const loadOpenDelivery = async () => {
+    try {
+      setOpenDelivery((await api.get(`user/${customerId}/deliveries`)).data.delivery);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Delivers a started delivery batch after batch (owner's request 2026-11-05): many packages in one
+  // request passed the server's 30 seconds. Each batch is all or nothing on the server, so a call
+  // whose answer was lost is simply sent again: the delivery only moves forward once.
+  const runDelivery = async (job: any) => {
+    setProgress({ done: job.done, total: job.total });
+    let current = job;
+    while (current.status === 'running') {
+      let attempt = 0;
+      for (;;) {
+        try {
+          current = (await api.post(`deliveries/${current._id}/next`, {})).data;
+          break;
+        } catch (err: any) {
+          // A lost answer or a busy server is retried; a refusal (4xx) is shown
+          const status = err?.response?.status;
+          if ((status && status < 500) || attempt >= 2) throw err;
+          attempt += 1;
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+      }
+      setProgress({ done: current.done, total: current.total });
+    }
+    return current;
+  };
+
+  const finishDelivery = (job: any) => {
+    setOpenDelivery(job.status === 'running' ? job : null);
+    handleFilterChange(filter);
+    onDelivered?.();
+  };
+
+  const resumeDelivery = async () => {
+    if (!openDelivery || isPending) return;
+    try {
+      setIsPending(true);
+      const job = await runDelivery(openDelivery);
+      setIsError(false);
+      setResMessage(`تم تسليم ${job.done} من ${job.total} شحنة`);
+      finishDelivery(job);
+    } catch (err: any) {
+      setIsError(true);
+      setResMessage(`${err?.response?.data?.message || 'توقف التسليم.'} يمكنك الإكمال لاحقاً.`);
+      await loadOpenDelivery();
+      handleFilterChange(filter);
+      onDelivered?.();
+    } finally {
+      setIsPending(false);
+      setProgress(null);
+      setIsFinished(true);
+    }
+  };
+
+  const stopOpenDelivery = async () => {
+    if (!openDelivery || isPending) return;
+    if (!window.confirm(`إيقاف التسليم؟ ${openDelivery.total - openDelivery.done} شحنة لن تُسلَّم ولن يُخصم ثمنها. ما سُلّم يبقى كما هو.`)) return;
+    try {
+      setIsPending(true);
+      await api.post(`deliveries/${openDelivery._id}/stop`, {});
+      setOpenDelivery(null);
+      setIsError(false);
+      setResMessage(`أُوقف التسليم. سُلّمت ${openDelivery.done} شحنة، والباقي لم يُخصم.`);
+    } catch (err: any) {
+      setIsError(true);
+      setResMessage(err?.response?.data?.message || 'تعذر إيقاف التسليم.');
+      await loadOpenDelivery();
+    } finally {
+      setIsPending(false);
+      setIsFinished(true);
+    }
+  };
+
   const markAsDelivered = async () => {
     if (isPending || selectedPackages.length === 0 || paymentSummary.errors.length > 0) return;
+
+    // Paid in full: in batches. Credit delivery keeps its single request.
+    if (!allowPartial) {
+      let started: any = null;
+      try {
+        setIsPending(true);
+        started = (await api.post(`user/${customerId}/deliveries`, {
+          selectedPackages: selectedPackages.map(({ images, ...pkg }) => pkg),
+          payment: { amountUSD: paymentSummary.amountUSD, amountLYD: paymentSummary.amountLYD, rate: paymentSummary.rate },
+          feeMode: effectiveFeeMode,
+        })).data;
+        closeDialog();
+        const job = await runDelivery(started);
+        setIsError(false);
+        setResMessage(`تم تسليم ${job.done} شحنة بنجاح`);
+        finishDelivery(job);
+      } catch (err: any) {
+        console.error(err);
+        setIsError(true);
+        setResMessage(started
+          ? `${err?.response?.data?.message || 'انقطع التسليم.'} ما سُلّم محفوظ؛ أكمل الباقي من الشريط أعلى الطلبيات.`
+          : err?.response?.data?.message || 'Could not mark the packages as delivered. Please try again.');
+        if (started) {
+          await loadOpenDelivery();
+          handleFilterChange(filter);
+          onDelivered?.();
+        }
+      } finally {
+        setIsPending(false);
+        setProgress(null);
+        setIsFinished(true);
+      }
+      return;
+    }
 
     try {
       setIsPending(true);
@@ -362,6 +482,18 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
 
   return (
     <div className="customer-orders">
+      {openDelivery && !isPending && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={<>
+            <Button color="inherit" size="small" onClick={resumeDelivery}>إكمال التسليم</Button>
+            <Button color="inherit" size="small" onClick={stopOpenDelivery}>إيقاف الباقي</Button>
+          </>}
+        >
+          تسليم غير مكتمل: سُلّمت {openDelivery.done} من {openDelivery.total} شحنة وخُصم ثمنها. بقيت {openDelivery.total - openDelivery.done} لم تُسلَّم ولم يُخصم ثمنها.
+        </Alert>
+      )}
       <div className="co-toolbar">
         <div className="co-tabs" role="tablist">
           {tabs.map(tab => (
@@ -676,8 +808,14 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
         </DialogActions>
       </Dialog>
 
-      <Backdrop sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000 }} open={isPending}>
-        <CircularProgress color="inherit" />
+      <Backdrop sx={{ color: '#fff', zIndex: (theme: any) => theme.zIndex.drawer + 1000, flexDirection: 'column', gap: 2 }} open={isPending}>
+        {progress ? (
+          <div style={{ width: 'min(360px, 80vw)', textAlign: 'center' }}>
+            <div style={{ marginBottom: 12, fontSize: 16 }}>جارٍ التسليم: {progress.done} من {progress.total} شحنة</div>
+            <LinearProgress variant="determinate" value={progress.total ? (progress.done / progress.total) * 100 : 0} color="inherit" sx={{ height: 8, borderRadius: 4 }} />
+            <div style={{ marginTop: 12, fontSize: 13, opacity: 0.85 }}>لا تغلق الصفحة. إن انقطع الاتصال، ما سُلّم محفوظ ويمكن إكمال الباقي.</div>
+          </div>
+        ) : <CircularProgress color="inherit" />}
       </Backdrop>
 
       <Snackbar open={isFinished} autoHideDuration={6000} onClose={closeSnackbar}>
