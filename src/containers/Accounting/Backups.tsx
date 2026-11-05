@@ -50,6 +50,23 @@ const Backups = () => {
     }
   };
 
+  // Stops the run in progress (or one left hanging): a backup only reads the database, so
+  // nothing is lost; a new one can be started right after
+  const cancelRunning = async () => {
+    if (!window.confirm('إلغاء النسخة الجارية؟ لا تتأثر أي بيانات، ويمكنك بدء نسخة جديدة بعدها مباشرة.')) return;
+    setIsBusy(true);
+    setMessage(null);
+    try {
+      await acc.post('backups/cancel');
+      setMessage({ type: 'info', text: 'أُلغيت النسخة الجارية. يمكنك الضغط على «نسخة الآن».' });
+      await load();
+    } catch (err) {
+      setMessage({ type: 'error', text: errorText(err) });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const download = async (name: string) => {
     try {
       const res = await acc.post('backups/download', { name });
@@ -68,7 +85,10 @@ const Backups = () => {
       <PageHeader
         title="النسخ الاحتياطي"
         subtitle="نسخة كاملة من قاعدة البيانات كل يوم في مخزن Google خاص. تصلح لاسترجاع البيانات إلى Atlas جديد أو إلى جهازك إن حدثت مشكلة."
-        actions={<Button variant="contained" disabled={isBusy || running || !data?.configured} onClick={backupNow}>نسخة الآن</Button>}
+        actions={<>
+          {running && <Button variant="outlined" color="error" disabled={isBusy} onClick={cancelRunning} sx={{ ml: 1 }}>إلغاء النسخة الجارية</Button>}
+          <Button variant="contained" disabled={isBusy || running || !data?.configured} onClick={backupNow}>نسخة الآن</Button>
+        </>}
       />
       <Notice message={message} onClose={() => setMessage(null)} />
       {data && !data.configured && (
