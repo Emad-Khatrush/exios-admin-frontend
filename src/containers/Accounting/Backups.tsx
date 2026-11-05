@@ -130,9 +130,17 @@ const Backups = () => {
             { key: 'startedAt', header: 'البدء', render: (row: any) => when(row.startedAt) },
             { key: 'trigger', header: 'النوع', render: (row: any) => (row.trigger === 'daily' ? 'يومية' : 'يدوية') },
             { key: 'status', header: 'الحالة', render: (row: any) => <Badge tone={STATUS[row.status]?.tone}>{STATUS[row.status]?.label || row.status}</Badge> },
-            { key: 'detail', header: 'التفاصيل', render: (row: any) => (row.status === 'failed'
-              ? <Sub>{row.error}</Sub>
-              : row.status === 'done' ? <Sub>{`${row.collections} جدولاً، ${row.documents} سجلاً، ${size(row.bytes)}`}</Sub> : null) },
+            { key: 'detail', header: 'التفاصيل', render: (row: any) => {
+              const t = row.timing;
+              const secs = (ms: number) => `${Math.round((ms || 0) / 1000)} ث`;
+              // How long it took, and whether the snapshot of one instant held
+              const timing = t?.dumpMs !== undefined
+                ? ` · القراءة ${secs(t.dumpMs)}، الرفع ${secs(t.uploadMs)}${t.snapshotFailed ? ` · انتهت اللقطة بعد ${secs(t.snapshotMs)} فأُعيدت القراءة جدولاً جدولاً` : ''}`
+                : '';
+              if (row.status === 'failed') return <Sub>{row.error}</Sub>;
+              if (row.status === 'done') return <Sub>{`${row.collections} جدولاً، ${row.documents} سجلاً، ${size(row.bytes)}${timing}`}</Sub>;
+              return null;
+            } },
           ]}
         />
       </Panel>
