@@ -40,7 +40,9 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
   const [error, setError] = useState('');
   const isWithdrawal = statement?.calculationType === '-' && (statement?.actionType === 'withdrawal' || statement?.paymentType === 'withdrawal');
   const allPlaces = useDepositPlaces(statement?.currency);
-  const places = isWithdrawal ? allPlaces?.filter(place => place.kind === 'office') : allPlaces;
+  // A withdrawal from a branch box lists the offices; one paid from a bank lists the banks
+  const fromBank = isWithdrawal && form.withdrawalSource === 'bank';
+  const places = isWithdrawal ? allPlaces?.filter(place => place.kind === (fromBank ? 'bank' : 'office')) : allPlaces;
   // The office saved on the line stays listed even when it has no box in this currency any more
   const savedOffice = statement?.office && places && !places.some((p) => p.value === statement.office) ? statement.office : '';
   // Accounts a deposit can go to, as in the deposit form: partners' current accounts (Wasl)
@@ -87,6 +89,7 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
     if (!Number.isFinite(newAmount) || newAmount <= 0) return setError('Amount must be greater than 0.');
     if (!form.createdAt || isNaN(new Date(form.createdAt).getTime())) return setError('Pick a valid date.');
     if (isWithdrawal && form.withdrawalSource === 'box' && !form.office) return setError('اختر مكتب الصرف المرتبط بخزينة');
+    if (fromBank && !form.office) return setError('اختر البنك الذي صُرف منه');
 
     try {
       setIsSaving(true);
@@ -134,14 +137,18 @@ const EditStatementDialog = ({ open, statement, onClose, onSaved }: Props) => {
           />
 
           {isWithdrawal && <TextField select size="small" fullWidth label="مصدر الصرف" value={form.withdrawalSource} disabled={isSaving}
-            onChange={event => setField('withdrawalSource', event.target.value)} helperText="اختيار العهدة يخص الموظف الذي سجّل السحب الأصلي.">
-            <MenuItem value="box">خزينة الفرع</MenuItem><MenuItem value="custody">عهدة الموظف الذي سجّل السحب</MenuItem>
+            onChange={event => {
+              const source = event.target.value;
+              // Box and bank use different places: keep the saved one only when returning to its source
+              setForm(prev => ({ ...prev, withdrawalSource: source, office: source === original.withdrawalSource ? original.office : '' }));
+            }} helperText="اختيار العهدة يخص الموظف الذي سجّل السحب الأصلي.">
+            <MenuItem value="box">خزينة الفرع</MenuItem><MenuItem value="bank">بنك (البنك الليبي / المتحدة)</MenuItem><MenuItem value="custody">عهدة الموظف الذي سجّل السحب</MenuItem>
           </TextField>}
           {(!isWithdrawal || form.withdrawalSource !== 'custody') && <FormControl size="small" fullWidth>
-            <InputLabel id="edit-office-label">Office</InputLabel>
+            <InputLabel id="edit-office-label">{fromBank ? 'البنك' : 'Office'}</InputLabel>
             <Select
               labelId="edit-office-label"
-              label="Office"
+              label={fromBank ? 'البنك' : 'Office'}
               value={!isWithdrawal && form.accountId ? `account:${form.accountId}` : form.office}
               onChange={(event) => {
                 const value = String(event.target.value);

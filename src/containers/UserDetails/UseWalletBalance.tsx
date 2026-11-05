@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../utils/errorHandler';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
 import { useOffices } from '../../utils/useOffices';
 import { errorText, sys } from '../Accounting/accountingApi';
+import { useDepositPlaces } from './statementUtils';
 
 type Props = {
   balances?: any
@@ -28,7 +29,16 @@ const UseWalletBalance = (props: Props) => {
 
   const [currency, setCurrency] = useState<string>('');
   const [office, setOffice] = useState<string>('');
-  const [withdrawalSource, setWithdrawalSource] = useState<'box' | 'custody'>('box');
+  const [withdrawalSource, setWithdrawalSource] = useState<'box' | 'custody' | 'bank'>('box');
+  // A withdrawal paid from a company bank (Libyan bank, Al-Mutahida): the banks with an account in this currency
+  const [bankPlace, setBankPlace] = useState('');
+  const depositPlaces = useDepositPlaces(props.actionType === 'withdrawal' ? currency : undefined);
+  const banks = (depositPlaces || []).filter((place) => place.kind === 'bank');
+  useEffect(() => {
+    if (withdrawalSource !== 'bank' || depositPlaces === null) return;
+    if (!banks.some((bank) => bank.value === bankPlace)) setBankPlace(banks.length === 1 ? banks[0].value : '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depositPlaces, withdrawalSource]);
   const [withdrawalOptions, setWithdrawalOptions] = useState<{ custody?: Record<string, number>; office?: string; anyOffice?: boolean } | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(props.actionType === 'withdrawal');
   const [optionsError, setOptionsError] = useState('');
@@ -115,6 +125,10 @@ const UseWalletBalance = (props: Props) => {
       setError('يرجى اختيار المكتب');
       return;
     }
+    if (props.actionType === 'withdrawal' && withdrawalSource === 'bank' && !bankPlace) {
+      setError('اختر البنك الذي يُصرف منه');
+      return;
+    }
 
     const { walletLyd, walletUsd } = balances;
     let currentWallet = walletUsd;
@@ -157,7 +171,8 @@ const UseWalletBalance = (props: Props) => {
     }
     if (props.actionType === 'withdrawal') {
       formData.set('withdrawalSource', withdrawalSource);
-      if (office) formData.set('office', office);
+      if (withdrawalSource === 'bank') formData.set('office', bankPlace);
+      else if (office) formData.set('office', office);
     }
     formData.delete('note');
     formData.append('note', note);
@@ -257,12 +272,24 @@ const UseWalletBalance = (props: Props) => {
             </FormControl>
           </div>
 
-          {props.actionType === 'withdrawal' && hasCustody && <div className="col-12 mb-3">
+          {props.actionType === 'withdrawal' && <div className="col-12 mb-3">
             <TextField select fullWidth label="مصدر السحب النقدي" value={withdrawalSource} disabled={isLoading || optionsLoading}
-              onChange={(event) => setWithdrawalSource(event.target.value as 'box' | 'custody')}
-              helperText={withdrawalSource === 'custody' ? `المتاح من عهدتك: ${held.toLocaleString('en-US')} ${currency || '—'}. لا يمكن تجاوز هذا الرصيد.` : 'يُصرف المبلغ من خزينة الفرع، ولا يُخصم من عهدتك.'}>
+              onChange={(event) => setWithdrawalSource(event.target.value as 'box' | 'custody' | 'bank')}
+              helperText={withdrawalSource === 'custody' ? `المتاح من عهدتك: ${held.toLocaleString('en-US')} ${currency || '—'}. لا يمكن تجاوز هذا الرصيد.`
+                : withdrawalSource === 'bank' ? 'يُصرف المبلغ من حساب البنك المختار، ويظهر في كشفه للمطابقة. لا تتحرك خزينة الفرع.'
+                  : 'يُصرف المبلغ من خزينة الفرع، ولا يُخصم من عهدتك.'}>
               <MenuItem value="box">خزينة الفرع</MenuItem>
-              <MenuItem value="custody" disabled={!currency || held <= 0}>عهدتي · {held.toLocaleString('en-US')} {currency || '—'}</MenuItem>
+              <MenuItem value="bank" disabled={!currency}>بنك (البنك الليبي / المتحدة){!currency ? ' — اختر العملة أولًا' : ''}</MenuItem>
+              {hasCustody && <MenuItem value="custody" disabled={!currency || held <= 0}>عهدتي · {held.toLocaleString('en-US')} {currency || '—'}</MenuItem>}
+            </TextField>
+          </div>}
+
+          {props.actionType === 'withdrawal' && withdrawalSource === 'bank' && <div className="col-md-6 mb-3">
+            <TextField select fullWidth required label="البنك" value={bankPlace} disabled={isLoading || depositPlaces === null}
+              onChange={(event) => setBankPlace(event.target.value)}
+              helperText={depositPlaces === null ? 'جارٍ تحميل البنوك…' : banks.length ? '' : `لا يوجد بنك مرتبط بعملة ${currency}. اربطه من إعدادات المحاسبة أولًا.`}
+              error={depositPlaces !== null && !banks.length}>
+              {banks.map((bank) => <MenuItem key={bank.value} value={bank.value}>{bank.label}</MenuItem>)}
             </TextField>
           </div>}
 

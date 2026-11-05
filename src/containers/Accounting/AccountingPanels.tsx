@@ -653,13 +653,16 @@ export const TripAccounting = ({ tripId }: { tripId?: string }) => {
           {!data.costReview?.complete && <Alert severity="info" className="mb-3">{data.costReview?.changedSinceReview ? 'تغيّرت بيانات تكلفة الرحلة بعد مراجعتها. أعد مراجعة التكاليف من قائمة المراجعة المحاسبية.' : 'راجع اكتمال فواتير الناقل والتكاليف المستحقة من قائمة المراجعة المحاسبية. الربح المعروض يعتمد على التكاليف المسجلة حتى الآن.'}<Open to="/accounting/review"> فتح قائمة المراجعة</Open></Alert>}
           <BillsTable bills={data.bills} empty="لا مصاريف مسجلة على هذه الرحلة" />
           <AccountingFold title="الطرود" summary={`${data.packages.length} طرد`}>
-          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="عند التسليم يُحتسب كامل إيراد الطرد وحصته الكاملة من التكلفة، حتى مع السداد الجزئي. المتبقي دين على العميل، والسداد اللاحق يخفضه دون ربح جديد. تكلفة الطرود غير المسلّمة تبقى قيد التنفيذ.">
+          <Panel flush title={`الطرود (${data.packages.length})`} subtitle="عند التسليم يُحتسب كامل إيراد الطرد وحصته الكاملة من التكلفة، حتى مع السداد الجزئي. المتبقي دين على العميل، والسداد اللاحق يخفضه دون ربح جديد. تكلفة الطرود غير المسلّمة تبقى قيد التنفيذ. الطرد المعوَّض المُقفل أو المتروك لا إيراد له إلا ما دُفع، وحصته من التكلفة تبقى على الرحلة.">
             <DataTable
               dense maxHeight={420} rows={data.packages} rowKey={(row: any) => String(row.packageId)} empty={{ title: 'لا طرود في الرحلة' }}
               rowTone={(row: any) => (row.isCanceled ? 'canceled' : undefined)}
               columns={[
-                { key: 'package', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.delivered && <Badge tone="ok">مسلَّم</Badge>}<Sub>الطلب <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> · {row.weight} كغ محتسب{row.volumetric && <> <Badge tone="info">حجمي</Badge> الفعلي {row.actualWeight ?? '-'} كغ</>}</Sub></>, sortValue: (row: any) => row.orderNumber },
-                { key: 'charge', header: 'أجرة الشحن', numeric: true, render: (row: any) => <Money value={row.charge} tone="plain" />, sortValue: (row: any) => row.charge },
+                { key: 'package', header: 'الطرد', render: (row: any) => <><Ltr>{row.tracking || '-'}</Ltr> {row.delivered && <Badge tone="ok">مسلَّم</Badge>}{row.compensation && <Badge tone={row.compensation.closed ? 'danger' : 'warn'}>معوَّض · {row.compensation.type === 'lost' ? 'مفقود' : 'تالف'}{row.compensation.closed && ' · مُقفل'}</Badge>}{row.abandoned && <Badge tone="danger">متروك</Badge>}<Sub>الطلب <Open to={`/invoice/${row.orderId}/edit`}><Ltr>{row.orderNumber}</Ltr></Open> · {row.weight} كغ محتسب{row.volumetric && <> <Badge tone="info">حجمي</Badge> الفعلي {row.actualWeight ?? '-'} كغ</>}</Sub></>, sortValue: (row: any) => row.orderNumber },
+                { key: 'charge', header: 'أجرة الشحن', numeric: true, render: (row: any) => (row.closed
+                  // Closed: never billed beyond what was paid; the price is shown for reference only
+                  ? <span title="طرد مُقفل: لا يُطالَب العميل بأجرة شحنه" style={{ textDecoration: 'line-through', opacity: 0.55 }}><Money value={row.charge} tone="plain" /></span>
+                  : <Money value={row.charge} tone="plain" />), sortValue: (row: any) => row.charge },
                 { key: 'collected', header: 'المحصّل', numeric: true, render: (row: any) => <Money value={row.collected} hideZero tone="plain" />, sortValue: (row: any) => row.collected },
                 { key: 'open', header: 'باقٍ على العميل', numeric: true, render: (row: any) => <Money value={row.open} hideZero />, sortValue: (row: any) => row.open },
                 { key: 'revenue', header: 'إيراد معترف به', numeric: true, render: (row: any) => (row.revenue ? <Money value={row.revenue} /> : row.deferred ? <Badge tone="warn">مؤجل</Badge> : null), sortValue: (row: any) => row.revenue },
