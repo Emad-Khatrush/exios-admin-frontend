@@ -139,6 +139,15 @@ const Backups = () => {
                 : '';
               if (row.status === 'failed') return <Sub>{row.error}</Sub>;
               if (row.status === 'done') return <Sub>{`${row.collections} جدولاً، ${row.documents} سجلاً، ${size(row.bytes)}${timing}`}</Sub>;
+              // Live (refreshed every 30 seconds by the server): where the run is now
+              const p = row.progress;
+              if (row.status === 'running' && p?.phase) {
+                const ago = p.at ? Math.round((Date.now() - new Date(p.at).getTime()) / 1000) : null;
+                const now = p.phase === 'dump' ? 'يقرأ قاعدة البيانات'
+                  : p.phase === 'upload' ? `يرفع إلى Google: ${size(p.uploadedBytes)} من ${size(p.totalBytes)} (القراءة انتهت في ${secs(t?.dumpMs)})`
+                    : 'يفحص المخزن ويحذف النسخ القديمة';
+                return <Sub>{`${now}${ago !== null ? ` · آخر تحديث قبل ${ago} ث` : ''}`}</Sub>;
+              }
               return null;
             } },
           ]}
