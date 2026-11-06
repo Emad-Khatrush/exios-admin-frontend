@@ -41,6 +41,8 @@ const BillForm = () => {
   const [editReason, setEditReason] = useState('');
   const [financialReview, setFinancialReview] = useState<any>(null);
   const [historicalPayment, setHistoricalPayment] = useState('preserve');
+  // An assumed historical payment marked unpaid earlier, which can be put back
+  const [restorable, setRestorable] = useState<any>(null);
   const commitBusy = useRef(false);
 
   const expenseAccounts = useMemo(() => accounts.filter((a) => a.type === 'expense' && !a.isGroup && a.isActive), [accounts]);
@@ -74,6 +76,7 @@ const BillForm = () => {
     acc.get(`bills/${loadId}`).then((res: any) => {
       const { bill, trips, orders } = res.data;
       setPostedBill(id && bill.status === 'posted' ? bill : null);
+      setRestorable(id ? res.data.restorableHistoricalPayment || null : null);
       setEditLock(id ? res.data.editLock || '' : '');
       const findById = (list: any[], value: any) => list.find((item) => item._id === value) || null;
       setForm((prev: any) => ({
@@ -213,6 +216,8 @@ const BillForm = () => {
           {financialReview && <>
             <Alert severity="info" className="mb-3">{financialReview.historicalPayment === 'unpaid'
               ? 'سيُلغى أثر السداد التاريخي المفترض وتبقى التكلفة على الفاتورة. لا تتحرك الخزينة أو البنك؛ تسجل الدفعة الحقيقية لاحقًا على نفس الفاتورة.'
+              : financialReview.historicalPayment === 'restore'
+              ? 'يُسترجع السداد التاريخي كما كان قبل تحويل الفاتورة إلى غير مدفوعة، ويُلغى قيد التصحيح. لا تتحرك الخزينة أو البنك.'
               : 'يُحفظ التعديل وسببه وتُحدّث التكلفة. مبالغ الدفعات السابقة وعملاتها وحساباتها تبقى كما هي؛ قد ينتج متبقٍ للمورد أو رصيد لنا عنده.'}</Alert>
             <dl className="mb-3">
               <dt>القيمة الحالية</dt><dd><Amount value={financialReview.oldTotal} currency={financialReview.oldCurrency} /></dd>
@@ -224,6 +229,11 @@ const BillForm = () => {
                 <dt>الحساب المقابل لتصحيح السداد</dt><dd>{financialReview.settlementCounterpart}{financialReview.settlementFromOpening ? ' · أُقفل المعلّق سابقًا في الافتتاحي' : ''}</dd>
                 <dt>تاريخ قيد تصحيح السداد</dt><dd><Ltr>{financialReview.settlementCorrectionDay}</Ltr></dd>
                 <dt>أثر التصحيح على الخزينة والبنك</dt><dd><Money value={0} /></dd>
+              </>}
+              {!!financialReview.restoredSettlementUsd && <>
+                <dt>السداد التاريخي المسترجع</dt><dd><Money value={financialReview.restoredSettlementUsd} /></dd>
+                <dt>المسدّد بعد الاسترجاع</dt><dd><Money value={financialReview.remainingSettlementUsd} /></dd>
+                <dt>أثر الاسترجاع على الخزينة والبنك</dt><dd><Money value={0} /></dd>
               </>}
               <dt>{financialReview.newOpen < 0 ? 'رصيد لنا عند المورد بعد التعديل' : 'المتبقي للمورد بعد التعديل'}</dt><dd><Money value={Math.abs(financialReview.newOpen)} strong /></dd>
               <dt>التغير في التكلفة بالدولار</dt><dd><Money value={financialReview.costDelta} /></dd>
@@ -374,6 +384,13 @@ const BillForm = () => {
             <MenuItem value="unpaid">لم تُدفع فعليًا — إظهار المستحق للمورد</MenuItem>
           </TextField>
           <p className="acc-muted mt-2 mb-0">اختر حسب هذه الفاتورة. الاحتفاظ بالسداد لا يغيّر المبلغ المدفوع؛ يظهر فرق القيمة أو العملة في المعاينة. تحويلها إلى غير مدفوعة متاح للسداد الافتراضي من المعلّق فقط؛ أي حركة بنك أو خزينة فعلية تحتاج مراجعة مستقلة.</p>
+        </div>}
+        {postedBill?.isHistorical && !postedBill?.paymentId && restorable && <div className="mb-3">
+          <TextField select fullWidth label="معالجة السداد التاريخي" value={historicalPayment === 'restore' ? 'restore' : 'preserve'} onChange={e => setHistoricalPayment(e.target.value)}>
+            <MenuItem value="preserve">إبقاؤها غير مدفوعة</MenuItem>
+            <MenuItem value="restore">استرجاع السداد التاريخي كما كان (<Money value={restorable.amountUsd} />)</MenuItem>
+          </TextField>
+          <p className="acc-muted mt-2 mb-0">حُوّلت هذه الفاتورة سابقًا إلى «لم تُدفع فعليًا». الاسترجاع يُلغي ذلك التصحيح ويعيد السداد التاريخي المفترض، دون أي حركة على الخزينة أو البنك. لا يتاح إذا سُجّلت على الفاتورة دفعة أو تسوية بعد ذلك.</p>
         </div>}
         {!form.isCreditNote && !postedBill && (
           <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
