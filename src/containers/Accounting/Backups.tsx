@@ -100,7 +100,7 @@ const Backups = () => {
       <StatGrid>
         <Stat label="آخر نسخة ناجحة" value={lastDone ? when(lastDone.finishedAt) : 'لا توجد'} hint={lastDone ? size(lastDone.bytes) : undefined} tone={!lastDone || moment().diff(lastDone.finishedAt, 'hours') > 48 ? 'danger' : undefined} />
         <Stat label="النسخ المحفوظة" value={files.length} hint={`كل يوم لمدة ${data?.keepDays ?? 30} يوماً، وأول نسخة من كل شهر لمدة سنة`} />
-        <Stat label="موعد النسخة اليومية" value={<Ltr>{`${String(data?.hour ?? 3).padStart(2, '0')}:00`}</Ltr>} hint="بتوقيت ليبيا" />
+        <Stat label="مواعيد النسخ اليومية" value={<Ltr>{[data?.times?.midday ?? 14, data?.times?.night ?? 23].map((h: number) => `${String(h).padStart(2, '0')}:00`).join(' · ')}</Ltr>} hint="بتوقيت ليبيا. نسخة الليل تحل محل نسخة الظهر من نفس اليوم" />
         <Stat label="المخزن" value={<Ltr>{data?.bucket || '—'}</Ltr>} />
       </StatGrid>
 
@@ -128,7 +128,7 @@ const Backups = () => {
           empty={{ title: 'لم تُنفَّذ أي نسخة بعد' }}
           columns={[
             { key: 'startedAt', header: 'البدء', render: (row: any) => when(row.startedAt) },
-            { key: 'trigger', header: 'النوع', render: (row: any) => (row.trigger === 'daily' ? 'يومية' : 'يدوية') },
+            { key: 'trigger', header: 'النوع', render: (row: any) => (row.trigger !== 'daily' ? 'يدوية' : row.slot === 'midday' ? 'يومية (الظهر)' : row.slot === 'night' ? 'يومية (الليل)' : 'يومية') },
             { key: 'status', header: 'الحالة', render: (row: any) => <Badge tone={STATUS[row.status]?.tone}>{STATUS[row.status]?.label || row.status}</Badge> },
             { key: 'detail', header: 'التفاصيل', render: (row: any) => {
               const t = row.timing;
@@ -138,7 +138,7 @@ const Backups = () => {
                 ? ` · القراءة ${secs(t.dumpMs)}، الرفع ${secs(t.uploadMs)}${t.snapshotFailed ? ` · انتهت اللقطة بعد ${secs(t.snapshotMs)} فأُعيدت القراءة جدولاً جدولاً` : ''}`
                 : '';
               if (row.status === 'failed') return <Sub>{row.error}</Sub>;
-              if (row.status === 'done') return <Sub>{`${row.collections} جدولاً، ${row.documents} سجلاً، ${size(row.bytes)}${timing}`}</Sub>;
+              if (row.status === 'done') return <Sub>{`${row.collections} جدولاً، ${row.documents} سجلاً، ${size(row.bytes)}${timing}${row.replacedAt ? ' · حُذف ملفها بعد نجاح نسخة الليل' : ''}`}</Sub>;
               // Live (refreshed every 30 seconds by the server): where the run is now
               const p = row.progress;
               if (row.status === 'running' && p?.phase) {
