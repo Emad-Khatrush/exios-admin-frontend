@@ -216,6 +216,8 @@ const BillForm = () => {
           {financialReview && <>
             <Alert severity="info" className="mb-3">{financialReview.historicalPayment === 'unpaid'
               ? 'سيُلغى أثر السداد التاريخي المفترض وتبقى التكلفة على الفاتورة. لا تتحرك الخزينة أو البنك؛ تسجل الدفعة الحقيقية لاحقًا على نفس الفاتورة.'
+              : financialReview.historicalPayment === 'settle'
+              ? 'يُعدَّل السداد التاريخي المفترض ليساوي قيمة الفاتورة الجديدة فتُغلق بالكامل. الفرق يُسجَّل على الرصيد الافتتاحي؛ لا تتحرك أي خزينة أو بنك.'
               : financialReview.historicalPayment === 'restore'
               ? 'يُسترجع السداد التاريخي كما كان قبل تحويل الفاتورة إلى غير مدفوعة، ويُلغى قيد التصحيح. لا تتحرك الخزينة أو البنك.'
               : 'يُحفظ التعديل وسببه وتُحدّث التكلفة. مبالغ الدفعات السابقة وعملاتها وحساباتها تبقى كما هي؛ قد ينتج متبقٍ للمورد أو رصيد لنا عنده.'}</Alert>
@@ -229,6 +231,13 @@ const BillForm = () => {
                 <dt>الحساب المقابل لتصحيح السداد</dt><dd>{financialReview.settlementCounterpart}{financialReview.settlementFromOpening ? ' · أُقفل المعلّق سابقًا في الافتتاحي' : ''}</dd>
                 <dt>تاريخ قيد تصحيح السداد</dt><dd><Ltr>{financialReview.settlementCorrectionDay}</Ltr></dd>
                 <dt>أثر التصحيح على الخزينة والبنك</dt><dd><Money value={0} /></dd>
+              </>}
+              {!!financialReview.settlementAdjustmentUsd && <>
+                <dt>{financialReview.settlementAdjustmentUsd > 0 ? 'زيادة السداد التاريخي' : 'تخفيض السداد التاريخي'}</dt><dd><Money value={Math.abs(financialReview.settlementAdjustmentUsd)} /></dd>
+                <dt>المسدّد بعد التسوية</dt><dd><Money value={financialReview.remainingSettlementUsd} /></dd>
+                <dt>الحساب المقابل للفرق</dt><dd>{financialReview.settlementCounterpart}</dd>
+                <dt>تاريخ قيد التسوية</dt><dd><Ltr>{financialReview.settlementCorrectionDay}</Ltr></dd>
+                <dt>أثر التسوية على الخزينة والبنك</dt><dd><Money value={0} /></dd>
               </>}
               {!!financialReview.restoredSettlementUsd && <>
                 <dt>السداد التاريخي المسترجع</dt><dd><Money value={financialReview.restoredSettlementUsd} /></dd>
@@ -380,10 +389,11 @@ const BillForm = () => {
       <Panel>
         {postedBill?.isHistorical && postedBill?.paymentId && !postedBill?.paidBeforeCount && <div className="mb-3">
           <TextField select fullWidth label="معالجة السداد التاريخي" value={historicalPayment} onChange={e => setHistoricalPayment(e.target.value)}>
-            <MenuItem value="preserve">الاحتفاظ بالسداد المسجل</MenuItem>
+            <MenuItem value="preserve">الاحتفاظ بالسداد المسجل كما هو (قد يبقى فرق على الفاتورة)</MenuItem>
+            <MenuItem value="settle">مدفوعة بالكامل بالقيمة الجديدة — تعديل السداد التاريخي ليساوي الفاتورة</MenuItem>
             <MenuItem value="unpaid">لم تُدفع فعليًا — إظهار المستحق للمورد</MenuItem>
           </TextField>
-          <p className="acc-muted mt-2 mb-0">اختر حسب هذه الفاتورة. الاحتفاظ بالسداد لا يغيّر المبلغ المدفوع؛ يظهر فرق القيمة أو العملة في المعاينة. تحويلها إلى غير مدفوعة متاح للسداد الافتراضي من المعلّق فقط؛ أي حركة بنك أو خزينة فعلية تحتاج مراجعة مستقلة.</p>
+          <p className="acc-muted mt-2 mb-0">اختر حسب هذه الفاتورة. الاحتفاظ بالسداد لا يغيّر المبلغ المدفوع؛ يظهر فرق القيمة أو العملة في المعاينة. «مدفوعة بالكامل بالقيمة الجديدة» تُغلقها وتحمّل الفرق على الرصيد الافتتاحي دون أي خزينة أو بنك، ويمكن اختيارها أيضًا لفاتورة عُدّلت سابقًا وبقي عليها فرق. تحويلها إلى غير مدفوعة متاح للسداد الافتراضي من المعلّق فقط؛ أي حركة بنك أو خزينة فعلية تحتاج مراجعة مستقلة.</p>
         </div>}
         {postedBill?.isHistorical && !postedBill?.paymentId && restorable && <div className="mb-3">
           <TextField select fullWidth label="معالجة السداد التاريخي" value={historicalPayment === 'restore' ? 'restore' : 'preserve'} onChange={e => setHistoricalPayment(e.target.value)}>
