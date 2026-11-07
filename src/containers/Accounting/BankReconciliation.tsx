@@ -15,6 +15,7 @@ import BankReviewComparison, { ReviewField } from './BankReviewComparison';
 import BankLineDetails from './BankLineDetails';
 import UnidentifiedPark from './UnidentifiedPark';
 import { DepositPicker, TransferPicker, YuanPurchaseDialog } from './PartnerPickers';
+import BankBillsPayPicker from './BankBillsPayPicker';
 import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import StatementCoverage from './StatementCoverage';
 import BankMatchingSettings, { MatchingSettings, readMatchingSettings } from './BankMatchingSettings';
@@ -835,14 +836,13 @@ const BankReconciliation = () => {
                   <span className="d-inline-flex gap-1 flex-wrap justify-content-end">
                     <Button size="small" onClick={() => setDetailsId(row._id)}>التفاصيل والتعديل</Button>
                     {row.lineStatus === 'unmatched' && <>
-                      <Button size="small" variant="outlined" onClick={() => row.walletImpact === 'unknown' ? setDetailsId(row._id) : openEntry(row)}>{row.walletImpact === 'unknown' ? 'تأكيد حساب الاستلام' : 'مراجعة واعتماد'}</Button>
-                      {row.walletImpact !== 'unknown' && <Tooltip title="سجّل المبلغ الآن في حساب انتظار حتى تعرف الطلبية أو الرحلة أو صاحب المال"><Button size="small" color="warning" onClick={() => setParkFor(row)}>لا أعرف بعد</Button></Tooltip>}
+                      <Button size="small" variant="outlined" onClick={() => row.walletImpact === 'unknown' ? setDetailsId(row._id) : openEntry(row)}>{row.walletImpact === 'unknown' ? 'تأكيد حساب الاستلام' : 'مراجعة واعتماد'}</Button>                      {row.walletImpact !== 'unknown' && <Tooltip title="سجّل المبلغ الآن في حساب انتظار حتى تعرف الطلبية أو الرحلة أو صاحب المال"><Button size="small" color="warning" onClick={() => setParkFor(row)}>لا أعرف بعد</Button></Tooltip>}
                       <Button size="small" onClick={() => setConfirmBox({ title: 'تجاهل سطر الكشف؟', line: row, label: 'نعم، تجاهله',
                         text: 'لن يُرحَّل السطر ولن يُطابق، ولن يظهر ضمن «غير مطابق». لا يتغير أي رصيد. يمكنك إرجاعه لاحقاً بزر «تراجع».',
                         action: () => run(() => acc.post(`bank/lines/${row._id}/ignore`), () => 'تم تجاهل السطر.') })}>تجاهل</Button>
                     </>}
                     {['matched', 'ignored'].includes(row.lineStatus) && <Button size="small" onClick={() => setConfirmBox({ title: row.lineStatus === 'matched' ? 'فك مطابقة السطر؟' : 'إرجاع السطر لغير مطابق؟', line: row, label: 'نعم، تراجع',
-                      text: row.groupPaymentIds?.length ? `سيعود السطر غير مطابق، وتُلغى ${row.groupPaymentIds.length} دفعة سددها للحوالات فتعود فواتيرها غير مسددة.`
+                      text: row.groupPaymentIds?.length ? `سيعود السطر غير مطابق، وتُلغى ${row.groupPaymentIds.length} دفعة سددها السطر فتعود فواتيرها غير مسددة.`
                         : row.lineStatus === 'matched' ? 'سيعود السطر غير مطابق ويُفك ربطه بالقيد. القيد نفسه يبقى؛ وإن سُجّل فرق إيداع عند المطابقة فيُعكس.'
                           : 'سيعود السطر إلى «غير مطابق» لتعالجه من جديد.',
                       action: () => run(() => acc.post(`bank/lines/${row._id}/unignore`), () => 'أُعيد السطر لغير مطابق.') })}>تراجع</Button>}
@@ -1102,6 +1102,7 @@ const BankReconciliation = () => {
             {entryFor.error && <Alert severity="error" className="mb-3">{entryFor.error}</Alert>}
             <TextField select disabled={reviewSaving} size="small" fullWidth className="mb-3" label="طريقة الاعتماد" value={entryFor.mode} onChange={e => setEntryFor({ ...entryFor, mode: e.target.value })}>
               {entryFor.line.amount < 0 && <MenuItem value="purchase">سداد مشتريات / تكلفة طلب على الفاتورة الأصلية</MenuItem>}
+              {entryFor.line.amount < 0 && <MenuItem value="pay_bills">سداد فواتير موردين — فاتورة أو عدة فواتير من هذا السطر</MenuItem>}
               {entryFor.line.amount < 0 && <MenuItem value="historical_settlement">تسوية سداد تاريخي</MenuItem>}
               {entryFor.line.amount > 0 && <MenuItem value="refund">استرداد مشتريات / ربط ريفاند الطلبية</MenuItem>}
               {entryFor.line.amount > 0 && entryFor.line.movementKind !== 'card_payment' && <MenuItem value="pending_refund">ترحيل استرداد قيد التحديد — الطلبية غير معروفة</MenuItem>}
@@ -1109,6 +1110,8 @@ const BankReconciliation = () => {
               <MenuItem value="new">ترحيل عملية جديدة</MenuItem>
               <MenuItem value="financial_operation">تسوية حوالة أو تأمين أو مستحق مسجل</MenuItem>
             </TextField>
+            {entryFor.mode === 'pay_bills' && <BankBillsPayPicker embedded line={entryFor.line} onBusyChange={setReviewSaving} onClose={() => setEntryFor(null)}
+              onDone={(text) => { setEntryFor(null); setMessage({ type: 'success', text }); load(); }} />}
             {entryFor.mode === 'financial_operation' && <BankFinancialOperation line={entryFor.line} currency={currency} onDone={() => { setEntryFor(null); load(); }} />}
             {entryFor.mode === 'pending_refund' && <>
               <Alert severity="info">سيُسجل استلام البنك مقابل حساب 219100 «استردادات موردين قيد التحديد». عند تحديد الطلبية، اختر هذا المبلغ من نموذج الريفاند لتسوية المعلّق وإضافة مبلغ العميل دون استلام البنك مرة ثانية.</Alert>

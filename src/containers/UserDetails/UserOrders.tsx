@@ -293,8 +293,13 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     const errors: string[] = [];
     if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
     if (amountUSD > walletUsd + 0.001) errors.push(`USD wallet only has $${formatMoney(walletUsd)}.`);
-    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD ? `LYD wallet only has ${formatMoney(walletLyd)} LYD for the payment and the ${formatMoney(totals.separateLYD)} LYD fees.` : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
-    if (amountLYD > 0 && remainingUSD <= 0) errors.push('The USD amount already covers the total, remove the LYD amount.');
+    if (amountLYD + totals.separateLYD > walletLyd + 0.001) errors.push(totals.separateLYD
+      ? `محفظة الدينار فيها ${formatMoney(walletLyd)} LYD، والمطلوب منها ${formatMoney(amountLYD + totals.separateLYD)} LYD (رسوم ${formatMoney(totals.separateLYD)}${amountLYD ? ` + دفعة شحن ${formatMoney(amountLYD)}` : ''}). أودع الدينار الذي استلمته من العميل في محفظته أولًا، أو اختر تحويل الرسوم إلى الدولار.`
+      : `LYD wallet only has ${formatMoney(walletLyd)} LYD.`);
+    // The dinar fees are taken on their own: typing them in the LYD field as well would charge them twice
+    if (amountLYD > 0 && remainingUSD <= 0) errors.push(totals.separateLYD
+      ? `رسوم الدينار (${formatMoney(totals.separateLYD)} LYD) تُخصم تلقائيًا من محفظة الدينار. امسح خانة الدينار؛ هي لدفع الشحن بالدينار فقط.`
+      : 'The USD amount already covers the total, remove the LYD amount.');
     // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
     // Separate LYD fees are collected automatically from that wallet, outside these inputs.
     if (amountUSD === 0 && amountLYD === 0 && totals.totalFees > 0 && !allowPartial) errors.push('Enter a USD or LYD amount.');
@@ -716,7 +721,10 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                 <label><input type="radio" checked={feeMode === 'separate'} disabled={allowPartial} onChange={() => setFeeMode('separate')} /> Pay them in LYD from the LYD wallet (separately)</label>
                 <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>
               </div>
-              {feeMode === 'separate' && <small>{formatMoney(totals.feesLYD)} LYD are taken from the LYD wallet on their own; the total above is the shipping only.</small>}</>}
+              {feeMode === 'separate' && <p dir="rtl" style={{ margin: '8px 0 0' }}>
+                <b>{formatMoney(totals.feesLYD)} LYD</b> تُخصم تلقائيًا من محفظة الدينار. <b>لا تكتبها في خانة الدينار بالأسفل.</b> الإجمالي ${formatMoney(totals.totalFees)} هو الشحن فقط: ادفعه بالدولار (أو بالدينار إن أراد العميل).
+                <br />سيُخصم: <b>${formatMoney(paymentSummary.amountUSD)}</b> من محفظة الدولار{paymentSummary.amountLYD > 0 && <> + <b>{formatMoney(paymentSummary.amountLYD)} LYD</b> للشحن</>} + <b>{formatMoney(totals.feesLYD)} LYD</b> رسوم من محفظة الدينار.
+              </p>}</>}
             </div>
           )}
 
