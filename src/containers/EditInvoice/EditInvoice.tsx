@@ -51,6 +51,8 @@ type State = {
   userDebts: Debt[]
   wallet: any
   payments: any[]
+  // Write-offs of the order's claims (accounting), shown and taken off what is left
+  writeOffs: any[]
   // The rows being edited; the page keeps them because the form's inputs are uncontrolled
   items: any[]
   purchaseItems: any[]
@@ -89,6 +91,7 @@ export class EditInvoice extends Component<Props, State> {
     userDebts: [],
     wallet: null,
     payments: [],
+    writeOffs: [],
     items: [],
     purchaseItems: [],
     paymentList: [],
@@ -118,13 +121,13 @@ export class EditInvoice extends Component<Props, State> {
       return this.setState({ loadError: apiErrorMessage(error, 'Could not load this order.') });
     }
     // The order is enough to work; the rest is loaded around it
-    const [employees, userDebts, wallet, payments] = await Promise.all([
+    const [employees, userDebts, wallet, paid] = await Promise.all([
       optional(api.get('employees'), (res) => res.data?.results || [], []),
       optional(api.get(`debts/user/${order?.user?.customerId}`), (res) => res.data || [], []),
       optional(api.get(`wallet/${order?.user?._id}`), (res) => res.data?.results, null),
-      optional(api.get(`order/${order?._id}/payments`), (res) => res.data?.results || [], []),
+      optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, {} as any),
     ]);
-    this.setState({ order, employees, userDebts, wallet, payments, items: order.items || [], purchaseItems: order.purchaseItems || [], paymentList: order.paymentList || [] });
+    this.setState({ order, employees, userDebts, wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], items: order.items || [], purchaseItems: order.purchaseItems || [], paymentList: order.paymentList || [] });
   }
 
   toast = (type: 'success' | 'error', message: string) => this.setState({ toast: { open: true, type, message } });
@@ -143,12 +146,12 @@ export class EditInvoice extends Component<Props, State> {
   reloadMoney = async () => {
     const { order } = this.state;
     // A payment on the order also pays down the debts opened on it, so those are re-read too
-    const [wallet, payments, userDebts] = await Promise.all([
+    const [wallet, paid, userDebts] = await Promise.all([
       optional(api.get(`wallet/${order?.user?._id}`), (res) => res.data?.results, this.state.wallet),
-      optional(api.get(`order/${order?._id}/payments`), (res) => res.data?.results || [], this.state.payments),
+      optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, { results: this.state.payments, writeOffs: this.state.writeOffs } as any),
       optional(api.get(`debts/user/${order?.user?.customerId}`), (res) => res.data || [], this.state.userDebts),
     ]);
-    this.setState({ wallet, payments, userDebts });
+    this.setState({ wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], userDebts });
   };
 
   // Runs a server action behind the busy overlay and reports its result
@@ -573,6 +576,7 @@ export class EditInvoice extends Component<Props, State> {
             order={order}
             isAdmin={isAdmin}
             payments={payments}
+            writeOffs={this.state.writeOffs}
             wallet={{ walletUsd, walletLyd }}
             debts={Array.isArray(this.state.userDebts) ? this.state.userDebts : []}
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}

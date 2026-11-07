@@ -15,6 +15,8 @@ type Props = {
   wallet: { walletUsd: number, walletLyd: number }
   // Open debts of the order's customer; the ones made on this order are shown apart
   debts: any[]
+  // Write-offs of the order's claims (accounting), taken off what is left
+  writeOffs?: any[]
   // Opens the wallet dialog to pay the purchase invoice
   onPay: (category: Category, packages: any[], dueUsd: number) => void
   onDeletePayment: (payment: any) => void
@@ -34,16 +36,20 @@ const money = (value: number) => Number(value || 0).toLocaleString('en-US', { mi
 const usd = (value: number) => `$${money(value)}`;
 
 // Total, paid and remaining of one thing the customer pays for, with a bar for the paid part
-const Balance = ({ title, total, paid, lydWithoutRate, empty, note }: { title: string, total: number, paid: number, lydWithoutRate: number, empty: string, note?: string }) => {
-  const remaining = total - paid;
+// What was written off (accounting write-offs of the claim) is no longer owed: it is taken off
+// what is left, as in the X-Tracking list
+const Balance = ({ title, total, paid, lydWithoutRate, empty, note, writeOffs = [] }: { title: string, total: number, paid: number, lydWithoutRate: number, empty: string, note?: string, writeOffs?: any[] }) => {
+  const writtenOff = writeOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0);
+  const remaining = total - paid - writtenOff;
   const share = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
   const settled = total > 0 && remaining <= 0.005;
   return (
     <div className="op-stat">
       <div className="op-stat__head">
         <span className="op-stat__title">{title}</span>
-        {total > 0 && <Badge text={settled ? 'Settled' : paid > 0 ? 'Partly paid' : 'Not paid'} color={settled ? 'success' : paid > 0 ? 'warning' : 'danger'} />}
+        {total > 0 && <Badge text={settled ? (writtenOff > 0.005 ? 'Closed, rest written off' : 'Settled') : paid > 0 ? 'Partly paid' : 'Not paid'} color={settled ? 'success' : paid > 0 ? 'warning' : 'danger'} />}
       </div>
+      {writeOffs.map((w) => <span key={w._id} className="op-stat__warn" dir="rtl">شُطب {usd(w.usd)} ({w.number} · {w.day}): {w.reason}</span>)}
       {total > 0 ? (
         <>
           <strong className="op-stat__value">{remaining > 0.005 ? usd(remaining) : remaining < -0.005 ? `Overpaid ${usd(-remaining)}` : usd(0)}</strong>
@@ -183,7 +189,10 @@ const OrderPayments = (props: Props) => {
   const closedCharge = packages.filter(isClosed).reduce((sum, row) => sum + packageCharge(row), 0);
   const shippingTotal = openCharge + Math.min(closedCharge, Math.max(0, shippingPaid.usd - openCharge));
   const cancelledShipping = closedCharge - (shippingTotal - openCharge);
-  const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd);
+  const writeOffs = props.writeOffs || [];
+  const invoiceWriteOffs = writeOffs.filter((w) => w.kind === 'invoice');
+  const shippingWriteOffs = writeOffs.filter((w) => w.kind === 'receivedGoods');
+  const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
 
   const onOrder = debts.filter((debt) => String(debt.order?._id || debt.order || '') === String(order._id));
   const elsewhere = debts.filter((debt) => !onOrder.includes(debt));
@@ -221,8 +230,8 @@ const OrderPayments = (props: Props) => {
   return (
     <div className="op-payments-grid">
       <section className="op-stats op-panel--wide">
-        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." />}
-        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate}
+        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." writeOffs={invoiceWriteOffs} />}
+        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate} writeOffs={shippingWriteOffs}
           empty={closedCharge > 0 ? 'Compensated and closed: nothing left to pay.' : 'No package has a weight and a price yet.'}
           note={cancelledShipping > 0.005 ? `${usd(cancelledShipping)} of unpaid shipping cancelled: the package was compensated and closed.` : undefined} />
         <div className="op-stat">
