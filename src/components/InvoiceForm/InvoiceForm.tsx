@@ -271,7 +271,8 @@ const InvoiceForm = (props: Props) => {
           <TextField name="fullName" required label="Full name" value={invoice?.customerInfo?.fullName || ''} onChange={changeCustomerInfo('fullName')} disabled={isCanceled} />
           <TextField name="phone" required label="Phone" value={invoice?.customerInfo?.phone ?? ''} onChange={changeCustomerInfo('phone')} disabled={isCanceled} />
           <TextField name="email" label="Email" value={invoice?.customerInfo?.email || ''} onChange={changeCustomerInfo('email')} disabled={isCanceled} />
-          <FormControl disabled={isCanceled}>
+          {/* Anyone fills it while empty; once chosen only an admin changes it (the server checks too) */}
+          <FormControl disabled={isCanceled || (!!invoice?._id && !!invoice?.madeBy && !roles.isAdmin)}>
             <InputLabel>Made by</InputLabel>
             <Select className="of-made-by" label="Made by" name="madeBy" defaultValue={invoice?.madeBy?._id || ''} onChange={(event) => handleChange(event)}>
               {(employees || []).map((employee) => (

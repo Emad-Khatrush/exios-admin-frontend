@@ -273,3 +273,34 @@
 @media (prefers-reduced-motion: reduce) {
   .invoice-card { animation: none; }
 }
+
+.invoice-card__was,
+.invoice-card__rate {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.invoice-cancel-lines {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
+
+.invoice-cancel-sum {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(138, 58, 38, 0.2);
+  dt { font-weight: 600; }
+  dd { margin: 0; }
+}

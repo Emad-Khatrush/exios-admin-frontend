@@ -14,6 +14,7 @@ import './IssuedInvoices.scss';
 import Card from '../../components/Card/Card';
 import { User } from '../../models';
 import InvoicePDFPreview from '../UserDetails/InvoicePDFPreview';
+import { invoiceMoney, packageRefund } from '../UserDetails/invoiceDeliverySummary';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import DatePicker from '@mui/lab/DatePicker';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
@@ -32,8 +33,10 @@ interface Invoice {
   amountUSD?: number;
   amountLYD?: number;
   partialDelivery?: boolean;
-  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
+  settlement?: { paidUSD: number; paidLYD: number; paidEquivalentUSD?: number; remainingUSD: number; paymentStatus: string };
   customer: User;
+  isCanceled?: boolean;
+  cancellation?: { refundedUSD?: number; refundedLYD?: number; packages?: any[] };
 }
 
 type FilterType = 'daily' | 'last7days' | 'currentMonth' | 'all';
@@ -141,8 +144,19 @@ const DailyInvoices = () => {
                 <Typography>Client Code: {invoice.customer.customerId}</Typography>
                 <Typography>Full Name: {`${invoice.customer.firstName} ${invoice.customer.lastName}`}</Typography>
                 <Typography>Date: {new Date(invoice.createdAt).toLocaleDateString()}</Typography>
-                <Typography>Total: {invoice.total} {invoice.currency}</Typography>
-                <Typography className='mt-0 mb-2'>Customer Paid: {invoice.settlement?.paidUSD ?? invoice.amountUSD} $, {invoice.settlement?.paidLYD ?? invoice.amountLYD} LYD</Typography>
+                {(() => {
+                  const sums = invoiceMoney(invoice);
+                  if (!sums.hasCancellation) return <>
+                    <Typography>Total: {invoice.total} {invoice.currency}</Typography>
+                    <Typography className='mt-0 mb-2'>Customer Paid: {sums.paidUSD} $, {sums.paidLYD} LYD{sums.paidLYD > 0 && sums.rate > 0 ? ` (rate ${sums.rate})` : ''}</Typography>
+                  </>;
+                  return <>
+                    <Typography>Total: {sums.totalAfter} {invoice.currency} <small>(before cancelling {invoice.total}, cancelled {sums.canceledTotal})</small></Typography>
+                    <Typography>Customer Paid: {sums.paidUSD} $, {sums.paidLYD} LYD{sums.paidLYD > 0 && sums.rate > 0 ? ` (rate ${sums.rate})` : ''}</Typography>
+                    <Typography>Refunded to wallet: {sums.refundedUSD} $, {sums.refundedLYD} LYD</Typography>
+                    <Typography className='mt-0 mb-2'><b>Paid after cancelling: {sums.netUSD} $, {sums.netLYD} LYD</b></Typography>
+                  </>;
+                })()}
                 {invoice.partialDelivery && <Typography dir="rtl">المتبقي: {invoice.settlement?.remainingUSD || 0} USD · {Number(invoice.settlement?.remainingUSD) > 0 ? 'بانتظار السداد' : 'مدفوعة بالكامل'}</Typography>}
                 {invoice.note && <Typography>Note: {invoice.note}</Typography>}
 
@@ -155,7 +169,8 @@ const DailyInvoices = () => {
                       return (
                         <div key={pkg._id || index} className="package-item">
                           <div className="package-details">
-                            <p>Tracking: {pkg.trackingNumber || 'N/A'}</p>
+                            <p style={pkg.canceledAt ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>Tracking: {pkg.trackingNumber || 'N/A'} · {pkg.cost ?? 0} {invoice.currency}</p>
+                            {pkg.canceledAt && (() => { const back = packageRefund(invoice, pkg); return <p>Cancelled · refunded {back.USD} $, {back.LYD} LYD</p>; })()}
                             <p>Measure: {measureValue} {measureUnit}</p>
                             {pkg.boxesCount && <p>Boxes Count: {pkg.boxesCount}</p>}
                           </div>

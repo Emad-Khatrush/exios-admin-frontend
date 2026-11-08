@@ -14,7 +14,7 @@ import './CashflowUser.scss';
 import './UserInvoices.scss';
 import { User } from '../../models';
 import { formatMoney } from './statementUtils';
-import { invoiceDeliverySummary } from './invoiceDeliverySummary';
+import { invoiceDeliverySummary, invoiceMoney, packageRefund } from './invoiceDeliverySummary';
 
 type Invoice = {
   _id: string;
@@ -29,12 +29,12 @@ type Invoice = {
   amountUSD?: number;
   amountLYD?: number;
   partialDelivery?: boolean;
-  settlement?: { paidUSD: number; paidLYD: number; remainingUSD: number; paymentStatus: string };
+  settlement?: { paidUSD: number; paidLYD: number; paidEquivalentUSD?: number; remainingUSD: number; paymentStatus: string };
   customer: User
   isCanceled?: boolean;
   canceledAt?: string;
   canceledBy?: { firstName?: string, lastName?: string };
-  cancellation?: { refundedUSD?: number, refundedLYD?: number };
+  cancellation?: { refundedUSD?: number, refundedLYD?: number, packages?: any[] };
 };
 
 type Props = {
@@ -161,9 +161,12 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
         <div className="invoices__grid">
           {invoices.map((invoice, index) => {
             const delivery = invoiceDeliverySummary(invoice);
-            const paidUSD = invoice.partialDelivery ? invoice.settlement?.paidUSD || 0 : invoice.amountUSD || 0;
-            const paidLYD = invoice.partialDelivery ? invoice.settlement?.paidLYD || 0 : invoice.amountLYD || 0;
-            const hasLYD = paidLYD > 0;
+            const money = invoiceMoney(invoice);
+            const partlyCanceled = !invoice.isCanceled && money.hasCancellation;
+            // After a partial cancellation the card shows what is left; the cancelled part is listed below
+            const paidUSD = partlyCanceled ? money.netUSD : money.paidUSD;
+            const paidLYD = partlyCanceled ? money.netLYD : money.paidLYD;
+            const hasLYD = money.paidLYD > 0;
             return (
               <article
                 key={invoice._id}
@@ -187,20 +190,37 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                 <div className="invoice-card__figures">
                   <div className="invoice-card__total">
                     <span className="invoice-card__label">Total</span>
-                    <span className="invoice-card__total-value">{formatMoney(invoice.total, invoice.currency)}</span>
+                    <span className="invoice-card__total-value">{formatMoney(partlyCanceled ? money.totalAfter : invoice.total, invoice.currency)}</span>
+                    {partlyCanceled && <span className="invoice-card__was">before cancelling {formatMoney(invoice.total, invoice.currency)}</span>}
                   </div>
                   <div>
-                    <span className="invoice-card__label">Paid from wallet</span>
+                    <span className="invoice-card__label">{partlyCanceled ? 'Paid after cancelling' : 'Paid from wallet'}</span>
                     <span className="invoice-card__value">{formatMoney(paidUSD, 'USD')}</span>
                     {hasLYD && <span className="invoice-card__value">{formatMoney(paidLYD, 'LYD')}</span>}
+                    {/* On screen only: the printed invoice carries no exchange rate */}
+                    {hasLYD && money.rate > 0 && <span className="invoice-card__rate">Rate 1 USD = {money.rate} LYD</span>}
                   </div>
                   {invoice.partialDelivery && <div dir="rtl"><span className="invoice-card__label">المتبقي للسداد</span><strong className="invoice-card__value">{formatMoney(invoice.settlement?.remainingUSD || 0, 'USD')}</strong></div>}
                 </div>
 
-                {!invoice.isCanceled && (invoice.cancellation?.refundedUSD || invoice.cancellation?.refundedLYD) ?
-                  <p className="invoice-canceled-note">
-                    Cancelled packages refunded {formatMoney(invoice.cancellation?.refundedUSD || 0, 'USD')} and {formatMoney(invoice.cancellation?.refundedLYD || 0, 'LYD')} to the wallet.
-                  </p> : null
+                {partlyCanceled &&
+                  <div className="invoice-canceled-note">
+                    <ul className="invoice-cancel-lines">
+                      {invoice.list.filter((pkg: any) => pkg.canceledAt).map((pkg: any, k: number) => {
+                        const back = packageRefund(invoice, pkg);
+                        return (
+                          <li key={pkg.packageId || k}>
+                            <span>Cancelled {pkg.trackingNumber || 'N/A'} ({formatMoney(pkg.cost || 0, invoice.currency)})</span>
+                            <span>refunded {[back.USD ? formatMoney(back.USD, 'USD') : '', back.LYD ? formatMoney(back.LYD, 'LYD') : ''].filter(Boolean).join(' + ') || formatMoney(0, 'USD')}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <dl className="invoice-cancel-sum">
+                      {money.paidUSD > 0 && <><dt>USD</dt><dd>paid {formatMoney(money.paidUSD, 'USD')} − refunded {formatMoney(money.refundedUSD, 'USD')} = <b>{formatMoney(money.netUSD, 'USD')}</b></dd></>}
+                      {money.paidLYD > 0 && <><dt>LYD</dt><dd>paid {formatMoney(money.paidLYD, 'LYD')} − refunded {formatMoney(money.refundedLYD, 'LYD')} = <b>{formatMoney(money.netLYD, 'LYD')}</b></dd></>}
+                    </dl>
+                  </div>
                 }
                 {invoice.isCanceled &&
                   <p className="invoice-canceled-note">
@@ -258,7 +278,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
               <>
                 <dl className="cashflow-confirm">
                   <dt>Customer paid</dt>
-                  <dd>{formatMoney(invoiceToCancel?.settlement?.paidUSD ?? invoiceToCancel?.amountUSD ?? 0, 'USD')}, {formatMoney(invoiceToCancel?.settlement?.paidLYD ?? invoiceToCancel?.amountLYD ?? 0, 'LYD')}</dd>
+                  <dd>{invoiceToCancel && formatMoney(invoiceMoney(invoiceToCancel).netUSD, 'USD')}, {invoiceToCancel && formatMoney(invoiceMoney(invoiceToCancel).netLYD, 'LYD')}</dd>
                   <dt>To cancel</dt>
                   <dd>{cancelIds.length} of {openPackages(invoiceToCancel).length} packages</dd>
                 </dl>
