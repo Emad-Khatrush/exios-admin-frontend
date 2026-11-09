@@ -10,9 +10,10 @@ const round = (value: number) => Math.round(value * 1000) / 1000;
 // From the bank matching page: one outgoing line paying several supplier bills (of one vendor or
 // several). Each chosen bill is paid in full from the line's account and the line is matched to
 // the payments; unmatching the line later cancels them and the bills are unpaid again.
-export default function BankBillsPayPicker({ line, embedded, onClose, onDone, onBusyChange }: { line: any, embedded?: boolean, onClose: () => void, onDone: (text: string) => void, onBusyChange?: (busy: boolean) => void }) {
+export default function BankBillsPayPicker({ line, embedded, initialVendorId, onClose, onDone, onBusyChange }: { line: any, embedded?: boolean, initialVendorId?: string, onClose: () => void, onDone: (text: string) => void, onBusyChange?: (busy: boolean) => void }) {
   const { vendors } = useVendors();
-  const [vendorId, setVendorId] = useState('');
+  // Opened from a line whose vendor is known to have unpaid bills: that vendor's bills first
+  const [vendorId, setVendorId] = useState(initialVendorId || '');
   const [q, setQ] = useState('');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);

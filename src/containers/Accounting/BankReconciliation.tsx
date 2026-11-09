@@ -6,7 +6,7 @@ import api from '../../api';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { useBulk } from './bulk';
-import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
+import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, readSheet, rowsFrom } from './bankImport';
 import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 import PurchaseMatchPicker from './PurchaseMatchPicker';
@@ -16,6 +16,7 @@ import BankLineDetails from './BankLineDetails';
 import UnidentifiedPark from './UnidentifiedPark';
 import { DepositPicker, TransferPicker, YuanPurchaseDialog } from './PartnerPickers';
 import BankBillsPayPicker from './BankBillsPayPicker';
+import BankLineSplit from './BankLineSplit';
 import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import StatementCoverage from './StatementCoverage';
 import BankMatchingSettings, { MatchingSettings, readMatchingSettings } from './BankMatchingSettings';
@@ -454,7 +455,7 @@ const BankReconciliation = () => {
     const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id))
       .sort((a: any, b: any) => Math.abs(Date.parse(a.day) - Date.parse(row.day)) - Math.abs(Date.parse(b.day) - Date.parse(row.day)) || String(a._id).localeCompare(String(b._id)));
     setEntryFor({
-      mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
+      mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : row.amount < 0 && hint?.vendorBills ? 'pay_bills' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
       selected: possible.length && !(row.sourceProvider === 'alipay' && possible.length > 1) ? [possible[0]._id] : [],
       changeLedger: !possible.length || (row.sourceProvider === 'alipay' && possible.length > 1),
       line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '', billId: hint?.tripCandidates?.[0]?.billId || hint?.suggestedBillId || hint?.billId || '', refundId: hint?.suggestedRefundId || '', billAccepted: false, confirmNewBill: false,
@@ -563,6 +564,12 @@ const BankReconciliation = () => {
       return <div className="acc-suggest acc-suggest--found"><span>✓ <b>فاتورة مقترحة:</b> {billLabel(bill)}{hint.billCandidates.length > 1 && ` · ${hint.billCandidates.length} فواتير محتملة`}</span>
         <Button size="small" variant="contained" color="success" onClick={() => openEntry(row)}>مراجعة واعتماد</Button></div>;
     }
+    // The line's vendor has unpaid bills: paying them comes before any proposal of a new cost
+    if (hint?.vendorBills && row.amount < 0) return <div className="acc-suggest acc-suggest--found">
+      <span>✓ <b>فواتير غير مسددة للمورد {hint.vendorBills.vendorName}:</b> {hint.vendorBills.count === 1 ? 'فاتورة واحدة' : `${hint.vendorBills.count} فواتير`} · المتبقي عليها{' '}
+        {hint.vendorBills.currency && hint.vendorBills.total !== null ? <Amount value={hint.vendorBills.total} currency={hint.vendorBills.currency} /> : <Money value={hint.vendorBills.totalUsd} />}
+        {' '}· سدّدها من هذا السطر بدل تسجيل تكلفة جديدة</span>
+      <Button size="small" variant="contained" color="success" onClick={() => openEntry(row)}>سداد الفواتير</Button></div>;
     const counter = hint?.account && accounts.find((a) => a._id === hint.account._id);
     if (counter?.isCash && isBeforeCount(count, row.day)) return <div className="acc-suggest acc-suggest--found">
       <span>✓ <b>قبل الجرد:</b> {row.amount > 0 ? 'وارد من' : 'صادر إلى'} {counter.name} · الحسابان مجرودان ورصيد الجرد يشمل الحركة، فلا قيد لها</span>
@@ -1106,11 +1113,18 @@ const BankReconciliation = () => {
               {entryFor.line.amount < 0 && <MenuItem value="historical_settlement">تسوية سداد تاريخي</MenuItem>}
               {entryFor.line.amount > 0 && <MenuItem value="refund">استرداد مشتريات / ربط ريفاند الطلبية</MenuItem>}
               {entryFor.line.amount > 0 && entryFor.line.movementKind !== 'card_payment' && <MenuItem value="pending_refund">ترحيل استرداد قيد التحديد — الطلبية غير معروفة</MenuItem>}
+              {entryFor.line.amount < 0 && <MenuItem value="split">تقسيم السطر — على عدة حسابات مصروف أو عدة أشهر</MenuItem>}
               <MenuItem value="ledger">مطابقة مع قيد مسجل سابقًا</MenuItem>
               <MenuItem value="new">ترحيل عملية جديدة</MenuItem>
               <MenuItem value="financial_operation">تسوية حوالة أو تأمين أو مستحق مسجل</MenuItem>
             </TextField>
-            {entryFor.mode === 'pay_bills' && <BankBillsPayPicker embedded line={entryFor.line} onBusyChange={setReviewSaving} onClose={() => setEntryFor(null)}
+            {entryFor.mode === 'new' && entryFor.line.amount < 0 && suggested[entryFor.line._id]?.vendorBills && <Alert severity="warning" className="mb-3"
+              action={<Button color="inherit" size="small" onClick={() => setEntryFor({ ...entryFor, mode: 'pay_bills' })}>سداد الفواتير</Button>}>
+              {suggested[entryFor.line._id].reason} ترحيله كعملية جديدة يسجّل التكلفة مرة ثانية إن كان هذا السطر سدادًا لتلك الفواتير.
+            </Alert>}
+            {entryFor.mode === 'pay_bills' && <BankBillsPayPicker embedded line={entryFor.line} initialVendorId={suggested[entryFor.line._id]?.vendorBills?.vendorId} onBusyChange={setReviewSaving} onClose={() => setEntryFor(null)}
+              onDone={(text) => { setEntryFor(null); setMessage({ type: 'success', text }); load(); }} />}
+            {entryFor.mode === 'split' && <BankLineSplit line={entryFor.line} currency={currency} hint={suggested[entryFor.line._id]} onBusyChange={setReviewSaving} onClose={() => setEntryFor(null)}
               onDone={(text) => { setEntryFor(null); setMessage({ type: 'success', text }); load(); }} />}
             {entryFor.mode === 'financial_operation' && <BankFinancialOperation line={entryFor.line} currency={currency} onDone={() => { setEntryFor(null); load(); }} />}
             {entryFor.mode === 'pending_refund' && <>

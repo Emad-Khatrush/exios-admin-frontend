@@ -6,6 +6,7 @@ import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, today, useVendors } from './shared';
 import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
+import StatementTwinNotice, { twinPayload, useStatementTwins } from './StatementTwinNotice';
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, queryOf, recentFrom } from './ListFilters';
@@ -247,6 +248,10 @@ export const PaymentForm = () => {
 
   const payAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && (a.isCash || a.requires?.includes('employee'))), [accounts]);
   const from = payAccounts.find((a) => a._id === form.fromAccountId);
+  // The bank statement may already hold this payment: it is then tied to its line, not typed a second time
+  const { twins, checking: checkingStatement } = useStatementTwins(form.fromAdvance ? '' : form.fromAccountId, -Number(form.amount), form.day);
+  const [twinChoice, setTwinChoice] = useState('');
+  const twinAnswer = twinChoice === 'other' || twins.some((twin) => twin._id === twinChoice) ? twinChoice : '';
 
   useEffect(() => {
     let active = true;
@@ -276,7 +281,9 @@ export const PaymentForm = () => {
   const currencyName = (currency: string) => ({ LYD: 'دينار ليبي', TRY: 'ليرة تركية', USD: 'دولار أمريكي' }[currency] || currency);
   const settlementCurrency = form.fromAdvance ? advanceSource?.currency : from?.currency || 'USD';
   const nativeRow = (row: any) => settlementCurrency && row.currency === settlementCurrency && row.totalUsd > 0;
-  const nativeAmount = (row: any, usd: number) => row.total * usd / row.totalUsd;
+  // In the bill's currency. All that is left on a bill is what the server counted from the amounts
+  // really paid in that currency (openNative): the dollar cents read back are a few kurus off.
+  const nativeAmount = (row: any, usd: number) => usd === row.open && Number.isFinite(row.openNative) ? row.openNative : row.total * usd / row.totalUsd;
   const sameCurrency = !!settlementCurrency && openBills.some(row => Number(allocations[row._id]) > 0)
     && openBills.filter(row => Number(allocations[row._id]) > 0).every(nativeRow);
   // The dollar value (as stored in allocations) of what was typed for a row, in the bill's currency when native
@@ -284,7 +291,7 @@ export const PaymentForm = () => {
     if (value === '') return '';
     const amount = Number(value);
     const fullNative = nativeAmount(row, row.open);
-    const usd = nativeRow(row) ? Math.abs(amount - fullNative) < 0.005 ? row.open : Math.round(amount * row.totalUsd / row.total) : Math.round(amount * 100);
+    const usd = nativeRow(row) ? Math.abs(amount - fullNative) < 0.005 ? row.open : Math.min(row.open, Math.round(amount * row.totalUsd / row.total)) : Math.round(amount * 100);
     return (usd / 100).toFixed(2);
   };
   const setAllocationAmount = (row: any, value: string) => {
@@ -316,7 +323,10 @@ export const PaymentForm = () => {
         employeeId: from?.requires?.includes('employee') ? form.employee?._id : undefined,
         amount: form.fromAdvance ? undefined : Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
         differenceTo: form.fromAdvance ? undefined : form.differenceTo,
-        allocations: Object.entries(allocations).filter(([, v]) => Number(v) > 0).map(([billId, v]) => ({ billId, amountUsd: Math.round(Number(v) * 100) })),
+        // A bill paid in its own currency also carries the amount as typed, so what is left on it stays exact
+        ...(form.fromAdvance ? {} : twinPayload(twinAnswer)),
+        allocations: openBills.filter(row => Number(allocations[row._id]) > 0).map(row => ({ billId: row._id, amountUsd: Math.round(Number(allocations[row._id]) * 100),
+          amount: sameCurrency && nativeRow(row) ? Number(allocationText(row)) : undefined })),
         idempotencyKey: idempotencyKey.current,
       });
       navigate(vendorId ? `/accounting/vendors/${vendorId}` : '/accounting/payments');
@@ -352,6 +362,8 @@ export const PaymentForm = () => {
             {from?.requires?.includes('employee') && <CustodyHolderPicker inGrid accountId={form.fromAccountId} value={form.employee} amount={Number(form.amount) || 0} onChange={(employee) => setForm((f: any) => ({ ...f, employee }))} />}
           </>}
         </div>
+        {!form.fromAdvance && <StatementTwinNotice twins={twins} currency={from?.currency || 'USD'} value={twinAnswer}
+          onChange={(choice, line) => { setTwinChoice(choice); if (line) setForm((f: any) => ({ ...f, day: line.day })); }} />}
         {!form.fromAdvance && allocatedUsd > 0 && !sameCurrency && (
           <div className="mt-3">
             <TextField select size="small" label="الفرق بين المدفوع والموزَّع" value={form.differenceTo} onChange={(e) => setForm({ ...form, differenceTo: e.target.value })} style={{ minWidth: 320 }}
@@ -412,7 +424,7 @@ export const PaymentForm = () => {
         <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} fullWidth />
         <div className="d-flex justify-content-end gap-2 mt-3">
           <Button onClick={() => navigate(-1)}>رجوع</Button>
-          <Button variant="contained" disabled={isSaving || !vendorId || (form.fromAdvance ? !allocatedUsd : !(form.fromAccountId && Number(form.amount) > 0))
+          <Button variant="contained" disabled={isSaving || !vendorId || (!form.fromAdvance && (checkingStatement || (twins.length > 0 && !twinAnswer))) || (form.fromAdvance ? !allocatedUsd : !(form.fromAccountId && Number(form.amount) > 0))
             || (!form.fromAdvance && !!from?.requires?.includes('employee') && (!form.employee || custodyExceeded(form.employee, Number(form.amount))))} onClick={save}>ترحيل الدفعة</Button>
         </div>
       </Panel>
