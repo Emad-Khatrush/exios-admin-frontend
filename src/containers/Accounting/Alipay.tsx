@@ -7,7 +7,7 @@ import { CancelDialog, RemotePicker, orderLabel, userLabel, today, useVendors } 
 import { AlipaySendPanel } from './AlipaySend';
 import { Amount, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import { ListFilters, ListFilterValue, queryOf } from './ListFilters';
-
+import DayField from './DayField';
 const ALIPAY_FILTERS: ListFilterValue = { from: '', to: '', broker: '' };
 
 // The Alipay section (spec 19.5): yuan bought from brokers, yuan waiting to arrive, the Alipay
@@ -280,7 +280,7 @@ const BuyDialog = ({ defaultAccountId, onClose, onDone }: { defaultAccountId: st
         <div className="acc-form-grid">
           <Autocomplete size="small" options={vendors} value={form.vendor} getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
             onChange={(_, vendor: any) => { setForm({ ...form, vendor }); setSplit(false); setWalletUsd(''); setTotalUsd(''); }} renderInput={(p) => <TextField {...p} label="الوسيط - شركة الحوالة" />} />
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="دُفع من" value={form.fromAccountId} onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}>
             <MenuItem value="">لم أدفع كاش الآن</MenuItem>
             {payAccounts.filter(a => !split || a.currency === 'USD').map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
@@ -331,7 +331,7 @@ const YuanSettlementDialog = ({ purchase, onClose, onDone }: { purchase: any; on
       {error && <Alert severity="error">{error}</Alert>}
       <p>المستحق الحالي: <Money value={purchase.openUsd} /></p>
       <div className="acc-form-grid">
-        <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={e => setDay(e.target.value)} />
+        <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={e => setDay(e.target.value)} />
         <TextField type="number" label="الدفع الآن (USD)" value={cash} onChange={e => setCash(e.target.value)} />
         <TextField select label="من حساب" value={account} onChange={e => setAccount(e.target.value)}>
           {accounts.filter(a => a.isActive && !a.isGroup && a.isCash && a.currency === 'USD').map(a => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
@@ -366,7 +366,7 @@ const ArrivalDialog = ({ purchase, onClose, onDone }: { purchase: any; onClose: 
         {error && <Alert severity="error" className="mb-2">{error}</Alert>}
         <div className="acc-form-grid">
           <TextField type="number" label="اليوان الواصل" value={form.cny} onChange={(e) => setForm({ ...form, cny: e.target.value })} />
-          <TextField type="date" label="تاريخ الوصول" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="تاريخ الوصول" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField label="رقم عملية Alipay (اختياري)" value={form.transactionReference} onChange={e => setForm({ ...form, transactionReference: e.target.value })} helperText="انسخ الرقم كاملًا للمطابقة مع الكشف" />
         </div>
       </DialogContent>

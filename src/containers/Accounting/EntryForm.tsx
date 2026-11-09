@@ -7,7 +7,7 @@ import { AccountingAccount, accountLabel, useAccountingData } from './useAccount
 import { RemotePicker, userLabel } from './shared';
 import { useAccountingAccess } from './useAccountingAccess';
 import { Badge, Money, PageHeader, Panel } from './ui';
-
+import DayField from './DayField';
 type Line = { key: string; accountId: string; side: 'debit' | 'credit'; amount: string; rate: string; office: string; partner: any; label: string; arKey: string };
 
 const blankLine = (side: 'debit' | 'credit'): Line => ({ key: newKey(), accountId: '', side, amount: '', rate: '', office: '', partner: null, label: '', arKey: '' });
@@ -103,7 +103,7 @@ const EntryForm = () => {
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
       <Panel>
         <div className="acc-form-grid mb-3">
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={date} onChange={(e) => setDate(e.target.value)} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={date} onChange={(e) => setDate(e.target.value)} />
           <TextField label="البيان" value={description} onChange={(e) => setDescription(e.target.value)} style={{ gridColumn: 'span 3' }} />
         </div>
         {lockDate && date && date <= lockDate && (

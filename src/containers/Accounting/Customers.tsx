@@ -6,7 +6,7 @@ import { useAccountingData } from './useAccountingData';
 import { userLabel } from './shared';
 import { CustomerAccounting, OrderAccounting } from './AccountingPanels';
 import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 // The sales side of the books: customers (what they owe, what their wallets hold) and their
 // invoices (the orders: billed, paid, open, revenue, cost and profit). Everything is read from the
 // ledger; the order and customer pages of the system stay where they are and open in a new tab.
@@ -154,8 +154,8 @@ const InvoicesTable = ({ userId, title }: { userId?: string, title?: string }) =
                 {offices.map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
               </TextField>
             )}
-            <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => change({ from: e.target.value })} />
-            <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => change({ to: e.target.value })} />
+            <DayField label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => change({ from: e.target.value })} />
+            <DayField label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => change({ to: e.target.value })} />
             <Button variant="outlined" onClick={() => load()}>عرض</Button>
           </FilterBar>
         </div>

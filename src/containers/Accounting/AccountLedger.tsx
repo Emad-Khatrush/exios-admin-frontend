@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Alert, Button, TextField } from '@mui/material';
+import { Alert, Button } from '@mui/material';
 import moment from 'moment';
 import { CURRENCY_DECIMALS, EVENT_LABELS, acc, errorText, todayLibya } from './accountingApi';
 import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, ShowCanceled, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 const AccountLedger = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -52,8 +52,8 @@ const AccountLedger = () => {
       <Panel flush>
         <div className="px-3">
           <FilterBar>
-            <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
-            <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
+            <DayField label="من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DayField label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
             <Button variant="outlined" onClick={() => load()}>عرض</Button>
             <ShowCanceled checked={showCanceled} onChange={(value) => { setShowCanceled(value); load(value); }} />
         </FilterBar>

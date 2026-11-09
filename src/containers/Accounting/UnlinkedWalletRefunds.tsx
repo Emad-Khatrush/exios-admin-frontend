@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Pagination, Stack, TextField } from '@mui/material';
 import { acc, errorText } from './accountingApi';
 import { DataTable, Ltr, Money, Open, Sub } from './ui';
-
+import DayField from './DayField';
 export default function UnlinkedWalletRefunds({ onClose, onSelect }: any) {
   const [filters, setFilters] = useState({ q: '', kind: '', from: '', to: '' });
   const [page, setPage] = useState(1);
@@ -25,8 +25,8 @@ export default function UnlinkedWalletRefunds({ onClose, onSelect }: any) {
       <Stack direction="row" flexWrap="wrap" sx={{ mb: 2, gap: 1 }}>
         <TextField size="small" label="بحث بالعميل أو البيان أو رقم القيد" value={filters.q} onChange={e => change({ q: e.target.value })} />
         <TextField size="small" select label="النوع" value={filters.kind} onChange={e => change({ kind: e.target.value })} sx={{ minWidth: 150 }}><MenuItem value="">Refund والتعويض</MenuItem><MenuItem value="refund">Refund</MenuItem><MenuItem value="compensation">تعويض</MenuItem></TextField>
-        <TextField size="small" type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={e => change({ from: e.target.value })} />
-        <TextField size="small" type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={e => change({ to: e.target.value })} />
+        <DayField size="small" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={e => change({ from: e.target.value })} />
+        <DayField size="small" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={e => change({ to: e.target.value })} />
         <Button onClick={() => change({ q: '', kind: '', from: '', to: '' })}>مسح الفلاتر</Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}

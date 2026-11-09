@@ -4,7 +4,7 @@ import { acc, errorText } from './accountingApi';
 import { Badge, DataTable, FilterBar, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
 import { useSearchParams } from 'react-router-dom';
-
+import DayField from './DayField';
 const categories: Record<string, string> = { cost: 'اكتمال التكاليف', duplicate: 'تكرار محتمل', purchase: 'مشتريات غير مرتبطة', bank: 'حركات الكشف', refund: 'استردادات', suspense: 'المعلّق', posting: 'تعثر الترحيل', integrity: 'فروق الحسابات والدفاتر' };
 const states: Record<string, string> = { open: 'تحتاج معالجة', deferred: 'مؤجلة للمتابعة', independent: 'عمليات مستقلة موثقة' };
 const ReviewQueue = () => {
@@ -45,7 +45,7 @@ const ReviewQueue = () => {
       <TextField label="بحث" size="small" value={filters.q} onChange={e => change({ q: e.target.value })} />
       <TextField select label="نوع المراجعة" size="small" value={filters.category} onChange={e => change({ category: e.target.value })}><MenuItem value="all">الكل</MenuItem>{Object.entries(categories).map(([key, text]) => <MenuItem key={key} value={key}>{text}</MenuItem>)}</TextField>
       <TextField select label="الحالة" size="small" value={filters.state} onChange={e => change({ state: e.target.value })}><MenuItem value="all">الكل</MenuItem>{Object.entries(states).map(([key, text]) => <MenuItem key={key} value={key}>{text}</MenuItem>)}</TextField>
-      {(['from', 'to'] as const).map(key => <TextField key={key} type="date" size="small" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => change({ [key]: e.target.value })} />)}
+      {(['from', 'to'] as const).map(key => <DayField key={key} size="small" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => change({ [key]: e.target.value })} />)}
     </FilterBar>
     <Panel title="المعالجة والمتابعة" subtitle={data ? `الفترة ${data.period.from || 'بداية السجلات'} إلى ${data.period.to}. فتح المصدر هو الطريق لتصحيح التكلفة أو المطابقة.` : undefined}>
       <DataTable<any> loading={loading} rows={data?.results || []} rowKey={r => r.key} columns={[
@@ -70,7 +70,7 @@ const ReviewQueue = () => {
         <Alert severity="info" className="mb-3">{selected?.action === 'bankComplete' ? 'أدخل الرصيد من كشف البنك في آخر يوم من الشهر، لا من شاشة المنظومة. يجب أن يساوي الدفاتر بنفس العملة؛ لن ينشئ النظام قيداً لتغطية الفرق.' : selected?.action === 'complete' ? 'أكد بعد مراجعة فواتير الشراء والعمولات والتكاليف الإضافية. هذا التأكيد لا ينشئ تكلفة؛ وأي تغيير محاسبي لاحق يعيد طلب المراجعة.' : 'التأجيل والإسناد لا يخفيان الخطأ ولا يجعلان الحسابات معتمدة. تأكيد استقلال عمليتين يحتاج سبباً واضحاً.'}</Alert>
         {selected?.action === 'bankComplete' && <div className="d-flex gap-2 mb-3"><TextField type="number" label={`الرصيد الختامي من الكشف (${selected.currency})`} value={bankBalance} onChange={e => setBankBalance(e.target.value)} fullWidth /><TextField select label="نوع الرصيد" value={bankNature} onChange={e => setBankNature(e.target.value)} fullWidth><MenuItem value="available">رصيد متاح بالحساب</MenuItem><MenuItem value="owed">مبلغ مستحق للبنك / سالب</MenuItem></TextField></div>}
         <TextField fullWidth multiline minRows={2} label={selected?.zeroCost ? 'سبب صحة عدم وجود تكلفة' : 'سبب المراجعة / ملاحظات'} value={reason} onChange={e => setReason(e.target.value)} className="mb-3" />
-        {selected?.action === 'deferred' && <div className="d-flex gap-2"><TextField select label="المسؤول عن المتابعة" fullWidth value={assignee} onChange={e => setAssignee(e.target.value)}><MenuItem value="">غير مسند</MenuItem>{users.map(u => <MenuItem key={u._id} value={u._id}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.customerId || u._id}</MenuItem>)}</TextField><TextField type="date" label="موعد المتابعة" InputLabelProps={{ shrink: true }} value={dueDay} onChange={e => setDueDay(e.target.value)} /></div>}
+        {selected?.action === 'deferred' && <div className="d-flex gap-2"><TextField select label="المسؤول عن المتابعة" fullWidth value={assignee} onChange={e => setAssignee(e.target.value)}><MenuItem value="">غير مسند</MenuItem>{users.map(u => <MenuItem key={u._id} value={u._id}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.customerId || u._id}</MenuItem>)}</TextField><DayField label="موعد المتابعة" InputLabelProps={{ shrink: true }} value={dueDay} onChange={e => setDueDay(e.target.value)} /></div>}
       </DialogContent>
       <DialogActions><Button onClick={() => setSelected(null)} disabled={saving}>إلغاء</Button><Button variant="contained" onClick={save} disabled={saving || (selected?.action === 'bankComplete' ? bankBalance === '' || !Number.isFinite(Number(bankBalance)) || Number(bankBalance) < 0 : (((selected?.action !== 'complete' && selected?.action !== 'open') || selected?.zeroCost) && reason.trim().length < 10))}>حفظ المراجعة</Button></DialogActions>
     </Dialog>

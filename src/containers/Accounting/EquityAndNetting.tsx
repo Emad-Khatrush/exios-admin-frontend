@@ -7,7 +7,7 @@ import { amountLabel, CancelDialog, RemotePicker, today, userLabel, useVendors }
 import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, Badge, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
-
+import DayField from './DayField';
 const EQUITY_FILTERS: ListFilterValue = { type: '', status: '', from: recentFrom(), to: '', search: '' };
 const NETTING_FILTERS: ListFilterValue = { status: '', from: recentFrom(), to: '', search: '' };
 
@@ -108,7 +108,7 @@ export const Equity = () => {
             {['loan_in', 'loan_repayment'].includes(form.type) && <TextField select fullWidth className="mt-3" label="حساب القرض" value={form.loanRole || 'loans'} onChange={e => setForm({ ...form, loanRole: e.target.value })}>
               <MenuItem value="loans">قروض عامة</MenuItem><MenuItem value="long_term_loans">قروض طويلة الأجل</MenuItem><MenuItem value="current_loan_portion">أقساط مستحقة خلال سنة</MenuItem>
             </TextField>}
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} className="mt-3" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} className="mt-3" />
             <TextField select label="الخزينة" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
@@ -237,7 +237,7 @@ export const Netting = () => {
               </div>
             )}
             <TextField type="number" label="المبلغ (بالدولار)" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} fullWidth className="mt-3" />
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} className="mt-3" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} className="mt-3" />
           </DialogContent>
         )}
         <DialogActions>

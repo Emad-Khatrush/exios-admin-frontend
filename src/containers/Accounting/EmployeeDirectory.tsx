@@ -4,7 +4,7 @@ import { acc, errorText } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
 import { Amount, DataTable, FilterBar, Ltr, Open, Panel, Sub } from './ui';
 import { today } from './shared';
-
+import DayField from './DayField';
 export default function EmployeeDirectory({ employees, onReload, onPay }: { employees: any[], onReload: () => Promise<void>, onPay: (row: any, paymentKind?: 'salary' | 'commission') => void }) {
   const { currencies, offices } = useAccountingData();
   const [form, setForm] = useState<any>(null);
@@ -139,7 +139,7 @@ export default function EmployeeDirectory({ employees, onReload, onPay }: { empl
     </Dialog>
     <Dialog open={!!adjustment} onClose={() => !busy && setAdjustment(null)} maxWidth="xs" fullWidth><DialogTitle>{adjustment?.kind === 'commission' ? 'إضافة عمولة' : 'إضافة خصم'}</DialogTitle><DialogContent>{adjustment && <Stack sx={{ gap: 2, pt: 1 }}>
       {error && <Alert severity="error">{error}</Alert>}
-      <TextField type="date" label="تاريخ الحركة" InputLabelProps={{ shrink: true }} value={adjustment.day} onChange={e => setAdjustment({ ...adjustment, day: e.target.value })} />
+      <DayField label="تاريخ الحركة" InputLabelProps={{ shrink: true }} value={adjustment.day} onChange={e => setAdjustment({ ...adjustment, day: e.target.value })} />
       <TextField type="month" label="شهر الاستحقاق" InputLabelProps={{ shrink: true }} value={adjustment.month} onChange={e => setAdjustment({ ...adjustment, month: e.target.value })} />
       {adjustment.kind === 'commission' ? <TextField select label="عملة العمولة" value={adjustment.currency} onChange={e => setAdjustment({ ...adjustment, currency: e.target.value, rate: '' })}>{currencies.filter(c => c.isActive).map(c => <MenuItem key={c.code} value={c.code}>{c.code} · {c.name}</MenuItem>)}</TextField>
         : <TextField label="العملة" value={adjustment.currency} InputProps={{ readOnly: true }} helperText="الخصم بعملة الراتب الأساسي" />}

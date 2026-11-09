@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { acc, errorText, todayLibya } from './accountingApi';
 import { AccountRef, Badge, DataTable, Ltr, Money, Notice, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 type Mapping = Record<string, string>;
 
 // Odoo's journal-entry import, as one sheet: the first row of an entry carries its header
@@ -216,7 +216,7 @@ const OdooExport = () => {
         subtitle="يأخذ كل قيد لم يُصدَّر حتى التاريخ المختار. قيود الترحيل التجريبي التي لم تُعتمد لا تُصدَّر."
       >
         <div className="acc-form-grid">
-          <TextField type="date" label="حتى تاريخ" InputLabelProps={{ shrink: true }} value={upTo} onChange={(e) => { setUpTo(e.target.value); load(e.target.value); }} />
+          <DayField label="حتى تاريخ" InputLabelProps={{ shrink: true }} value={upTo} onChange={(e) => { setUpTo(e.target.value); load(e.target.value); }} />
         </div>
         {blocked && <Notice message={{ type: 'warning', text: `اربط ${pending.unmapped.length} حساباً برموزها في أودو من الجدول أدناه قبل التصدير.` }} />}
         <div className="d-flex justify-content-end gap-2 mt-3">
@@ -393,7 +393,7 @@ const OdooComparison = () => {
       <div className="px-3">
         <Notice message={message} onClose={() => setMessage(null)} />
         <div className="acc-form-grid mb-3">
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={(e) => { setDay(e.target.value); load(e.target.value); }} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={day} onChange={(e) => { setDay(e.target.value); load(e.target.value); }} />
           {FIGURES.map(([key, label]) => (
             <TextField key={key} type="number" label={`أودو: ${label} ($)`} value={odoo[key]} onChange={(e) => setOdoo({ ...odoo, [key]: e.target.value })}
               helperText={data?.ours ? <>إكسيوس: <Money value={data.ours[key]} /></> : undefined} />

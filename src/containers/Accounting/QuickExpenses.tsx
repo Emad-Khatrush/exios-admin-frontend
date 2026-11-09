@@ -10,7 +10,7 @@ import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCoun
 import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
 import { LateExpenseNotice } from './BankMatchTools';
 import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
-
+import DayField from './DayField';
 const RECENT_FILTERS: ListFilterValue = { status: '', from: recentFrom(), to: '', search: '' };
 
 // Rent, electricity, fuel...: a one-line bill to the "cash expenses" vendor, paid on the spot
@@ -114,7 +114,7 @@ const QuickExpenses = () => {
           <TextField select label="المكتب" value={form.office} onChange={(e) => setForm({ ...form, office: e.target.value })}>
             {offices.filter((o) => o.isActive).map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
           </TextField>
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
         </div>
         {beforeCount && count && <Alert severity="info" className="mt-3">{beforeCountText(count)}</Alert>}
         <div className="d-flex justify-content-end mt-3">

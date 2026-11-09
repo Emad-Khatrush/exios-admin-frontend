@@ -6,7 +6,7 @@ import { acc, errorText, newKey } from './accountingApi';
 import { Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
 import { fields, HistoryMapping, HistoryRow, inferMapping, mapHistoryRows, templateHistory } from './historicalCashExcel';
-
+import DayField from './DayField';
 const fresh = () => ({ title: '', office: 'tripoli', accountId: '', scope: 'full', from: '2026-01-01', to: '2026-04-03', opening: '', closing: '', requestKey: `history-${newKey()}`, revision: 0 });
 const row = (): HistoryRow => ({ day: '2026-01-01', description: '', amount: '', direction: 'in', category: 'unknown', reference: '', transferRef: '', duplicateReason: '', sourceRow: 1 });
 const initialFilter = { from: '2026-01-01', to: '2026-04-03', office: '', accountId: '', currency: '', status: '', mode: 'combined' };
@@ -168,7 +168,7 @@ export default function HistoricalCash() {
           <TextField label="اسم الكشف" value={form.title} onChange={e => change('title', e.target.value)} disabled={busy || readonly} />
           <TextField select label="المكتب" value={form.office} onChange={e => change('office', e.target.value)} disabled={busy || readonly}>{options.offices.map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}</TextField>
           <TextField select label="الحساب والعملة" value={form.accountId} onChange={e => change('accountId', e.target.value)} disabled={busy || readonly}>{accounts.map((a: any) => <MenuItem key={a._id} value={String(a._id)}>{a.name} · {a.currency}</MenuItem>)}</TextField>
-          {(['from', 'to'] as const).map(key => <TextField key={key} type="date" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={form[key]} onChange={e => change(key, e.target.value)} disabled={busy || readonly} />)}
+          {(['from', 'to'] as const).map(key => <DayField key={key} label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={form[key]} onChange={e => change(key, e.target.value)} disabled={busy || readonly} />)}
           {form.scope === 'full' && (['opening', 'closing'] as const).map(key => <TextField key={key} label={`${key === 'opening' ? 'رصيد بداية الكشف' : 'رصيد نهاية الكشف'} (${account?.currency || detail?.currency || 'العملة'})`} value={form[key]} onChange={e => change(key, e.target.value)} disabled={busy || readonly} inputProps={{ inputMode: 'decimal', dir: 'ltr' }} helperText="الرصيد المتاح موجب، والسحب المكشوف سالب. مطلوب للاعتماد." />)}
         </div>
         {form.scope === 'wallets' && <Alert severity="info" className="mt-3">كشف جزئي لإيداعات وسحوبات العملاء فقط. يعتمد بعد مراجعة الحركات والتصنيف والتكرار؛ لا يثبت اتزان الخزينة ولا يتطلب رصيد بداية أو نهاية، ولا يغيّر المحافظ الحالية.{(form.opening !== '' || form.closing !== '') && <Sub>رصيدا الخزينة السابقان محفوظان كمرجع فقط: البداية {form.opening || 'غير محدد'}، والنهاية {form.closing || 'غير محدد'} {account?.currency || detail?.currency}. لا يدخلان مطابقة هذا الكشف الجزئي.</Sub>}</Alert>}
@@ -208,7 +208,7 @@ export default function HistoricalCash() {
       {!readonly && <div className="d-flex flex-wrap gap-2"><Button variant="outlined" onClick={check} disabled={busy || !rows.length || !form.accountId}>معاينة الأخطاء والتكرارات</Button><Button variant="contained" onClick={save} disabled={busy || !preview || !!preview.errors}>حفظ المسودة</Button></div>}
     </> : <>
       <Panel title="نطاق التقرير"><FilterBar>
-        {(['from', 'to'] as const).map(key => <TextField key={key} type="date" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} />)}
+        {(['from', 'to'] as const).map(key => <DayField key={key} label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} />)}
         <TextField select label="المكتب" value={filters.office} onChange={e => setFilters(f => ({ ...f, office: e.target.value, accountId: '' }))}><MenuItem value="">كل المكاتب</MenuItem>{options.offices.map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}</TextField>
         <TextField select label="الحساب" value={filters.accountId} onChange={e => setFilters(f => ({ ...f, accountId: e.target.value }))}><MenuItem value="">كل الحسابات والعملات</MenuItem>{options.accounts.filter((a: any) => !filters.office || a.office === filters.office).map((a: any) => <MenuItem key={a._id} value={String(a._id)}>{a.name}</MenuItem>)}</TextField>
         <TextField select label="العملة" value={filters.currency} onChange={e => setFilters(f => ({ ...f, currency: e.target.value, accountId: '' }))}><MenuItem value="">كل العملات — منفصلة</MenuItem>{Array.from(new Set<string>(options.accounts.map((a: any) => a.currency))).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}</TextField>

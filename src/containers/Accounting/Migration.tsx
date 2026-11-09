@@ -8,7 +8,7 @@ import { Download, Play, Upload } from 'lucide-react';
 import { EVENT_LABELS, acc, errorText, todayLibya } from './accountingApi';
 import { useAccountingData } from './useAccountingData';
 import { AccountRef, Badge, DataTable, Ltr, Money, Notice, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 const RUN_STATUS: Record<string, { label: string; tone: any }> = {
   running: { label: 'يعمل الآن', tone: 'info' },
   review: { label: 'بانتظار المراجعة', tone: 'warn' },
@@ -228,7 +228,7 @@ const Migration = () => {
 
           <Panel flush title="3. جرد الخزائن والبنوك" subtitle="اختر تاريخ الجرد، ثم اكتب ما كان في كل حساب في نهاية ذلك اليوم بعملته. رصيد الحساب في الدفاتر سيساوي هذا المبلغ في ذلك التاريخ بالضبط: حركات المنظومة قبله تُرحَّل كما هي، والفرق بينها وبين جردك يُسوّى بقيد واحد في تاريخ الجرد. ما بعده من حركات يُضاف فوقه. الحساب المتروك فارغاً يبدأ من حركاته فقط.">
             <div className="px-3 pb-2 d-flex gap-2 align-items-center flex-wrap">
-              <TextField type="date" label="تاريخ الجرد" InputLabelProps={{ shrink: true }} inputProps={{ max: todayLibya() }} value={countDay} onChange={(e) => setCountDay(e.target.value)} />
+              <DayField label="تاريخ الجرد" InputLabelProps={{ shrink: true }} inputProps={{ max: todayLibya() }} value={countDay} onChange={(e) => setCountDay(e.target.value)} />
               <span className="acc-muted">هذا هو التاريخ الذي تطابق عليه: افتح كشف أي خزينة حتى هذا اليوم وستجد رصيدها يساوي ما كتبته. بعد الاعتماد، أي عملية تُدخل بتاريخ هذا اليوم أو قبله لا تحرّك الخزائن المجرودة (الجرد احتسبها) وتُسجَّل على الأرصدة الافتتاحية؛ لذلك إن جردت صباحاً فاختر الأمس.</span>
             </div>
             <DataTable

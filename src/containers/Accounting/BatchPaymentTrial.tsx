@@ -4,7 +4,7 @@ import { acc, errorText, newKey, todayLibya } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { useVendors } from './shared';
 import { DataTable, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 export const batchTrialAvailable = process.env.REACT_APP_ENVIRONMENT === 'qa' || ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 export default function BatchPaymentTrial() {
@@ -76,7 +76,7 @@ export default function BatchPaymentTrial() {
         <TextField disabled={busy} select label="دُفعت من" value={form.fromAccountId} onChange={e => setForm({ ...form, fromAccountId: e.target.value })}>
           {paymentAccounts.map(account => <MenuItem key={account._id} value={account._id}>{accountLabel(account)}</MenuItem>)}
         </TextField>
-        <TextField disabled={busy} type="date" label="تاريخ الدفع" InputLabelProps={{ shrink: true }} value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} />
+        <DayField disabled={busy} label="تاريخ الدفع" InputLabelProps={{ shrink: true }} value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} />
       </div>
     </Panel>
     <Panel flush title="2. اختر فواتير المورد التي دفعتها" subtitle="تظهر فواتير الطلبيات المرحلة وغير المسددة لهذا المورد. الاختيار يسدد المتبقي على كل فاتورة بالكامل.">

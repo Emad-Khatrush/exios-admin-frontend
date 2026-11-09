@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, MenuItem, TextField } from '@mui/material';
 import { acc, errorText, newKey, sys, todayLibya } from './accountingApi';
 import { Badge, Ltr, Money, Open, Panel, Sub } from './ui';
-
+import DayField from './DayField';
 // Sending the yuan of an order marked as an Alipay transfer, in one step (owner's decision, v8):
 // out of an Alipay account at its average rate, recorded as the order's purchase cost. Used on
 // the order page (staff, through /api) and on the Alipay page (accounting).
@@ -54,7 +54,7 @@ export const AlipaySendPanel = ({ orderId, from = 'order', defaultAccountId = ''
         </TextField>
         <TextField type="number" label="اليوان المرسل" value={form.cny} onChange={(e) => setForm({ ...form, cny: e.target.value })}
           helperText={cost !== null ? <>تكلفته <Money value={cost} /> بسعر <Ltr>{account.rate}</Ltr></> : undefined} />
-        <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+        <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
         <TextField label="رقم عملية Alipay (اختياري)" value={form.transactionReference} onChange={e => setForm({ ...form, transactionReference: e.target.value })} helperText="انسخ رقم العملية كاملًا من الكشف للمطابقة التلقائية ومنع تكرار تسجيلها" />
       </div>
       <div className="d-flex justify-content-end mt-2">

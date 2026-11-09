@@ -4,7 +4,7 @@ import moment from 'moment';
 import { acc, errorText, todayLibya } from './accountingApi';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Open, Panel, Stat, StatGrid, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
-
+import DayField from './DayField';
 export const OPERATION_TYPES: Record<string, string> = {
   deposit: 'إيداع', withdrawal: 'سحب كاش', refund: 'استرداد / إلغاء', compensation: 'تعويض',
   wallet_payment: 'دفع من المحفظة', wallet_exchange: 'صرافة محفظة', purchase_payment: 'دفع فاتورة شراء', shipping_payment: 'دفع شحن',
@@ -77,8 +77,8 @@ export default function EmployeeOperations() {
     <p className="acc-muted">عمليات جميع المكاتب حسب وقت إدخالها، بما فيها غير المرحّلة. المراجعة توثّق الفحص ولا تغيّر المبالغ أو القيود؛ تعديل العملية يعيدها للمراجعة.</p>
     <Panel flush>
       <div className="px-3"><FilterBar>
-        <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} inputProps={{ max: filters.to }} />
-        <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} inputProps={{ min: filters.from, max: todayLibya() }} />
+        <DayField label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} inputProps={{ max: filters.to }} />
+        <DayField label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} inputProps={{ min: filters.from, max: todayLibya() }} />
         <TextField select label="الموظف" value={filters.employee} onChange={e => setFilters({ ...filters, employee: e.target.value })} style={{ minWidth: 160 }}>
           <MenuItem value="">كل الموظفين</MenuItem>{options.users.map((u: any) => <MenuItem key={u._id} value={u._id}>{name(u)}</MenuItem>)}
         </TextField>

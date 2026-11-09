@@ -12,7 +12,7 @@ import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
 import { Amount, Ltr, Money, PageHeader, Panel } from './ui';
 import { TARGET_LABELS } from './Bills';
 import { beforeCountText, isBeforeCount, useCountDay } from '../../utils/useCountDay';
-
+import DayField from './DayField';
 const blankLine = (target = 'expense') => ({
   key: newKey(), description: '', amount: '', target, office: '', accountId: '', trip: null as any, order: null as any, packageId: '', packages: [] as any[],
   asset: { name: '', usefulLifeMonths: '', salvageValue: '' }, prepaid: { expenseAccountId: '', months: '', startMonth: '' },
@@ -290,7 +290,7 @@ const BillForm = () => {
             {!form.isCreditNote && <Button onClick={() => setNewVendor({ name: '', type: 'supplier', defaultCurrency: 'USD' })}>جديد</Button>}
           </div>}
           <TextField label="رقم فاتورة المورد" value={form.vendorRef} onChange={(e) => setForm({ ...form, vendorRef: e.target.value })} />
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="العملة" value={form.currency} disabled={form.isCreditNote && !id} onChange={(e) => setForm({ ...form, currency: e.target.value, paidImmediatelyFrom: '' })}>
             {currencies.filter((c) => c.isActive).map((c) => <MenuItem key={c.code} value={c.code}>{c.code} · {c.name}</MenuItem>)}
           </TextField>

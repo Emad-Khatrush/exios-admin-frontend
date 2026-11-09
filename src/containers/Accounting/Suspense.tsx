@@ -6,7 +6,7 @@ import { accountLabel, useAccountingData } from './useAccountingData';
 import { RemotePicker, userLabel } from './shared';
 import { ClaimPicker } from './EntryForm';
 import { DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
-
+import DayField from './DayField';
 const CHUNK = 200;
 const emptyTarget = { account: null as any, office: '', partner: null as any, arKey: '', dateMode: 'today', day: todayLibya(), note: '' };
 
@@ -138,7 +138,7 @@ const Suspense = () => {
               <MenuItem value="original">تاريخ كل عملية الأصلي</MenuItem>
               <MenuItem value="fixed">تاريخ محدد</MenuItem>
             </TextField>
-            {target.dateMode === 'fixed' && <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={target.day} onChange={(e) => setTarget({ ...target, day: e.target.value })} />}
+            {target.dateMode === 'fixed' && <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={target.day} onChange={(e) => setTarget({ ...target, day: e.target.value })} />}
             {toReceivable && <>
               <RemotePicker endpoint="lookup/users" label="العميل (فارغ = عميل كل عملية)" value={target.partner} getLabel={userLabel} onChange={(partner) => setTarget({ ...target, partner, arKey: '' })} />
               <ClaimPicker partnerId={target.partner?._id} value={target.arKey} onChange={(arKey) => setTarget({ ...target, arKey })} />
@@ -158,8 +158,8 @@ const Suspense = () => {
         <div className="px-3">
           <FilterBar>
             <TextField placeholder="رقم القيد أو الوصف" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load()} />
-            <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
-            <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+            <DayField label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+            <DayField label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             <Button variant="outlined" onClick={() => load()}>بحث</Button>
             {filters.cause && <Button onClick={() => setCause('')}>إظهار كل الأسباب</Button>}
           </FilterBar>

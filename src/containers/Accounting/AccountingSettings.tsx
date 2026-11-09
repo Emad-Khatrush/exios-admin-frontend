@@ -9,7 +9,7 @@ import moment from 'moment';
 import { acc, errorText, newKey, OFFICE_LABELS } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { AccountRef, Badge, DataTable, Ltr, Money, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
-
+import DayField from './DayField';
 type Message = { type: 'error' | 'success'; text: string } | null;
 
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -114,7 +114,7 @@ const AccountingSettings = () => {
 
         {data && tab === 'general' && (
           <div style={{ maxWidth: 520 }}>
-            <TextField type="date" label="الدفاتر مقفلة حتى (شاملاً)" InputLabelProps={{ shrink: true }} fullWidth value={general.lockDate || ''}
+            <DayField label="الدفاتر مقفلة حتى (شاملاً)" InputLabelProps={{ shrink: true }} fullWidth value={general.lockDate || ''}
               onChange={(e) => setGeneral({ ...general, lockDate: e.target.value || null })}
               helperText="لا يُرحَّل شيء في هذا اليوم أو قبله. العمليات التلقائية المؤرخة قبله تُرحَّل بأول يوم مفتوح." />
             <TextField select label="بداية السنة المالية" fullWidth className="mt-3" value={general.fiscalYearStartMonth || 1} onChange={(e) => setGeneral({ ...general, fiscalYearStartMonth: Number(e.target.value) })}>

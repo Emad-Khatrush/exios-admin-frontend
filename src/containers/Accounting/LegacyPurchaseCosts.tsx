@@ -3,7 +3,7 @@ import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogCon
 import { acc, errorText, newKey, sys, todayLibya } from './accountingApi';
 import { useAccountingAccess } from './useAccountingAccess';
 import { Badge, DataTable, Ltr, Open, Panel, Sub } from './ui';
-
+import DayField from './DayField';
 export default function LegacyPurchaseCosts({ orderId, fallbackRows, onSaved }: { orderId: string; fallbackRows: any[]; onSaved: () => void }) {
   const access = useAccountingAccess();
   const canRead = access.can('reports', 'purchases'), canApprove = access.can('purchases');
@@ -82,7 +82,7 @@ export default function LegacyPurchaseCosts({ orderId, fallbackRows, onSaved }: 
             onInputChange={(_, value, reason) => { setVendorText(value); if (reason === 'input' || reason === 'clear') setVendor(null); }} onChange={(_, value: any) => { setVendor(value && typeof value !== 'string' ? value : null); if (typeof value === 'string') setVendorText(value); }}
             renderInput={params => <TextField {...params} label="المورد" helperText="اختر المورد أو اكتب اسم مورد جديد" required />} />
           <div className="d-flex gap-2 flex-wrap mt-3">
-            <TextField type="date" label="تاريخ الاعتماد" value={day} onChange={e => setDay(e.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ max: todayLibya() }} disabled={saving} />
+            <DayField label="تاريخ الاعتماد" value={day} onChange={e => setDay(e.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ max: todayLibya() }} disabled={saving} />
             {(row.currency || 'USD') !== 'USD' && <TextField type="number" label={`سعر الصرف (${row.currency} لكل دولار)`} value={rate} onChange={e => setRate(e.target.value)} helperText="فارغ = سعر العملة المسجل في تاريخ الاعتماد" disabled={saving} />}
           </div>
           <TextField select fullWidth label="الدفع للمورد" value={payFrom} onChange={e => { setPayFrom(e.target.value); setNewPayment(false); }} className="mt-3" disabled={saving} SelectProps={{ displayEmpty: true }} InputLabelProps={{ shrink: true }}>

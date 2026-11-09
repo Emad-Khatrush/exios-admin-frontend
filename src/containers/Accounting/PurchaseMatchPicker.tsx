@@ -5,7 +5,7 @@ import { DataTable, FilterBar, Ltr, Open, Sub } from './ui';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
 import PreviousWalletRefundPicker from './PreviousWalletRefundPicker';
 import UnlinkedWalletRefunds from './UnlinkedWalletRefunds';
-
+import DayField from './DayField';
 const offsetDay = (day: string, offset: number) => {
   const date = new Date(`${day}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + offset);
@@ -224,8 +224,8 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>اختر العملية لعرض بياناتها في المقارنة، ثم راجعها ووافق عليها.</Typography>
       <FilterBar>
-        <TextField size="small" type="date" label="من تاريخ" value={filters.from} InputLabelProps={{ shrink: true }} onChange={e => change({ from: e.target.value })} />
-        <TextField size="small" type="date" label="إلى تاريخ" value={filters.to} InputLabelProps={{ shrink: true }} onChange={e => change({ to: e.target.value })} />
+        <DayField size="small" label="من تاريخ" value={filters.from} InputLabelProps={{ shrink: true }} onChange={e => change({ from: e.target.value })} />
+        <DayField size="small" label="إلى تاريخ" value={filters.to} InputLabelProps={{ shrink: true }} onChange={e => change({ to: e.target.value })} />
         <TextField select size="small" label="مصدر المشتريات" value={filters.source} onChange={e => change({ source: e.target.value })}>
           <MenuItem value="all">جميع التكاليف</MenuItem><MenuItem value="direct">فواتير موردين مباشرة</MenuItem><MenuItem value="order">مشتريات الطلبيات</MenuItem>{!refund && <MenuItem value="trip">تكاليف الرحلات والشحن</MenuItem>}
         </TextField>

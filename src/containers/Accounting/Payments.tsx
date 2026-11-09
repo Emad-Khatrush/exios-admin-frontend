@@ -10,7 +10,7 @@ import StatementTwinNotice, { twinPayload, useStatementTwins } from './Statement
 import { useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, queryOf, recentFrom } from './ListFilters';
-
+import DayField from './DayField';
 const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: recentFrom(), to: '', search: '' };
 
 export const PaymentsList = () => {
@@ -191,7 +191,7 @@ export const ReceiptForm = () => {
           <Autocomplete size="small" options={vendors} value={vendors.find((v) => v._id === vendorId) || null}
             getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
             onChange={(_, v: any) => setVendorId(v?._id || '')} renderInput={(p) => <TextField {...p} label="المورد" />} />
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           <TextField select label="استُلم في" value={form.toAccountId} onChange={(e) => setForm({ ...form, toAccountId: e.target.value })}>
             {toAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
           </TextField>
@@ -345,7 +345,7 @@ export const PaymentForm = () => {
           <Autocomplete size="small" options={vendors} value={vendors.find((v) => v._id === vendorId) || null}
             getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
             onChange={(_, v: any) => setVendorId(v?._id || '')} renderInput={(p) => <TextField {...p} label="المورد" />} />
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           {!form.fromAdvance && <>
             <TextField select label="دُفعت من" value={form.fromAccountId} onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}>
               {payAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}

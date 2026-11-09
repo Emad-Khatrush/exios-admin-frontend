@@ -9,7 +9,7 @@ import { useReactToPrint } from 'react-to-print';
 import { currentRound, HandoverReceipt, SettlementStatement } from './CustodyPapers';
 import EmployeeDirectory from './EmployeeDirectory';
 import { useAccountingAccess } from './useAccountingAccess';
-
+import DayField from './DayField';
 // Custody (عهدة): money given to a staff member to spend for the company, settled by the expenses
 // they pay from it (the Expenses screen, "from my custody", or recorded here by the accountant) or returned. Loan (سلفة): money lent
 // to them, taken back from their salary or returned. Kept apart, per employee, each in its own
@@ -256,7 +256,7 @@ const Employees = () => {
             {message?.type === 'error' && <Alert severity="error">{message.text}</Alert>}
             <p className="acc-muted">{move.direction === 'give' ? KIND_TEXT[move.kind as Kind].hint : <>الرصيد الحالي <Balances value={move.employee[move.kind]} /></>}</p>
             <p className="acc-muted">يُعطى ويُرجع بنفس العملة: الدولار من خزينة دولار والدينار من خزينة دينار.</p>
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={move.day} onChange={(e) => setMove({ ...move, day: e.target.value })} className="mt-2" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={move.day} onChange={(e) => setMove({ ...move, day: e.target.value })} className="mt-2" />
             <TextField select label={move.direction === 'give' ? 'دُفع من' : 'أُرجع إلى'} value={move.cashId} onChange={(e) => setMove({ ...move, cashId: e.target.value })} fullWidth className="mt-3">
               {moveBoxes(move.kind, move.employee, move.direction).map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
@@ -298,7 +298,7 @@ const Employees = () => {
             <TextField select label="المكتب" value={spend.office} onChange={(e) => setSpend({ ...spend, office: e.target.value })} fullWidth className="mt-3">
               {offices.filter((o: any) => o.isActive !== false).map((o: any) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
             </TextField>
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={spend.day} onChange={(e) => setSpend({ ...spend, day: e.target.value })} fullWidth className="mt-3" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={spend.day} onChange={(e) => setSpend({ ...spend, day: e.target.value })} fullWidth className="mt-3" />
             <TextField label="البيان" value={spend.note} onChange={(e) => setSpend({ ...spend, note: e.target.value })} fullWidth className="mt-3" />
           </DialogContent>
         )}
@@ -369,7 +369,7 @@ const Employees = () => {
             {!commissionPayment && salaryCash && salaryCurrency !== salary.employee.salaryCurrency && <Alert severity="warning">اختر خزينة بعملة الراتب: {salary.employee.salaryCurrency}.</Alert>}
             <div className="d-flex gap-2 mt-2">
               <TextField type="month" label="الشهر" InputLabelProps={{ shrink: true }} value={salary.month} onChange={(e) => setSalary({ ...salary, month: e.target.value })} />
-              <TextField type="date" label="تاريخ الصرف" InputLabelProps={{ shrink: true }} value={salary.day} onChange={(e) => setSalary({ ...salary, day: e.target.value })} />
+              <DayField label="تاريخ الصرف" InputLabelProps={{ shrink: true }} value={salary.day} onChange={(e) => setSalary({ ...salary, day: e.target.value })} />
             </div>
             <TextField select label="المكتب" value={salary.office} onChange={(e) => setSalary({ ...salary, office: e.target.value })} fullWidth className="mt-3">
               {offices.filter((o) => o.isActive).map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}

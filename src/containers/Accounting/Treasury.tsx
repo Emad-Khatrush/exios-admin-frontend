@@ -8,7 +8,7 @@ import { cancelAction, useBulk } from './bulk';
 import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { SubBoxesPanel } from './SubBoxes';
 import { ListFilters, ListFilterValue, queryOf, recentFrom } from './ListFilters';
-
+import DayField from './DayField';
 const TRANSFER_FILTERS: ListFilterValue = { accountId: '', status: '', from: recentFrom(), to: '', search: '' };
 const COUNT_FILTERS: ListFilterValue = { accountId: '', from: recentFrom(), to: '' };
 
@@ -158,7 +158,7 @@ const Treasury = () => {
         <DialogTitle>تحويل جديد</DialogTitle>
         {transfer && (
           <DialogContent>
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={transfer.day} onChange={(e) => setTransfer({ ...transfer, day: e.target.value })} className="mt-2" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={transfer.day} onChange={(e) => setTransfer({ ...transfer, day: e.target.value })} className="mt-2" />
             <div className="d-flex gap-2 mt-3">
               <TextField select label="من" value={transfer.fromAccountId} onChange={(e) => setTransfer({ ...transfer, fromAccountId: e.target.value })} fullWidth>
                 {moneyAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
@@ -200,7 +200,7 @@ const Treasury = () => {
         <DialogTitle>جرد خزينة</DialogTitle>
         {count && (
           <DialogContent>
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={count.day} onChange={(e) => setCount({ ...count, day: e.target.value })} className="mt-2" />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={count.day} onChange={(e) => setCount({ ...count, day: e.target.value })} className="mt-2" />
             <TextField select label="الخزينة" value={count.accountId} onChange={(e) => setCount({ ...count, accountId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>

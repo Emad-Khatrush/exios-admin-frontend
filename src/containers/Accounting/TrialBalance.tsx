@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Checkbox, FormControlLabel, TextField } from '@mui/material';
+import { Alert, Button, Checkbox, FormControlLabel } from '@mui/material';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { toTree } from './useAccountingData';
 import { AccountRef, Badge, DataTable, FilterBar, Money, PageHeader, Panel } from './ui';
-
+import DayField from './DayField';
 const TrialBalance = () => {
   const navigate = useNavigate();
   const [from, setFrom] = useState('');
@@ -48,8 +48,8 @@ const TrialBalance = () => {
       <Panel flush>
         <div className="px-3">
           <FilterBar>
-            <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
-            <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
+            <DayField label="من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DayField label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
             <Button variant="outlined" onClick={load}>عرض</Button>
             <FormControlLabel control={<Checkbox checked={showZero} onChange={(e) => setShowZero(e.target.checked)} />} label="إظهار الحسابات الصفرية" />
           </FilterBar>

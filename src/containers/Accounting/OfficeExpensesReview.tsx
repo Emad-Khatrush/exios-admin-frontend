@@ -5,7 +5,7 @@ import { CancelDialog } from './shared';
 import { useAccountingAccess } from './useAccountingAccess';
 import { useAccountingData } from './useAccountingData';
 import { Amount, DataTable, FilterBar, Ltr, Money, Notice, Open, PageHeader, Panel, StatusBadge, Sub } from './ui';
-
+import DayField from './DayField';
 // Office expenses entered by staff on the system's Expenses screen (spec 19.1), from every office:
 // filters by office, person, type and period, the receipts, and cancelling (reversing) one.
 const OfficeExpensesReview = () => {
@@ -48,8 +48,8 @@ const OfficeExpensesReview = () => {
           <MenuItem value="">كل الأنواع</MenuItem>
           {data.types.map((t) => <MenuItem key={t._id} value={t._id}>{t.name}</MenuItem>)}
         </TextField>
-        <TextField size="small" type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={set('from')} />
-        <TextField size="small" type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={set('to')} />
+        <DayField size="small" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={set('from')} />
+        <DayField size="small" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={set('to')} />
         <TextField select size="small" label="الحالة" value={filters.status} onChange={set('status')} style={{ minWidth: 130 }}>
           <MenuItem value="posted">مُرحَّل</MenuItem>
           <MenuItem value="canceled">ملغى</MenuItem>

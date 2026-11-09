@@ -8,7 +8,7 @@ import { useVendors } from './shared';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
 import BankLineDetails from './BankLineDetails';
-
+import DayField from './DayField';
 const labels: Record<string, string> = { unlinked: 'غير مرتبطة', partial: 'مرتبطة جزئياً', linked: 'مرتبطة بالكامل' };
 const initial = { from: '', to: '', period: 'current', source: 'order', status: 'unlinked', q: '', vendorId: '', accountId: '', currency: '' };
 const PurchaseReconciliation = () => {
@@ -106,7 +106,7 @@ const PurchaseReconciliation = () => {
         <TextField select size="small" label="المورد" value={filters.vendorId} onChange={e => change({ vendorId: e.target.value })}><MenuItem value="">الكل</MenuItem>{vendors.map((v: any) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}</TextField>
         <TextField select size="small" label="حساب السداد أو الكشف" value={filters.accountId} onChange={e => change({ accountId: e.target.value })}><MenuItem value="">الكل</MenuItem>{banks.map(b => <MenuItem key={b._id} value={b._id}>{accountLabel(b)}</MenuItem>)}</TextField>
         <TextField select size="small" label="العملة" value={filters.currency} onChange={e => change({ currency: e.target.value })}><MenuItem value="">الكل</MenuItem>{currencies.map(c => <MenuItem key={c.code} value={c.code}>{c.code}</MenuItem>)}</TextField>
-        {(['from', 'to'] as const).map(key => <TextField key={key} size="small" type="date" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => change({ [key]: e.target.value })} />)}
+        {(['from', 'to'] as const).map(key => <DayField key={key} size="small" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={filters[key]} onChange={e => change({ [key]: e.target.value })} />)}
         <Button onClick={() => { setFilters(initial); setPage(1); }}>مسح الفلاتر</Button>
       </FilterBar>
       <Panel title="مشتريات مسجلة وحالة ارتباطها بالكشوف" subtitle={data?.operationalStartDate ? `بداية المتابعة الجديدة: ${data.operationalStartDate}. اختر فترة ما بعد البداية لمراجعة العمل الجديد.` : undefined}>
@@ -125,7 +125,7 @@ const PurchaseReconciliation = () => {
       <Alert severity="info" className="mb-3">تُسجّل المشتريات المكتملة الناقصة بتاريخها مقابل الأرصدة الافتتاحية. لا تتغير أموال البنك ولا أرباح الفترة الجديدة. الحركات المحتمل تسجيل تكلفتها سابقاً تُترك للمطابقة. الفترات المقفلة تحتاج مراجعتها قبل التسوية.</Alert>
       <FilterBar>
         <TextField select size="small" label="البنك أو الكرت" value={historical.accountId} onChange={e => { setHistorical(h => ({ ...h, accountId: e.target.value })); setHistoricalData(null); setChecked([]); }}>{banks.map(b => <MenuItem key={b._id} value={b._id}>{accountLabel(b)}</MenuItem>)}</TextField>
-        {(['from', 'to'] as const).map(key => <TextField key={key} size="small" type="date" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={historical[key]} onChange={e => { setHistorical(h => ({ ...h, [key]: e.target.value })); setHistoricalData(null); setChecked([]); }} />)}
+        {(['from', 'to'] as const).map(key => <DayField key={key} size="small" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={historical[key]} onChange={e => { setHistorical(h => ({ ...h, [key]: e.target.value })); setHistoricalData(null); setChecked([]); }} />)}
         <TextField select size="small" label="المكتب" value={historical.office} onChange={e => setHistorical(h => ({ ...h, office: e.target.value }))}>{offices.map(o => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}</TextField>
         <Button variant="outlined" disabled={!historical.accountId || loading} onClick={() => loadHistorical(1)}>مراجعة الحركات القديمة</Button>
       </FilterBar>
@@ -149,7 +149,7 @@ const PurchaseReconciliation = () => {
         <Alert severity="info" className="mb-3">{selected?.number} · {selected?.orders?.map((o: any) => o.number).join('، ')} · {selected?.amount} {selected?.currency}. إذا لم تجد الحركة، حمّل كشف حسابها أولاً.</Alert>
         <FilterBar>
           <TextField select size="small" label="حساب الكشف" value={search.accountId} onChange={e => { setSearch(s => ({ ...s, accountId: e.target.value })); setCandidatePage(1); }}><MenuItem value="">كل الحسابات</MenuItem>{banks.map(b => <MenuItem key={b._id} value={b._id}>{accountLabel(b)}</MenuItem>)}</TextField>
-          {(['from', 'to'] as const).map(key => <TextField key={key} size="small" type="date" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={search[key]} onChange={e => { setSearch(s => ({ ...s, [key]: e.target.value })); setCandidatePage(1); }} />)}
+          {(['from', 'to'] as const).map(key => <DayField key={key} size="small" label={key === 'from' ? 'من' : 'إلى'} InputLabelProps={{ shrink: true }} value={search[key]} onChange={e => { setSearch(s => ({ ...s, [key]: e.target.value })); setCandidatePage(1); }} />)}
           <FormControlLabel label="إظهار المبالغ المختلفة أيضاً" control={<Checkbox checked={search.showAll} onChange={(_, v) => { setSearch(s => ({ ...s, showAll: v })); setCandidatePage(1); }} />} />
         </FilterBar>
         <DataTable<any> rows={candidates?.results || []} rowKey={r => r._id} loading={!candidates} columns={[

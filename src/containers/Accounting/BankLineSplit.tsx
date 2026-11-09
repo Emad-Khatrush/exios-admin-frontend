@@ -5,7 +5,7 @@ import { acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { useVendors } from './shared';
 import { Ltr, Sub } from './ui';
-
+import DayField from './DayField';
 const pad = (n: number) => String(n).padStart(2, '0');
 // The last day of a month ('2026-02' → '2026-02-28')
 export const monthEnd = (month: string) => {
@@ -102,7 +102,7 @@ export default function BankLineSplit({ line, currency, hint, onClose, onDone, o
     </div>
     {rows.map((row, index) => (
       <div key={row.key} className="d-flex gap-2 flex-wrap mb-2 align-items-start">
-        <TextField size="small" type="date" label="التاريخ" InputLabelProps={{ shrink: true }} disabled={busy} value={row.day} inputProps={{ max: line.day, 'aria-label': `تاريخ الجزء ${index + 1}` }}
+        <DayField size="small" label="التاريخ" InputLabelProps={{ shrink: true }} disabled={busy} value={row.day} inputProps={{ max: line.day, 'aria-label': `تاريخ الجزء ${index + 1}` }}
           error={!!row.day && row.day > line.day} onChange={(e) => change(row.key, { day: e.target.value })} />
         <Autocomplete size="small" style={{ minWidth: 240, flex: 1 }} disabled={busy} options={expenseAccounts} value={expenseAccounts.find((a: any) => a._id === row.accountId) || null}
           getOptionLabel={(a: any) => accountLabel(a)} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}

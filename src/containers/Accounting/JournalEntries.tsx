@@ -6,7 +6,7 @@ import { useAccountingAccess } from './useAccountingAccess';
 import { recentFrom } from './ListFilters';
 import { EVENT_LABELS, acc, errorText } from './accountingApi';
 import { Badge, DataTable, FilterBar, ForeignTotals, Ltr, Money, PageHeader, Panel, ShowCanceled, Sub } from './ui';
-
+import DayField from './DayField';
 const PAGE_SIZE = 50;
 
 const JournalEntries = () => {
@@ -52,8 +52,8 @@ const JournalEntries = () => {
       <Panel flush>
         <div className="px-3">
           <FilterBar>
-            <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
-            <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+            <DayField label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+            <DayField label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             <TextField select label="الدفتر" value={filters.journalId} onChange={(e) => setFilters({ ...filters, journalId: e.target.value })} style={{ minWidth: 190 }}>
               <MenuItem value="">كل الدفاتر</MenuItem>
               {journals.map((j) => <MenuItem key={j._id} value={j._id}>{j.name}</MenuItem>)}

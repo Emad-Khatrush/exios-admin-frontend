@@ -13,7 +13,7 @@ import { PackageCompensationPanel } from './PackageCompensation';
 import { Badge, DataTable, Ltr, Money, Open, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
 // @ts-ignore
 import './Accounting.scss';
-
+import DayField from './DayField';
 // The accounting view of an order, a trip or a customer, shown inside their own pages (spec 7).
 // What shows depends on the accounting permissions the owner gave (the figures need "reports",
 // recording a supplier bill needs "purchases"); everything opens in a new tab so the page being
@@ -220,7 +220,7 @@ const QuickOrderBill = ({ orderId, orderNumber, onSaved }: { orderId: string, or
           </TextField>
         )}
         {currency !== 'USD' && <TextField type="number" label={payAccount ? 'السعر (فارغ = متوسط سعر الحساب الدافع)' : 'السعر (فارغ = سعر ذلك اليوم)'} value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} inputProps={{ min: 0, step: 'any' }} />}
-        <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+        <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
       </div>
       <div className="d-flex justify-content-end align-items-center gap-3 mt-3 flex-wrap">
         <Open to={`/accounting/bills/new?orderId=${orderId}&orderNumber=${encodeURIComponent(orderNumber)}`}>فاتورة بعدة سطور أو مرفقات</Open>
@@ -391,7 +391,7 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
             {account?.currency !== 'USD' && <TextField disabled={!!existingRefundId} type="number" label="القيمة الفعلية بالدولار (إن ذكرها البنك)" value={form.usdValue} onChange={e => { setPendingBankLineId(''); setForm({ ...form, usdValue: e.target.value }); }} helperText="اختياري؛ استخدم مقابل الدولار المطبوع في الكشف، وإلا يُستخدم تقييم المنظومة." />}
             <TextField disabled={!!legacyChoice.legacyWalletStatementId} type="number" label="يُضاف لمحفظة العميل ($)" value={form.walletUsd} onChange={(e) => setForm({ ...form, walletUsd: e.target.value })}
               helperText={account?.currency === 'USD' && usd > 0 ? <>مثلاً <Ltr>{Math.max(usd - 1, 0).toFixed(2)}</Ltr> (هامش حماية 1$)</> : 'ما يُضاف لمحفظة العميل بالدولار'} />
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, day: e.target.value }); }} />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => { setPendingBankLineId(''); setForm({ ...form, day: e.target.value }); }} />
             <TextField label="ملاحظة" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </div>
           {open && <PreviousWalletRefundPicker key={existingRefundId || 'new'} orderId={orderId} day={form.day} walletUsd={form.walletUsd} onChange={setLegacyChoice} />}
@@ -478,7 +478,7 @@ const AbandonedPanel = ({ orderId, onChanged }: { orderId: string; onChanged: ()
             </TextField>
             <TextField type="number" label={amountLabel(account?.currency)} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
             {account && account.currency !== 'USD' && <TextField type="number" label="قيمته بالدولار (فارغ = سعر تاريخ العملية)" value={form.usdValue} onChange={(e) => setForm({ ...form, usdValue: e.target.value })} />}
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
           </div>
         </DialogContent>
         <DialogActions>
@@ -516,7 +516,7 @@ const WriteOffDialog = ({ claim, onClose, onDone }: { claim: any; onClose: () =>
         {error && <Alert severity="error" className="mb-2">{error}</Alert>}
         <div className="acc-form-grid">
           <TextField type="number" label="المبلغ المشطوب ($)" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
         </div>
         <TextField className="mt-3" fullWidth label="السبب" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
       </DialogContent>

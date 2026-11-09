@@ -4,7 +4,7 @@ import { acc, errorText, todayLibya } from './accountingApi';
 import { Amount, Badge, DataTable, FilterBar, Money, Open, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
 import EmployeeOperations from './EmployeeOperations';
-
+import DayField from './DayField';
 // One place for the accountant's day: review today's operations by office, work the open backlog,
 // then close the day with a saved report (several reports a day are allowed).
 const ITEM_STATES: Record<string, { text: string; tone: 'ok' | 'warn' | 'danger' | 'muted' }> = {
@@ -82,7 +82,7 @@ const PeriodicWork = () => {
   return <>
     <PageHeader title="الأعمال الأسبوعية والدورية" subtitle="أدوات الجرد والمتابعة والتقارير للمراجعة الدورية. اختر يوم الجرد؛ كل تقرير يحفظ بيانات ذلك اليوم والمتراكم وقت إصداره، ولا يقفل التعديل."
       actions={<>
-        <TextField type="date" size="small" label="اليوم" InputLabelProps={{ shrink: true }} value={day} inputProps={{ max: todayLibya() }} onChange={e => setDay(e.target.value)} />
+        <DayField size="small" label="اليوم" InputLabelProps={{ shrink: true }} value={day} inputProps={{ max: todayLibya() }} onChange={e => setDay(e.target.value)} />
         <Button onClick={refresh}>تحديث</Button>
         {canWork && <Button variant="contained" onClick={() => open('close')}>إقفال اليوم بتقرير</Button>}
       </>} />
@@ -210,7 +210,7 @@ const PeriodicWork = () => {
         <TextField fullWidth multiline minRows={2} label={dialog?.kind === 'close' ? 'ملاحظة على التقرير (اختياري)' : 'السبب / الملاحظة'} value={note} onChange={e => setNote(e.target.value)} className="mb-3" />
         {dialog?.kind === 'defer' && <div className="d-flex gap-2">
           <TextField select label="المسؤول" fullWidth value={assignee} onChange={e => setAssignee(e.target.value)}><MenuItem value="">غير مسند</MenuItem>{users.map(u => <MenuItem key={u._id} value={u._id}>{userName(u)}</MenuItem>)}</TextField>
-          <TextField type="date" label="موعد المتابعة" InputLabelProps={{ shrink: true }} value={dueDay} onChange={e => setDueDay(e.target.value)} />
+          <DayField label="موعد المتابعة" InputLabelProps={{ shrink: true }} value={dueDay} onChange={e => setDueDay(e.target.value)} />
         </div>}
       </DialogContent>
       <DialogActions><Button onClick={() => setDialog(null)} disabled={saving}>إلغاء</Button>

@@ -4,7 +4,7 @@ import { acc, errorText, newKey } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, RemotePicker, today, userLabel } from './shared';
 import { Amount, Badge, DataTable, Ltr, Money, Open, PageHeader, Panel, Sub } from './ui';
-
+import DayField from './DayField';
 const instructions: Record<string, string> = {
   mistaken_transfer: 'سجل الحوالة الخاطئة مرة واحدة، ثم سجل المبلغ الذي رجع. الفرق غير المسترد يمكن شطبه مع كتابة السبب.',
   transfer_in_transit: 'سجل المبلغ الخارج الآن. عند وصوله، اختر الحساب المستلم وسجل المبلغ الواصل.',
@@ -100,7 +100,7 @@ const FinancialOperations = () => {
         {form && <><TextField select fullWidth label="نوع العملية" value={form.kind} onChange={e => setForm(blank(e.target.value))} className="mt-2">{catalog.kinds.map((t: any) => <MenuItem key={t.value} value={t.value}>{t.name}</MenuItem>)}</TextField>
           <Alert severity="info" className="my-3">{instructions[form.kind]}</Alert>
           <div className="acc-form-grid">
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} />
             <TextField select label="المكتب" value={form.office} onChange={e => setForm({ ...form, office: e.target.value })}>{offices.filter(o => o.isActive).map(o => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}</TextField>
             {(type?.monetary || type?.stock || type?.reclass || type?.valuation) && <TextField select label={type?.reclass || type?.valuation ? 'الحساب' : 'دُفع من'} value={form.fromAccountId} onChange={e => { const a = accounts.find(x => x._id === e.target.value); setForm({ ...form, fromAccountId: e.target.value, currency: type?.valuation || type?.reclass ? 'USD' : a?.currency || 'USD' }); }}>
               {(type?.reclass ? accounts.filter(a => a.isActive && !a.isGroup && a.type === 'liability' && (!a.currency || a.currency === 'USD')) : type?.valuation ? moneyAccounts.filter(a => a.currency && a.currency !== 'USD') : moneyAccounts).map(a => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
@@ -129,7 +129,7 @@ const FinancialOperations = () => {
       <DialogTitle>تسوية {action?.doc.number}</DialogTitle><DialogContent>
         {error && <Alert severity="error">{error}</Alert>}
         {action && <div className="acc-form-grid">
-          <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={action.day} onChange={e => setAction({ ...action, day: e.target.value })} />
+          <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={action.day} onChange={e => setAction({ ...action, day: e.target.value })} />
           {['mistaken_transfer', 'refundable_deposit'].includes(action.doc.kind) && <TextField select label="الإجراء" value={action.mode} onChange={e => setAction({ ...action, mode: e.target.value })}><MenuItem value="settle">استلام المبلغ المسترد</MenuItem><MenuItem value="writeoff">شطب مبلغ لن يُسترد</MenuItem></TextField>}
           <TextField type="number" label={action.doc.kind === 'company_stock' ? 'الكمية المباعة' : `المبلغ المسوّى (${action.doc.currency})`} value={action.doc.kind === 'company_stock' ? action.quantity : action.amount} onChange={e => setAction({ ...action, [action.doc.kind === 'company_stock' ? 'quantity' : 'amount']: e.target.value })} />
           {action.mode === 'settle' && <>

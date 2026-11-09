@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { acc, errorText, formatMinor } from './accountingApi';
 import { Badge, DataTable, FilterBar, Money, Open, Sub } from './ui';
 import { useAccountingAccess } from './useAccountingAccess';
-
+import DayField from './DayField';
 const endpoint = 'bank/trip-cost-settlements';
 const countries: Record<string, string> = { CN: 'الصين', UAE: 'الإمارات', TR: 'تركيا', USA: 'أمريكا', UK: 'بريطانيا', LY: 'ليبيا' };
 const steps = ['الكشف والنطاق', 'مراجعة التكاليف', 'الرحلات والتوزيع', 'المعاينة والاعتماد'];
@@ -131,8 +131,8 @@ export default function TripCostSettlement({ open, onClose, onDone }: { open: bo
         <TextField select label="دول الرحلات" value={params.countries ? params.countries.split(',') : []} SelectProps={{ multiple: true }} disabled={busy} onChange={e => { const value = e.target.value as unknown as string[] | string; change('countries', Array.isArray(value) ? value.join(',') : value); }} style={{ minWidth: 180 }}>{Object.entries(countries).map(([code, name]) => <MenuItem key={code} value={code}>{name}</MenuItem>)}</TextField>
         <TextField select label="نوع الشحن" value={params.mode} disabled={busy} onChange={e => change('mode', e.target.value)}><MenuItem value="air">جوي</MenuItem><MenuItem value="sea">بحري</MenuItem></TextField>
         {params.mode === 'sea' && <TextField select label="البحري" value={params.seaLoadType} disabled={busy} onChange={e => change('seaLoadType', e.target.value)}><MenuItem value="">الكل</MenuItem><MenuItem value="FCL">FCL</MenuItem><MenuItem value="LCL">LCL</MenuItem><MenuItem value="unknown">غير محدد</MenuItem></TextField>}
-        <TextField type="date" label="سطور الكشف من" InputLabelProps={{ shrink: true }} value={params.from} disabled={busy} onChange={e => change('from', e.target.value)} />
-        <TextField type="date" label="سطور الكشف إلى" InputLabelProps={{ shrink: true }} value={params.to} error={dateInvalid} helperText={dateInvalid ? 'تاريخ النهاية قبل البداية' : undefined} disabled={busy} onChange={e => change('to', e.target.value)} />
+        <DayField label="سطور الكشف من" InputLabelProps={{ shrink: true }} value={params.from} disabled={busy} onChange={e => change('from', e.target.value)} />
+        <DayField label="سطور الكشف إلى" InputLabelProps={{ shrink: true }} value={params.to} error={dateInvalid} helperText={dateInvalid ? 'تاريخ النهاية قبل البداية' : undefined} disabled={busy} onChange={e => change('to', e.target.value)} />
       </div>
       <div className="acc-settlement-services">
         <FormControlLabel control={<Checkbox checked={params.services} disabled={busy} onChange={e => change('services', e.target.checked)} />} label="عرض الفواتير الخدمية كمصاريف شراء" />

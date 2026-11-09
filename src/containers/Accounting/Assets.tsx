@@ -5,7 +5,7 @@ import { OFFICE_LABELS, acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, today } from './shared';
 import { AccountRef, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
-
+import DayField from './DayField';
 const lastMonth = () => {
   const [year, month] = today().split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 2, 1));
@@ -111,7 +111,7 @@ const Assets = () => {
         {dispose && (
           <DialogContent>
             <p className="acc-muted">يُرحَّل الإهلاك حتى يوم البيع أولاً. اترك السعر فارغاً للاستبعاد بدون بيع.</p>
-            <TextField type="date" label="التاريخ" InputLabelProps={{ shrink: true }} value={dispose.day} onChange={(e) => setDispose({ ...dispose, day: e.target.value })} />
+            <DayField label="التاريخ" InputLabelProps={{ shrink: true }} value={dispose.day} onChange={(e) => setDispose({ ...dispose, day: e.target.value })} />
             <TextField select label="استُلم المبلغ في" value={dispose.toAccountId} onChange={(e) => setDispose({ ...dispose, toAccountId: e.target.value })} fullWidth className="mt-3">
               <MenuItem value="">بدون بيع</MenuItem>
               {cashAccounts.map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}

@@ -7,7 +7,7 @@ import { useAccountingData } from './useAccountingData';
 import { RemotePicker, SHIPPING_TYPES, userLabel } from './shared';
 import ShippingRecognitionReview from './ShippingRecognitionReview';
 import { AccountRef, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub, ShowCanceled } from './ui';
-
+import DayField from './DayField';
 // ---------- Shared pieces ----------
 
 const dollars = (cents: number | null | undefined) => Math.round(cents || 0) / 100;
@@ -61,8 +61,8 @@ type Period = { from: string; to: string };
 const PeriodBar = ({ value, onChange, onApply, children }: { value: Period; onChange: (next: Period) => void; onApply: (next?: Period) => void; children?: ReactNode }) => (
   <div className="px-3 acc-noprint">
     <FilterBar>
-      <TextField type="date" label="من" InputLabelProps={{ shrink: true }} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} />
-      <TextField type="date" label="إلى" InputLabelProps={{ shrink: true }} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
+      <DayField label="من" InputLabelProps={{ shrink: true }} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} />
+      <DayField label="إلى" InputLabelProps={{ shrink: true }} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
       {children}
       <Button variant="contained" onClick={() => onApply()}>عرض</Button>
       {PRESETS.map((preset) => {
@@ -248,7 +248,7 @@ const BalanceSheet = () => {
         actions={data && <>{data.balanced ? <Badge tone="ok">متوازنة</Badge> : <Badge tone="danger">فرق <Money value={data.difference} /></Badge>} <Actions onExport={exportRows} /></>}
       >
         <FilterBar>
-          <TextField type="date" label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+          <DayField label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
           <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
         </FilterBar>
         <ReviewNotice data={data} />
@@ -602,7 +602,7 @@ const Receivables = ({ openStatement }: { openStatement: (customer: any) => void
       >
         <div className="px-3 acc-noprint">
           <FilterBar>
-            <TextField type="date" label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+            <DayField label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
             <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
           </FilterBar>
         </div>
@@ -753,7 +753,7 @@ const Payables = () => {
       >
         <div className="px-3 acc-noprint">
           <FilterBar>
-            <TextField type="date" label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+            <DayField label="في تاريخ" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
             <Button variant="contained" onClick={() => load({ asOf })}>عرض</Button>
           </FilterBar>
         </div>

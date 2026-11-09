@@ -28,7 +28,7 @@ import StatementDescriptionTranslation, { canTranslateDescription } from './Stat
 import { BankDuplicateReview, BankGroupMatch, BankIntegrityDialog, MatchQuality } from './BankMatchTools';
 import LocalBankReset, { localBankResetHost } from './LocalBankReset';
 import BankImportProgress, { ImportProgressState } from './BankImportProgress';
-
+import DayField from './DayField';
 type Preview = {
   fileName: string
   kind: 'sheet' | 'pdf'
@@ -715,8 +715,8 @@ const BankReconciliation = () => {
             <TextField select size="small" label="اتجاه الحركة" value={direction} onChange={e => setDirection(e.target.value)}>
               <MenuItem value="">وارد وصادر</MenuItem><MenuItem value="in">وارد</MenuItem><MenuItem value="out">صادر</MenuItem>
             </TextField>
-            <TextField size="small" type="date" label="من تاريخ" value={from} onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
-            <TextField size="small" type="date" label="إلى تاريخ" value={to} onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} error={!!(from && to && from > to)} />
+            <DayField size="small" label="من تاريخ" value={from} onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
+            <DayField size="small" label="إلى تاريخ" value={to} onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} error={!!(from && to && from > to)} />
           </div>
           <div className="acc-bank-filter-note"><Sub>الاقتراح لا يُعتبر مطابقة معتمدة. يمكنك تصفية حالة الترحيل والربط بالمستند كلًّا على حدة.</Sub></div>
           {from && to && from > to && <Alert severity="warning" className="mt-2">تاريخ البداية يجب أن يكون قبل تاريخ النهاية أو مساويًا له.</Alert>}
@@ -741,6 +741,17 @@ const BankReconciliation = () => {
           <Stat label="لها مطابقة مقترحة" value={filter === 'unmatched' ? proposedCount : '-'} tone={proposedCount ? 'accent' : undefined} hint="✓ في سطورها أدناه" />
           <Stat label="قد يكون مكرراً" value={filter === 'unmatched' ? doubtCount : '-'} tone={doubtCount ? 'warn' : undefined} hint="له قيد بنفس المبلغ في الدفاتر" />
         </StatGrid>
+      )}
+      {/* Movements missing from inside the statement: where its running balance jumps with no line */}
+      {accountId && data?.statementTrail?.status === 'gaps' && (
+        <Alert severity="warning" className="mb-3">
+          <strong>الكشف ناقص: {data.statementTrail.gapCount === 1 ? 'فجوة واحدة' : `${data.statementTrail.gapCount} فجوات`} في تسلسل الرصيد.</strong> رصيد الكشف ينتقل فيها دون حركة مسجلة هنا: صفحة أو أيام لم تُرفع، أو سطر استُبعد عند الاستيراد. ارفع كشف تلك الأيام حتى لا تضيع تكلفتها.
+          {data.statementTrail.gaps.slice().reverse().slice(0, 5).map((gap: any, index: number) => (
+            <Sub key={index}>• {gap.afterDay === gap.beforeDay ? <>في يوم <Ltr>{gap.afterDay}</Ltr></> : <>بين <Ltr>{gap.afterDay}</Ltr> و <Ltr>{gap.beforeDay}</Ltr></>}
+              : حركات ناقصة مجموعها {money(gap.missing)} · الرصيد {money(gap.expected)} ثم {money(gap.found)}</Sub>
+          ))}
+          {data.statementTrail.gapCount > 5 && <Sub>… و{data.statementTrail.gapCount - 5} فجوات أقدم.</Sub>}
+        </Alert>
       )}
 
       {accountId && (
@@ -979,8 +990,8 @@ const BankReconciliation = () => {
               <TextField select size="small" label="اتجاه الحركة" value={previewFilters.direction} onChange={e => setPreviewFilters(current => ({ ...current, direction: e.target.value }))} style={{ minWidth: 130 }}>
                 <MenuItem value="">وارد وصادر</MenuItem><MenuItem value="in">وارد</MenuItem><MenuItem value="out">صادر</MenuItem>
               </TextField>
-              <TextField size="small" type="date" label="من تاريخ" value={previewFilters.from} onChange={e => setPreviewFilters(current => ({ ...current, from: e.target.value }))} InputLabelProps={{ shrink: true }} />
-              <TextField size="small" type="date" label="إلى تاريخ" value={previewFilters.to} onChange={e => setPreviewFilters(current => ({ ...current, to: e.target.value }))} InputLabelProps={{ shrink: true }} error={!!(previewFilters.from && previewFilters.to && previewFilters.from > previewFilters.to)} />
+              <DayField size="small" label="من تاريخ" value={previewFilters.from} onChange={e => setPreviewFilters(current => ({ ...current, from: e.target.value }))} InputLabelProps={{ shrink: true }} />
+              <DayField size="small" label="إلى تاريخ" value={previewFilters.to} onChange={e => setPreviewFilters(current => ({ ...current, to: e.target.value }))} InputLabelProps={{ shrink: true }} error={!!(previewFilters.from && previewFilters.to && previewFilters.from > previewFilters.to)} />
               <Button onClick={() => setPreviewFilters({ view: '', search: '', direction: '', from: '', to: '' })}>مسح فلاتر المراجعة</Button>
             </FilterBar>
             <Sub>يظهر {visiblePreviewRows.length} من {preview.rows.length} سطر. الفلاتر للعرض فقط؛ الاستيراد يشمل كل السطور غير المستبعدة ({previewRows.length})، وتبقى اختياراتك محفوظة عند تغيير الفلتر.</Sub>

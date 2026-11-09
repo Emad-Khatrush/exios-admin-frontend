@@ -4,7 +4,7 @@ import { Lock, Trash2 } from 'lucide-react';
 import { acc, errorText, todayLibya } from './accountingApi';
 import { useBulk } from './bulk';
 import { Badge, DataTable, FilterBar, Ltr, PageHeader, Panel } from './ui';
-
+import DayField from './DayField';
 const DailyRates = () => {
   const [today, setToday] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -87,7 +87,7 @@ const DailyRates = () => {
             <TextField select label="العملة" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} style={{ minWidth: 120 }}>
               {today.map((item) => <MenuItem key={item.currency} value={item.currency}>{item.currency}</MenuItem>)}
             </TextField>
-            <TextField type="date" label="اليوم" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+            <DayField label="اليوم" InputLabelProps={{ shrink: true }} value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
             <TextField type="number" label="السعر" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
             <Button variant="outlined" disabled={!form.currency || !(Number(form.rate) > 0)} onClick={() => saveRate(form.currency, form.day, form.rate)}>إضافة / استبدال</Button>
             <span className="ms-auto" />
