@@ -240,6 +240,7 @@ export const PaymentForm = () => {
   const [advance, setAdvance] = useState(0);
   const [advanceSources, setAdvanceSources] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
+  const [typed, setTyped] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const idempotencyKey = useRef(newKey());
@@ -278,11 +279,27 @@ export const PaymentForm = () => {
   const nativeAmount = (row: any, usd: number) => row.total * usd / row.totalUsd;
   const sameCurrency = !!settlementCurrency && openBills.some(row => Number(allocations[row._id]) > 0)
     && openBills.filter(row => Number(allocations[row._id]) > 0).every(nativeRow);
-  const setAllocationAmount = (row: any, value: string) => {
+  // The dollar value (as stored in allocations) of what was typed for a row, in the bill's currency when native
+  const allocationOf = (row: any, value: string) => {
+    if (value === '') return '';
     const amount = Number(value);
     const fullNative = nativeAmount(row, row.open);
     const usd = nativeRow(row) ? Math.abs(amount - fullNative) < 0.005 ? row.open : Math.round(amount * row.totalUsd / row.total) : Math.round(amount * 100);
-    setAllocations(previous => ({ ...previous, [row._id]: value === '' ? '' : (usd / 100).toFixed(2) }));
+    return (usd / 100).toFixed(2);
+  };
+  const setAllocationAmount = (row: any, value: string) => {
+    setTyped(previous => ({ ...previous, [row._id]: value }));
+    setAllocations(previous => ({ ...previous, [row._id]: allocationOf(row, value) }));
+  };
+  // A native amount is kept as typed: converting it to cents and back would rewrite the field
+  // on every keystroke. The typed text is shown only while it still gives the stored allocation
+  // («الكل», a vendor change or a reset replace it).
+  const allocationText = (row: any) => {
+    const stored = allocations[row._id] || '';
+    const text = typed[row._id];
+    if (text !== undefined && allocationOf(row, text) === stored) return text;
+    if (!stored) return '';
+    return nativeRow(row) ? String(Number(nativeAmount(row, Math.round(Number(stored) * 100)).toFixed(2))) : stored;
   };
   // What the payment is worth in dollars when it can be known here (a dollar box, or a typed rate)
   const paidUsd = !(Number(form.amount) > 0) ? null : (from?.currency || 'USD') === 'USD' ? Math.round(Number(form.amount) * 100) : Number(form.rate) > 0 ? Math.round((Number(form.amount) / Number(form.rate)) * 100) : null;
@@ -380,7 +397,7 @@ export const PaymentForm = () => {
               key: 'pay', header: 'يُسدَّد الآن', align: 'end', width: 220, render: (row: any) => (
                 <span className="d-inline-flex gap-1">
                   <TextField type="number" inputProps={{ 'aria-label': `سداد ${row.number}`, min: 0 }} helperText={nativeRow(row) ? row.currency : 'USD'}
-                    value={!allocations[row._id] ? '' : nativeRow(row) ? Number(nativeAmount(row, Math.round(Number(allocations[row._id]) * 100)).toFixed(2)) : allocations[row._id]}
+                    value={allocationText(row)}
                     onChange={(e) => setAllocationAmount(row, e.target.value)} style={{ width: 120 }} />
                   <Button size="small" onClick={() => setAllocations({ ...allocations, [row._id]: (row.open / 100).toFixed(2) })}>الكل</Button>
                 </span>
