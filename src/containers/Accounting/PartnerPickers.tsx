@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
+import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, TextField } from '@mui/material';
+import { Plus, Trash2 } from 'lucide-react';
 import { acc, errorText } from './accountingApi';
 import { useVendors } from './shared';
 import { Badge, DataTable, Ltr, Sub } from './ui';
@@ -39,20 +40,25 @@ export const partLabel = (p: any) => (p.choice === 'bill' ? <>فاتورة <Ltr>
     : p.choice === 'new' ? <>شراء يوان جديد إلى {p.arrival.account} (وصل <Ltr>{p.arrival.day}</Ltr>)</>
       : <b>لا يوجد ما يطابقه</b>);
 
-type Row = { kind: '' | 'bill' | 'purchase' | 'new', billId?: string, purchaseId?: string, toAccountId?: string, arrivalLineId?: string };
+type Row = { key: number, amount: string, kind: '' | 'bill' | 'purchase' | 'new', billId?: string, purchaseId?: string, toAccountId?: string, arrivalLineId?: string };
+let rowKey = 0;
 
 // One line of the partner's statement taken apart: for each yuan part, the order bill it paid, a yuan
 // purchase already recorded from the current account, or a new yuan purchase into an Alipay account
 // (with its arrival line in the Alipay statement). Shows the dollars of each part before approving.
+// The parts read from the description can be corrected, removed or added to when it is written wrong;
+// the person then confirms that the statement's figures are wrong (kept in the audit).
 export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }: { line: any, proposal: any, accounts: any[], onClose: () => void, onDone: (text: string) => void }) {
   const { vendors } = useVendors();
   const alipays = useMemo(() => accounts.filter((a: any) => a.isCash && a.isActive && !a.isGroup && a.currency === 'CNY'), [accounts]);
   const [data, setData] = useState<any>(null);
-  const [rows, setRows] = useState<Row[]>(() => proposal.parts.map((p: any) => (p.choice === 'bill' ? { kind: 'bill', billId: String(p.bill.billId) }
-    : p.choice === 'purchase' ? { kind: 'purchase', purchaseId: String(p.purchase.purchaseId) }
-      : p.choice === 'new' ? { kind: 'new', toAccountId: String(p.arrival.accountId), arrivalLineId: String(p.arrival.lineId) }
-        : { kind: '' })));
+  const [rows, setRows] = useState<Row[]>(() => proposal.parts.map((p: any) => ({ key: rowKey++, amount: String(p.amount),
+    ...(p.choice === 'bill' ? { kind: 'bill', billId: String(p.bill.billId) }
+      : p.choice === 'purchase' ? { kind: 'purchase', purchaseId: String(p.purchase.purchaseId) }
+        : p.choice === 'new' ? { kind: 'new', toAccountId: String(p.arrival.accountId), arrivalLineId: String(p.arrival.lineId) }
+          : { kind: '' }) })));
   const [vendorId, setVendorId] = useState<string>(proposal.broker?.vendorId ? String(proposal.broker.vendorId) : '');
+  const [corrected, setCorrected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -63,27 +69,32 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
   const arrivals: any[] = data?.arrivals || [];
   const byCloseness = (list: any[], amount: number) => [...list].sort((a, b) => Math.abs(a.amount - amount) - Math.abs(b.amount - amount));
   const set = (i: number, patch: Partial<Row>) => setRows((current) => current.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+  const remove = (i: number) => setRows((current) => current.filter((_, j) => j !== i));
+  const add = () => setRows((current) => [...current, { key: rowKey++, amount: '', kind: '' }]);
   const takenElsewhere = (i: number, key: keyof Row, id: string) => rows.some((row, j) => j !== i && row[key] === id);
+  const amountOf = (row: Row) => Math.round(Number(String(row.amount).replace(/,/g, '')) * 100) / 100 || 0;
 
-  // Each part's yuan as it will be posted (a bill's or recorded purchase's own yuan, an arrival's amount)
-  const items = rows.map((row, i) => {
-    const amount = proposal.parts[i].amount;
+  // Each part's yuan as it will be posted (a bill's or recorded purchase's own yuan, an arrival's amount, or the yuan typed)
+  const items = rows.map((row) => {
     if (row.kind === 'bill') { const bill = bills.find((b) => String(b.billId) === row.billId); return bill ? { yuan: bill.amount } : null; }
     if (row.kind === 'purchase') { const p = purchases.find((x) => String(x.purchaseId) === row.purchaseId); return p ? { yuan: p.amount, fixed: p.usd } : null; }
     if (row.kind === 'new') {
       if (!row.toAccountId) return null;
       const arrival = arrivals.find((a) => String(a.lineId) === row.arrivalLineId);
-      return { yuan: arrival ? arrival.amount : amount };
+      const yuan = arrival ? arrival.amount : amountOf(row);
+      return yuan > 0 ? { yuan } : null;
     }
     return null;
   });
-  const ready = !!data && items.every(Boolean);
+  const ready = !!data && rows.length > 0 && items.every(Boolean);
   const split = ready ? splitUsd(-line.amount, items as any[]) : null;
   const yuan = Math.round(items.reduce((s, item) => s + (item?.yuan || 0), 0) * 100) / 100;
   const gap = Math.round((proposal.total - yuan) * 100) / 100;
   const yuanOk = Math.abs(gap) <= rows.length;
+  // Parts changed from the description: removed, added, or an amount retyped
+  const edited = rows.length !== proposal.parts.length || rows.some((row, i) => amountOf(row) !== proposal.parts[i]?.amount);
   const needsBroker = rows.some((row) => row.kind === 'new') && !proposal.beforeCount;
-  const ok = ready && !!split?.shares && yuanOk && (!needsBroker || !!vendorId);
+  const ok = ready && !!split?.shares && (yuanOk || corrected) && (!needsBroker || !!vendorId);
 
   const save = async () => {
     setBusy(true); setError('');
@@ -91,7 +102,7 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
       const parts = rows.map((row, i) => (row.kind === 'bill' ? { kind: 'bill', billId: row.billId }
         : row.kind === 'purchase' ? { kind: 'purchase', purchaseId: row.purchaseId }
           : { kind: 'new', cny: (items[i] as any).yuan, toAccountId: row.toAccountId, arrivalLineId: row.arrivalLineId || undefined }));
-      await acc.post(`bank/lines/${line._id}/partner-transfers`, { parts, vendorId: vendorId || undefined });
+      await acc.post(`bank/lines/${line._id}/partner-transfers`, { parts, vendorId: vendorId || undefined, statementCorrected: !yuanOk && corrected ? true : undefined });
       onDone(`طوبق السطر: ${rows.filter((r) => r.kind === 'bill').length} فاتورة مسددة، ${rows.filter((r) => r.kind !== 'bill').length} شراء يوان، دون تكرار التكلفة.`);
     } catch (err) { setError(errorText(err)); }
     setBusy(false);
@@ -104,20 +115,24 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
         <Alert severity="info" className="mb-3">
           الكشف يذكر <b>{proposal.parts.map((p: any) => yuanText(p.amount)).join(' + ')}</b> = <b>{yuanText(proposal.total)}</b>{proposal.rate && <> بسعر <Ltr>{proposal.rate}</Ltr></>}.
           لكل جزء اختر: <b>فاتورة طلبية</b> إن دفعه الوسيط مباشرة للبائع، أو <b>شراء يوان</b> إن وصل اليوان إلى حسابك في Alipay.
-          يُوزَّع دولار السطر على الأجزاء حسب اليوان، ويُدفع الكل من الحساب الجاري ثم يُطابق السطر.
+          إذا كان البيان مكتوبًا خطأ، عدّل مبلغ الجزء أو احذفه أو أضف جزءًا.
           {proposal.beforeCount && <> <b>السطر قبل الجرد:</b> تُسدَّد الفواتير، ولا يُسجَّل شراء يوان لأن رصيد Alipay المجرود يشمله.</>}
         </Alert>
         {needsBroker && <Autocomplete size="small" className="mb-3" options={vendors} value={vendors.find((v: any) => v._id === vendorId) || null}
           getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id} onChange={(_, v: any) => setVendorId(v?._id || '')}
           renderInput={(p) => <TextField {...p} label="الوسيط الذي باع اليوان" helperText={!vendorId ? 'اختر الوسيط لتسجيل شراء اليوان' : undefined} />} />}
         {rows.map((row, i) => {
-          const amount = proposal.parts[i].amount;
+          const amount = amountOf(row);
           const share = split?.shares?.[i];
           const itemYuan = items[i]?.yuan;
-          return <div key={i} className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--acc-border, #e3e8e8)' }}>
+          const recordDiffers = itemYuan !== undefined && amount > 0 && Math.abs(itemYuan - amount) > 1 && row.kind !== 'new';
+          return <div key={row.key} className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--acc-border, #e3e8e8)' }}>
             <div className="d-flex gap-2 flex-wrap align-items-center mb-2">
-              <b><Ltr>{yuanText(amount)}</Ltr></b>
+              <TextField size="small" label={`الجزء ${i + 1} (¥)`} value={row.amount} sx={{ width: 160 }} inputProps={{ inputMode: 'decimal', dir: 'ltr' }}
+                onChange={(e) => set(i, { amount: e.target.value, ...(row.kind === 'new' && { arrivalLineId: undefined }) })} />
               {share !== undefined && <span>← <b><Ltr>{money(share / 100)}</Ltr></b>{itemYuan ? <Sub>سعر <Ltr>{(itemYuan / (share / 100)).toFixed(4)}</Ltr></Sub> : null}</span>}
+              {recordDiffers && <Sub>يُسجَّل بمبلغ {row.kind === 'bill' ? 'الفاتورة' : 'العملية'}: <Ltr>{yuanText(itemYuan as number)}</Ltr></Sub>}
+              <IconButton size="small" aria-label="حذف الجزء" title="حذف الجزء" sx={{ marginInlineStart: 'auto' }} disabled={rows.length === 1} onClick={() => remove(i)}><Trash2 size={16} /></IconButton>
             </div>
             <div className="acc-form-grid">
               <TextField select size="small" label="هذا الجزء" value={row.kind} onChange={(e) => set(i, { kind: e.target.value as Row['kind'], billId: undefined, purchaseId: undefined,
@@ -128,7 +143,7 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
               </TextField>
               {row.kind === 'bill' && <TextField select size="small" label="الفاتورة" value={row.billId || ''} onChange={(e) => set(i, { billId: e.target.value })}>
                 {byCloseness(bills, amount).filter((b) => !takenElsewhere(i, 'billId', String(b.billId))).slice(0, 40).map((b) =>
-                  <MenuItem key={String(b.billId)} value={String(b.billId)}>{b.number} · {yuanText(b.amount)} · {b.orders.join('، ') || '—'} · {b.day}</MenuItem>)}
+                  <MenuItem key={String(b.billId)} value={String(b.billId)}>{b.number} · {yuanText(b.amount)} · {b.orders.join('، ') || '-'} · {b.day}</MenuItem>)}
               </TextField>}
               {row.kind === 'purchase' && <TextField select size="small" label="عملية شراء اليوان" value={row.purchaseId || ''} onChange={(e) => set(i, { purchaseId: e.target.value })}>
                 {byCloseness(purchases, amount).filter((p) => !takenElsewhere(i, 'purchaseId', String(p.purchaseId))).map((p) =>
@@ -148,11 +163,14 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
             </div>
           </div>;
         })}
+        <Button size="small" startIcon={<Plus size={16} />} onClick={add} className="mb-3">إضافة جزء</Button>
         {ready && <Alert severity={ok ? 'success' : 'warning'}>
           اليوان <b><Ltr>{yuanText(yuan)}</Ltr></b> من <b><Ltr>{yuanText(proposal.total)}</Ltr></b> · الدولار <b><Ltr>{money(-line.amount / 100)}</Ltr></b>
-          {!yuanOk && <> — {gap > 0 ? `ينقص ${yuanText(gap)}` : `يزيد ${yuanText(-gap)}`} عن الكشف</>}
-          {split?.error && <> — {split.error}</>}
+          {!yuanOk && <>: {gap > 0 ? `ينقص ${yuanText(gap)}` : `يزيد ${yuanText(-gap)}`} عن البيان</>}
+          {split?.error && <>: {split.error}</>}
         </Alert>}
+        {ready && !yuanOk && <FormControlLabel className="mt-2" control={<Checkbox checked={corrected} onChange={(e) => setCorrected(e.target.checked)} />}
+          label={edited ? 'البيان مكتوب خطأ: أعتمد الأجزاء والمبالغ التي أدخلتها (تُحفظ أرقام البيان في السجل)' : 'البيان مكتوب خطأ: أعتمد الأجزاء المختارة رغم اختلاف المجموع'} />}
         {error && <Alert severity="error" className="mt-2">{error}</Alert>}
       </DialogContent>
       <DialogActions>

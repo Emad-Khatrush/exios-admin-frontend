@@ -12,11 +12,13 @@ const format = (amount: number, currency: string, digits = 2) => `${Number(amoun
 
 export type MatchOption = { entries: any[]; strong?: boolean };
 
-export default function MatchChoices({ line, options, currency, decimals, selected, onSelect }: {
+export default function MatchChoices({ line, options, currency, decimals, selected, onSelect, statementOriginal }: {
   line: any; options: MatchOption[]; currency: string; decimals: number; selected: number | null; onSelect: (index: number) => void;
+  statementOriginal?: { amount: number; currency: string };
 }) {
   const unit = 10 ** decimals;
-  const lineOriginal = line?.originalAmount > 0 && line.originalCurrency && line.originalCurrency !== currency
+  // The yuan total printed in the description wins over the amount read when the file was imported
+  const lineOriginal = statementOriginal ? statementOriginal : line?.originalAmount > 0 && line.originalCurrency && line.originalCurrency !== currency
     ? { amount: Number(line.originalAmount), currency: line.originalCurrency } : null;
 
   return <Stack gap={1.5}>

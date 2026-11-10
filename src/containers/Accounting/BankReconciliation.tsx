@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Stack, TextField, Tooltip } from '@mui/material';
-import { ArrowLeftRight, EyeOff, RotateCcw, Settings2, Trash2, Upload } from 'lucide-react';
+import { Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, LinearProgress, MenuItem, Stack, TextField, Tooltip } from '@mui/material';
+import { ArrowLeftRight, Check, EyeOff, RotateCcw, Settings2, Trash2, Upload } from 'lucide-react';
 import api from '../../api';
 import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
@@ -160,13 +160,17 @@ const BankReconciliation = () => {
     return candidates.filter(b => !b.hasNonExpenseTargets && b.expenseAccountIds?.includes(counterAccountId));
   };
 
-  const load = async () => {
+  // quiet: refreshed in place after an action on one line (the table stays, no scroll jump)
+  const load = async (options?: { quiet?: boolean }) => {
+    const quiet = options?.quiet === true;
     const version = ++loadVersion.current;
     if (!accountId) { setData(null); setIsLoading(false); return; }
     if (from && to && from > to) { setData(null); setIsLoading(false); return; }
     try {
-      setIsLoading(true);
-      setData(null);
+      if (!quiet) {
+        setIsLoading(true);
+        setData(null);
+      }
       // Only the lines are required. A helper that fails or times out (a 503 from a slow
       // suggestions request) must not hide the whole statement; it is reported instead.
       const [lines, hints, ruleList, partner, transfers, yuan] = await Promise.allSettled([
@@ -197,6 +201,23 @@ const BankReconciliation = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [accountId, filter, linkage, direction, from, to, searchQuery, matchingSettings]);
 
+  const [busyLine, setBusyLine] = useState<string | null>(null);
+  const [doneLines, setDoneLines] = useState<Record<string, string>>({});
+  const runInRow = async (lineId: string, action: () => Promise<any>, text: (res: any) => string) => {
+    if (busyLine) return false;
+    setBusyLine(lineId);
+    try {
+      const res = await action();
+      await load({ quiet: true });
+      setDoneLines((current) => ({ ...current, [lineId]: text(res.data) }));
+      setTimeout(() => setDoneLines((current) => { const next = { ...current }; delete next[lineId]; return next; }), 6000);
+      return true;
+    } catch (err) {
+      setMessage({ type: 'error', text: errorText(err) });
+      await load({ quiet: true });
+      return false;
+    } finally { setBusyLine(null); }
+  };
   const run = async (action: () => Promise<any>, text: (res: any) => string, onError?: (err: any) => void) => {
     try {
       const res = await action();
@@ -501,7 +522,7 @@ const BankReconciliation = () => {
     const diff = proposal.difference ? `فرق المبلغ ${(proposal.difference / 100).toFixed(2)}$${proposal.beforeCount ? ' (قبل الجرد: لا قيد له)' : ' (يُسجل على حساب فروق التقريب)'}` : '';
     const reasons = [far && `التاريخ في الكشف ${row.day} والإيداع ${proposal.day} (فرق ${proposal.daysApart} يوماً)`, diff].filter(Boolean).join(' و');
     if (reasons && !window.confirm(`${reasons}. هل هي نفس العملية؟`)) return;
-    run(() => acc.post(`bank/lines/${row._id}/partner-deposit`, { statementId: proposal.statementId, confirmDifference: !!reasons }),
+    runInRow(row._id, () => acc.post(`bank/lines/${row._id}/partner-deposit`, { statementId: proposal.statementId, confirmDifference: !!reasons }),
       () => proposal.beforeCount ? 'رُبط السطر بإيداع المحفظة للمتابعة فقط: قبل الجرد، فلا قيد ولا تغيير في الأرصدة.'
         : proposal.onAccount ? 'رُبط السطر بإيداع المحفظة.' : `نُقل الإيداع إلى ${account?.name || 'الحساب الجاري'} ورُبط بالسطر. المحفظة لم تتغير.`);
   };
@@ -517,7 +538,7 @@ const BankReconciliation = () => {
     if (yuan) {
       if (yuan.beforeCount) return <div className="acc-suggest acc-suggest--found">
         <span>✓ <b>شراء يوان من {yuan.broker.name} قبل الجرد:</b> رصيد Alipay المجرود يشمله، فلا قيد له</span>
-        <Button size="small" variant="contained" color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/cover`, { note: `شراء يوان من ${yuan.broker.name}` }), () => 'أُغلق السطر: مغطى بالجرد دون قيد.')}>ربط (مغطى بالجرد)</Button>
+        <Button size="small" variant="contained" color="success" onClick={() => runInRow(row._id, () => acc.post(`bank/lines/${row._id}/cover`, { note: `شراء يوان من ${yuan.broker.name}` }), () => 'أُغلق السطر: مغطى بالجرد دون قيد.')}>ربط (مغطى بالجرد)</Button>
       </div>;
       return <div className="acc-suggest acc-suggest--found">
         {yuan.existing.slice(0, 2).map((p: any) => <div key={p._id} className="acc-suggest__row">
@@ -574,7 +595,7 @@ const BankReconciliation = () => {
         <span>✓ <b>{options.length === 1 ? 'مطابقة محتملة' : `${options.length} احتمالات`}:</b> قيود مسجلة مجموعها مبلغ السطر · اعتمد الصحيح، أو «ليس أي منها»</span>
         {options.map((option: any, i: number) => <div key={i} className="acc-suggest__row">
           <span>{option.strong && <><Badge tone="ok">نفس رقم العملية</Badge> </>}{option.entries.map((e: any, j: number) => <span key={e._id}>{j > 0 && ' + '}{e.original?.currency && e.original.currency !== currency && e.original.amount != null && <><Ltr>{Number(e.original.amount).toLocaleString('en-US')} {e.original.currency}</Ltr> = </>}<b><Ltr>{amountText(e.amount)}</Ltr></b> {e.original?.party ? `${e.original.kind === 'salary' ? 'راتب' : e.original.kind === 'yuan' ? 'شراء يوان' : 'دفعة'} ${e.original.party}` : e.description} (<Ltr>{e.number}</Ltr> · <Ltr>{e.day}</Ltr>)</span>)}</span>
-          <Button size="small" variant={i === 0 ? 'contained' : 'outlined'} color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }),
+          <Button size="small" variant={i === 0 ? 'contained' : 'outlined'} color="success" onClick={() => runInRow(row._id, () => acc.post(`bank/lines/${row._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }),
             () => (option.entries.length === 1 ? 'طوبق السطر مع القيد.' : `طوبق السطر مع ${option.entries.length} قيود معًا.`))}>اعتماد هذا</Button>
         </div>)}
         {hint.moreCombinations > 0 && <Sub>و{hint.moreCombinations} احتمالات أخرى أبعد تاريخًا؛ استعمل المطابقة اليدوية إن لم يكن الصحيح هنا.</Sub>}
@@ -597,7 +618,7 @@ const BankReconciliation = () => {
     const counter = hint?.account && accounts.find((a) => a._id === hint.account._id);
     if (counter?.isCash && isBeforeCount(count, row.day)) return <div className="acc-suggest acc-suggest--found">
       <span>✓ <b>قبل الجرد:</b> {row.amount > 0 ? 'وارد من' : 'صادر إلى'} {counter.name} · الحسابان مجرودان ورصيد الجرد يشمل الحركة، فلا قيد لها</span>
-      <Button size="small" variant="contained" color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/cover`, { note: `${row.amount > 0 ? 'تحويل من' : 'تحويل إلى'} ${counter.name}` }), () => 'أُغلق السطر: مغطى بالجرد دون قيد.')}>ربط (مغطى بالجرد)</Button>
+      <Button size="small" variant="contained" color="success" onClick={() => runInRow(row._id, () => acc.post(`bank/lines/${row._id}/cover`, { note: `${row.amount > 0 ? 'تحويل من' : 'تحويل إلى'} ${counter.name}` }), () => 'أُغلق السطر: مغطى بالجرد دون قيد.')}>ربط (مغطى بالجرد)</Button>
     </div>;
     if (hint?.account) return <div className="acc-suggest acc-suggest--class"><span>• <b>لا توجد مطابقة</b> · تصنيف مقترح كعملية جديدة: {hint.account.code} · {hint.account.name} <Badge tone={hint.source === 'history' ? 'info' : 'accent'}>{sourceText(hint)}</Badge>{hint.link && <> <Open to={`/invoice/${hint.link.orderId}/edit`}>طلبية <Ltr>{hint.link.orderNumber}</Ltr></Open></>}</span></div>;
     return <div className="acc-suggest acc-suggest--none"><span>✗ <b>لا توجد مطابقة مقترحة</b> · راجعها يدوياً، أو «لا أعرف بعد» إن لم تُعرف</span>{pick}</div>;
@@ -646,7 +667,7 @@ const BankReconciliation = () => {
         onClose={() => setReferenceReview(null)} onDone={async () => { setReferenceReview(null); await load(); }} />}
       {groupMatchLines && <BankGroupMatch lines={groupMatchLines} movements={data?.unmatchedMovements || []} currency={currency}
         onClose={() => setGroupMatchLines(null)} onDone={async () => { setGroupMatchLines(null); await load(); }} />}
-      {integrityOpen && <BankIntegrityDialog accountId={accountId} currency={currency} onClose={() => setIntegrityOpen(false)} onDone={load} />}
+      {integrityOpen && <BankIntegrityDialog accountId={accountId} currency={currency} onClose={() => setIntegrityOpen(false)} onDone={() => load()} />}
       {settingsDraft && <BankMatchingSettings value={settingsDraft} accountName={account?.name || ''} onChange={setSettingsDraft} onClose={() => setSettingsDraft(null)} onSave={() => {
         try {
           localStorage.setItem(`acc-bank-matching:${accountId}`, JSON.stringify(settingsDraft));
@@ -677,7 +698,7 @@ const BankReconciliation = () => {
       {picker?.kind === 'grouped' && <GroupedLineDialog line={picker.line} proposal={picker.proposal} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
       {parkFor && <UnidentifiedPark line={parkFor} currency={currency} decimals={decimals} liability={account?.type === 'liability'} maybeDuplicate={!!suggested[parkFor._id]?.duplicates?.length}
         onClose={() => setParkFor(null)} onDone={() => { setParkFor(null); setMessage({ type: 'success', text: 'سُجّلت الحركة قيد التحديد. تابعها من «حركات قيد التحديد».' }); load(); }} />}
-      {detailsId && <BankLineDetails key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} onChanged={load} onReview={async (line) => {
+      {detailsId && <BankLineDetails key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} onChanged={() => load()} onReview={async (line) => {
         try {
           const [hints, lines] = await Promise.all([acc.get('bank/suggestions', { accountId }), acc.get('bank/lines', { accountId })]);
           setSuggested(hints.data); setDetailsId(null); openEntry(line, hints.data, lines.data);
@@ -688,7 +709,7 @@ const BankReconciliation = () => {
         subtitle="ارفع كشف الحساب Excel أو PDF. ما هو مسجل في الدفاتر يُطابق تلقائياً، والباقي يُرحَّل إلى حسابه. السطر المستورد من قبل لا يُستورد مرتين، والسطر الذي أدخلته يدوياً لا يُسجَّل مرة ثانية."
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
-      {hintsError && <Alert severity="warning" className="mb-3" action={<Button color="inherit" size="small" disabled={isLoading} onClick={load}>إعادة المحاولة</Button>}>{hintsError}</Alert>}
+      {hintsError && <Alert severity="warning" className="mb-3" action={<Button color="inherit" size="small" disabled={isLoading} onClick={() => load()}>إعادة المحاولة</Button>}>{hintsError}</Alert>}
       <BankImportProgress state={importProgress} onClose={closeImportProgress} onKeepWaiting={keepWaiting} />
       {settlingDuplicates && accountId && <BankDuplicateSettlement key={accountId} accountId={accountId} onClose={() => setSettlingDuplicates(false)} onDone={text => { setSettlingDuplicates(false); setMessage({ type: 'success', text }); load(); }} />}
       {data?.bankTrialRunId && <Alert severity="info" className="mb-3">
@@ -856,7 +877,11 @@ const BankReconciliation = () => {
                       {row.counterAmount > 0 && !row.originalAmount && <Sub>الطرف المقابل: <Ltr>{row.counterAmount} {row.counterCurrency}</Ltr>{row.exchangeRate > 0 && <Sub>سعر العملية: <Ltr>{Number(row.exchangeRate).toFixed(6)} {currency === 'TRY' ? `TRY/${row.counterCurrency}` : `${row.counterCurrency}/${currency}`}</Ltr></Sub>}</Sub>}
                       {row.crossRate > 0 && <Sub>السعر المباشر: <Ltr>{Number(row.crossRate).toFixed(6)} {row.rateQuoteCurrency}/{row.rateBaseCurrency}</Ltr></Sub>}
                       {row.settlementUsd > 0 && <Sub>مقابل الدولار في الكشف: <Ltr>{row.settlementUsd} USD</Ltr></Sub>}
-                      {row.lineStatus === 'unmatched' && suggestionLine(row)}
+                      {row.lineStatus === 'unmatched' && <div className={`acc-row-action${busyLine === row._id ? ' acc-row-action--busy' : ''}`} aria-busy={busyLine === row._id}>
+                        {busyLine === row._id && <LinearProgress className="acc-row-action__bar" color="success" />}
+                        {suggestionLine(row)}
+                      </div>}
+                      {doneLines[row._id] && <div className="acc-row-done" role="status"><Check size={15} strokeWidth={2.4} /> {doneLines[row._id]}</div>}
                       {row.lineStatus === 'unmatched' && !row.duplicateReviewPending && <MatchQuality quality={hint?.matchQuality} />}
                       {row.matchGroupId && <Sub>مطابقة مجموعة — فك الربط يعيد المجموعة كاملة للمراجعة</Sub>}
                       {row.duplicateResolvedToId && <Button size="small" onClick={() => setDetailsId(row.duplicateResolvedToId)}>نسخة مكررة — فتح السطر الأصلي</Button>}
@@ -1200,8 +1225,10 @@ const BankReconciliation = () => {
                 setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمدت المطابقة وسُجّل السداد دون تكرار التكلفة.' }); await load();
               }} />}
             {entryFor.mode === 'combos' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
-              leftTitle="العمليات المسجلة المقترحة">
+              leftTitle="العمليات المسجلة المقترحة"
+              original={suggested[entryFor.line._id]?.statementOriginal ? { known: true, ...suggested[entryFor.line._id].statementOriginal } : undefined}>
               <MatchChoices line={entryFor.line} options={suggested[entryFor.line._id]?.combinations || []} currency={currency} decimals={decimals}
+                statementOriginal={suggested[entryFor.line._id]?.statementOriginal}
                 selected={entryFor.choice} onSelect={(choice) => setEntryFor({ ...entryFor, choice, error: '' })} />
             </BankReviewComparison>}
             {entryFor.mode === 'ledger' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
