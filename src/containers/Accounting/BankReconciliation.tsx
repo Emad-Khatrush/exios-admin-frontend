@@ -558,6 +558,22 @@ const BankReconciliation = () => {
         <Button size="small" variant="outlined" onClick={() => openEntry(row)}>مراجعة تكلفة الرحلة</Button>
       </div>;
     }
+    // Operations in the books adding up to the line (one alone, or two or three together): every
+    // possibility is listed, the person approves the right one or says it is none of them
+    if (hint?.combinations?.length) {
+      const amountText = (minor: number) => `${(Math.abs(minor) / 10 ** decimals).toLocaleString('en-US', { maximumFractionDigits: decimals })} ${currency}`;
+      const options = [...(hint.duplicates || []).map((d: any) => ({ entries: [{ ...d, amount: row.amount }] })), ...hint.combinations];
+      return <div className="acc-suggest acc-suggest--found">
+        <span>✓ <b>{options.length === 1 ? 'مطابقة محتملة' : `${options.length} احتمالات`}:</b> قيود مسجلة مجموعها مبلغ السطر · اعتمد الصحيح، أو «ليس أي منها»</span>
+        {options.map((option: any, i: number) => <div key={i} className="acc-suggest__row">
+          <span>{option.strong && <><Badge tone="ok">نفس رقم العملية</Badge> </>}{option.entries.map((e: any, j: number) => <span key={e._id}>{j > 0 && ' + '}<Ltr>{amountText(e.amount)}</Ltr> {e.description} (<Ltr>{e.number}</Ltr> · <Ltr>{e.day}</Ltr>)</span>)}</span>
+          <Button size="small" variant={i === 0 ? 'contained' : 'outlined'} color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }),
+            () => (option.entries.length === 1 ? 'طوبق السطر مع القيد.' : `طوبق السطر مع ${option.entries.length} قيود معًا.`))}>اعتماد هذا</Button>
+        </div>)}
+        {hint.moreCombinations > 0 && <Sub>و{hint.moreCombinations} احتمالات أخرى أبعد تاريخًا؛ استعمل المطابقة اليدوية إن لم يكن الصحيح هنا.</Sub>}
+        <span><Button size="small" onClick={() => run(() => acc.post(`bank/lines/${row._id}/combinations-dismiss`, { dismissed: true }), () => 'لن تُقترح هذه القيود لهذا السطر بعد الآن.')}>ليس أي منها</Button></span>
+      </div>;
+    }
     if (hint?.duplicates?.length) return <div className="acc-suggest acc-suggest--found"><span>✓ <b>مطابقة مقترحة:</b> قيد مسجل بنفس المبلغ {hint.duplicates.slice(0, 2).map((d: any) => <Ltr key={d._id}>{d.number} ({d.day}) </Ltr>)}{hint.duplicates.length > 1 && ' · أكثر من قيد محتمل'}</span>
       <Button size="small" variant="contained" color="success" onClick={() => openEntry(row)}>مراجعة واعتماد</Button></div>;
     if (hint?.billCandidates?.length) {
@@ -615,7 +631,7 @@ const BankReconciliation = () => {
   const unmatchedCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched').length;
   const readyCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && (suggested[l._id]?.exactMatch || (suggested[l._id]?.account && !suggested[l._id]?.requiresConfirmation && !suggested[l._id]?.duplicates?.length))).length;
   const doubtCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && suggested[l._id]?.duplicates?.length).length;
-  const proposedCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && (partnerHints[l._id]?.length || transferHints[l._id]?.complete || yuanHints[l._id]?.existing?.length || suggested[l._id]?.duplicates?.length || suggested[l._id]?.billCandidates?.length || suggested[l._id]?.tripCandidates?.length)).length;
+  const proposedCount = (data?.lines || []).filter((l: any) => l.lineStatus === 'unmatched' && (partnerHints[l._id]?.length || transferHints[l._id]?.complete || yuanHints[l._id]?.existing?.length || suggested[l._id]?.duplicates?.length || suggested[l._id]?.combinations?.length || suggested[l._id]?.billCandidates?.length || suggested[l._id]?.tripCandidates?.length)).length;
 
   return (
     <>

@@ -114,7 +114,10 @@ const Employees = () => {
   const salaryDay = salary?.day;
   const salaryRate = salary?.rate;
   const commissionPayment = salary?.paymentKind === 'commission';
-  const salaryCurrency = salaryCash?.currency || (commissionPayment ? salary?.paymentCurrency : salary?.employee?.salaryCurrency) || 'USD';
+  // A salary is worked out in its own currency even when paid from an account in another one (a yuan
+  // salary sent by a partner from a dollar account): what left the account is typed then
+  const salaryCurrency = (commissionPayment ? salaryCash?.currency || salary?.paymentCurrency : salary?.employee?.salaryCurrency || salaryCash?.currency) || 'USD';
+  const crossSalary = !commissionPayment && !!salaryCash && (salaryCash.currency || 'USD') !== salaryCurrency;
   useEffect(() => {
     setSalaryPreview(null); setSalaryPreviewError('');
     if (!salaryEmployeeId || !salaryMonth) return;
@@ -381,6 +384,9 @@ const Employees = () => {
             <TextField select label="صُرف من" value={salary.paidFromAccountId} onChange={(e) => setSalary({ ...salary, paidFromAccountId: e.target.value })} fullWidth className="mt-3">
               {cashAccounts.filter(a => !commissionPayment || (a.currency || 'USD') === salary.paymentCurrency).map((a) => <MenuItem key={a._id} value={a._id}>{accountLabel(a)}</MenuItem>)}
             </TextField>
+            {!commissionPayment && salaryCash && salaryCash.cashKind !== 'cash' && <TextField label="رقم العملية في كشف الحساب (اختياري)" value={salary.transactionReference || ''}
+              onChange={(e) => setSalary({ ...salary, transactionReference: e.target.value })} fullWidth className="mt-3"
+              helperText="انسخه من البنك أو Alipay. إن دفعت حوالة واحدة لأكثر من عملية (راتب ومصاريف) فاكتب نفس الرقم في كل منها، فتُطابق معًا عند رفع الكشف." />}
             {commissionPayment ? <>
               <TextField type="number" label={`مبلغ العمولة المصروف (${salaryCurrency})`} value={salary.commissionAmount} placeholder={String(salaryPreview?.availableAmount || 0)}
                 onChange={(e) => setSalary({ ...salary, commissionAmount: e.target.value })} fullWidth className="mt-3"
@@ -403,14 +409,20 @@ const Employees = () => {
             <TextField type="number" label="خصم من السلفة" value={salary.advanceDeduction} onChange={(e) => setSalary({ ...salary, advanceDeduction: e.target.value })} fullWidth className="mt-3"
               helperText={<>عليه سلفة <Balances value={salary.employee.loan} />. يُخصم من السلفة بعملة الخزينة فقط (العهدة لا تُخصم من الراتب)</>} />
             </>}
-            {salaryCash?.currency && salaryCash.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={salary.rate} onChange={(e) => setSalary({ ...salary, rate: e.target.value })} fullWidth className="mt-3" />}
+            {crossSalary && <TextField type="number" label={`المبلغ الذي خرج من ${salaryCash.name} (${salaryCash.currency || 'USD'})`} value={salary.paidAmount || ''}
+              onChange={(e) => setSalary({ ...salary, paidAmount: e.target.value })} fullWidth className="mt-3" inputProps={{ min: 0, step: 'any' }}
+              helperText={Number(salary.paidAmount) > 0 && salaryNet > 0 ? <>الصافي {salaryNet} {salaryCurrency} مقابل {salary.paidAmount} {salaryCash.currency || 'USD'}: السعر <Ltr>{(salaryNet / Number(salary.paidAmount)).toFixed(4)}</Ltr>. المصروف = ما خرج فعلاً من الحساب.</>
+                : `الراتب بعملته ${salaryCurrency} والحساب بعملة ${salaryCash.currency || 'USD'}: اكتب ما خرج من الحساب فعلاً (مثلاً من كشف الوسيط).`} />}
+            {!crossSalary && salaryCash?.currency && salaryCash.currency !== 'USD' && <TextField type="number" label="السعر (فارغ = سعر تاريخ العملية)" value={salary.rate} onChange={(e) => setSalary({ ...salary, rate: e.target.value })} fullWidth className="mt-3" />}
             {payBlocked && <Alert severity="warning" className="mt-3">{payBlocked}</Alert>}
           </DialogContent>
         )}
         <DialogActions>
           <Button disabled={posting} onClick={() => setSalary(null)}>إلغاء</Button>
-          <Button variant="contained" disabled={!!payBlocked ||posting || !salaryPreview || !!salaryPreviewError || !salary?.office || !salary?.paidFromAccountId || !Number.isFinite(salaryGross) || !(salaryGross > 0) || (commissionPayment ? salaryGross > Number(salaryPreview?.availableAmount || 0) || (salary?.closeCommissions && !salary?.commissionCloseReason?.trim()) : salaryCurrency !== salary?.employee.salaryCurrency || Number(salary?.advanceDeduction || 0) > salaryGross)} onClick={() => submit('salaries', {
+          <Button variant="contained" disabled={!!payBlocked ||posting || !salaryPreview || !!salaryPreviewError || !salary?.office || !salary?.paidFromAccountId || !Number.isFinite(salaryGross) || !(salaryGross > 0) || (commissionPayment ? salaryGross > Number(salaryPreview?.availableAmount || 0) || (salary?.closeCommissions && !salary?.commissionCloseReason?.trim()) : (crossSalary && !(Number(salary?.paidAmount) > 0)) || Number(salary?.advanceDeduction || 0) > salaryGross)} onClick={() => submit('salaries', {
             employeeId: salary.employee._id, month: salary.month, day: salary.day, office: salary.office, paidFromAccountId: salary.paidFromAccountId,
+            transactionReference: commissionPayment ? undefined : salary.transactionReference?.trim() || undefined,
+            paidAmount: crossSalary ? Number(salary.paidAmount) : undefined,
             paymentKind: commissionPayment ? 'commission' : 'salary', grossAmount: commissionPayment ? salaryGross : undefined,
             expectedCommissionPreview: commissionPayment ? salaryPreview.fingerprint : undefined,
             closeCommissions: commissionPayment && !!salary.closeCommissions, commissionCloseReason: commissionPayment ? salary.commissionCloseReason : undefined,

@@ -8,7 +8,7 @@ import { CancelDialog, today, useVendors } from './shared';
 import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
 import StatementTwinNotice, { twinPayload, useStatementTwins } from './StatementTwinNotice';
 import { useBulk } from './bulk';
-import { AccountRef, Amount, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
+import { AccountRef, Amount, Badge, DataTable, Ltr, Money, PageHeader, Panel, StatusBadge, Sub } from './ui';
 import { ListFilters, queryOf, recentFrom } from './ListFilters';
 import DayField from './DayField';
 const PAYMENT_FILTERS = { vendorId: '', accountId: '', status: '', from: recentFrom(), to: '', search: '' };
@@ -308,6 +308,17 @@ export const PaymentForm = () => {
     if (!stored) return '';
     return nativeRow(row) ? String(Number(nativeAmount(row, Math.round(Number(stored) * 100)).toFixed(2))) : stored;
   };
+  // Every open bill paid in full at once; an empty amount is filled with their total when it can be
+  // known here (the bills in the paying account's currency, or a dollar account)
+  const payAll = () => {
+    const due = openBills.filter((row: any) => row.open > 0);
+    setTyped({});
+    setAllocations(Object.fromEntries(due.map((row: any) => [row._id, (row.open / 100).toFixed(2)])));
+    if (form.fromAdvance || Number(form.amount) > 0 || !form.fromAccountId) return;
+    const total = due.every(nativeRow) ? due.reduce((sum: number, row: any) => sum + nativeAmount(row, row.open), 0)
+      : (from?.currency || 'USD') === 'USD' ? due.reduce((sum: number, row: any) => sum + row.open, 0) / 100 : null;
+    if (total) setForm((current: any) => ({ ...current, amount: total.toFixed(2) }));
+  };
   // What the payment is worth in dollars when it can be known here (a dollar box, or a typed rate)
   const paidUsd = !(Number(form.amount) > 0) ? null : (from?.currency || 'USD') === 'USD' ? Math.round(Number(form.amount) * 100) : Number(form.rate) > 0 ? Math.round((Number(form.amount) / Number(form.rate)) * 100) : null;
   const difference = paidUsd === null ? null : paidUsd - allocatedUsd;
@@ -323,6 +334,7 @@ export const PaymentForm = () => {
         employeeId: from?.requires?.includes('employee') ? form.employee?._id : undefined,
         amount: form.fromAdvance ? undefined : Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
         differenceTo: form.fromAdvance ? undefined : form.differenceTo,
+        transactionReference: form.fromAdvance ? undefined : form.transactionReference?.trim() || undefined,
         // A bill paid in its own currency also carries the amount as typed, so what is left on it stays exact
         ...(form.fromAdvance ? {} : twinPayload(twinAnswer)),
         allocations: openBills.filter(row => Number(allocations[row._id]) > 0).map(row => ({ billId: row._id, amountUsd: Math.round(Number(allocations[row._id]) * 100),
@@ -360,6 +372,9 @@ export const PaymentForm = () => {
                 ) : 'وزّع المبلغ على الفواتير ليُقترح السعر الذي يُقفلها على صفر'} />
             )}
             {from?.requires?.includes('employee') && <CustodyHolderPicker inGrid accountId={form.fromAccountId} value={form.employee} amount={Number(form.amount) || 0} onChange={(employee) => setForm((f: any) => ({ ...f, employee }))} />}
+            {from && from.cashKind !== 'cash' && !from.requires?.includes('employee') && <TextField label="رقم العملية في كشف الحساب (اختياري)" value={form.transactionReference || ''}
+              onChange={(e) => setForm({ ...form, transactionReference: e.target.value })}
+              helperText="حوالة واحدة لأكثر من عملية؟ اكتب نفس الرقم في كل منها فتُطابق معًا عند رفع الكشف" />}
           </>}
         </div>
         {!form.fromAdvance && <StatementTwinNotice twins={twins} currency={from?.currency || 'USD'} value={twinAnswer}
@@ -396,12 +411,17 @@ export const PaymentForm = () => {
       </Panel>
 
       <Panel flush title="الفواتير المفتوحة" subtitle="يُكتب السداد بعملة الفاتورة إذا كانت نفس عملة الدفع؛ وعند اختلاف العملتين يُوزّع بالدولار. اضغط «الكل» لتسديد المتبقي.">
+        {openBills.some((row: any) => row.open > 0) && <div className="d-flex flex-wrap gap-2 px-3 pb-2">
+          <Button size="small" variant="outlined" onClick={payAll}>سداد كل الفواتير ({openBills.filter((row: any) => row.open > 0).length})</Button>
+          {Object.values(allocations).some(value => Number(value) > 0) && <Button size="small" onClick={() => { setTyped({}); setAllocations({}); }}>مسح التوزيع</Button>}
+        </div>}
         <DataTable
           rows={openBills}
           rowKey={(row: any) => row._id}
           empty={{ title: vendorId ? 'لا توجد فواتير مفتوحة' : 'اختر المورد أولاً', hint: vendorId ? 'الدفعة ستُسجَّل كدفعة مقدمة لدى المورد.' : undefined }}
           columns={[
-            { key: 'number', header: 'الفاتورة', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.vendorRef && <Sub>رقم المورد <Ltr>{row.vendorRef}</Ltr></Sub>}</> },
+            { key: 'number', header: 'الفاتورة', render: (row: any) => <><Ltr>{row.number}</Ltr>{row.vendorRef && <Sub>رقم المورد <Ltr>{row.vendorRef}</Ltr></Sub>}
+              {row.reminder && <div className="mt-1"><Badge tone="warn">ملاحظة</Badge> <span style={{ whiteSpace: 'pre-wrap' }}>{row.reminder}</span></div>}</> },
             { key: 'day', header: 'التاريخ', hideOnMobile: true, render: (row: any) => <Ltr>{row.day}</Ltr> },
             { key: 'total', header: 'الإجمالي', numeric: true, hideOnMobile: true, render: (row: any) => <Amount value={row.total} currency={row.currency} /> },
             { key: 'open', header: 'المتبقي', numeric: true, render: (row: any) => nativeRow(row) ? <Amount value={nativeAmount(row, row.open)} currency={row.currency} /> : <Money value={row.open} strong /> },

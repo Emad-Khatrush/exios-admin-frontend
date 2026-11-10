@@ -3,7 +3,7 @@ import BillExcelImport from './BillExcelImport';
 import BillDetailsEditDialog from './BillDetailsEditDialog';
 import { useAccountingAccess } from './useAccountingAccess';
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Alert, Button, Chip, MenuItem, TextField } from '@mui/material';
+import { Alert, Button, Chip, FormControlLabel, MenuItem, Switch, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { OFFICE_LABELS, acc, errorText } from './accountingApi';
 import { CancelDialog, useVendors } from './shared';
@@ -25,11 +25,51 @@ export const BillStatus = ({ bill, open, paymentStatus }: { bill: any; open?: nu
   return <><Badge tone="info">مُرحَّلة</Badge><Sub>غير مدفوعة</Sub></>;
 };
 
+// A bill's reminder in a list: an active one stands out, a switched-off one stays faint
+export const ReminderLine = ({ reminder }: { reminder?: { note?: string; active?: boolean } }) => {
+  if (!reminder?.note) return null;
+  return reminder.active
+    ? <div className="mt-1"><Badge tone="warn">ملاحظة</Badge> <span style={{ whiteSpace: 'pre-wrap' }}>{reminder.note}</span></div>
+    : <Sub>ملاحظة غير نشطة: {reminder.note}</Sub>;
+};
+
+// A reminder written on the bill at any time, also after posting: nothing in the books changes.
+// Active while needed; switched off it is kept and can still be found with the filter.
+const BillReminder = ({ bill, onSaved }: { bill: any; onSaved: () => void }) => {
+  const [note, setNote] = useState(bill.reminder?.note || '');
+  const [active, setActive] = useState(bill.reminder ? !!bill.reminder.active : true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setNote(bill.reminder?.note || ''); setActive(bill.reminder ? !!bill.reminder.active : true); }, [bill.reminder]);
+  const changed = note.trim() !== (bill.reminder?.note || '') || (!!note.trim() && active !== !!bill.reminder?.active);
+  const save = async (next = { note, active }) => {
+    setBusy(true); setError(''); setSaved(false);
+    try { await acc.put(`bills/${bill._id}/reminder`, { note: next.note.trim(), active: next.active }); setSaved(true); onSaved(); } catch (err) { setError(errorText(err)); }
+    setBusy(false);
+  };
+  return (
+    <Panel title="ملاحظة تذكيرية" subtitle="اكتب أي شيء تريد تذكره عن هذه الفاتورة، حتى بعد الترحيل. لا تغيّر أي قيد. أطفئها عندما لا تحتاجها، وتبقى محفوظة وتظهر في فلتر «غير نشطة».">
+      {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+      <TextField fullWidth multiline minRows={2} value={note} onChange={(e) => { setNote(e.target.value); setSaved(false); }} placeholder="مثلاً: المورد وعد بخصم 5% على الدفعة القادمة" inputProps={{ maxLength: 2000 }} />
+      <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
+        <FormControlLabel control={<Switch checked={active} disabled={!note.trim() || busy}
+          onChange={(_, checked) => { setActive(checked); if (bill.reminder?.note && note.trim() === bill.reminder.note) save({ note, active: checked }); }} />}
+          label={active ? 'نشطة' : 'غير نشطة'} />
+        <Button variant="contained" size="small" disabled={busy || !changed} onClick={() => save()}>حفظ الملاحظة</Button>
+        {bill.reminder?.note && <Button size="small" color="error" disabled={busy} onClick={() => { if (window.confirm('حذف الملاحظة نهائياً؟')) save({ note: '', active: false }); }}>حذف</Button>}
+        {saved && <span className="acc-muted">حُفظت.</span>}
+        {bill.reminder?.updatedAt && <Sub>آخر تعديل <Ltr>{String(bill.reminder.updatedAt).slice(0, 10)}</Ltr></Sub>}
+      </div>
+    </Panel>
+  );
+};
+
 export const BillsList = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { vendors } = useVendors();
-  const [filters, setFilters] = useState({ vendorId: '', status: '', payment: '', target: '', from: params.get('tripId') ? '' : recentFrom(), to: '', search: '', tripId: params.get('tripId') || '' });
+  const [filters, setFilters] = useState({ vendorId: '', status: '', payment: '', target: '', reminder: '', from: params.get('tripId') ? '' : recentFrom(), to: '', search: '', tripId: params.get('tripId') || '' });
   const [data, setData] = useState<any>({ results: [], total: 0, page: 1 });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -105,6 +145,11 @@ export const BillsList = () => {
               <MenuItem value="">الكل</MenuItem>
               {Object.entries(BILL_TARGET_LABELS).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
             </TextField>
+            <TextField select label="الملاحظات" value={filters.reminder} onChange={(e) => setFilters({ ...filters, reminder: e.target.value })} style={{ minWidth: 150 }}>
+              <MenuItem value="">الكل</MenuItem>
+              <MenuItem value="active">فيها ملاحظة نشطة</MenuItem>
+              <MenuItem value="inactive">فيها ملاحظة غير نشطة</MenuItem>
+            </TextField>
             <DayField label="من" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
             <DayField label="إلى" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             <TextField placeholder="رقم الفاتورة أو الوصف" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && load(1)} />
@@ -131,6 +176,7 @@ export const BillsList = () => {
                   <Ltr>{row.number || 'مسودة'}</Ltr> {row.isCreditNote && <Badge tone="info">إشعار دائن</Badge>}
                   {row.importReference && <Sub>استيراد Excel · <Ltr>{row.importReference}</Ltr></Sub>}
                   <Sub>{row.lines[0]?.description}{row.lines.length > 1 ? ` و${row.lines.length - 1} سطر آخر` : ''}</Sub>
+                  <ReminderLine reminder={row.reminder} />
                 </>
               ),
             },
@@ -216,6 +262,8 @@ export const BillDetail = () => {
       {data.editLock && <Alert severity="info" className="mb-2">{data.editLock}؛ التعديل على هذه الفاتورة مقفل.</Alert>}
       {bill.cancelReason && <Alert severity="info" className="mb-2">أُلغيت: {bill.cancelReason}</Alert>}
 
+      {bill.reminder?.active && bill.reminder.note && <Alert severity="warning" className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>{bill.reminder.note}</Alert>}
+
       {open !== null && (
         <StatGrid>
           <Stat label="إجمالي الفاتورة" value={<Money value={bill.totalUsd} />} hint={<Amount value={bill.total} currency={bill.currency} />} />
@@ -246,6 +294,8 @@ export const BillDetail = () => {
           ]}
         />
       </Panel>
+
+      <BillReminder bill={bill} onSaved={load} />
 
       {(payments.length > 0 || creditNotes.length > 0 || entries.length > 0) && (
         <Panel title="مرتبط بهذه الفاتورة">
