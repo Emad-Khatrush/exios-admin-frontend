@@ -1121,3 +1121,35 @@
   .acc-row-done { animation: none; }
   .acc-row-action { transition: none; }
 }
+
+// The actions of a statement line, by weight: the main one, other ways to settle it, then the quiet ones
+.acc-row-actions {
+  display: inline-grid;
+  justify-items: stretch;
+  gap: 4px;
+  min-width: 150px;
+  &__main {
+    white-space: nowrap;
+    border-radius: 8px !important;
+  }
+  &__group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px;
+    .MuiButton-root {
+      min-width: 0;
+      padding-inline: 8px;
+      white-space: nowrap;
+      border-radius: 8px;
+    }
+    &--quiet .MuiButton-root {
+      color: #5b6b75;
+      font-weight: 500;
+    }
+  }
+  &__delete {
+    color: #9aa7af !important;
+    &:hover { color: #b42318 !important; background: #fdecea !important; }
+  }
+}
