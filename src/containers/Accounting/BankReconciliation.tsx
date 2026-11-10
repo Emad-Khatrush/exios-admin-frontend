@@ -12,6 +12,7 @@ import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 import PurchaseMatchPicker from './PurchaseMatchPicker';
 import BankFinancialOperation from './BankFinancialOperation';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
+import MatchChoices from './MatchChoices';
 import BankLineDetails from './BankLineDetails';
 import UnidentifiedPark from './UnidentifiedPark';
 import { DepositPicker, GroupedLineDialog, YuanPurchaseDialog, partLabel, proposedParts } from './PartnerPickers';
@@ -457,11 +458,12 @@ const BankReconciliation = () => {
     const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id))
       .sort((a: any, b: any) => Math.abs(Date.parse(a.day) - Date.parse(row.day)) - Math.abs(Date.parse(b.day) - Date.parse(row.day)) || String(a._id).localeCompare(String(b._id)));
     setEntryFor({
-      mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : row.amount < 0 && hint?.vendorBills ? 'pay_bills' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
+      mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : hint?.combinations?.length && !hint?.tripCandidates?.length ? 'combos' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : row.amount < 0 && hint?.vendorBills ? 'pay_bills' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
       selected: possible.length && !(row.sourceProvider === 'alipay' && possible.length > 1) ? [possible[0]._id] : [],
       changeLedger: !possible.length || (row.sourceProvider === 'alipay' && possible.length > 1),
       line: row, counterAccountId: hint?.account?._id || '', office: hint?.office || account?.office || '', description: row.description, link: hint?.link || undefined, vendorName: hint?.vendorName || '', billId: hint?.tripCandidates?.[0]?.billId || hint?.suggestedBillId || hint?.billId || '', refundId: hint?.suggestedRefundId || '', billAccepted: false, confirmNewBill: false,
       remember: false, keyword: keywordOf(row.description), confirmNotDuplicate: !!row.postingAttempt,
+      choice: hint?.combinations?.length === 1 ? 0 : null,
     });
   };
 
@@ -571,7 +573,7 @@ const BankReconciliation = () => {
       return <div className="acc-suggest acc-suggest--found">
         <span>✓ <b>{options.length === 1 ? 'مطابقة محتملة' : `${options.length} احتمالات`}:</b> قيود مسجلة مجموعها مبلغ السطر · اعتمد الصحيح، أو «ليس أي منها»</span>
         {options.map((option: any, i: number) => <div key={i} className="acc-suggest__row">
-          <span>{option.strong && <><Badge tone="ok">نفس رقم العملية</Badge> </>}{option.entries.map((e: any, j: number) => <span key={e._id}>{j > 0 && ' + '}<Ltr>{amountText(e.amount)}</Ltr> {e.description} (<Ltr>{e.number}</Ltr> · <Ltr>{e.day}</Ltr>)</span>)}</span>
+          <span>{option.strong && <><Badge tone="ok">نفس رقم العملية</Badge> </>}{option.entries.map((e: any, j: number) => <span key={e._id}>{j > 0 && ' + '}{e.original?.currency && e.original.currency !== currency && e.original.amount != null && <><Ltr>{Number(e.original.amount).toLocaleString('en-US')} {e.original.currency}</Ltr> = </>}<b><Ltr>{amountText(e.amount)}</Ltr></b> {e.original?.party ? `${e.original.kind === 'salary' ? 'راتب' : e.original.kind === 'yuan' ? 'شراء يوان' : 'دفعة'} ${e.original.party}` : e.description} (<Ltr>{e.number}</Ltr> · <Ltr>{e.day}</Ltr>)</span>)}</span>
           <Button size="small" variant={i === 0 ? 'contained' : 'outlined'} color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }),
             () => (option.entries.length === 1 ? 'طوبق السطر مع القيد.' : `طوبق السطر مع ${option.entries.length} قيود معًا.`))}>اعتماد هذا</Button>
         </div>)}
@@ -1152,6 +1154,7 @@ const BankReconciliation = () => {
               {entryFor.line.amount > 0 && <MenuItem value="refund">استرداد مشتريات / ربط ريفاند الطلبية</MenuItem>}
               {entryFor.line.amount > 0 && entryFor.line.movementKind !== 'card_payment' && <MenuItem value="pending_refund">ترحيل استرداد قيد التحديد — الطلبية غير معروفة</MenuItem>}
               {entryFor.line.amount < 0 && <MenuItem value="split">تقسيم السطر — على عدة حسابات مصروف أو عدة أشهر</MenuItem>}
+              {suggested[entryFor.line._id]?.combinations?.length > 0 && <MenuItem value="combos">عمليات مسجلة مجموعها مبلغ السطر</MenuItem>}
               <MenuItem value="ledger">مطابقة مع قيد مسجل سابقًا</MenuItem>
               <MenuItem value="new">ترحيل عملية جديدة</MenuItem>
               <MenuItem value="financial_operation">تسوية حوالة أو تأمين أو مستحق مسجل</MenuItem>
@@ -1196,6 +1199,11 @@ const BankReconciliation = () => {
                   historicalSettlement: !!options.historicalSettlement, confirmHistoricalSettlement: !!options.confirmHistoricalSettlement, confirmTripDifference: !!options.confirmTripDifference });
                 setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمدت المطابقة وسُجّل السداد دون تكرار التكلفة.' }); await load();
               }} />}
+            {entryFor.mode === 'combos' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
+              leftTitle="العمليات المسجلة المقترحة">
+              <MatchChoices line={entryFor.line} options={suggested[entryFor.line._id]?.combinations || []} currency={currency} decimals={decimals}
+                selected={entryFor.choice} onSelect={(choice) => setEntryFor({ ...entryFor, choice, error: '' })} />
+            </BankReviewComparison>}
             {entryFor.mode === 'ledger' && <BankReviewComparison line={entryFor.line} currency={currency} bankName={account?.name} paid={Math.abs(entryFor.line.amount) / 10 ** decimals}
               leftTitle="القيد المقترح من الدفاتر"
               reasons={['نفس حساب البنك وعملته', ...((data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).reduce((sum: number, m: any) => sum + m.amount, 0) === entryFor.line.amount ? ['مبلغ القيد يساوي مبلغ الكشف'] : []),
@@ -1300,6 +1308,23 @@ const BankReconciliation = () => {
             disabled={reviewSaving || (!entryFor?.target && beforeCountCost(entryFor?.line, entryFor?.counterAccountId) && !entryFor?.confirmBeforeCountPurchase) || (relevantBills(suggested[entryFor?.line?._id]?.billCandidates, entryFor?.counterAccountId, entryFor?.target).length > 0 && !entryFor?.confirmNewBill && !(entryFor?.billAccepted && entryFor?.billId && !entryFor?.target)) || (entryFor?.target ? !(entryFor.target === 'trip' ? entryFor.trip : entryFor.target === 'order' ? entryFor.order : entryFor.partner) : !(entryFor?.counterAccountId || (entryFor?.billAccepted && entryFor?.billId))) || (suggested[entryFor?.line?._id]?.duplicates?.length > 0 && !entryFor?.confirmNotDuplicate) || (entryFor?.remember && !String(entryFor?.keyword || '').trim())}>
             {entryFor?.billAccepted ? 'قبول المطابقة وتسجيل السداد' : 'ترحيل'}
           </Button>
+        </DialogActions>}
+        {entryFor?.mode === 'combos' && <DialogActions sx={{ justifyContent: 'space-between' }}>
+          <Button disabled={reviewSaving} color="inherit" onClick={async () => {
+            if (await run(() => acc.post(`bank/lines/${entryFor.line._id}/combinations-dismiss`, { dismissed: true }), () => 'لن تُقترح هذه العمليات لهذا السطر بعد الآن.')) setEntryFor(null);
+          }}>ليست أي منها</Button>
+          <span>
+            <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
+            <Button variant="contained" disabled={reviewSaving || entryFor.choice == null} onClick={async () => {
+              const option = suggested[entryFor.line._id]?.combinations?.[entryFor.choice];
+              if (reviewSaving || !option) return;
+              setReviewSaving(true);
+              try {
+                if (await run(() => acc.post(`bank/lines/${entryFor.line._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }), () => `طوبق السطر مع ${option.entries.length} عمليات دون إنشاء قيد جديد.`,
+                  (err: any) => setEntryFor((current: any) => ({ ...current, error: errorText(err) })))) setEntryFor(null);
+              } finally { setReviewSaving(false); }
+            }}>اعتماد المطابقة</Button>
+          </span>
         </DialogActions>}
         {entryFor?.mode === 'ledger' && <DialogActions>
           <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
