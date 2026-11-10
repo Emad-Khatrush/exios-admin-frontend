@@ -57,6 +57,7 @@ export default function MatchChoices({ line, options, currency, decimals, select
                 ? <>
                   <Typography fontSize={15} fontWeight={700}><Ltr>{format(e.original.amount, e.original.currency)}</Ltr></Typography>
                   <Typography fontSize={12.5} color="text.secondary"><Ltr>{format(Math.abs(e.amount) / unit, currency, decimals)}</Ltr></Typography>
+                  {e.original.fromStatement && <Typography fontSize={11} color="text.secondary">اليوان حسب بيان الكشف</Typography>}
                 </>
                 : <Typography fontSize={15} fontWeight={700}><Ltr>{format(Math.abs(e.amount) / unit, currency, decimals)}</Ltr></Typography>}
             </Box>
