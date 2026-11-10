@@ -14,7 +14,7 @@ import BankFinancialOperation from './BankFinancialOperation';
 import BankReviewComparison, { ReviewField } from './BankReviewComparison';
 import BankLineDetails from './BankLineDetails';
 import UnidentifiedPark from './UnidentifiedPark';
-import { DepositPicker, TransferPicker, YuanPurchaseDialog } from './PartnerPickers';
+import { DepositPicker, GroupedLineDialog, YuanPurchaseDialog, partLabel, proposedParts } from './PartnerPickers';
 import BankBillsPayPicker from './BankBillsPayPicker';
 import BankLineSplit from './BankLineSplit';
 import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
@@ -526,13 +526,14 @@ const BankReconciliation = () => {
     }
     const pick = partnerAccount && row.amount > 0 && <Button size="small" onClick={() => setPicker({ kind: 'deposits', line: row })}>اختيار إيداعات بنفسي</Button>;
     if (transfers) {
-      const found = transfers.parts.filter((p: any) => p.bill);
+      const found = transfers.parts.filter((p: any) => p.choice);
+      const reason = transfers.splitError || (found.length === transfers.parts.length && !transfers.broker && transfers.parts.some((p: any) => p.choice === 'new') ? 'حدد الوسيط الذي باع اليوان' : '');
       return <div className={`acc-suggest ${transfers.complete ? 'acc-suggest--found' : 'acc-suggest--class'}`}>
-        <span>{transfers.complete ? '✓' : '⚠'} <b>{transfers.complete ? 'مطابقة مقترحة' : `وُجد ${found.length} من ${transfers.parts.length}`}:</b> حوالات Alipay {transfers.parts.map((p: any, i: number) => <span key={i}>{i > 0 && ' + '}<Ltr>{p.amount.toLocaleString('en-US')}¥</Ltr>{p.bill ? <> ← <Ltr>{p.bill.number}</Ltr>{p.bill.orders.length > 0 && <> (طلبية <Ltr>{p.bill.orders.join('، ')}</Ltr>)</>}</> : <b> ← لا توجد فاتورة</b>}</span>)}
-          {!transfers.complete && ' · أضف مشتريات الطلبية الناقصة باليوان، أو اختر الفواتير بنفسك'}</span>
+        <span>{transfers.complete ? '✓' : '⚠'} <b>{transfers.complete ? 'مطابقة مقترحة' : `وُجد ${found.length} من ${transfers.parts.length}`}:</b> حوالات Alipay {transfers.parts.map((p: any, i: number) => <span key={i}>{i > 0 && ' + '}<Ltr>{p.amount.toLocaleString('en-US')}¥</Ltr> ← {partLabel(p)}{p.usd !== undefined && <> = <b><Ltr>{p.usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}$</Ltr></b></>}</span>)}
+          {!transfers.complete && ` · ${reason || 'أضف مشتريات الطلبية الناقصة باليوان، أو حدد في «تفكيك السطر» أن الجزء شراء يوان'}`}</span>
         <span className="d-flex gap-1 flex-wrap">
-          {transfers.complete && <Button size="small" variant="contained" color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/partner-transfers`, { billIds: transfers.parts.map((p: any) => p.bill.billId) }), () => `سُددت ${transfers.parts.length} فواتير حوالات من السطر دون تكرار التكلفة.`)}>اعتماد وسداد الفواتير</Button>}
-          <Button size="small" onClick={() => setPicker({ kind: 'transfers', line: row, preset: found.map((p: any) => String(p.bill.billId)) })}>اختيار الفواتير بنفسي</Button>
+          {transfers.complete && <Button size="small" variant="contained" color="success" onClick={() => run(() => acc.post(`bank/lines/${row._id}/partner-transfers`, { parts: proposedParts(transfers) }), () => `طوبق السطر وقُسّم دولاره على ${transfers.parts.length} أجزاء دون تكرار التكلفة.`)}>اعتماد ومطابقة</Button>}
+          <Button size="small" onClick={() => setPicker({ kind: 'grouped', line: row, proposal: transfers })}>تفكيك السطر</Button>
         </span>
       </div>;
     }
@@ -650,7 +651,7 @@ const BankReconciliation = () => {
       </Dialog>
       {picker?.kind === 'yuan' && <YuanPurchaseDialog lines={picker.lines} hints={yuanHints} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); bulk.selection.onChange(new Set()); setMessage({ type: 'success', text }); load(); }} />}
       {picker?.kind === 'deposits' && <DepositPicker line={picker.line} accountName={account?.name} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
-      {picker?.kind === 'transfers' && <TransferPicker line={picker.line} preset={picker.preset} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
+      {picker?.kind === 'grouped' && <GroupedLineDialog line={picker.line} proposal={picker.proposal} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
       {parkFor && <UnidentifiedPark line={parkFor} currency={currency} decimals={decimals} liability={account?.type === 'liability'} maybeDuplicate={!!suggested[parkFor._id]?.duplicates?.length}
         onClose={() => setParkFor(null)} onDone={() => { setParkFor(null); setMessage({ type: 'success', text: 'سُجّلت الحركة قيد التحديد. تابعها من «حركات قيد التحديد».' }); load(); }} />}
       {detailsId && <BankLineDetails key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} onChanged={load} onReview={async (line) => {
