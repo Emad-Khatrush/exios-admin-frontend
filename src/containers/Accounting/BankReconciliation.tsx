@@ -125,6 +125,10 @@ const BankReconciliation = () => {
   const [purchaseReview, setPurchaseReview] = useState<any>(null);
   const [detailsId, setDetailsId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('lineId'));
   const [parkFor, setParkFor] = useState<any>(null);
+  // Closing a line the opening count already holds: { line, happenedOn, note }
+  const [coverFor, setCoverFor] = useState<any>(null);
+  // A line of the count period, or recorded late by the bank or partner (up to a month after the count)
+  const coverable = (row: any) => !!count && row.lineStatus === 'unmatched' && (isBeforeCount(count, row.day) || (Date.parse(row.day) - Date.parse(count.day)) / 86400000 <= 31);
   // "Are you sure?" before ignoring, deleting or undoing a line
   const [confirmBox, setConfirmBox] = useState<any>(null);
   const [confirming, setConfirming] = useState(false);
@@ -696,6 +700,32 @@ const BankReconciliation = () => {
       {picker?.kind === 'yuan' && <YuanPurchaseDialog lines={picker.lines} hints={yuanHints} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); bulk.selection.onChange(new Set()); setMessage({ type: 'success', text }); load(); }} />}
       {picker?.kind === 'deposits' && <DepositPicker line={picker.line} accountName={account?.name} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
       {picker?.kind === 'grouped' && <GroupedLineDialog line={picker.line} proposal={picker.proposal} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
+      {coverFor && (() => {
+        const late = !isBeforeCount(count, coverFor.line.day);
+        const dayError = late && (!coverFor.happenedOn ? 'اكتب تاريخ العملية الفعلي' : !isBeforeCount(count, coverFor.happenedOn) ? `يجب أن يكون قبل الجرد (${count!.day}) أو فيه` : coverFor.happenedOn > coverFor.line.day ? 'لا يكون بعد تاريخها في الكشف' : '');
+        return <Dialog open onClose={() => setCoverFor(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>مغطى بالجرد</DialogTitle>
+          <DialogContent>
+            <p className="acc-muted" style={{ lineHeight: 1.9 }}>
+              <b>{money(Math.abs(coverFor.line.amount))}</b> · <Ltr>{coverFor.line.day}</Ltr> · {coverFor.line.description}<br />
+              يُغلق السطر <b>بدون قيد</b>، لأن رصيد الجرد يشمل هذا المال.
+              {late && <> تاريخه في الكشف بعد الجرد (<Ltr>{count!.day}</Ltr>)؛ اكتب اليوم الذي حصلت فيه العملية فعلًا.</>}
+            </p>
+            {late && <TextField type="date" size="small" fullWidth className="mb-3" label="تاريخ العملية الفعلي" InputLabelProps={{ shrink: true }}
+              value={coverFor.happenedOn} onChange={(e) => setCoverFor({ ...coverFor, happenedOn: e.target.value })} error={!!dayError} helperText={dayError || ' '} />}
+            <TextField size="small" fullWidth multiline minRows={2} label="ما كانت هذه العملية" placeholder="مثال: سداد وصل من خزينة طرابلس"
+              value={coverFor.note} onChange={(e) => setCoverFor({ ...coverFor, note: e.target.value })} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCoverFor(null)}>إلغاء</Button>
+            <Button variant="contained" disabled={!!dayError || !coverFor.note.trim()} onClick={() => {
+              const { line, happenedOn, note } = coverFor;
+              setCoverFor(null);
+              runInRow(line._id, () => acc.post(`bank/lines/${line._id}/cover`, { note, happenedOn: late ? happenedOn : undefined }), () => 'أُغلق السطر: مغطى بالجرد دون قيد.');
+            }}>إغلاق بدون قيد</Button>
+          </DialogActions>
+        </Dialog>;
+      })()}
       {parkFor && <UnidentifiedPark line={parkFor} currency={currency} decimals={decimals} liability={account?.type === 'liability'} maybeDuplicate={!!suggested[parkFor._id]?.duplicates?.length}
         onClose={() => setParkFor(null)} onDone={() => { setParkFor(null); setMessage({ type: 'success', text: 'سُجّلت الحركة قيد التحديد. تابعها من «حركات قيد التحديد».' }); load(); }} />}
       {detailsId && <BankLineDetails key={detailsId} id={detailsId} onClose={() => setDetailsId(null)} onChanged={() => load()} onReview={async (line) => {
@@ -904,6 +934,7 @@ const BankReconciliation = () => {
                     <Button size="small" onClick={() => setDetailsId(row._id)}>التفاصيل والتعديل</Button>
                     {row.lineStatus === 'unmatched' && <>
                       <Button size="small" variant="outlined" onClick={() => row.walletImpact === 'unknown' ? setDetailsId(row._id) : openEntry(row)}>{row.walletImpact === 'unknown' ? 'تأكيد حساب الاستلام' : 'مراجعة واعتماد'}</Button>                      {row.walletImpact !== 'unknown' && <Tooltip title="سجّل المبلغ الآن في حساب انتظار حتى تعرف الطلبية أو الرحلة أو صاحب المال"><Button size="small" color="warning" onClick={() => setParkFor(row)}>لا أعرف بعد</Button></Tooltip>}
+                      {coverable(row) && <Tooltip title="العملية حصلت قبل الجرد ورصيد الجرد يشملها: يُغلق السطر بدون قيد"><Button size="small" color="inherit" onClick={() => setCoverFor({ line: row, happenedOn: isBeforeCount(count, row.day) ? '' : count!.day, note: '' })}>مغطى بالجرد</Button></Tooltip>}
                       <Button size="small" onClick={() => setConfirmBox({ title: 'تجاهل سطر الكشف؟', line: row, label: 'نعم، تجاهله',
                         text: 'لن يُرحَّل السطر ولن يُطابق، ولن يظهر ضمن «غير مطابق». لا يتغير أي رصيد. يمكنك إرجاعه لاحقاً بزر «تراجع».',
                         action: () => run(() => acc.post(`bank/lines/${row._id}/ignore`), () => 'تم تجاهل السطر.') })}>تجاهل</Button>

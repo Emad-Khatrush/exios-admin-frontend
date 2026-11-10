@@ -40,7 +40,11 @@ export const partLabel = (p: any) => (p.choice === 'bill' ? <>فاتورة <Ltr>
     : p.choice === 'new' ? <>شراء يوان جديد إلى {p.arrival.account} (وصل <Ltr>{p.arrival.day}</Ltr>)</>
       : <b>لا يوجد ما يطابقه</b>);
 
-type Row = { key: number, amount: string, kind: '' | 'bill' | 'purchase' | 'new', billId?: string, purchaseId?: string, toAccountId?: string, arrivalLineId?: string };
+// auto: picked by the system (the server's proposal, or the one open record of the part's exact amount),
+// picked again when the amount changes; manual: picked by the person, never replaced
+type Row = { key: number, amount: string, kind: '' | 'bill' | 'purchase' | 'new', billId?: string, purchaseId?: string, toAccountId?: string, arrivalLineId?: string,
+  auto?: boolean, manual?: boolean };
+const EMPTY_CHOICE = { kind: '' as const, billId: undefined, purchaseId: undefined, toAccountId: undefined, arrivalLineId: undefined };
 let rowKey = 0;
 
 // One line of the partner's statement taken apart: for each yuan part, the order bill it paid, a yuan
@@ -52,7 +56,7 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
   const { vendors } = useVendors();
   const alipays = useMemo(() => accounts.filter((a: any) => a.isCash && a.isActive && !a.isGroup && a.currency === 'CNY'), [accounts]);
   const [data, setData] = useState<any>(null);
-  const [rows, setRows] = useState<Row[]>(() => proposal.parts.map((p: any) => ({ key: rowKey++, amount: String(p.amount),
+  const [rows, setRows] = useState<Row[]>(() => proposal.parts.map((p: any) => ({ key: rowKey++, amount: String(p.amount), auto: !!p.choice,
     ...(p.choice === 'bill' ? { kind: 'bill', billId: String(p.bill.billId) }
       : p.choice === 'purchase' ? { kind: 'purchase', purchaseId: String(p.purchase.purchaseId) }
         : p.choice === 'new' ? { kind: 'new', toAccountId: String(p.arrival.accountId), arrivalLineId: String(p.arrival.lineId) }
@@ -68,11 +72,47 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
   const purchases: any[] = data?.purchases || [];
   const arrivals: any[] = data?.arrivals || [];
   const byCloseness = (list: any[], amount: number) => [...list].sort((a, b) => Math.abs(a.amount - amount) - Math.abs(b.amount - amount));
-  const set = (i: number, patch: Partial<Row>) => setRows((current) => current.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+  // A choice made by hand: kept whatever the amount becomes
+  const set = (i: number, patch: Partial<Row>) => setRows((current) => current.map((row, j) => (j === i ? { ...row, ...patch, manual: true, auto: false } : row)));
   const remove = (i: number) => setRows((current) => current.filter((_, j) => j !== i));
   const add = () => setRows((current) => [...current, { key: rowKey++, amount: '', kind: '' }]);
   const takenElsewhere = (i: number, key: keyof Row, id: string) => rows.some((row, j) => j !== i && row[key] === id);
   const amountOf = (row: Row) => Math.round(Number(String(row.amount).replace(/,/g, '')) * 100) / 100 || 0;
+  // Open records of exactly this yuan amount, not taken by another part: bills, recorded purchases, Alipay arrivals
+  const exactFor = (list: Row[], i: number, amount: number) => {
+    if (!(amount > 0)) return [];
+    const free = (key: keyof Row, id: string) => !list.some((row, j) => j !== i && row[key] === id);
+    const same = (value: number) => Math.abs(value - amount) < 0.005;
+    return [
+      ...bills.filter((b) => same(b.amount) && free('billId', String(b.billId))).map((b) => ({ kind: 'bill' as const, billId: String(b.billId) })),
+      ...purchases.filter((p) => same(p.amount) && free('purchaseId', String(p.purchaseId))).map((p) => ({ kind: 'purchase' as const, purchaseId: String(p.purchaseId) })),
+      ...arrivals.filter((a) => same(a.amount) && free('arrivalLineId', String(a.lineId))).map((a) => ({ kind: 'new' as const, toAccountId: String(a.accountId), arrivalLineId: String(a.lineId) })),
+    ];
+  };
+  // Once the open records are loaded, parts with no proposal take the one record of their exact amount
+  useEffect(() => {
+    if (!data) return;
+    setRows((current) => {
+      const next = [...current];
+      next.forEach((row, i) => {
+        if (row.kind || row.manual) return;
+        const found = exactFor(next, i, amountOf(row));
+        if (found.length === 1) next[i] = { ...row, ...EMPTY_CHOICE, ...found[0], auto: true };
+      });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  // The amount retyped: a part the system picked is matched again to the one record of the new amount
+  // (or left empty when there is none, or several to choose from); a part picked by hand keeps its choice
+  const retype = (i: number, value: string) => setRows((current) => current.map((row, j) => {
+    if (j !== i) return row;
+    const next = { ...row, amount: value };
+    if (row.manual) return row.kind === 'new' ? { ...next, arrivalLineId: undefined } : next;
+    const found = exactFor(current, i, amountOf(next));
+    if (found.length === 1) return { ...next, ...EMPTY_CHOICE, ...found[0], auto: true };
+    return row.auto || !row.kind ? { ...next, ...EMPTY_CHOICE, auto: false } : next;
+  }));
 
   // Each part's yuan as it will be posted (a bill's or recorded purchase's own yuan, an arrival's amount, or the yuan typed)
   const items = rows.map((row) => {
@@ -129,7 +169,12 @@ export function GroupedLineDialog({ line, proposal, accounts, onClose, onDone }:
           return <div key={row.key} className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--acc-border, #e3e8e8)' }}>
             <div className="d-flex gap-2 flex-wrap align-items-center mb-2">
               <TextField size="small" label={`الجزء ${i + 1} (¥)`} value={row.amount} sx={{ width: 160 }} inputProps={{ inputMode: 'decimal', dir: 'ltr' }}
-                onChange={(e) => set(i, { amount: e.target.value, ...(row.kind === 'new' && { arrivalLineId: undefined }) })} />
+                onChange={(e) => retype(i, e.target.value)} />
+              {row.auto && row.kind && <Badge tone="ok">وُجد تلقائيًا</Badge>}
+              {!row.kind && data && amount > 0 && (() => {
+                const count = exactFor(rows, i, amount).length;
+                return count > 1 ? <Badge tone="warn">{count} بنفس المبلغ؛ اختر الصحيح</Badge> : count === 0 ? <Badge tone="muted">لا يوجد ما يطابق هذا المبلغ</Badge> : null;
+              })()}
               {share !== undefined && <span>← <b><Ltr>{money(share / 100)}</Ltr></b>{itemYuan ? <Sub>سعر <Ltr>{(itemYuan / (share / 100)).toFixed(4)}</Ltr></Sub> : null}</span>}
               {recordDiffers && <Sub>يُسجَّل بمبلغ {row.kind === 'bill' ? 'الفاتورة' : 'العملية'}: <Ltr>{yuanText(itemYuan as number)}</Ltr></Sub>}
               <IconButton size="small" aria-label="حذف الجزء" title="حذف الجزء" sx={{ marginInlineStart: 'auto' }} disabled={rows.length === 1} onClick={() => remove(i)}><Trash2 size={16} /></IconButton>
