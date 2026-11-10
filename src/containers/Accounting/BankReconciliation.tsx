@@ -299,7 +299,7 @@ const BankReconciliation = () => {
     if (accountIdChosen && key) {
       current.rows.forEach((row, other) => {
         const status = classes?.[other]?.status;
-        if (other !== index && !choices[other]?.accountId && !choices[other]?.purchaseMatch && ['new', undefined].includes(status) && keywordOf(row.description).toLowerCase() === key) {
+        if (other !== index && !classes?.[other]?.holdForMatching && !choices[other]?.accountId && !choices[other]?.purchaseMatch && ['new', undefined].includes(status) && keywordOf(row.description).toLowerCase() === key) {
           choices[other] = { ...choices[other], accountId: accountIdChosen, byHand: true, link: undefined };
         }
       });
@@ -314,6 +314,8 @@ const BankReconciliation = () => {
   // A row is posted on import when it has an account, is new, and (if it may be in the books) was confirmed as different
   const willPost = (index: number) => {
     if (preview?.rows[index]?.walletImpact === 'unknown') return false;
+    // Alipay transfers from a partner's current account, or the total of operations already recorded: matched after import
+    if (classes?.[index]?.holdForMatching) return false;
     const status = classes?.[index]?.status;
     const choice = preview?.choices[index];
     if (classes?.[index]?.source === 'order' && choice?.link && !choice?.purchaseMatch) return false;
@@ -494,8 +496,10 @@ const BankReconciliation = () => {
 
   const applyPartnerDeposit = (row: any, proposal: any) => {
     const far = proposal.daysApart > 3;
-    if (far && !window.confirm(`التاريخ في الكشف ${row.day} والإيداع ${proposal.day} (فرق ${proposal.daysApart} يوماً). هل هي نفس العملية؟`)) return;
-    run(() => acc.post(`bank/lines/${row._id}/partner-deposit`, { statementId: proposal.statementId, confirmDifference: far }),
+    const diff = proposal.difference ? `فرق المبلغ ${(proposal.difference / 100).toFixed(2)}$${proposal.beforeCount ? ' (قبل الجرد: لا قيد له)' : ' (يُسجل على حساب فروق التقريب)'}` : '';
+    const reasons = [far && `التاريخ في الكشف ${row.day} والإيداع ${proposal.day} (فرق ${proposal.daysApart} يوماً)`, diff].filter(Boolean).join(' و');
+    if (reasons && !window.confirm(`${reasons}. هل هي نفس العملية؟`)) return;
+    run(() => acc.post(`bank/lines/${row._id}/partner-deposit`, { statementId: proposal.statementId, confirmDifference: !!reasons }),
       () => proposal.beforeCount ? 'رُبط السطر بإيداع المحفظة للمتابعة فقط: قبل الجرد، فلا قيد ولا تغيير في الأرصدة.'
         : proposal.onAccount ? 'رُبط السطر بإيداع المحفظة.' : `نُقل الإيداع إلى ${account?.name || 'الحساب الجاري'} ورُبط بالسطر. المحفظة لم تتغير.`);
   };
@@ -1059,6 +1063,11 @@ const BankReconciliation = () => {
                     const item = classes?.[row.index];
                     if (preview.skip.has(row.index) || preview.choices[row.index]?.ignore) return <span className="acc-sub">{preview.skip.has(row.index) ? '—' : 'يُستورد ولا يُرحَّل'}</span>;
                     if (!item || !['new', 'maybeDuplicate'].includes(item.status)) return <span className="acc-sub">{item?.status === 'match' ? 'يُطابق مع القيد' : item?.status === 'imported' ? 'لا شيء' : ''}</span>;
+                    if (item.holdForMatching) return <>
+                      <Badge tone="info">يُحفظ للمطابقة بعد الرفع</Badge>
+                      <Sub>لن يُرحّل ولن تُنشأ فاتورة؛ اربطه من صفحة المطابقة.</Sub>
+                      {item.combinations?.map((set: any[], i: number) => <Sub key={i}>محتمل: {set.map((e: any) => e.number).join(' + ')}</Sub>)}
+                    </>;
                     const choice = preview.choices[row.index] || {};
                     const selectedBillId = choice.billId || item.suggestedBillId || '';
                     const selectedBill = item.billCandidates?.find((bill: any) => bill._id === selectedBillId);
