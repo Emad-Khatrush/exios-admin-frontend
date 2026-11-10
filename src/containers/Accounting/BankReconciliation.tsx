@@ -529,7 +529,8 @@ const BankReconciliation = () => {
       </div>;
     }
     const pick = partnerAccount && row.amount > 0 && <Button size="small" onClick={() => setPicker({ kind: 'deposits', line: row })}>اختيار إيداعات بنفسي</Button>;
-    if (transfers) {
+    // Transfers paid already (their dollar payments are in the books): the operations adding up to the line come first
+    if (transfers && (transfers.complete || !hint?.combinations?.length)) {
       const found = transfers.parts.filter((p: any) => p.choice);
       const reason = transfers.splitError || (found.length === transfers.parts.length && !transfers.broker && transfers.parts.some((p: any) => p.choice === 'new') ? 'حدد الوسيط الذي باع اليوان' : '');
       return <div className={`acc-suggest ${transfers.complete ? 'acc-suggest--found' : 'acc-suggest--class'}`}>
