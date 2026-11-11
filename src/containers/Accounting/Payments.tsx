@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Autocomplete, Button, Checkbox, FormControlLabel, MenuItem, TextField } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { acc, errorText, newKey } from './accountingApi';
+import { createDocument } from './documentSave';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { CancelDialog, today, useVendors } from './shared';
 import CustodyHolderPicker, { custodyExceeded } from './CustodyHolderPicker';
@@ -152,6 +153,8 @@ export const ReceiptForm = () => {
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // The server gave no answer in time: the page is checking whether the operation was saved
+  const [waiting, setWaiting] = useState(false);
   const idempotencyKey = useRef(newKey());
   const toAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && a.isCash), [accounts]);
   const to = toAccounts.find((a) => a._id === form.toAccountId);
@@ -170,15 +173,16 @@ export const ReceiptForm = () => {
     try {
       setIsSaving(true);
       setError('');
-      await acc.post('receipts', {
+      await createDocument('receipts', {
         vendorId, day: form.day, toAccountId: form.toAccountId, amount: Number(form.amount), rate: Number(form.rate) || undefined, note: form.note || undefined,
         allocations: Object.entries(allocations).filter(([, v]) => Number(v) > 0).map(([billId, v]) => ({ billId, amountUsd: Math.round(Number(v) * 100) })),
         idempotencyKey: idempotencyKey.current,
-      });
+      }, () => setWaiting(true));
       navigate('/accounting/payments');
     } catch (err) {
       setError(errorText(err));
     }
+    setWaiting(false);
     setIsSaving(false);
   };
 
@@ -186,6 +190,7 @@ export const ReceiptForm = () => {
     <>
       <PageHeader title="استلام من مورد" subtitle="ما دخل الخزينة أو البنك أو Alipay من مورد، بعملة الحساب. وزّعه على ما عليه لنا من فواتير أُرجعت؛ والباقي يُخصم من دفعتنا المقدمة لديه (أو يبقى رصيداً له)." />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      {waiting && <Alert severity="info" className="mb-3">العملية تأخذ وقتًا أطول من المعتاد. جارٍ التأكد من تسجيلها؛ لا تغلق الصفحة ولا تُعد الإدخال.</Alert>}
       <Panel title="الاستلام">
         <div className="acc-form-grid">
           <Autocomplete size="small" options={vendors} value={vendors.find((v) => v._id === vendorId) || null}
@@ -244,6 +249,8 @@ export const PaymentForm = () => {
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // The server gave no answer in time: the page is checking whether the operation was saved
+  const [waiting, setWaiting] = useState(false);
   const idempotencyKey = useRef(newKey());
 
   const payAccounts = useMemo(() => accounts.filter((a) => a.isActive && !a.isGroup && (a.isCash || a.requires?.includes('employee'))), [accounts]);
@@ -334,7 +341,7 @@ export const PaymentForm = () => {
     try {
       setIsSaving(true);
       setError('');
-      await acc.post('payments', {
+      await createDocument('payments', {
         vendorId, day: form.day, fromAdvance: form.fromAdvance || undefined,
         advancePaymentId: form.fromAdvance ? form.advancePaymentId || undefined : undefined,
         fromAccountId: form.fromAdvance ? undefined : form.fromAccountId,
@@ -347,11 +354,12 @@ export const PaymentForm = () => {
         allocations: openBills.filter(row => Number(allocations[row._id]) > 0).map(row => ({ billId: row._id, amountUsd: Math.round(Number(allocations[row._id]) * 100),
           amount: sameCurrency && nativeRow(row) ? Number(allocationText(row)) : undefined })),
         idempotencyKey: idempotencyKey.current,
-      });
+      }, () => setWaiting(true));
       navigate(vendorId ? `/accounting/vendors/${vendorId}` : '/accounting/payments');
     } catch (err) {
       setError(errorText(err));
     }
+    setWaiting(false);
     setIsSaving(false);
   };
 
@@ -359,6 +367,7 @@ export const PaymentForm = () => {
     <>
       <PageHeader title="دفعة لمورد" subtitle="وزّع السداد على الفواتير. عند تساوي عملة الفاتورة والدفعة يُقفل المبلغ بعملته، ويُسجّل فرق التقييم كفرق صرف." />
       {error && <Alert severity="error" className="mb-3">{error}</Alert>}
+      {waiting && <Alert severity="info" className="mb-3">العملية تأخذ وقتًا أطول من المعتاد. جارٍ التأكد من تسجيلها؛ لا تغلق الصفحة ولا تُعد الإدخال.</Alert>}
       <Panel title="الدفعة">
         <div className="acc-form-grid">
           <Autocomplete size="small" options={vendors} value={vendors.find((v) => v._id === vendorId) || null}
