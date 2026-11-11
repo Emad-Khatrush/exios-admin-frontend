@@ -319,6 +319,13 @@ export const PaymentForm = () => {
       : (from?.currency || 'USD') === 'USD' ? due.reduce((sum: number, row: any) => sum + row.open, 0) / 100 : null;
     if (total) setForm((current: any) => ({ ...current, amount: total.toFixed(2) }));
   };
+  // The same distribution in the bills' own currencies (a lira bill: its lira beside the dollars)
+  const allocatedNative = Object.entries(openBills.reduce((totals: Record<string, number>, row: any) => {
+    const usd = Math.round((Number(allocations[row._id]) || 0) * 100);
+    if (!(usd > 0) || !row.currency || row.currency === 'USD' || !(row.totalUsd > 0)) return totals;
+    totals[row.currency] = (totals[row.currency] || 0) + (nativeRow(row) ? Number(allocationText(row)) || 0 : nativeAmount(row, usd));
+    return totals;
+  }, {}));
   // What the payment is worth in dollars when it can be known here (a dollar box, or a typed rate)
   const paidUsd = !(Number(form.amount) > 0) ? null : (from?.currency || 'USD') === 'USD' ? Math.round(Number(form.amount) * 100) : Number(form.rate) > 0 ? Math.round((Number(form.amount) / Number(form.rate)) * 100) : null;
   const difference = paidUsd === null ? null : paidUsd - allocatedUsd;
@@ -436,7 +443,7 @@ export const PaymentForm = () => {
               ),
             },
           ]}
-          footer={openBills.length ? { number: 'الموزَّع على الفواتير', pay: <Money value={allocatedUsd} strong /> } : undefined}
+          footer={openBills.length ? { number: 'الموزَّع على الفواتير', pay: <><Money value={allocatedUsd} strong />{allocatedNative.map(([currency, amount]) => <span key={currency} className="d-block"><b><Amount value={amount} currency={currency} /></b></span>)}</> } : undefined}
         />
       </Panel>
 

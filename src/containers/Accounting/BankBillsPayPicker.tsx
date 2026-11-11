@@ -42,6 +42,12 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
   const sameCurrency = chosen.every((b: any) => b.currency === currency);
   const total = round(chosen.reduce((s: number, b: any) => s + (sameCurrency ? b.openNative : b.openUsd / 100), 0));
   const excess = sameCurrency ? round(paid - total) : 0;
+  // Both totals: the dollars, and each bill currency's own sum
+  const totalUsd = round(chosen.reduce((s: number, b: any) => s + b.openUsd / 100, 0));
+  const nativeTotals = Object.entries(chosen.reduce((sums: Record<string, number>, b: any) => {
+    if (b.currency && b.currency !== 'USD') sums[b.currency] = round((sums[b.currency] || 0) + b.openNative);
+    return sums;
+  }, {}));
   const chosenVendors = useMemo(() => {
     const map = new Map<string, string>();
     chosen.forEach((b: any) => map.set(String(b.vendorId), b.vendorName));
@@ -84,7 +90,7 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
           ]} />
         {chosen.length > 0 && <>
           <Alert severity={over ? 'error' : excess === 0 || !sameCurrency ? 'success' : 'warning'} className="mt-3">
-            المختار {chosen.length} فاتورة لـ {chosenVendors.length} مورد: <b><Ltr>{fmt(total, sameCurrency ? currency : 'USD')}</Ltr></b> · مبلغ السطر <b><Ltr>{fmt(paid, currency)}</Ltr></b>
+            المختار {chosen.length} فاتورة لـ {chosenVendors.length} مورد: {nativeTotals.map(([code, amount]) => <span key={code}><b><Ltr>{fmt(amount, code)}</Ltr></b> · </span>)}<b><Ltr>{fmt(totalUsd, 'USD')}</Ltr></b>{nativeTotals.length > 0 && ' بالدولار'} · مبلغ السطر <b><Ltr>{fmt(paid, currency)}</Ltr></b>
             {sameCurrency && excess === 0 && ' — مطابق تمامًا.'}
             {over && <> — الفواتير أكبر من السطر بـ <b><Ltr>{fmt(-excess, currency)}</Ltr></b>؛ أزل فاتورة.</>}
             {sameCurrency && excess > 0 && <> — يبقى <b><Ltr>{fmt(excess, currency)}</Ltr></b> زائدًا.</>}
