@@ -13,7 +13,7 @@ const offsetDay = (day: string, offset: number) => {
 };
 const states: Record<string, string> = { recorded: 'مسجل في فاتورة مورد', historical_settlement: 'سداد تاريخي — متاح للتسوية', recorded_refund: 'ريفاند مسجل؛ مطابقة فقط', recorded_credit: 'إشعار دائن مسجل بانتظار المطابقة', refundable: 'مشتريات أصلية للاسترداد', draft: 'مسودة', open: 'مستحقة', paid: 'مسددة', linked: 'مرتبطة بكشف', unrecorded: 'لم تُسجّل فاتورة لها' };
 
-export default function PurchaseMatchPicker({ open, accountId, line, paid, currency, bankName, onClose, onConfirm, embedded = false, suggestedBillId, suggestedItemId, suggestedRefundId, suggestedRefundLineId, onBusyChange, refund = false, settlementOnly = false }: any) {
+export default function PurchaseMatchPicker({ open, accountId, line, paid, currency, bankName, onClose, onConfirm, embedded = false, suggestedBillId, suggestedItemId, suggestedRefundId, suggestedRefundLineId, onBusyChange, refund = false, settlementOnly = false, retryDuplicate }: any) {
   const [filters, setFilters] = useState({ from: '', to: '', source: 'all', status: 'open', q: '' });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<any>(null);
@@ -37,6 +37,10 @@ export default function PurchaseMatchPicker({ open, accountId, line, paid, curre
   useEffect(() => {
     setDuplicatePreview(null); setIndependentCost(false); setDuplicateReason('');
   }, [open, line?._id, selected?._id]);
+  // Reopened after a queued approval the server refused for earlier costs: the same list, on the same choice
+  useEffect(() => {
+    if (retryDuplicate?.preview && selected && String(selected._id) === String(retryDuplicate.selectedId)) setDuplicatePreview(retryDuplicate.preview);
+  }, [retryDuplicate, selected?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [walletUsd, setWalletUsd] = useState('0');
   const [legacyChoice, setLegacyChoice] = useState<any>({});
   const [browsePrevious, setBrowsePrevious] = useState(false);

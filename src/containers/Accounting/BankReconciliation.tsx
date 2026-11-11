@@ -207,23 +207,54 @@ const BankReconciliation = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [accountId, filter, linkage, direction, from, to, searchQuery, matchingSettings]);
 
-  const [busyLine, setBusyLine] = useState<string | null>(null);
+  // Approvals and closings of lines run on the server one after another, in the order given: the
+  // review closes at once and the person moves on to the next line while each row shows its turn
+  const [rowJobs, setRowJobs] = useState<Record<string, 'waiting' | 'running'>>({});
   const [doneLines, setDoneLines] = useState<Record<string, string>>({});
-  const runInRow = async (lineId: string, action: () => Promise<any>, text: (res: any) => string) => {
-    if (busyLine) return false;
-    setBusyLine(lineId);
-    try {
-      const res = await action();
-      await load({ quiet: true });
-      setDoneLines((current) => ({ ...current, [lineId]: text(res.data) }));
-      setTimeout(() => setDoneLines((current) => { const next = { ...current }; delete next[lineId]; return next; }), 6000);
-      return true;
-    } catch (err) {
-      setMessage({ type: 'error', text: errorText(err) });
-      await load({ quiet: true });
-      return false;
-    } finally { setBusyLine(null); }
+  // A queued approval the server refused: the error stays on its row, with the review to reopen
+  const [failedLines, setFailedLines] = useState<Record<string, { text: string; reopen?: () => void }>>({});
+  const rowQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const queuedLines = useRef(new Set<string>());
+  const finishedLines = useRef<string[]>([]);
+  // The page's filters may change while the queue runs: the reload uses the current ones
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const withoutKey = <T,>(record: Record<string, T>, key: string) => { const next = { ...record }; delete next[key]; return next; };
+  const rowLocked = (row: any) => !!rowJobs[row._id] || !!doneLines[row._id];
+  const runInRow = (lineId: string, action: () => Promise<any>, text: (res: any) => string, reopen?: (err: any) => void): Promise<boolean> => {
+    if (queuedLines.current.has(lineId)) return Promise.resolve(false);
+    queuedLines.current.add(lineId);
+    setRowJobs((current) => ({ ...current, [lineId]: 'waiting' }));
+    setFailedLines((current) => withoutKey(current, lineId));
+    const job = rowQueue.current.then(async () => {
+      if (!mounted.current) return false;
+      setRowJobs((current) => ({ ...current, [lineId]: 'running' }));
+      let ok = false;
+      try {
+        const res = await action();
+        setDoneLines((current) => ({ ...current, [lineId]: text(res.data) }));
+        finishedLines.current.push(lineId);
+        ok = true;
+      } catch (err: any) {
+        setMessage({ type: 'error', text: errorText(err) });
+        setFailedLines((current) => ({ ...current, [lineId]: { text: errorText(err), reopen: reopen && (() => reopen(err)) } }));
+      }
+      queuedLines.current.delete(lineId);
+      setRowJobs((current) => withoutKey(current, lineId));
+      // Reloaded once the queue is empty, not after each line (the suggestions are slow), and without
+      // holding the next approval back
+      if (!queuedLines.current.size && mounted.current) {
+        const finished = finishedLines.current.splice(0);
+        loadRef.current({ quiet: true }).then(() => {
+          setTimeout(() => setDoneLines((current) => finished.reduce((next, id) => withoutKey(next, id), current)), 6000);
+        });
+      }
+      return ok;
+    });
+    rowQueue.current = job;
+    return job;
   };
+  const queueSize = Object.keys(rowJobs).length;
   const run = async (action: () => Promise<any>, text: (res: any) => string, onError?: (err: any) => void) => {
     try {
       const res = await action();
@@ -507,19 +538,30 @@ const BankReconciliation = () => {
       setEntryFor({ ...entryFor, error: 'راجع الفاتورة الموجودة، أو أكد أنها عملية مستقلة مع سبب واضح من 10 أحرف على الأقل.' });
       return;
     }
-    setEntryFor({ ...entryFor, error: '' });
-    setReviewSaving(true);
-    try {
-    const ok = await run(() => postLine(line, { ...input, ...routed,
+    const review = { ...entryFor, error: '' };
+    setEntryFor(null);
+    runInRow(line._id, () => postLine(line, { ...input, ...routed,
       billId: input.billAccepted ? input.billId : undefined,
       ...(input.billAccepted && { counterAccountId: undefined, link: undefined }),
-      ...(entryFor.costDuplicatePreview && entryFor.independentCost && { duplicateDecision: 'independent', duplicateReason: entryFor.duplicateReason.trim(), duplicateFingerprint: entryFor.costDuplicatePreview.fingerprint }),
+      ...(review.costDuplicatePreview && review.independentCost && { duplicateDecision: 'independent', duplicateReason: review.duplicateReason.trim(), duplicateFingerprint: review.costDuplicatePreview.fingerprint }),
       office: input.office || undefined }), () => input.billAccepted ? 'سُجّل السداد على الفاتورة الأصلية دون إنشاء فاتورة جديدة.' : 'أُنشئ القيد.',
-      (err: any) => setEntryFor((current: any) => ({ ...current, error: errorText(err),
-        ...(err.response?.data?.costDuplicatePreview && { costDuplicatePreview: err.response.data.costDuplicatePreview, independentCost: false, duplicateReason: '' }) })));
-    if (ok) setEntryFor(null);
-    } finally { setReviewSaving(false); }
+      (err: any) => setEntryFor({ ...review, error: errorText(err),
+        ...(err.response?.data?.costDuplicatePreview && { costDuplicatePreview: err.response.data.costDuplicatePreview, independentCost: false, duplicateReason: '' }) }));
   };
+  // The review of a line closes at once and its approval waits its turn in the queue; a refusal
+  // reopens the same review with the server's message
+  const queueReview = (action: () => Promise<any>, text: (res: any) => string, reopenWith: (err: any) => any = () => ({})) => {
+    const review = { ...entryFor, error: '' };
+    setEntryFor(null);
+    runInRow(review.line._id, action, text, (err: any) => setEntryFor({ ...review, error: errorText(err), ...reopenWith(err) }));
+  };
+  // A purchase or refund review reopened on the same choice, with the earlier costs the server listed
+  const pickerRetry = (selected: any, err: any) => ({
+    ...(selected?.billId && { billId: selected.billId }),
+    ...(selected?.itemId && { itemId: selected.itemId }),
+    ...(selected?.refundId && { refundId: selected.refundId }),
+    retryDuplicate: err.response?.data?.costDuplicatePreview ? { preview: err.response.data.costDuplicatePreview, selectedId: selected?._id } : undefined,
+  });
 
   const money = (value: number) => <Money value={value} currency={currency} decimals={decimals} />;
 
@@ -722,6 +764,8 @@ const BankReconciliation = () => {
         subtitle="ارفع كشف الحساب Excel أو PDF. ما هو مسجل في الدفاتر يُطابق تلقائياً، والباقي يُرحَّل إلى حسابه. السطر المستورد من قبل لا يُستورد مرتين، والسطر الذي أدخلته يدوياً لا يُسجَّل مرة ثانية."
       />
       {message && <Alert severity={message.type} className="mb-3" onClose={() => setMessage(null)}>{message.text}</Alert>}
+      {queueSize > 0 && <Alert severity="info" className="mb-3">
+        {queueSize === 1 ? 'يُعتمد سطر واحد الآن' : `${queueSize} سطور تُعتمد بالتسلسل`}. تابع مراجعة السطور الأخرى؛ تُحدَّث الصفحة عند انتهائها.</Alert>}
       {hintsError && <Alert severity="warning" className="mb-3" action={<Button color="inherit" size="small" disabled={isLoading} onClick={() => load()}>إعادة المحاولة</Button>}>{hintsError}</Alert>}
       <BankImportProgress state={importProgress} onClose={closeImportProgress} onKeepWaiting={keepWaiting} />
       {settlingDuplicates && accountId && <BankDuplicateSettlement key={accountId} accountId={accountId} onClose={() => setSettlingDuplicates(false)} onDone={text => { setSettlingDuplicates(false); setMessage({ type: 'success', text }); load(); }} />}
@@ -890,11 +934,16 @@ const BankReconciliation = () => {
                       {row.counterAmount > 0 && !row.originalAmount && <Sub>الطرف المقابل: <Ltr>{row.counterAmount} {row.counterCurrency}</Ltr>{row.exchangeRate > 0 && <Sub>سعر العملية: <Ltr>{Number(row.exchangeRate).toFixed(6)} {currency === 'TRY' ? `TRY/${row.counterCurrency}` : `${row.counterCurrency}/${currency}`}</Ltr></Sub>}</Sub>}
                       {row.crossRate > 0 && <Sub>السعر المباشر: <Ltr>{Number(row.crossRate).toFixed(6)} {row.rateQuoteCurrency}/{row.rateBaseCurrency}</Ltr></Sub>}
                       {row.settlementUsd > 0 && <Sub>مقابل الدولار في الكشف: <Ltr>{row.settlementUsd} USD</Ltr></Sub>}
-                      {row.lineStatus === 'unmatched' && <div className={`acc-row-action${busyLine === row._id ? ' acc-row-action--busy' : ''}`} aria-busy={busyLine === row._id}>
-                        {busyLine === row._id && <LinearProgress className="acc-row-action__bar" color="success" />}
+                      {row.lineStatus === 'unmatched' && <div className={`acc-row-action${rowLocked(row) ? ' acc-row-action--busy' : ''}`} aria-busy={!!rowJobs[row._id]}>
+                        {rowJobs[row._id] === 'running' && <LinearProgress className="acc-row-action__bar" color="success" />}
                         {suggestionLine(row)}
                       </div>}
+                      {rowJobs[row._id] && <div className={`acc-row-queue acc-row-queue--${rowJobs[row._id]}`} role="status">
+                        {rowJobs[row._id] === 'running' ? 'جارٍ الاعتماد…' : 'في الطابور: يُعتمد بعد السطور السابقة'}</div>}
                       {doneLines[row._id] && <div className="acc-row-done" role="status"><Check size={15} strokeWidth={2.4} /> {doneLines[row._id]}</div>}
+                      {failedLines[row._id] && <Alert severity="error" className="mt-2" onClose={() => setFailedLines((current) => withoutKey(current, row._id))}
+                        action={failedLines[row._id].reopen && <Button color="inherit" size="small" onClick={() => { const reopen = failedLines[row._id].reopen; setFailedLines((current) => withoutKey(current, row._id)); reopen?.(); }}>فتح المراجعة</Button>}>
+                        لم يُعتمد: {failedLines[row._id].text}</Alert>}
                       {row.lineStatus === 'unmatched' && !row.duplicateReviewPending && <MatchQuality quality={hint?.matchQuality} />}
                       {row.matchGroupId && <Sub>مطابقة مجموعة — فك الربط يعيد المجموعة كاملة للمراجعة</Sub>}
                       {row.duplicateResolvedToId && <Button size="small" onClick={() => setDetailsId(row.duplicateResolvedToId)}>نسخة مكررة — فتح السطر الأصلي</Button>}
@@ -914,11 +963,11 @@ const BankReconciliation = () => {
               {
                 key: 'actions', header: '', align: 'end', render: (row: any) => (
                   <div className="acc-row-actions">
-                    {row.lineStatus === 'unmatched' && <Button size="small" variant="contained" disableElevation className="acc-row-actions__main"
+                    {row.lineStatus === 'unmatched' && <Button size="small" variant="contained" disableElevation className="acc-row-actions__main" disabled={rowLocked(row)}
                       onClick={() => row.walletImpact === 'unknown' ? setDetailsId(row._id) : openEntry(row)}>{row.walletImpact === 'unknown' ? 'تأكيد حساب الاستلام' : 'مراجعة واعتماد'}</Button>}
                     {row.lineStatus === 'unmatched' && (row.walletImpact !== 'unknown' || coverable(row)) && <div className="acc-row-actions__group">
-                      {row.walletImpact !== 'unknown' && <Tooltip title="سجّل المبلغ الآن في حساب انتظار حتى تعرف الطلبية أو الرحلة أو صاحب المال"><Button size="small" color="warning" onClick={() => setParkFor(row)}>لا أعرف بعد</Button></Tooltip>}
-                      {coverable(row) && <Tooltip title="المال تحرك قبل الجرد ورصيد الجرد يشمله: يُغلق السطر بدون قيد"><Button size="small" onClick={() => setCoverFor(row)}>حصلت قبل الجرد</Button></Tooltip>}
+                      {row.walletImpact !== 'unknown' && <Tooltip title="سجّل المبلغ الآن في حساب انتظار حتى تعرف الطلبية أو الرحلة أو صاحب المال"><span><Button size="small" color="warning" disabled={rowLocked(row)} onClick={() => setParkFor(row)}>لا أعرف بعد</Button></span></Tooltip>}
+                      {coverable(row) && <Tooltip title="المال تحرك قبل الجرد ورصيد الجرد يشمله: يُغلق السطر بدون قيد"><span><Button size="small" disabled={rowLocked(row)} onClick={() => setCoverFor(row)}>حصلت قبل الجرد</Button></span></Tooltip>}
                     </div>}
                     <div className="acc-row-actions__group acc-row-actions__group--quiet">
                       <Button size="small" color="inherit" onClick={() => setDetailsId(row._id)}>التفاصيل</Button>
@@ -1214,13 +1263,9 @@ const BankReconciliation = () => {
             {entryFor.mode === 'financial_operation' && <BankFinancialOperation line={entryFor.line} currency={currency} onDone={() => { setEntryFor(null); load(); }} />}
             {entryFor.mode === 'pending_refund' && <>
               <Alert severity="info">سيُسجل استلام البنك مقابل حساب 219100 «استردادات موردين قيد التحديد». عند تحديد الطلبية، اختر هذا المبلغ من نموذج الريفاند لتسوية المعلّق وإضافة مبلغ العميل دون استلام البنك مرة ثانية.</Alert>
-              <Button className="mt-3" variant="contained" disabled={reviewSaving} onClick={async () => {
-                setReviewSaving(true);
-                try {
-                  await acc.post(`bank/lines/${entryFor.line._id}/entry`, { pendingRefund: true });
-                  setEntryFor(null); await load();
-                } catch (err) { setEntryFor({ ...entryFor, error: errorText(err) }); }
-                finally { setReviewSaving(false); }
+              <Button className="mt-3" variant="contained" disabled={reviewSaving} onClick={() => {
+                const lineId = entryFor.line._id;
+                queueReview(() => acc.post(`bank/lines/${lineId}/entry`, { pendingRefund: true }), () => 'رُحّل إلى الاستردادات قيد التحديد.');
               }}>ترحيل إلى الاستردادات قيد التحديد</Button>
             </>}
             {entryFor.mode === 'refund' && <PurchaseMatchPicker embedded open refund accountId={accountId} line={entryFor.line}
@@ -1228,20 +1273,25 @@ const BankReconciliation = () => {
               suggestedRefundId={entryFor.refundId || suggested[entryFor.line._id]?.suggestedRefundId}
               suggestedRefundLineId={suggested[entryFor.line._id]?.suggestedRefundLineId}
               paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency} bankName={account?.name} onBusyChange={setReviewSaving}
-              onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
-                await acc.post(`bank/lines/${entryFor.line._id}/refund-match`, { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId });
-                setEntryFor(null); setMessage({ type: 'success', text: selected.kind === 'legacy_wallet_link' ? WALLET_REFUND_LINK_MESSAGE : 'اعتُمد الاسترداد وربط بالعملية الأصلية دون تكرار.' }); await load();
+              retryDuplicate={entryFor.retryDuplicate}
+              onClose={() => setEntryFor(null)} onConfirm={(selected: any, options: any) => {
+                const lineId = entryFor.line._id;
+                queueReview(() => acc.post(`bank/lines/${lineId}/refund-match`, { ...options, kind: selected.kind, billId: selected.billId, refundId: selected.refundId }),
+                  () => selected.kind === 'legacy_wallet_link' ? WALLET_REFUND_LINK_MESSAGE : 'اعتُمد الاسترداد وربط بالعملية الأصلية دون تكرار.',
+                  (err: any) => pickerRetry(selected, err));
               }} />}
             {['purchase', 'historical_settlement'].includes(entryFor.mode) && <PurchaseMatchPicker embedded open settlementOnly={entryFor.mode === 'historical_settlement'} accountId={accountId} line={entryFor.line}
               paid={Math.abs(entryFor.line.amount) / 10 ** decimals} currency={currency}
               bankName={account?.name}
               suggestedBillId={entryFor.mode === 'historical_settlement' ? undefined : entryFor.billId || suggested[entryFor.line._id]?.billCandidates?.[0]?._id}
-              suggestedItemId={entryFor.mode === 'historical_settlement' ? undefined : suggested[entryFor.line._id]?.link?.itemId} onBusyChange={setReviewSaving}
-              onClose={() => setEntryFor(null)} onConfirm={async (selected: any, options: any) => {
-                await acc.post(`bank/lines/${entryFor.line._id}/purchase-match`, { ...options, kind: selected.kind, billId: selected.billId,
+              suggestedItemId={entryFor.mode === 'historical_settlement' ? undefined : entryFor.itemId || suggested[entryFor.line._id]?.link?.itemId} onBusyChange={setReviewSaving}
+              retryDuplicate={entryFor.retryDuplicate}
+              onClose={() => setEntryFor(null)} onConfirm={(selected: any, options: any) => {
+                const lineId = entryFor.line._id;
+                queueReview(() => acc.post(`bank/lines/${lineId}/purchase-match`, { ...options, kind: selected.kind, billId: selected.billId,
                   orderId: selected.orderId, itemId: selected.itemId, confirmDifference: !!options.confirmDifference, confirmMerchant: !!options.confirmMerchant,
-                  historicalSettlement: !!options.historicalSettlement, confirmHistoricalSettlement: !!options.confirmHistoricalSettlement, confirmTripDifference: !!options.confirmTripDifference });
-                setEntryFor(null); setMessage({ type: 'success', text: 'اعتُمدت المطابقة وسُجّل السداد دون تكرار التكلفة.' }); await load();
+                  historicalSettlement: !!options.historicalSettlement, confirmHistoricalSettlement: !!options.confirmHistoricalSettlement, confirmTripDifference: !!options.confirmTripDifference }),
+                () => 'اعتُمدت المطابقة وسُجّل السداد دون تكرار التكلفة.', (err: any) => pickerRetry(selected, err));
               }} />}
             {entryFor.mode === 'cover' && count && <Box sx={{ maxWidth: 520 }}>
               <CoverBeforeCount line={entryFor.line} count={count} amount={money(Math.abs(entryFor.line.amount))} onCancel={() => setEntryFor(null)}
@@ -1365,14 +1415,11 @@ const BankReconciliation = () => {
           }}>ليست أي منها</Button>
           <span>
             <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
-            <Button variant="contained" disabled={reviewSaving || entryFor.choice == null} onClick={async () => {
+            <Button variant="contained" disabled={reviewSaving || entryFor.choice == null} onClick={() => {
               const option = suggested[entryFor.line._id]?.combinations?.[entryFor.choice];
               if (reviewSaving || !option) return;
-              setReviewSaving(true);
-              try {
-                if (await run(() => acc.post(`bank/lines/${entryFor.line._id}/match`, { entryIds: option.entries.map((e: any) => e._id) }), () => `طوبق السطر مع ${option.entries.length} عمليات دون إنشاء قيد جديد.`,
-                  (err: any) => setEntryFor((current: any) => ({ ...current, error: errorText(err) })))) setEntryFor(null);
-              } finally { setReviewSaving(false); }
+              const lineId = entryFor.line._id;
+              queueReview(() => acc.post(`bank/lines/${lineId}/match`, { entryIds: option.entries.map((e: any) => e._id) }), () => `طوبق السطر مع ${option.entries.length} عمليات دون إنشاء قيد جديد.`);
             }}>اعتماد المطابقة</Button>
           </span>
         </DialogActions>}
@@ -1380,11 +1427,9 @@ const BankReconciliation = () => {
           <Button disabled={reviewSaving} onClick={() => setEntryFor(null)}>إلغاء</Button>
           <Button variant="contained" disabled={reviewSaving || !entryFor.selected.length || (data?.unmatchedMovements || []).filter((m: any) => entryFor.selected.includes(m._id)).reduce((sum: number, m: any) => sum + m.amount, 0) !== entryFor.line.amount} onClick={async () => {
             if (reviewSaving) return;
-            setReviewSaving(true);
-            try {
-              if (await run(() => acc.post(`bank/lines/${entryFor.line._id}/match`, { entryIds: entryFor.selected }), () => 'تمت المطابقة دون إنشاء قيد جديد.',
-                (err: any) => setEntryFor((current: any) => ({ ...current, error: errorText(err) })))) setEntryFor(null);
-            } finally { setReviewSaving(false); }
+            const lineId = entryFor.line._id;
+            const entryIds = entryFor.selected;
+            queueReview(() => acc.post(`bank/lines/${lineId}/match`, { entryIds }), () => 'تمت المطابقة دون إنشاء قيد جديد.');
           }}>موافقة على المطابقة</Button>
         </DialogActions>}
       </Dialog>

@@ -1117,6 +1117,17 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: none; }
 }
+// A line whose approval waits its turn in the queue, or is running now
+.acc-row-queue {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  &--waiting { background: #f2f4f7; color: #475467; }
+  &--running { background: #e6f4ef; color: #14634f; font-weight: 600; }
+}
 @media (prefers-reduced-motion: reduce) {
   .acc-row-done { animation: none; }
   .acc-row-action { transition: none; }
