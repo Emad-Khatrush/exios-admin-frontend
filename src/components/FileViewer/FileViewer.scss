@@ -50,10 +50,13 @@
 }
 
 .fv__stage { position: relative; min-height: 0; background: var(--fv-stage); overflow: hidden; }
+// The slide has a fixed size (the stage minus its margins): what is inside is measured against it,
+// so an image can never be taller than what is shown and get cut off
 .fv__slide {
-  position: absolute; inset: 0; display: grid; place-items: center; padding: 20px 64px;
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 28px 76px;
   animation: fv-in 0.32s var(--fv-ease) both;
-  @media (max-width: 640px) { padding: 12px; }
+  > * { min-width: 0; min-height: 0; }
+  @media (max-width: 640px) { padding: 12px 8px; }
 }
 @keyframes fv-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
 
@@ -71,17 +74,35 @@
   @media (max-width: 640px) { width: 38px; height: 38px; &--prev { right: 6px; } &--next { left: 6px; } }
 }
 
-// Image: fits the stage; a click shows it at full size and lets it scroll
+// Image. "fit": the whole image inside the slide (turned or not). "width": the image fills the width
+// and the slide scrolls down over the rest. The slide is a size container: 100cqw/100cqh are its width
+// and height, so a turned image swaps them.
 .fv-image {
-  position: relative; width: 100%; height: 100%; display: grid; place-items: center; cursor: zoom-in;
+  position: relative; width: 100%; height: 100%; container-type: size; cursor: zoom-in;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
   img {
-    max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px;
-    opacity: 0; transition: opacity 0.35s var(--fv-ease);
+    display: block; border-radius: 10px; opacity: 0;
+    transition: opacity 0.35s var(--fv-ease), transform 0.3s var(--fv-ease);
     &.is-ready { opacity: 1; }
   }
-  &.is-zoomed {
-    cursor: zoom-out; overflow: auto; place-items: start center;
-    img { max-width: none; max-height: none; }
+
+  &.is-fit {
+    .fv-box { display: contents; }
+    img { max-width: 100cqw; max-height: 100cqh; object-fit: contain; transform: rotate(var(--fv-turn, 0deg)); }
+    &.is-sideways img { max-width: 100cqh; max-height: 100cqw; }
+  }
+
+  &.is-width {
+    display: block; overflow-x: hidden; overflow-y: auto; cursor: zoom-out; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+    // A box with the image's on-screen shape: full width, its height from the shape
+    .fv-box { position: relative; width: 100%; aspect-ratio: var(--fv-vr, 1); }
+    img {
+      position: absolute; top: 50%; left: 50%; width: 100%; height: 100%;
+      transform: translate(-50%, -50%) rotate(var(--fv-turn, 0deg));
+    }
+    // Turned a quarter: the image lies across the box, so its own width is the box's height
+    &.is-sideways img { width: calc(100cqw * var(--fv-r, 1)); height: 100cqw; }
   }
 }
 .fv-frame {

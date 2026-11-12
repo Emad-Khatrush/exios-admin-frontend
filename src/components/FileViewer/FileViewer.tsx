@@ -14,6 +14,9 @@ import AudioFileOutlined from '@mui/icons-material/AudioFileOutlined';
 import TableChartOutlined from '@mui/icons-material/TableChartOutlined';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
+import ZoomInRounded from '@mui/icons-material/ZoomInRounded';
+import ZoomOutRounded from '@mui/icons-material/ZoomOutRounded';
+import RotateRightRounded from '@mui/icons-material/RotateRightRounded';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import api from '../../api';
 import './FileViewer.scss';
@@ -106,19 +109,28 @@ function FileCard({ file, note }: { file: ViewerFile; note?: string }) {
   );
 }
 
-function Stage({ file }: { file: ViewerFile }) {
+// An image is shown whole by default ("fit"); "width" fills the width and scrolls down for the rest
+type ImageView = { mode: 'fit' | 'width'; turn: number };
+
+function Stage({ file, view, onToggle }: { file: ViewerFile; view: ImageView; onToggle: () => void }) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [zoomed, setZoomed] = useState(false);
-  useEffect(() => { setState('loading'); setZoomed(false); }, [file.url]);
+  const [ratio, setRatio] = useState(1);
+  useEffect(() => { setState('loading'); setRatio(1); }, [file.url]);
 
   if (!file.url) return <FileCard file={file} note="لا يوجد رابط لهذا الملف." />;
   if (file.kind === 'image') {
     if (state === 'error') return <FileCard file={file} note="تعذّر عرض الصورة هنا. افتحها في نافذة أو حمّلها." />;
+    const sideways = view.turn % 180 !== 0;
     return (
-      <div className={`fv-image ${zoomed ? 'is-zoomed' : ''}`} onClick={() => state === 'ready' && setZoomed(z => !z)}>
+      <div className={`fv-image is-${view.mode} ${sideways ? 'is-sideways' : ''}`} onClick={() => state === 'ready' && onToggle()}
+        title={view.mode === 'fit' ? 'انقر لملء العرض والنزول بالتمرير' : 'انقر لعرض الصورة كاملة'}>
         {state === 'loading' && <div className="fv-skeleton" />}
-        <img src={file.url} alt={file.name} className={state === 'ready' ? 'is-ready' : ''}
-          onLoad={() => setState('ready')} onError={() => setState('error')} />
+        {/* The box takes the shape the image has on screen (turned or not), so the page scrolls over all of it */}
+        <div className="fv-box" style={{ '--fv-turn': `${view.turn}deg`, '--fv-r': ratio, '--fv-vr': sideways ? 1 / ratio : ratio } as React.CSSProperties}>
+          <img src={file.url} alt={file.name} className={state === 'ready' ? 'is-ready' : ''}
+            onLoad={(e) => { const img = e.currentTarget; if (img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight); setState('ready'); }}
+            onError={() => setState('error')} />
+        </div>
       </div>
     );
   }
@@ -162,6 +174,9 @@ export default function FileViewer({ open, files, onClose, startIndex = 0 }: Pro
   }, [open, count, go]);
 
   const file = items[index];
+  const [view, setView] = useState<ImageView>({ mode: 'fit', turn: 0 });
+  useEffect(() => setView({ mode: 'fit', turn: 0 }), [file?.url]);
+  const toggleView = () => setView(v => ({ ...v, mode: v.mode === 'fit' ? 'width' : 'fit' }));
   return (
     <Dialog open={open && !!count} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ className: 'fv' }}>
       {file && (
@@ -176,6 +191,12 @@ export default function FileViewer({ open, files, onClose, startIndex = 0 }: Pro
             </div>
             <div className="fv__tools">
               {count > 1 && <bdi className="fv__count">{index + 1} / {count}</bdi>}
+              {file.kind === 'image' && <>
+                <Tooltip title={view.mode === 'fit' ? 'ملء العرض (النزول بالتمرير)' : 'عرض الصورة كاملة'}>
+                  <IconButton className="fv__icon" onClick={toggleView}>{view.mode === 'fit' ? <ZoomInRounded /> : <ZoomOutRounded />}</IconButton>
+                </Tooltip>
+                <Tooltip title="تدوير"><IconButton className="fv__icon" onClick={() => setView(v => ({ ...v, turn: (v.turn + 90) % 360 }))}><RotateRightRounded /></IconButton></Tooltip>
+              </>}
               <Tooltip title="تحميل"><IconButton className="fv__icon" onClick={() => download(file)}><FileDownloadOutlined /></IconButton></Tooltip>
               <Tooltip title="فتح في نافذة جديدة"><IconButton className="fv__icon" component="a" href={file.url} target="_blank" rel="noopener noreferrer"><OpenInNewRounded /></IconButton></Tooltip>
               <Tooltip title="إغلاق"><IconButton className="fv__icon" onClick={onClose}><CloseRounded /></IconButton></Tooltip>
@@ -183,7 +204,7 @@ export default function FileViewer({ open, files, onClose, startIndex = 0 }: Pro
           </header>
 
           <main className="fv__stage">
-            <div className="fv__slide" key={`${index}:${file.url}`}><Stage file={file} /></div>
+            <div className="fv__slide" key={`${index}:${file.url}`}><Stage file={file} view={view} onToggle={toggleView} /></div>
             {count > 1 && <>
               <button type="button" className="fv__nav fv__nav--prev" aria-label="السابق" onClick={() => go(-1)}><ChevronRightRounded /></button>
               <button type="button" className="fv__nav fv__nav--next" aria-label="التالي" onClick={() => go(1)}><ChevronLeftRounded /></button>
