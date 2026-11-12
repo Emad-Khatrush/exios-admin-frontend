@@ -7,7 +7,7 @@ import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { useBulk } from './bulk';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
-import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, readSheet, rowsFrom } from './bankImport';
+import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, kuveytCardRows, readSheet, rowsFrom } from './bankImport';
 import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 import PurchaseMatchPicker from './PurchaseMatchPicker';
 import BankFinancialOperation from './BankFinancialOperation';
@@ -53,6 +53,9 @@ type Preview = {
   choices: Record<number, Choice>
   alipay?: boolean
   excluded?: AlipayExcludedRow[]
+  // Days this account's statement already holds (a Kuveyt card export overlapping the PDF): left out
+  coveredRange?: { from: string, to: string } | null
+  kuveyt?: boolean
 }
 
 // `link`: the purchase cost typed on an order that this line paid (kept while its account is unchanged)
@@ -300,7 +303,15 @@ const BankReconciliation = () => {
         const { headerRow, mapping } = detect(cells);
         const alipay = alipayRows(cells, headerRow);
         if (alipay && currency !== 'CNY') throw new Error('هذا كشف Alipay باليوان؛ اختر حساب Alipay بعملة CNY أولاً');
-        setPreview({ fileName: file.name, kind: 'sheet', cells, headerRow, mapping, rows: alipay?.rows || rowsFrom(cells, headerRow, mapping), alipay: !!alipay, excluded: alipay?.excluded, skip: new Set(), flip: new Set(), creditCard: false, flipAll: false, choices: {} });
+        // A Kuveyt Türk card export: signs from the kind of line. Its days already on this account (read
+        // from the PDF statement, worded differently) are left out so they are not counted twice.
+        const kuveytCard = !alipay && kuveytCardRows(cells);
+        if (kuveytCard && (account?.type !== 'liability' || currency !== 'TRY')) throw new Error('هذا كشف بطاقة كويت ترك بالليرة؛ اختر حساب البطاقة نفسها (التزام بالليرة) أولاً');
+        const rows = kuveytCard ? kuveytCard.rows : alipay?.rows || rowsFrom(cells, headerRow, mapping);
+        const covered = kuveytCard ? (await acc.get('bank/statement-range', { accountId })).data : null;
+        const skip = new Set<number>(covered?.from ? rows.map((row, index) => (row.day >= covered.from && row.day <= covered.to ? index : -1)).filter(index => index >= 0) : []);
+        setPreview({ fileName: file.name, kind: 'sheet', cells, headerRow, mapping, rows, alipay: !!alipay, excluded: alipay?.excluded, skip, flip: new Set(), creditCard: false, flipAll: false, choices: {},
+          ...(kuveytCard && { kuveyt: true, cardNumber: kuveytCard.cardNumber, coveredRange: covered?.from ? covered : null }) });
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.response ? errorText(err) : `تعذّرت قراءة الملف: ${err.message}` });
@@ -1075,9 +1086,10 @@ const BankReconciliation = () => {
             {preview.creditCard && <Alert severity="warning" className="mb-3">هذا كشف بطاقة ائتمان: المشتريات فيه موجبة والسداد سالب، فعُكست الإشارات لتصبح المشتريات صادرة (سالبة) وسداد البطاقة وارداً (موجباً). اختر في الحساب أعلاه حساب البطاقة نفسها.</Alert>}
             {preview.statementCurrency && account?.currency !== preview.statementCurrency && <Alert severity="error" className="mb-3">عملة الكشف {preview.statementCurrency}، بينما الحساب المحدد {account?.currency || 'غير محدد'}. اختر حساب Garanti بالعملة المطابقة قبل الاستيراد؛ لا تخلط رصيد الدولار والليرة في حساب واحد.</Alert>}
             {preview.creditCard && preview.statementCurrency && account?.currency === preview.statementCurrency && <Alert severity="info" className="mb-3">كشف Garanti للبطاقة المنتهية بـ {preview.cardNumber?.slice(-4) || '—'} بعملة التسوية {preview.statementCurrency}. ستُراجع المشتريات والريفاندات مع الفواتير وإشعاراتها الدائنة قبل اعتماد الترحيل.</Alert>}
-            {!preview.alipay && <FormControlLabel className="mb-2" control={<Checkbox size="small" checked={preview.flipAll} onChange={(e) => { setPurchaseReview(null); setPreview({ ...preview, flipAll: e.target.checked, choices: {} }); }} />} label="عكس إشارة كل السطور (كشوف بطاقات الائتمان)" />}
+            {!preview.alipay && !preview.kuveyt && <FormControlLabel className="mb-2" control={<Checkbox size="small" checked={preview.flipAll} onChange={(e) => { setPurchaseReview(null); setPreview({ ...preview, flipAll: e.target.checked, choices: {} }); }} />} label="عكس إشارة كل السطور (كشوف بطاقات الائتمان)" />}
             {preview.kind === 'pdf' && <Alert severity="info" className="mb-3">قُرئ الكشف من ملف PDF. راجع الإشارات: الوارد موجب والصادر سالب. غيّر إشارة أي سطر بزر السهم، واستبعد ما ليس حركة.</Alert>}
-            {preview.kind === 'sheet' && !preview.alipay && (
+            {preview.kuveyt && <Alert severity="info" className="mb-3">كشف بطاقة كويت ترك (Excel) للبطاقة المنتهية بـ <Ltr>{preview.cardNumber?.slice(-4)}</Ltr>. المبالغ فيه كلها موجبة، فحُددت الإشارة من نوع السطر: المشتريات صادرة، و«Kredi Kartı Borç Ödeme» سداد وارد، والاسترداد (أميال سالبة) وارد. {preview.coveredRange ? <>الأيام من <Ltr>{preview.coveredRange.from}</Ltr> إلى <Ltr>{preview.coveredRange.to}</Ltr> مرفوعة مسبقاً لهذا الحساب فاستُبعدت سطورها ({preview.skip.size}) حتى لا تتكرر.</> : null}</Alert>}
+            {preview.kind === 'sheet' && !preview.alipay && !preview.kuveyt && (
               <div className="acc-bank-map">
                 <TextField select size="small" label="صف العناوين" value={preview.headerRow} onChange={(e) => remap({ headerRow: Number(e.target.value), mapping: detect(preview.cells!.slice(Number(e.target.value))).mapping })}>
                   {preview.cells!.slice(0, 30).map((row, index) => <MenuItem key={index} value={index}>{index + 1}: {row.filter(Boolean).slice(0, 4).join(' | ')}</MenuItem>)}

@@ -154,6 +154,37 @@ export const detect = (cells: any[][]): { headerRow: number, mapping: Mapping } 
 
 export type AlipayExcludedRow = { day: string, reference: string, description: string, reason: string };
 
+// Kuveyt Türk card "Toplu Ekstre" (Excel): every amount is written positive ("25000.00 TL"), payments
+// and refunds included. The kind of line tells the direction, as on the card account (purchase out,
+// payment in): "Kredi Kartı Borç Ödeme" is a payment; a merchant refund has negative miles in
+// "Mil/ Altın Puan" (-424 for a 13.473,77 TL refund); "fazla bakiye iadesi" (credit sent back to the
+// current account) and "Ödeme İptali" (a payment undone) raise the debt again. Checked on the
+// owner's 2026 file: October gives the bank's 30-10 debt (229,32 TL) to the kuruş.
+export const kuveytCardRows = (cells: any[][]): { rows: StatementRow[], cardNumber: string } | null => {
+  const top = cells.slice(0, 8).map(row => (row || []).map(value => String(value).trim()));
+  const cardNumber = top.find(row => /^Kart Numaras/i.test(row[0]))?.[1] || '';
+  const headerRow = cells.findIndex((row, index) => index < 15 && (row || []).some(v => /^İşlem Tarihi$/i.test(String(v).trim())) && (row || []).some(v => /Mil\s*\/?\s*Altın Puan/i.test(String(v))));
+  if (!cardNumber || headerRow < 0) return null;
+  const headers = cells[headerRow].map((value: any) => String(value).trim());
+  const col = (pattern: RegExp) => headers.findIndex((h: string) => pattern.test(h));
+  const [date, description, amount, miles] = [col(/^İşlem Tarihi$/i), col(/^Açıklama$/i), col(/^Tutar$/i), col(/Mil\s*\/?\s*Altın Puan/i)];
+  if ([date, description, amount, miles].some(i => i < 0)) return null;
+  const rows: StatementRow[] = [];
+  for (const row of cells.slice(headerRow + 1)) {
+    const day = toDay(row?.[date]);
+    const value = Math.abs(toNumber(row?.[amount]) || 0);
+    if (!day || !value) continue;
+    const text = String(row[description] ?? '').replace(/\s+/g, ' ').trim();
+    const refund = /^-/.test(String(row[miles] ?? '').trim());
+    const payment = /Borç Ödeme/i.test(text);
+    const debtBack = /fazla bakiye iadesi|Ödeme İptali/i.test(text);
+    const inward = payment || (refund && !debtBack);
+    rows.push({ day, description: text, reference: '', amount: inward ? value : -value, balanceAfter: null,
+      movementKind: payment ? 'card_payment' : inward ? 'purchase_refund' : 'purchase' });
+  }
+  return { rows, cardNumber };
+};
+
 // Alipay exports transactions, not a running wallet balance. In particular a refund may be
 // labelled 不计收支, and a bank-card purchase must not also reduce the Alipay wallet.
 export const alipayRows = (cells: any[][], headerRow: number): { rows: StatementRow[], excluded: AlipayExcludedRow[] } | null => {
