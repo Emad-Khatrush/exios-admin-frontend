@@ -16,7 +16,7 @@ import { apiErrorMessage } from '../../components/InvoiceForm/constants';
 import { InvoiceTemplate } from '../../components/InvoiceTemplate/InvoiceTemplate';
 import CreateDebtDialog from '../../components/DebtsPage/CreateDebtDialog';
 import EditInvoiceItems from '../../components/EditInvoiceItems/EditInvoiceItems';
-import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../../components/FileViewer/FileViewer';
 import { OrderAccounting, OrderCosts, OrderRefunds } from '../Accounting/AccountingPanels';
 import FreeShippingReview from '../Accounting/FreeShippingReview';
 import { sys } from '../Accounting/accountingApi';
@@ -679,14 +679,7 @@ export class EditInvoice extends Component<Props, State> {
           <EditInvoiceItems items={this.state.items} orderId={order._id} />
         </Dialog>
 
-        <Dialog open={!!this.state.previewImages} onClose={() => this.setState({ previewImages: undefined })}>
-          <DialogContent>
-            <SwipeableTextMobileStepper data={this.state.previewImages} />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => this.setState({ previewImages: undefined })}>Close</Button>
-          </DialogActions>
-        </Dialog>
+        <FileViewer open={!!this.state.previewImages} files={this.state.previewImages} onClose={() => this.setState({ previewImages: undefined })} />
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import { Box, Breadcrumbs, Button, Dialog, DialogActions, DialogContent, IconButton, Link, TextField, Typography } from '@mui/material';
+import { Box, Breadcrumbs, IconButton, Link, TextField, Typography } from '@mui/material';
 import Card from '../../components/Card/Card'
 import TextInput from '../../components/TextInput/TextInput'
 import CustomButton from '../../components/CustomButton/CustomButton';
@@ -19,7 +19,7 @@ import { GiShipBow } from 'react-icons/gi';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import DateRangePicker from '@mui/lab/DateRangePicker';
-import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../../components/FileViewer/FileViewer';
 import withRouter from '../../utils/WithRouter/WithRouter';
 import Badge from '../../components/Badge/Badge';
 import { Invoice, LocalTabs } from '../../models';
@@ -307,17 +307,7 @@ class Invoices extends Component<Props, State> {
             </Card>
           </div>
         </div>
-        <Dialog 
-          open={this.state.openImagesModal}
-          onClose={() => this.setState({ openImagesModal: false })}
-        >
-          <DialogContent>
-            <SwipeableTextMobileStepper data={this.state.selectedRowImages} />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => this.setState({ openImagesModal: false })} >Close</Button>
-          </DialogActions>
-        </Dialog>
+        <FileViewer open={!!this.state.openImagesModal} files={this.state.selectedRowImages} onClose={() => this.setState({ openImagesModal: false })} />
       </div>
     )
   }

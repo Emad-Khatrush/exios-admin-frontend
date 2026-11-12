@@ -374,6 +374,9 @@ const Employees = () => {
               <TextField type="month" label="الشهر" InputLabelProps={{ shrink: true }} value={salary.month} onChange={(e) => setSalary({ ...salary, month: e.target.value })} />
               <DayField label="تاريخ الصرف" InputLabelProps={{ shrink: true }} value={salary.day} onChange={(e) => setSalary({ ...salary, day: e.target.value })} />
             </div>
+            {!commissionPayment && salary.month && salary.day && salary.month < String(salary.day).slice(0, 7) && (
+              <Alert severity="info" className="mt-2">راتب شهر سابق: يُسجَّل مصروفه في آخر يوم من شهر <Ltr>{salary.month}</Ltr> كراتب مستحق، وفي تاريخ الصرف يُسدَّد المستحق من الخزينة فقط.</Alert>
+            )}
             <TextField select label="المكتب" value={salary.office} onChange={(e) => setSalary({ ...salary, office: e.target.value })} fullWidth className="mt-3">
               {offices.filter((o) => o.isActive).map((o) => <MenuItem key={o.code} value={o.code}>{o.name}</MenuItem>)}
             </TextField>

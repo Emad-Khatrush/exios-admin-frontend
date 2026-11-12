@@ -5,7 +5,7 @@ import { Building2, History, Info, Pencil, Trash2 } from "lucide-react"
 import api from "../../api"
 import { useParams } from "react-router-dom"
 import moment from "moment"
-import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper"
+import FileViewer, { toViewerFile } from '../../components/FileViewer/FileViewer';
 import { convertGoogleStorageUrl } from "../../utils/methods"
 import StatementReceipt from "./StatementReceipt"
 import EditStatementDialog from "./EditStatementDialog"
@@ -27,6 +27,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [previewImages, setPreviewImages] = useState<any>(undefined);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const isOutflow = statement?.calculationType === '-';
   const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
@@ -102,15 +103,21 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
             }
             {statement?.attachments?.length > 0 &&
               <AvatarGroup max={3} className="cashflow-row__attachments">
-                {statement.attachments.map((img: any) => (
-                  <Avatar
-                    key={img.filename}
-                    variant="rounded"
-                    alt={img.filename}
-                    src={convertGoogleStorageUrl(img.path)}
-                    onClick={() => setPreviewImages(statement.attachments)}
-                  />
-                ))}
+                {statement.attachments.map((img: any, i: number) => {
+                  const file = toViewerFile(img);
+                  return (
+                    <Avatar
+                      key={img.filename || i}
+                      variant="rounded"
+                      alt={file.name}
+                      title={file.name}
+                      src={file.kind === 'image' ? convertGoogleStorageUrl(img.path) : undefined}
+                      onClick={() => { setPreviewIndex(i); setPreviewImages(statement.attachments); }}
+                    >
+                      {file.kind !== 'image' && <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>{file.ext || 'file'}</span>}
+                    </Avatar>
+                  );
+                })}
               </AvatarGroup>
             }
           </div>
@@ -193,14 +200,7 @@ const PaymentDetails = ({ statement, canManage: canManageUser, onChanged, style 
         />
       }
 
-      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} startIndex={previewIndex} onClose={() => setPreviewImages(undefined)} />
     </>
   )
 }

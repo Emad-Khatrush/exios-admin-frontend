@@ -7,7 +7,7 @@ import InfoTable from "../../components/InfoTable/InfoTable";
 import { useEffect, useState } from "react";
 import api from "../../api";
 import { defaultColumns, generateDataToListType } from "./generateData";
-import SwipeableTextMobileStepper from "../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper";
+import FileViewer from '../../components/FileViewer/FileViewer';
 import Badge from "../../components/Badge/Badge";
 import PaymentForm from "./PaymentForm";
 import LocalizationProvider from "@mui/lab/LocalizationProvider";
@@ -172,14 +172,7 @@ const ReturnedPayments = () => {
         </div>
       </div>
 
-      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
 
       <Dialog open={createPaymentDialog}>
         <DialogContent>

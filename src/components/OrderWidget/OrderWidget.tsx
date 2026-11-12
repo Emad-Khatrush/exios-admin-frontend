@@ -1,4 +1,4 @@
-import { Alert, Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, Snackbar } from '@mui/material';
+import { Alert, Avatar, AvatarGroup, Snackbar } from '@mui/material';
 import { useState } from 'react';
 import { AiOutlineEdit } from 'react-icons/ai';
 import { Invoice } from '../../models';
@@ -6,7 +6,7 @@ import Badge from '../Badge/Badge';
 import BoxText from '../BoxText/BoxText';
 import Card from '../Card/Card';
 import CustomButton from '../CustomButton/CustomButton';
-import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../FileViewer/FileViewer';
 import moment from 'moment-timezone';
 
 import './OrderWidget.scss';
@@ -153,17 +153,7 @@ const OrderWidget = (props: Props) => {
               ))}
             </AvatarGroup>
 
-            <Dialog 
-              open={previewImages}
-              onClose={() => setPreviewImages(undefined)}
-            >
-              <DialogContent>
-                <SwipeableTextMobileStepper data={previewImages} />
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
-              </DialogActions>
-            </Dialog>
+            <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
 
           </div>
         </div>

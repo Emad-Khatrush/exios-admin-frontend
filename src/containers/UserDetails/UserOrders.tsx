@@ -23,7 +23,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
-import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../../components/FileViewer/FileViewer';
 import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
@@ -832,14 +832,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
         </Alert>
       </Snackbar>
 
-      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
     </div>
   );
 };

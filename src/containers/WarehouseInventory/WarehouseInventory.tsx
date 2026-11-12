@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Breadcrumbs, Button, Dialog, DialogActions, DialogContent, Link, Typography } from '@mui/material';
+import { Breadcrumbs, Dialog, Link, Typography } from '@mui/material';
 import moment from 'moment-timezone';
 import {
   AlertTriangle, Building2, CalendarClock, CheckCircle2, ClipboardCheck, Image as ImageIcon,
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../../api';
 import { useOffices } from '../../utils/useOffices';
-import SwipeableTextMobileStepper from '../../components/SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../../components/FileViewer/FileViewer';
 import ActivityDialog from '../../components/TransferOrdersList/ActivityDialog';
 import { calculateMinTotalPrice } from '../../utils/methods';
 import DeletePackageDialog from './DeletePackageDialog';
@@ -524,14 +524,7 @@ const WarehouseInventory = () => {
         }
       </div>
 
-      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
 
       <Dialog open={showDialog} onClose={() => setShowDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <ActivityDialog

@@ -21,7 +21,7 @@ import Badge from '../Badge/Badge';
 import ImageUploader from '../ImageUploader/ImageUploader';
 import FilesPreviewers from '../FilesPreviewers/FilesPreviewers';
 import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
-import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import FileViewer from '../FileViewer/FileViewer';
 import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
 import { LIBYAN_CITIES, ORIGIN_COUNTRIES, OrderKind, PACKAGE_STEPS, PURCHASE_CURRENCIES, SHIPMENT_METHODS, apiErrorMessage, toDate, unitForMethod } from './constants';
 import { Checkpoints, ComboField, NUMBER_INPUT, OrderKindPicker, RemoveRowButton, Section, SelectField, ToggleChip, blurOnWheel, formatMoney, packageFees, packageFigures, packageTotal, PackagesSummary, totalText } from './parts';
@@ -586,14 +586,7 @@ const InvoiceForm = (props: Props) => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!previewImages} onClose={() => setPreviewImages(undefined)}>
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
     </div>
   );
 };

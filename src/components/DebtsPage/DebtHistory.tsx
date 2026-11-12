@@ -4,8 +4,8 @@ import CreateDebtHistoryDialog from './CreateDebtHistoryDialog';
 import CloseDebtDialog from './CloseDebtDialog';
 import DeleteDebtDialog from './DeleteDebtDialog';
 import { useState } from 'react';
-import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Snackbar, TextField } from '@mui/material';
-import SwipeableTextMobileStepper from '../SwipeableTextMobileStepper/SwipeableTextMobileStepper';
+import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Snackbar, TextField } from '@mui/material';
+import FileViewer from '../FileViewer/FileViewer';
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import { convertGoogleStorageUrl } from '../../utils/methods';
@@ -332,17 +332,7 @@ const DebtHistory = (props: Props) => {
         </ol>
       }
 
-      <Dialog
-        open={!!previewImages}
-        onClose={() => setPreviewImages(undefined)}
-      >
-        <DialogContent>
-          <SwipeableTextMobileStepper data={previewImages} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewImages(undefined)} >Close</Button>
-        </DialogActions>
-      </Dialog>
+      <FileViewer open={!!previewImages} files={previewImages} onClose={() => setPreviewImages(undefined)} />
 
       <Dialog
         open={confirmOpen}
