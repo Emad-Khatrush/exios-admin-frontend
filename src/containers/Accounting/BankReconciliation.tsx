@@ -23,6 +23,7 @@ import { isBeforeCount, useCountDay } from '../../utils/useCountDay';
 import StatementCoverage from './StatementCoverage';
 import BankMatchingSettings, { MatchingSettings, readMatchingSettings } from './BankMatchingSettings';
 import BankDuplicateSettlement from './BankDuplicateSettlement';
+import HeldAccountLink from './HeldAccountLink';
 import LinkedWalletRefundInfo, { WALLET_REFUND_LINK_MESSAGE } from './LinkedWalletRefundInfo';
 import { batchTrialAvailable } from './BatchPaymentTrial';
 import { bankSourceTextOverride } from './bankSourceTextOverride';
@@ -114,6 +115,7 @@ const BankReconciliation = () => {
   const [to, setTo] = useState('');
   const [search, setSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [heldOpen, setHeldOpen] = useState(false);
   const loadVersion = useRef(0);
   useEffect(() => { const timer = window.setTimeout(() => setSearchQuery(search.trim()), 300); return () => window.clearTimeout(timer); }, [search]);
   const [message, setMessage] = useState<any>(null);
@@ -830,20 +832,39 @@ const BankReconciliation = () => {
         هذا الحساب مرتبط بمحفظة العميل <Ltr>{(account as any)?.walletCustomerCode || 'N999'}</Ltr>. عند رفع الكشف تُطابق الإيداعات تلقائيًا إذا تطابق المبلغ والتاريخ وكان هناك احتمال واحد فقط. الفروق والحالات المتشابهة تبقى للمراجعة، ولا تُضاف قيمة جديدة للمحفظة.
       </Alert>}
 
-      {accountId && data && (
+      {accountId && data && (() => {
+        // A guarantee the bank counts inside this balance (linked by the owner): the statement is
+        // compared with the bank plus the guarantee; the bank's own balance stays what can be spent
+        const held = data.heldAccount;
+        const heldNow = held ? held.balance.foreign : 0;
+        const heldAtStatement = held ? (held.atStatement || held.balance).foreign : 0;
+        const booksAtStatement = (data.bookBalanceAtStatement || data.bookBalance).foreign + heldAtStatement;
+        const differs = data.statementBalance != null && Math.abs(data.statementBalance - booksAtStatement) >= 0.005;
+        return (
         <StatGrid>
-          <Stat label="الرصيد الحالي في الدفاتر" value={money(data.bookBalance.foreign)} tone="accent" hint={data.bookBalanceAtStatement && data.bookBalanceAtStatement.foreign !== data.bookBalance.foreign
-            ? <>بتاريخ الكشف {data.statementBalanceDay}: {money(data.bookBalanceAtStatement.foreign)}</> : undefined} />
-          <Stat label="الرصيد حسب الكشف" value={data.statementBalance == null ? '-' : money(data.statementBalance)} tone={data.statementBalanceStatus === 'ambiguous' || (data.statementBalance != null && data.statementBalance !== (data.bookBalanceAtStatement || data.bookBalance).foreign) ? 'warn' : undefined}
-            hint={data.statementBalanceStatus === 'ambiguous' ? 'تسلسل أرصدة آخر يوم غير مكتمل أو متعارض؛ راجع الكشف.' : data.statementBalance != null ? <>
-              حتى {data.statementBalanceDay || 'آخر كشف'} · {data.statementBalance !== (data.bookBalanceAtStatement || data.bookBalance).foreign
-                ? <>فرق الدفاتر بنفس التاريخ: {money(data.statementBalance - (data.bookBalanceAtStatement || data.bookBalance).foreign)}</> : 'مطابق للدفاتر بنفس التاريخ'}
-            </> : 'الكشف لا يحتوي رصيدًا ختاميًا يمكن التحقق منه'} />
+          <Stat label="الرصيد الحالي في الدفاتر" value={money(data.bookBalance.foreign)} tone="accent" hint={<>
+            {data.bookBalanceAtStatement && data.bookBalanceAtStatement.foreign !== data.bookBalance.foreign && <>بتاريخ الكشف {data.statementBalanceDay}: {money(data.bookBalanceAtStatement.foreign)}</>}
+            {held && <Sub>+ ضمان <Ltr>{held.code}</Ltr>: {money(heldNow)} = {money(data.bookBalance.foreign + heldNow)}</Sub>}
+          </>} />
+          <Stat label="الرصيد حسب الكشف" value={data.statementBalance == null ? '-' : money(data.statementBalance)} tone={data.statementBalanceStatus === 'ambiguous' || differs ? 'warn' : undefined}
+            hint={<>
+              {data.statementBalanceStatus === 'ambiguous' ? 'تسلسل أرصدة آخر يوم غير مكتمل أو متعارض؛ راجع الكشف.' : data.statementBalance != null ? <>
+                حتى {data.statementBalanceDay || 'آخر كشف'} · {differs
+                  ? <>فرق الدفاتر{held ? ' مع الضمان' : ''} بنفس التاريخ: {money(data.statementBalance - booksAtStatement)}</> : held ? 'مطابق للدفاتر مع الضمان' : 'مطابق للدفاتر بنفس التاريخ'}
+              </> : 'الكشف لا يحتوي رصيدًا ختاميًا يمكن التحقق منه'}
+              <Sub>
+                <button type="button" className="acc-link-button acc-link" onClick={() => setHeldOpen(true)}>
+                  {held ? <>يشمل ضمان <Ltr>{held.code}</Ltr> {held.name} · تغيير</> : 'البنك يحتسب ضمانًا داخل الرصيد؟ اربطه'}
+                </button>
+              </Sub>
+            </>} />
           <Stat label="جاهز للترحيل" value={filter === 'unmatched' ? readyCount : '-'} hint={filter === 'unmatched' ? `من ${unmatchedCount} غير مطابق` : 'اعرض غير المطابق'} />
           <Stat label="لها مطابقة مقترحة" value={filter === 'unmatched' ? proposedCount : '-'} tone={proposedCount ? 'accent' : undefined} hint="✓ في سطورها أدناه" />
           <Stat label="قد يكون مكرراً" value={filter === 'unmatched' ? doubtCount : '-'} tone={doubtCount ? 'warn' : undefined} hint="له قيد بنفس المبلغ في الدفاتر" />
         </StatGrid>
-      )}
+        );
+      })()}
+      {accountId && <HeldAccountLink accountId={accountId} open={heldOpen} onClose={() => setHeldOpen(false)} onSaved={() => load({ quiet: true })} />}
       {/* Movements missing from inside the statement: where its running balance jumps with no line */}
       {accountId && data?.statementTrail?.status === 'gaps' && (
         <Alert severity="warning" className="mb-3">
