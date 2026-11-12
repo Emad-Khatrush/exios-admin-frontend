@@ -15,6 +15,7 @@ import TableChartOutlined from '@mui/icons-material/TableChartOutlined';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { convertGoogleStorageUrl } from '../../utils/methods';
+import api from '../../api';
 import './FileViewer.scss';
 
 // One viewer for every uploaded file in the panel: it reads the file's type (from what was saved
@@ -66,15 +67,25 @@ export function toViewerFile(file: any): ViewerFile {
   return { url, name, ext, kind: kindOf(raw.fileType || raw.mimetype || raw.type, ext), size: sizeOf(raw.bytes || raw.size) };
 }
 
+const save = (href: string, name?: string) => {
+  const a = Object.assign(document.createElement('a'), { href, rel: 'noopener', ...(name && { download: name }) });
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+// The storage does not let the page read its files (no CORS), so the server gives a short link that
+// says "attachment": the browser saves the file and stays on the page. A file from elsewhere is
+// read directly when it allows it; only if both fail does it open in a new tab.
 async function download(file: ViewerFile) {
+  try {
+    const res = await api.get('files/download-url', { url: file.url, name: file.name });
+    if (res?.data?.url) return save(res.data.url);
+  } catch { /* not one of our files: try reading it directly */ }
   try {
     const blob = await (await fetch(file.url)).blob();
     const href = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href, download: file.name });
-    document.body.appendChild(a); a.click(); a.remove();
+    save(href, file.name);
     setTimeout(() => URL.revokeObjectURL(href), 1000);
   } catch {
-    // The storage refused a direct read: the browser downloads or shows it from a new tab
     window.open(file.url, '_blank', 'noopener');
   }
 }
