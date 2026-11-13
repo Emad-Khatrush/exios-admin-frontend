@@ -19,6 +19,7 @@ import AdminPosts from './containers/AdminPosts/AdminPosts';
 import PopupAds from './containers/Settings/PopupAds';
 import CompanyNotes from './containers/Settings/CompanyNotes';
 import StaffPermissions from './containers/Settings/StaffPermissions';
+import CustomerPrices from './containers/Settings/CustomerPrices';
 import { CircularProgress } from '@mui/material';
 import { useStaffAccess } from './utils/useStaffAccess';
 import { canOpen } from './constants/staffPermissions';
@@ -190,6 +191,7 @@ const getRoutesByRole = (roles: any) => {
       {(roles?.isAccountant || roles?.isAdmin) && <>
         <Route path='/settings' element={<Settings />} />
         <Route path='/settings/pricing' element={<ServicesPrice />} />
+        <Route path='/settings/customer-prices' element={<CustomerPrices />} />
         <Route path='/settings/announcements' element={<Announcements />} />
         <Route path='/settings/posts' element={<AdminPosts />} />
         <Route path='/settings/popup-ads' element={<PopupAds />} />
@@ -225,6 +227,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/:id/edit' element={<EditTask />} />
       <Route path='/settings' element={<Settings />} />
       <Route path='/settings/pricing' element={<ServicesPrice />} />
+        <Route path='/settings/customer-prices' element={<CustomerPrices />} />
       <Route path='/settings/announcements' element={<Announcements />} />
       <Route path='/settings/posts' element={<AdminPosts />} />
       <Route path='/settings/popup-ads' element={<PopupAds />} />
@@ -288,6 +291,7 @@ const STAFF_PAGES: [string, JSX.Element][] = [
   ['/goals', <Goals />],
   ['/settings', <Settings />],
   ['/settings/pricing', <ServicesPrice />],
+  ['/settings/customer-prices', <CustomerPrices />],
   ['/settings/announcements', <Announcements />],
   ['/settings/posts', <AdminPosts />],
   ['/settings/popup-ads', <PopupAds />],

@@ -40,6 +40,7 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/goals': ['goals'],
   '/settings': ['settings_prices', 'settings_content'],
   '/settings/pricing': ['settings_prices'],
+  '/settings/customer-prices': ['settings_prices'],
   '/settings/announcements': ['settings_content'],
   '/settings/posts': ['settings_content'],
   '/settings/popup-ads': ['settings_content'],

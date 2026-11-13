@@ -1,0 +1,338 @@
+// Settings > Customer prices. Same tokens as the Permissions page: one accent, cool grays.
+$accent: #1d4ed8;
+$accent-soft: #eef3ff;
+$ink: #16202b;
+$ink-2: #3b4653;
+$muted: #66717e;
+$line: #e4e8ee;
+$line-soft: #eef1f5;
+$canvas: #f5f7fa;
+$surface: #ffffff;
+$danger: #b42318;
+$ease: cubic-bezier(0.22, 1, 0.36, 1);
+$spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+$shadow: 0 1px 2px rgba(22, 32, 52, 0.05), 0 4px 14px -6px rgba(22, 32, 52, 0.08);
+
+.cp {
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', system-ui, sans-serif;
+  color: $ink;
+  max-width: 980px;
+  padding-bottom: 110px;
+  h1, h2, h3, p { margin: 0; }
+  button, input, select, textarea { font-family: inherit; }
+  .settings-page__back svg { flex-shrink: 0; }
+}
+
+.cp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+  p { margin-top: 6px; max-width: 62ch; font-size: 0.92rem; line-height: 1.7; color: $muted; }
+}
+
+.cp-alert { margin-bottom: 14px; border-radius: 12px !important; }
+.cp-grid { display: grid; gap: 16px; }
+
+.cp-skel {
+  display: block;
+  height: 180px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, $line-soft 0%, #f7f9fb 50%, $line-soft 100%);
+  background-size: 200% 100%;
+  animation: cp-shimmer 1.4s ease-in-out infinite;
+}
+
+// ---- Buttons
+.cp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0.6rem 1.05rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 0.87rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s $ease, border-color 0.2s $ease, transform 0.12s $ease;
+  &:active:not(:disabled) { transform: scale(0.97); }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &--primary { background: $accent; color: #fff; &:hover:not(:disabled) { background: #1a45c2; } }
+  &--quiet { background: $surface; border-color: $line; color: $ink-2; &:hover:not(:disabled) { background: $canvas; } }
+  &--ghost { background: transparent; border-color: rgba(255, 255, 255, 0.22); color: #fff; &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); } }
+}
+.cp-spin { animation: cp-spin 0.9s linear infinite; }
+
+.cp-icon-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  align-self: end;
+  width: 40px;
+  height: 40px;
+  border: 1px solid $line;
+  border-radius: 10px;
+  background: $surface;
+  color: $muted;
+  cursor: pointer;
+  transition: color 0.15s $ease, border-color 0.15s $ease, background-color 0.15s $ease;
+  &:hover { color: $danger; border-color: rgba(180, 35, 24, 0.3); background: #fef3f2; }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+  &--ghost { visibility: hidden; }
+}
+
+.cp-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  padding: 0.5rem 0.9rem;
+  border: 1px dashed #c9d2dd;
+  border-radius: 10px;
+  background: transparent;
+  color: $accent;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s $ease, border-color 0.15s $ease;
+  &:hover { background: $accent-soft; border-color: rgba(29, 78, 216, 0.35); }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 2px; }
+}
+
+// ---- Cards
+.cp-card {
+  background: $surface;
+  border: 1px solid $line;
+  border-radius: 16px;
+  box-shadow: $shadow;
+  transition: opacity 0.2s $ease;
+
+  &.is-hidden .cp-card__body { opacity: 0.55; }
+  &.is-hidden .cp-card__icon { background: $line-soft; color: $muted; }
+}
+.cp-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid $line-soft;
+}
+.cp-card__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: $accent-soft;
+  color: $accent;
+  transition: background-color 0.2s $ease, color 0.2s $ease;
+}
+.cp-card__title {
+  flex: 1;
+  min-width: 0;
+  h2 { font-size: 1.02rem; font-weight: 700; }
+  p { margin-top: 2px; font-size: 0.8rem; color: $muted; line-height: 1.5; }
+}
+.cp-card__body { display: grid; gap: 16px; padding: 18px 20px 20px; transition: opacity 0.2s $ease; }
+
+.cp-visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  small { font-size: 0.74rem; font-weight: 600; color: $muted; }
+}
+
+.cp-text {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: $ink-2;
+  strong { color: $ink; font-variant-numeric: tabular-nums; }
+  a { color: $accent; font-weight: 600; }
+}
+.cp-subtitle { font-size: 0.88rem; font-weight: 700; color: $ink; }
+
+// ---- Fields
+.cp-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+  &--item { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) 40px; }
+}
+.cp-list { display: grid; gap: 10px; }
+
+.cp-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  > span { font-size: 0.78rem; font-weight: 600; color: $ink-2; }
+  &--wide { grid-column: 1 / -1; }
+
+  input, select, textarea {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid $line;
+    border-radius: 10px;
+    background: $surface;
+    color: $ink;
+    font-size: 0.9rem;
+    box-shadow: none;
+    transition: border-color 0.15s $ease, box-shadow 0.15s $ease;
+    &:hover { border-color: #cfd6df; }
+    &:focus { outline: none; border-color: $accent; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12); }
+  }
+  textarea { resize: vertical; line-height: 1.6; }
+  input[type='number'] { font-variant-numeric: tabular-nums; font-weight: 600; }
+}
+
+.cp-input {
+  position: relative;
+  display: block;
+  input { padding-left: 52px; text-align: right; }
+  em {
+    position: absolute;
+    inset-block: 0;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    font-style: normal;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: $muted;
+    pointer-events: none;
+  }
+}
+
+.cp-open-label {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: $canvas;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: $ink-2;
+}
+
+// ---- Brackets
+.cp-tiers { display: grid; gap: 10px; }
+.cp-tier {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.1fr) minmax(130px, 1fr) minmax(130px, 1fr) 40px;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 12px;
+  background: $canvas;
+  &--open { background: $accent-soft; }
+}
+
+// ---- Shipping routes and containers
+.cp-routes { display: grid; gap: 10px; }
+.cp-route {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid $line;
+  border-radius: 12px;
+  transition: opacity 0.2s $ease, background-color 0.2s $ease;
+  &.is-hidden { background: $canvas; > :not(.cp-route__head) { opacity: 0.55; } }
+}
+.cp-route__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  strong { flex: 1; min-width: 0; font-size: 0.92rem; }
+  .cp-icon-btn { width: 34px; height: 34px; align-self: center; }
+}
+.cp-route__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: $canvas;
+  color: $ink-2;
+}
+
+// ---- Switch (right to left: on moves to the left)
+.cp-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+}
+.cp-switch__track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 99px;
+  background: #d5dbe3;
+  transition: background-color 0.22s $ease;
+}
+.cp-switch__thumb {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(22, 32, 52, 0.25);
+  transition: transform 0.3s $spring;
+}
+.cp-switch input:checked + .cp-switch__track { background: $accent; }
+.cp-switch input:checked + .cp-switch__track .cp-switch__thumb { transform: translateX(-16px); }
+.cp-switch input:focus-visible + .cp-switch__track { outline: 2px solid $accent; outline-offset: 2px; }
+
+// ---- Save bar
+.cp-savebar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  width: min(640px, calc(100vw - 32px));
+  padding: 10px 12px 10px 18px;
+  border-radius: 14px;
+  background: rgba(22, 32, 43, 0.95);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  box-shadow: 0 16px 40px -12px rgba(22, 32, 52, 0.45);
+  opacity: 0;
+  transform: translate(-50%, 16px);
+  pointer-events: none;
+  transition: opacity 0.25s $ease, transform 0.35s $spring;
+  > span { font-size: 0.88rem; font-weight: 500; }
+  > div { display: flex; gap: 8px; }
+  &.is-visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+}
+
+@keyframes cp-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes cp-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cp *, .cp *::before, .cp *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 639px) {
+  .cp-card__head { flex-wrap: wrap; padding: 14px; }
+  .cp-card__body { padding: 14px; }
+  .cp-tier { grid-template-columns: 1fr 1fr; .cp-icon-btn { grid-column: 2; justify-self: end; } }
+  .cp-tier > .cp-field:first-child { grid-column: 1 / -1; }
+  .cp-row--item { grid-template-columns: 1fr; .cp-icon-btn { justify-self: end; } }
+  .cp-savebar { > span { width: 100%; } > div { width: 100%; justify-content: flex-end; } }
+}

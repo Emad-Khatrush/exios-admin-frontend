@@ -1,4 +1,4 @@
-import { ChevronRight, DollarSign, FolderLock, Hash, Megaphone, MonitorSmartphone, Newspaper, ShieldCheck } from "lucide-react";
+import { ChevronRight, DollarSign, FolderLock, Hash, Megaphone, MonitorSmartphone, Newspaper, ShieldCheck, Calculator } from "lucide-react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { useStaffAccess } from "../../utils/useStaffAccess";
@@ -8,6 +8,7 @@ import './Settings.scss';
 
 const sections = [
   { to: '/settings/pricing', icon: DollarSign, label: 'Pricing', description: 'Exchange rate and the selling price for each shipping route.' },
+  { to: '/settings/customer-prices', icon: Calculator, label: 'Customer prices', description: 'The Prices page and calculators customers see: shipping, purchasing, Alipay, SWIFT, containers.' },
   { to: '/settings/announcements', icon: Megaphone, label: 'Announcements', description: 'Short notices shown to customers in the app.' },
   { to: '/settings/posts', icon: Newspaper, label: 'Posts', description: 'News and updates published to customers.' },
   { to: '/settings/popup-ads', icon: MonitorSmartphone, label: 'Popup ads', description: 'Full-screen announcements customers must acknowledge.' },
