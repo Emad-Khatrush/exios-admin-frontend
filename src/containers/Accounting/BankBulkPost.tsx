@@ -9,10 +9,13 @@ import { Badge, Ltr, Money } from './ui';
 // single-line button, so every server rule (duplicates, possible bills, before-count purchases)
 // still applies; a line the server refuses is listed with its reason and stays unmatched.
 
-export type BulkPostKind = 'post' | 'refund' | 'blocked';
+// review: postable, but the server flagged something to look at first, so it starts unchosen
+export type BulkPostKind = 'post' | 'review' | 'refund' | 'blocked';
 export type BulkPostRow = { line: any; kind: BulkPostKind; reason?: string; accountId: string; include: boolean };
 
 // What can be posted in bulk, and the account each line starts with (the suggestion)
+const isPost = (row: BulkPostRow) => row.kind === 'post' || row.kind === 'review';
+
 export const bulkPostPlan = (lines: any[], hints: Record<string, any>): BulkPostRow[] => lines.filter((line) => line.lineStatus === 'unmatched').map((line) => {
   const hint = hints[line._id] || {};
   const accountId = hint.account?._id || '';
@@ -21,10 +24,12 @@ export const bulkPostPlan = (lines: any[], hints: Record<string, any>): BulkPost
   if (line.walletImpact === 'unknown') return blocked('طريقة الاستلام غير مؤكدة؛ راجعه وحده');
   if (refund) return { line, kind: 'refund', reason: 'استرداد: يُرحّل إلى «استردادات قيد التحديد» ثم يُربط بطلبيته لاحقًا', accountId: '', include: false };
   if (line.sourceProvider === 'alipay' && line.amount > 0) return blocked('وارد Alipay: طابقه مع شراء اليوان أو التحويل من قسمه');
-  if (hint.semanticTransfer || hint.requiresConfirmation) return blocked('تحويل أو تسوية تحتاج تأكيدًا؛ رحّله وحده');
+  if (hint.semanticTransfer) return blocked('تحويل أو تسوية تحتاج تأكيدًا؛ رحّله وحده');
   if (hint.duplicates?.length) return blocked('قد يكون مسجلًا في الدفاتر؛ راجعه وحده');
   if (hint.link?.itemId) return blocked('مقترح ربطه ببند طلبية؛ رحّله وحده لتأكيد البند');
   if (hint.billCandidates?.length || hint.tripCandidates?.length) return blocked('توجد فاتورة أو رحلة محتملة؛ رحّله وحده حتى لا تتكرر التكلفة');
+  // Other flags (the vendor has unpaid bills, entries adding up to the amount...): the person decides
+  if (hint.requiresConfirmation || hint.vendorBills || hint.combinations?.length) return { line, kind: 'review', reason: hint.reason || (hint.combinations?.length ? 'قيود في الدفاتر مجموعها يساوي المبلغ؛ تأكد أنها ليست نفس العملية' : 'راجعه قبل الترحيل'), accountId, include: false };
   return { line, kind: 'post', accountId, include: !!accountId };
 });
 
@@ -66,14 +71,14 @@ export default function BankBulkPost({ lines, hints, accounts, currency, decimal
   const [result, setResult] = useState<{ posted: number; total: number; failures: string[] } | null>(null);
 
   const byId = useMemo(() => new Map(accounts.map((a) => [a._id, a])), [accounts]);
-  const postable = (row: BulkPostRow) => row.kind === 'post' ? !!row.accountId : row.kind === 'refund' && withRefunds;
+  const postable = (row: BulkPostRow) => isPost(row) ? !!row.accountId : row.kind === 'refund' && withRefunds;
   const chosen = rows.filter((row) => row.include && postable(row));
   const needle = search.trim().toLowerCase();
   const visible = rows.filter((row) => (showBlocked || row.kind !== 'blocked')
     && (!direction || (direction === 'out' ? row.line.amount < 0 : row.line.amount > 0))
     && (!needle || `${row.line.description} ${row.line.counterparty || ''} ${row.line.reference || ''}`.toLowerCase().includes(needle)));
-  const beforeCount = chosen.filter((row) => row.kind === 'post' && isBeforeCountCost(row.line, row.accountId));
-  const counts = { post: rows.filter((r) => r.kind === 'post').length, refund: rows.filter((r) => r.kind === 'refund').length, blocked: rows.filter((r) => r.kind === 'blocked').length };
+  const beforeCount = chosen.filter((row) => isPost(row) && isBeforeCountCost(row.line, row.accountId));
+  const counts = { post: rows.filter((r) => isPost(r)).length, review: rows.filter((r) => r.kind === 'review').length, refund: rows.filter((r) => r.kind === 'refund').length, blocked: rows.filter((r) => r.kind === 'blocked').length };
 
   // The preview: how many lines and how much goes to each account
   const summary = useMemo(() => {
@@ -92,7 +97,7 @@ export default function BankBulkPost({ lines, hints, accounts, currency, decimal
   const visibleIds = new Set(visible.filter(postable).map((row) => row.line._id));
   const allVisible = visibleIds.size > 0 && visible.filter(postable).every((row) => row.include);
   const setVisible = (include: boolean) => setRows((current) => current.map((row) => (visibleIds.has(row.line._id) ? { ...row, include } : row)));
-  const applyAccount = () => bulkAccount && setRows((current) => current.map((row) => (row.kind === 'post' && row.include && visible.some((v) => v.line._id === row.line._id) ? { ...row, accountId: bulkAccount._id } : row)));
+  const applyAccount = () => bulkAccount && setRows((current) => current.map((row) => (isPost(row) && row.include && visible.some((v) => v.line._id === row.line._id) ? { ...row, accountId: bulkAccount._id } : row)));
 
   const execute = async () => {
     const list = chosen;
@@ -127,7 +132,7 @@ export default function BankBulkPost({ lines, hints, accounts, currency, decimal
           </Alert>
         ) : <>
           <p className="acc-muted">
-            محدد {rows.length} سطرًا: {counts.post} قابلة للترحيل · {counts.refund} استرداد · {counts.blocked} تحتاج معالجة وحدها.
+            محدد {rows.length} سطرًا: {counts.post} قابلة للترحيل (منها {counts.review} غير مختارة لأنها تحتاج نظرة) · {counts.refund} استرداد · {counts.blocked} تحتاج معالجة وحدها.
             راجع الحساب لكل سطر أو غيّره لمجموعة دفعة واحدة، ثم أكّد. يتحقق الخادم من كل سطر قبل ترحيله.
           </p>
           <div className="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -164,13 +169,13 @@ export default function BankBulkPost({ lines, hints, accounts, currency, decimal
                       <td><Ltr>{row.line.day}</Ltr></td>
                       <td style={{ maxWidth: 380 }}>
                         <div className="text-truncate" title={row.line.description}>{row.line.description}</div>
-                        {row.reason && <Badge tone={row.kind === 'refund' ? 'info' : 'warn'}>{row.reason}</Badge>}
-                        {row.kind === 'post' && row.include && isBeforeCountCost(row.line, row.accountId) && <Badge tone="warn">مشتريات قبل الجرد</Badge>}
-                        {row.kind === 'post' && hint.account && hint.account._id !== row.accountId && <Badge tone="muted">المقترح: {accountLabel(hint.account)}</Badge>}
+                        {row.reason && <Badge tone={row.kind === 'refund' ? 'info' : 'warn'}>{row.kind === 'review' ? `راجعه: ${row.reason}` : row.reason}</Badge>}
+                        {isPost(row) && row.include && isBeforeCountCost(row.line, row.accountId) && <Badge tone="warn">مشتريات قبل الجرد</Badge>}
+                        {isPost(row) && hint.account && hint.account._id !== row.accountId && <Badge tone="muted">المقترح: {accountLabel(hint.account)}</Badge>}
                       </td>
                       <td className="text-end">{money(row.line.amount)}</td>
                       <td>
-                        {row.kind === 'post' ? (
+                        {isPost(row) ? (
                           <Autocomplete size="small" options={accounts} value={byId.get(row.accountId) || null}
                             getOptionLabel={(a: any) => accountLabel(a)} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
                             onChange={(_, a: any) => update(row.line._id, { accountId: a?._id || '', include: !!a })}
