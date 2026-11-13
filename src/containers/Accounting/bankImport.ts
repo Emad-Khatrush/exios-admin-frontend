@@ -178,11 +178,39 @@ export const kuveytCardRows = (cells: any[][]): { rows: StatementRow[], cardNumb
     const refund = /^-/.test(String(row[miles] ?? '').trim());
     const payment = /Borç Ödeme/i.test(text);
     const debtBack = /fazla bakiye iadesi|Ödeme İptali/i.test(text);
-    const inward = payment || (refund && !debtBack);
+    // A bank discount ("Miles&Smiles İGA Otopark İndirimi", 125 TL with 0 miles) lowers the debt like
+    // a refund but undoes no purchase: money in, no purchase-refund review (owner's file, 16-06-2026)
+    const discount = !debtBack && /İndirim/i.test(text);
+    const inward = payment || discount || (refund && !debtBack);
     rows.push({ day, description: text, reference: '', amount: inward ? value : -value, balanceAfter: null,
-      movementKind: payment ? 'card_payment' : inward ? 'purchase_refund' : 'purchase' });
+      movementKind: payment ? 'card_payment' : discount ? undefined : inward ? 'purchase_refund' : 'purchase' });
   }
   return { rows, cardNumber };
+};
+
+// The import preview classifies its rows again whenever one of them changes (a sign flipped, an
+// Alipay arrival confirmed). The new suggestions must not wipe what the person already decided on
+// the other rows (ignored, confirmed, matched to a purchase): before, every row not chosen by hand
+// lost its choices, so flipping one line undid the whole review (owner's report 2026-11-13).
+// `changed`: the rows whose content differs from the previous classification; they start over.
+export const mergeClassifiedChoices = (choices: Record<number, any>, results: any[], changed: Set<number>) => {
+  const next: Record<number, any> = { ...choices };
+  const decided = ['ignore', 'notDuplicate', 'settlementReviewed', 'confirmNewBill', 'billAccepted', 'purchaseMatch', 'purchaseSelection'];
+  results.forEach((item: any, index: number) => {
+    const before = choices[index] || {};
+    const fresh = !before || changed.has(index);
+    if (before.byHand) {
+      next[index] = fresh ? { ...before, billAccepted: false, purchaseMatch: undefined, purchaseSelection: undefined } : before;
+      return;
+    }
+    const suggestion = item.status === 'new' && item.account
+      ? { accountId: item.account._id, office: item.office || undefined, link: item.link || undefined, vendorName: item.vendorName || undefined, billId: item.billId || undefined }
+      : {};
+    if (fresh) { next[index] = suggestion; return; }
+    const kept = Object.fromEntries(decided.filter((key) => before[key] !== undefined).map((key) => [key, before[key]]));
+    next[index] = { ...suggestion, ...kept };
+  });
+  return next;
 };
 
 // Alipay exports transactions, not a running wallet balance. In particular a refund may be
@@ -208,7 +236,10 @@ export const alipayRows = (cells: any[][], headerRow: number): { rows: Statement
     if (!['交易成功', '支付成功', '退款成功'].includes(transactionStatus)) { exclude(`عملية غير مكتملة: ${transactionStatus || 'الحالة غير مذكورة'}`); continue; }
     if (!reference || /[eE][+-]?\d+$/.test(reference)) throw new Error(`رقم عملية Alipay غير صالح بتاريخ ${day}؛ ارفع ملف CSV الأصلي`);
     const amountText = get('金额').replace(/[,¥￥\s]/g, '');
-    if (!/^\d+(?:\.\d{1,2})?$/.test(amountText) || !(Number(amountText) > 0)) throw new Error(`مبلغ Alipay غير صالح للعملية ${reference}`);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(amountText)) throw new Error(`مبلغ Alipay غير صالح للعملية ${reference}`);
+    // A 0.00 line (a ride fully paid by a coupon, Hellobike 02-01-2026 in the owner's file) moves no
+    // money; it used to stop the whole file from loading
+    if (!(Number(amountText) > 0)) { exclude('مبلغ صفر؛ لا حركة مال'); continue; }
     const refund = transactionStatus === '退款成功' || category === '退款' || /退款/.test(product);
     const direction = get('收/支');
     // A reversal explicitly marked as expense is ambiguous; never silently turn it into income.

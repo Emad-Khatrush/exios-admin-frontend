@@ -7,7 +7,7 @@ import { CURRENCY_DECIMALS, acc, errorText } from './accountingApi';
 import { accountLabel, useAccountingData } from './useAccountingData';
 import { useBulk } from './bulk';
 import { Amount, Badge, DataTable, FilterBar, Ltr, Money, Open, PageHeader, Panel, Stat, StatGrid, StatusBadge, Sub } from './ui';
-import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, kuveytCardRows, readSheet, rowsFrom } from './bankImport';
+import { AlipayExcludedRow, Mapping, ROLES, StatementRow, alipayRows, detect, kuveytCardRows, mergeClassifiedChoices, readSheet, rowsFrom } from './bankImport';
 import { RemotePicker, orderLabel, tripLabel, userLabel } from './shared';
 import PurchaseMatchPicker from './PurchaseMatchPicker';
 import BankFinancialOperation from './BankFinancialOperation';
@@ -333,29 +333,27 @@ const BankReconciliation = () => {
   });
 
   // The rows are classified again whenever what would be imported changes (signs, columns)
-  const signature = preview ? JSON.stringify(edited(preview).map((r) => [r.day, r.amount, r.reference, r.description, r.originalAmount, r.originalCurrency, r.movementKind, r.settlementUsd, r.walletImpact])) : '';
+  const rowKeys = preview ? edited(preview).map((r) => JSON.stringify([r.day, r.amount, r.reference, r.description, r.originalAmount, r.originalCurrency, r.movementKind, r.settlementUsd, r.walletImpact])) : [];
+  const signature = rowKeys.length ? `[${rowKeys.join(',')}]` : '';
+  // What each row looked like when it was last classified (same file and account): only the rows
+  // that changed since then lose the person's choices
+  const classifiedRows = useRef<{ file?: string, accountId: string, keys: string[] } | null>(null);
   useEffect(() => {
     if (!preview || !accountId || !preview.rows.length) { setClasses(null); return undefined; }
     setClasses(null);
     let stale = false;
+    const keys = rowKeys;
     const timer = window.setTimeout(() => {
       acc.post('bank/classify', { accountId, rows: edited(preview), matchingSettings })
         .then((res: any) => {
           if (stale) return;
           setClasses(res.data.results);
-          // The suggested accounts fill the rows the person has not set by hand
-          setPreview((current) => {
-            if (!current) return current;
-            const choices = { ...current.choices };
-            res.data.results.forEach((item: any, index: number) => {
-              if (choices[index]?.byHand) {
-                choices[index] = { ...choices[index], billAccepted: false, purchaseMatch: undefined, purchaseSelection: undefined };
-                return;
-              }
-              choices[index] = item.status === 'new' && item.account ? { accountId: item.account._id, office: item.office || undefined, link: item.link || undefined, vendorName: item.vendorName || undefined, billId: item.billId || undefined } : {};
-            });
-            return { ...current, choices };
-          });
+          const last = classifiedRows.current;
+          const sameSource = !!last && last.file === preview.fileName && last.accountId === accountId;
+          const changed = new Set<number>(keys.map((key, index) => (sameSource && last!.keys[index] === key ? -1 : index)).filter((index) => index >= 0));
+          classifiedRows.current = { file: preview.fileName, accountId, keys };
+          // The suggested accounts fill the rows the person has not set by hand; unchanged rows keep their choices
+          setPreview((current) => (current ? { ...current, choices: mergeClassifiedChoices(current.choices, res.data.results, changed) } : current));
         })
         .catch((err: any) => { if (!stale) setMessage({ type: 'error', text: errorText(err) }); });
     }, 350);
