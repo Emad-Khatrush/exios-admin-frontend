@@ -31,6 +31,7 @@ import StatementDescriptionTranslation, { canTranslateDescription } from './Stat
 import { BankDuplicateReview, BankGroupMatch, BankIntegrityDialog, MatchQuality } from './BankMatchTools';
 import LocalBankReset, { localBankResetHost } from './LocalBankReset';
 import BankImportProgress, { ImportProgressState } from './BankImportProgress';
+import BankBulkPost from './BankBulkPost';
 import DayField from './DayField';
 type Preview = {
   fileName: string
@@ -98,6 +99,8 @@ const BankReconciliation = () => {
   const [settlingDuplicates, setSettlingDuplicates] = useState(false);
   const [referenceReview, setReferenceReview] = useState<any>(null);
   const [groupMatchLines, setGroupMatchLines] = useState<any[] | null>(null);
+  // Several lines reviewed and posted at once, each on its own account
+  const [bulkPostLines, setBulkPostLines] = useState<any[] | null>(null);
   const [integrityOpen, setIntegrityOpen] = useState(false);
   const [translationProgress, setTranslationProgress] = useState<{ done: number; total: number } | null>(null);
   const matchingEnabled = (engine: string) => matchingSettings.engines.includes(engine);
@@ -752,6 +755,9 @@ const BankReconciliation = () => {
           }}>{confirming ? 'جارٍ التنفيذ…' : confirmBox?.label}</Button>
         </DialogActions>
       </Dialog>
+      {bulkPostLines && <BankBulkPost lines={bulkPostLines} hints={suggested} accounts={detailAccounts} currency={currency} decimals={decimals} office={account?.office || undefined}
+        isBeforeCountCost={(line, id) => beforeCountCost(line, id)} onClose={() => setBulkPostLines(null)}
+        onDone={async () => { bulk.selection.onChange(new Set()); await load({ quiet: true }); }} />}
       {picker?.kind === 'yuan' && <YuanPurchaseDialog lines={picker.lines} hints={yuanHints} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); bulk.selection.onChange(new Set()); setMessage({ type: 'success', text }); load(); }} />}
       {picker?.kind === 'deposits' && <DepositPicker line={picker.line} accountName={account?.name} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
       {picker?.kind === 'grouped' && <GroupedLineDialog line={picker.line} proposal={picker.proposal} accounts={accounts} onClose={() => setPicker(null)} onDone={(text) => { setPicker(null); setMessage({ type: 'success', text }); load(); }} />}
@@ -893,6 +899,8 @@ const BankReconciliation = () => {
           {data?.hasMore && <Alert severity="info" className="mx-3 mb-2">يوجد أكثر من 500 نتيجة؛ ضيّق نطاق التاريخ أو البحث لعرض السطور المطلوبة. الفلترة تُطبّق على كامل الكشف.</Alert>}
           {bulk.bar}
           {bulk.selection.selected.size > 0 && <div className="px-3 pb-2">
+            <Button variant="contained" color="success" disabled={!(data?.lines || []).some((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched')}
+              onClick={() => setBulkPostLines((data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched'))}>مراجعة وترحيل المحدد</Button>
             <Button variant="outlined" disabled={!(data?.lines || []).some((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched')}
               onClick={() => setGroupMatchLines((data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched'))}>مطابقة المحدد مع دفعة أو مجموعة قيود</Button>
             <Button size="small" variant="outlined" disabled={!!translationProgress} onClick={async () => {
