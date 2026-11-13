@@ -18,6 +18,10 @@ import Announcements from './components/Announcements/Announcements';
 import AdminPosts from './containers/AdminPosts/AdminPosts';
 import PopupAds from './containers/Settings/PopupAds';
 import CompanyNotes from './containers/Settings/CompanyNotes';
+import StaffPermissions from './containers/Settings/StaffPermissions';
+import { CircularProgress } from '@mui/material';
+import { useStaffAccess } from './utils/useStaffAccess';
+import { canOpen } from './constants/staffPermissions';
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
@@ -190,6 +194,7 @@ const getRoutesByRole = (roles: any) => {
         <Route path='/settings/posts' element={<AdminPosts />} />
         <Route path='/settings/popup-ads' element={<PopupAds />} />
         {roles?.isAdmin && <Route path='/settings/trip-numbering' element={<TripNumbering />} />}
+        {roles?.isAdmin && <Route path='/settings/permissions' element={<StaffPermissions />} />}
       </>}
       {accountingRoutes}
       <Route path='/balances' element={<Balances />} />
@@ -225,6 +230,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/settings/popup-ads' element={<PopupAds />} />
       <Route path='/settings/company-notes' element={<CompanyNotes />} />
       <Route path='/settings/trip-numbering' element={<TripNumbering />} />
+      <Route path='/settings/permissions' element={<StaffPermissions />} />
       <Route path='/ratings' element={<RatingsPage />} />
       <Route path='/balances' element={<Balances />} />
       <Route path='/clients' element={<ClientsView />} />
@@ -251,32 +257,89 @@ const getRoutesByRole = (roles: any) => {
   }
 }
 
+// Every page a staff member can be given (constants/staffPermissions.ts says which permission opens
+// which page). The home page and accounting are always there: accounting checks its own permissions.
+const STAFF_PAGES: [string, JSX.Element][] = [
+  ['/xtracking', <XTrackingPage />],
+  ['/invoices', <Invoices />],
+  ['/dailyReport', <IssuedInvoices />],
+  ['/invoice/add', <AddInvoice />],
+  ['/invoice/:id/edit', <EditInvoice />],
+  ['/unsureOrder/add', <UnsureOrder />],
+  ['/expenses', <OfficeExpenses />],
+  ['/mytasks', <MyTasks />],
+  ['/task/add', <CreateTask />],
+  ['/task/:id/edit', <EditTask />],
+  ['/balances', <Balances />],
+  ['/clients', <ClientsView />],
+  ['/user/:id', <UserDetails />],
+  ['/special-prices', <SpecialPriceCustomers />],
+  ['/inventory', <Inventory />],
+  ['/inventory/add', <AddInventory />],
+  ['/inventory/:id/edit', <EditInventory />],
+  ['/mangage', <WarehouseInventory />],
+  ['/returnedPayments', <ReturnedPayments />],
+  ['/reports', <MonthReport />],
+  ['/odo-export', <OdoExport />],
+  ['/activities', <Activities />],
+  ['/ratings', <RatingsPage />],
+  ['/marketing', <Marketing />],
+  ['/analytics', <Analytics />],
+  ['/goals', <Goals />],
+  ['/settings', <Settings />],
+  ['/settings/pricing', <ServicesPrice />],
+  ['/settings/announcements', <Announcements />],
+  ['/settings/posts', <AdminPosts />],
+  ['/settings/popup-ads', <PopupAds />],
+];
+
+const getRoutesByPermissions = (permissions: string[]) => <>
+  <Route path='/' element={<EmployeeHomePage />} />
+  {STAFF_PAGES.filter(([path]) => canOpen(path, permissions)).map(([path, element]) => <Route key={path} path={path} element={element} />)}
+  {accountingRoutes}
+</>;
+
+const AppRouter = ({ session }: MyProps) => {
+  const access = useStaffAccess();
+  // A staff member whose permissions were saved sees only those pages; admins, owners and staff
+  // nobody has configured yet keep the pages their role gives them
+  const routes = access.configured && !access.full
+    ? getRoutesByPermissions(access.permissions)
+    : getRoutesByRole(session?.account?.roles);
+
+  return (
+      <Router>
+        <QaBanner />
+        <AuthChecker />
+        <Routes>
+          <Route path='/shouldAllowToAccessApp' element={<AllowToAccessApp session={session} />} />
+          <Route path='/login' element={<Login />} />;
+          <Route element={<PrivateRoute session={session} />}>
+            {access.loading
+              // Keep the address while permissions load, so a reload stays on the same page
+              ? <Route path='*' element={<div className="flex justify-center p-10"><CircularProgress size={28} /></div>} />
+              : <>
+                  {routes}
+                  <Route path='*' element={<Navigate to='/' />} />
+                </>}
+          </Route>
+        </Routes>
+      </Router>
+  );
+};
+
 class App extends React.Component<MyProps> {
 
   render() {
     const { session } = this.props;
-    
-    const routes = getRoutesByRole(session?.account?.roles);
+
     // Initialize Firebase
     if (process.env.REACT_APP_ENVIRONMENT !== 'qa') {
       const app = initializeApp(firebaseConfig);
       getAnalytics(app);
     }
 
-    return (
-        <Router>
-          <QaBanner />
-          <AuthChecker />
-          <Routes>
-            <Route path='/shouldAllowToAccessApp' element={<AllowToAccessApp session={session} />} />
-            <Route path='/login' element={<Login />} />;
-            <Route element={<PrivateRoute session={session} />}>
-              {routes}
-            <Route path='*' element={<Navigate to='/' />} />;
-            </Route>
-          </Routes>
-        </Router>
-    );
+    return <AppRouter session={session} />;
   }
 }
 

@@ -1,4 +1,5 @@
 import { ApiErrorMessages } from "../models";
+import { PERMISSION_DENIED } from '../constants/errors';
 import { BALANCE_ALREADY_PAID, BALANCE_HAS_PAYMENTS, BALANCE_ORDER_CUSTOMER_MISMATCH, BALANCE_NOT_CLOSABLE, BALANCE_NOT_FOUND, BALANCE_CURRENCY_NOT_ACCEPTED, BALANCE_RATE_ZERO, EXPENSE_ID_TAKEN, EXPENSE_NOT_FOUND, FIELDS_EMPTY, IMAGE_NOT_FOUND, INVALID_CREDENTIALS, INVALID_TOKEN, INVENTORY_NOT_FOUND, ORDER_ID_TAKEN, ORDER_NOT_FOUND, SERVER_ERROR, Token_EXPIRED, TOKEN_NOT_FOUND, USER_NOT_FOUND, USER_ROLE_INVALID, USER_SUBSCRIPTION_CANCLED } from "../constants/errors";
 
 export const getErrorMessage = (errorId: ApiErrorMessages): string => {
@@ -72,6 +73,9 @@ export const getErrorMessage = (errorId: ApiErrorMessages): string => {
     case SERVER_ERROR:
       return 'Something went wrong, please try again later';
   
+    case PERMISSION_DENIED as any:
+      return 'You do not have permission for this. Ask an admin to add it in Settings > Permissions.';
+
     default:
       return 'unexpected error, please try again later';
   }

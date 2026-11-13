@@ -1,6 +1,8 @@
-import { ChevronRight, DollarSign, FolderLock, Hash, Megaphone, MonitorSmartphone, Newspaper } from "lucide-react";
+import { ChevronRight, DollarSign, FolderLock, Hash, Megaphone, MonitorSmartphone, Newspaper, ShieldCheck } from "lucide-react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
+import { useStaffAccess } from "../../utils/useStaffAccess";
+import { canOpen } from "../../constants/staffPermissions";
 import './SettingsCommon.scss';
 import './Settings.scss';
 
@@ -12,13 +14,18 @@ const sections = [
 ];
 
 const adminSections = [
+  { to: '/settings/permissions', icon: ShieldCheck, label: 'Permissions', description: 'What each staff member can open, including accounting. Admins and owners only.' },
   { to: '/settings/trip-numbering', icon: Hash, label: 'Trip numbering', description: 'Automatic sequences and name templates for each country and shipping type.' },
   { to: '/settings/company-notes', icon: FolderLock, label: 'Company notes', description: 'Important notes and company files, visible to admins only.' },
 ];
 
 const Settings = () => {
   const roles = useSelector((state: any) => state.session.account?.roles);
-  const visibleSections = roles?.isAdmin ? [...sections, ...adminSections] : roles?.isAccountant ? sections : [];
+  const access = useStaffAccess();
+  // A configured staff member sees the sections their permissions open; otherwise by role, as before
+  const visibleSections = access.full ? [...sections, ...adminSections]
+    : access.configured ? sections.filter((section) => canOpen(section.to, access.permissions))
+    : roles?.isAccountant ? sections : [];
 
   return (
     <div className="settings-page">

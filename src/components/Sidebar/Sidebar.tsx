@@ -6,6 +6,7 @@ import { connect } from "react-redux";
 import { closeSidebar } from "../../actions/nav";
 import { Account } from "../../models";
 import getRoutes from "./routes";
+import { StaffAccess, useStaffAccess } from "../../utils/useStaffAccess";
 import AccountingGate from "../../containers/Accounting/AccountingGate";
 import './Sidebar.scss';
 
@@ -13,6 +14,7 @@ type MyProps = {
     isSidebarOpen: boolean
     account: Account
     closeSidebar: () => void
+    access?: StaffAccess
 };
 type MyState = {
     sidebar: boolean;
@@ -25,7 +27,7 @@ class Sidebar extends React.Component<MyProps, MyState> {
         // On desktop the top bar scrolls away with the page, so the sidebar sticks to the very top
         // and uses the full height (no empty band above it)
         const sidebarStyle = { left: this.props.isSidebarOpen ? '0' : '-240px', ...(isMobile ? {} : { top: 0, height: '100vh' }) };
-        const routes = getRoutes(this.props.account?.roles);
+        const routes = getRoutes(this.props.account?.roles, this.props.access);
 
         return(
             <div style={{...sidebarStyle, position: isMobile ? 'fixed' : 'sticky'}} className="sidebar">
@@ -69,4 +71,7 @@ const mapDispatchToProps = {
     closeSidebar,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(Sidebar);
+// The class reads the staff member's permissions through this wrapper (hooks need a function)
+const SidebarWithAccess = (props: Omit<MyProps, 'access'>) => <Sidebar {...props} access={useStaffAccess()} />;
+
+export default connect(mapStateToProps, mapDispatchToProps)(SidebarWithAccess);

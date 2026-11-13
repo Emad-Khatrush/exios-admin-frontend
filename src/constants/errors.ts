@@ -36,3 +36,6 @@ export const FIELDS_EMPTY = 'fields-empty';
 
 // global errors
 export const SERVER_ERROR = 'server-error'
+
+// A staff member asked for something outside their permissions (Settings > Permissions)
+export const PERMISSION_DENIED = 'permission-denied'
