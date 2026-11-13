@@ -3,19 +3,21 @@ import {
   ArrowRight, Banknote, Container as ContainerIcon, DollarSign, Landmark, MessageCircle, Plane, Plus, RefreshCw, Save, ShoppingBag, Ship, Trash2,
 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import './SettingsCommon.scss';
 import './CustomerPrices.scss';
 
 type Tier = { upTo: number | null, type?: 'fixed' | 'percent', value?: number, rate?: number, fee?: number };
-type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number };
+type Category = { key: string, label: string, price: number };
+type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, categories: Category[] };
 type Config = {
   exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null },
   shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[] },
   purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: { key: string, label: string, feePercent: number }[] },
   alipay: { visible: boolean, note: string, tiers: Tier[] },
-  swift: { visible: boolean, note: string, percent: number, fixedFee: number, minFee: number },
+  swift: { visible: boolean, note: string, tiers: Tier[], fixedFee: number, minFee: number },
   fcl: { visible: boolean, note: string, containers: { key: string, label: string, route: string, price: number, duration: string, visible: boolean }[] },
   offices: { key: string, label: string, whatsapp: string, cities: string[] }[],
   updatedAt?: string,
@@ -218,8 +220,23 @@ const CustomerPrices = () => {
                     <strong>{r.label}</strong>
                     <span className="cp-visibility"><small>{r.visible ? 'ظاهر' : 'مخفي'}</small><Switch checked={r.visible} onChange={(v) => set({ visible: v })} label={`إظهار ${r.label}`} /></span>
                   </div>
+                  <div className="cp-kinds">
+                    {r.categories.map((c, ci) => {
+                      const setKind = (p: Partial<Category>) => { const categories = [...r.categories]; categories[ci] = { ...c, ...p }; set({ categories }); };
+                      return (
+                        <div key={ci} className="cp-kind">
+                          <TextField label={ci === 0 ? 'النوع الأساسي (سعر الفواتير)' : 'نوع البضاعة'} value={c.label} placeholder="بضائع عادية" onChange={(v) => setKind({ label: v })} />
+                          <NumberField label="السعر" value={c.price} unit={r.unit === 'kg' ? '$ / كجم' : '$ / CBM'} onChange={(v) => setKind({ price: v })} />
+                          {ci === 0
+                            ? <span className="cp-icon-btn cp-icon-btn--ghost" />
+                            : <button type="button" className="cp-icon-btn" aria-label="حذف النوع" onClick={() => set({ categories: r.categories.filter((_, j) => j !== ci) })}><Trash2 size={16} /></button>}
+                        </div>
+                      );
+                    })}
+                    <button type="button" className="cp-add" onClick={() => set({ categories: [...r.categories, { key: `kind-${Date.now()}`, label: '', price: 0 }] })}><Plus size={15} /> أضف نوع بضاعة</button>
+                    <p className="cp-hint">النوع الذي سعره صفر لا يظهر للعملاء.</p>
+                  </div>
                   <div className="cp-row">
-                    <NumberField label="السعر" value={r.price} unit={r.unit === 'kg' ? '$ / كجم' : '$ / CBM'} onChange={(v) => set({ price: v })} />
                     <TextField label="المدة" value={r.duration} placeholder="15 - 20 يوماً" onChange={(v) => set({ duration: v })} />
                     <NumberField label="أقل تكلفة للشحنة" value={r.minCharge} unit="$" onChange={(v) => set({ minCharge: v })} />
                   </div>
@@ -282,10 +299,21 @@ const CustomerPrices = () => {
         </Section>
 
         {/* SWIFT */}
-        <Section icon={<Landmark size={18} />} title="حوالات سويفت" sub="العمولة = النسبة (أو الحد الأدنى إن كانت أقل) + الرسوم البنكية الثابتة."
+        <Section icon={<Landmark size={18} />} title="حوالات سويفت" sub="العمولة حسب مبلغ الحوالة بالدولار، ثم تُضاف الرسوم البنكية الثابتة."
           visible={d.swift.visible} onVisible={(v) => patch('swift', { visible: v })}>
+          <TierRows tiers={d.swift.tiers} unit="$" onChange={(tiers) => patch('swift', { tiers })} render={(t, set) => (
+            <>
+              <label className="cp-field">
+                <span>نوع العمولة</span>
+                <select value={t.type || 'percent'} onChange={(e) => set({ type: e.target.value as any })}>
+                  <option value="percent">نسبة %</option>
+                  <option value="fixed">مبلغ ثابت $</option>
+                </select>
+              </label>
+              <NumberField label="العمولة" value={t.value} unit={t.type === 'fixed' ? '$' : '%'} onChange={(v) => set({ value: v })} />
+            </>
+          )} />
           <div className="cp-row">
-            <NumberField label="النسبة" value={d.swift.percent} unit="%" onChange={(v) => patch('swift', { percent: v })} />
             <NumberField label="أقل عمولة" value={d.swift.minFee} unit="$" onChange={(v) => patch('swift', { minFee: v })} />
             <NumberField label="رسوم بنكية ثابتة" value={d.swift.fixedFee} unit="$" onChange={(v) => patch('swift', { fixedFee: v })} />
           </div>
@@ -339,7 +367,8 @@ const CustomerPrices = () => {
         </Section>
       </div>
 
-      <div className={`cp-savebar${dirty ? ' is-visible' : ''}`} aria-hidden={!dirty}>
+      {createPortal(
+      <div className={`cp-savebar${dirty ? ' is-visible' : ''}`} aria-hidden={!dirty} dir="rtl" lang="ar">
         <span>تعديلات على الأسعار لم تُحفظ</span>
         <div>
           <button type="button" className="cp-btn cp-btn--ghost" tabIndex={dirty ? 0 : -1} disabled={saving} onClick={() => setDraft(clone(saved))}>تراجع</button>
@@ -347,7 +376,9 @@ const CustomerPrices = () => {
             {saving ? <RefreshCw size={15} className="cp-spin" /> : <Save size={15} />} حفظ
           </button>
         </div>
-      </div>
+      </div>,
+      document.body,
+      )}
     </div>
   );
 };

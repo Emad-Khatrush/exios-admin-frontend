@@ -264,6 +264,22 @@ $shadow: 0 1px 2px rgba(22, 32, 52, 0.05), 0 4px 14px -6px rgba(22, 32, 52, 0.08
   color: $ink-2;
 }
 
+// ---- Kinds of goods on a shipping route
+.cp-kinds {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: $canvas;
+}
+.cp-kind {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: end;
+}
+.cp-hint { font-size: 0.76rem; color: $muted; }
+
 // ---- Switch (right to left: on moves to the left)
 .cp-switch {
   position: relative;
@@ -316,6 +332,7 @@ $shadow: 0 1px 2px rgba(22, 32, 52, 0.05), 0 4px 14px -6px rgba(22, 32, 52, 0.08
   transform: translate(-50%, 16px);
   pointer-events: none;
   transition: opacity 0.25s $ease, transform 0.35s $spring;
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', system-ui, sans-serif;
   > span { font-size: 0.88rem; font-weight: 500; }
   > div { display: flex; gap: 8px; }
   &.is-visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
@@ -334,5 +351,6 @@ $shadow: 0 1px 2px rgba(22, 32, 52, 0.05), 0 4px 14px -6px rgba(22, 32, 52, 0.08
   .cp-tier { grid-template-columns: 1fr 1fr; .cp-icon-btn { grid-column: 2; justify-self: end; } }
   .cp-tier > .cp-field:first-child { grid-column: 1 / -1; }
   .cp-row--item { grid-template-columns: 1fr; .cp-icon-btn { justify-self: end; } }
+  .cp-kind { grid-template-columns: 1fr 1fr 40px; }
   .cp-savebar { > span { width: 100%; } > div { width: 100%; justify-content: flex-end; } }
 }
