@@ -500,24 +500,26 @@ const BankReconciliation = () => {
     onDone: load,
     actions: [
       {
-        key: 'exact', label: 'ترحيل المطابق بالمبلغ والتاريخ', done: 'اعتُمد',
+        key: 'exact', label: 'اعتماد المطابق تمامًا', done: 'اعتُمد', group: 'post',
         applies: (row) => row.lineStatus === 'unmatched' && !!suggested[row._id]?.exactMatch,
         run: (row) => acc.post(`bank/lines/${row._id}/exact-match`, { expected: suggested[row._id].exactMatch }),
         confirm: (count) => `سيُعتمد ${count} سطرًا بمقترح وحيد يطابق المبلغ والعملة والتاريخ تمامًا. يُربط القيد أو الفاتورة الموجودة، وتُستبعد الحالات المتعددة والاستردادات التي تحتاج مراجعة. يُعاد التحقق قبل تنفيذ كل سطر.`,
       },
+      // «ترحيل على الحساب المقترح» was replaced by «مراجعة وترحيل المحدد» (the same posting, after a review)
       {
-        key: 'post', label: 'ترحيل على الحساب المقترح', done: 'رُحِّل',
-        applies: (row) => row.lineStatus === 'unmatched' && !!suggested[row._id]?.account && !suggested[row._id]?.requiresConfirmation && !suggested[row._id]?.duplicates?.length && !beforeCountCost(row, suggested[row._id]?.account?._id),
-        run: (row) => postLine(row, { counterAccountId: suggested[row._id].account._id, office: suggested[row._id].office || account?.office || undefined, link: suggested[row._id].link || undefined, vendorName: suggested[row._id].vendorName || undefined, billId: suggested[row._id].billId || undefined }),
-        confirm: (count) => `سيُرحَّل ${count} سطراً كلٌ على حسابه المقترح. السطور التي قد تكون مسجلة في الدفاتر لا تُرحَّل.`,
+        // Closing lines the opening count already holds, with one note for all (owner's request 2026-11-13)
+        key: 'cover', label: 'حصلت قبل الجرد', done: 'أُغلق', group: 'close', needsReason: true, reasonLabel: 'ما كانت هذه العمليات (تُكتب على كل سطر)',
+        applies: (row) => row.lineStatus === 'unmatched' && !!count && isBeforeCount(count, row.day),
+        run: (row, note) => acc.post(`bank/lines/${row._id}/cover`, { note }),
+        confirm: (n) => `سيُغلق ${n} سطرًا بدون قيد: رصيد الجرد يوم ${count?.day || ''} يشمل هذا المال. تُحفظ الملاحظة على كل سطر وفي سجل التدقيق، ويمكن التراجع لاحقًا.`,
       },
       {
-        key: 'ignore', label: 'تجاهل', done: 'تُجوهل', applies: (row) => row.lineStatus === 'unmatched',
+        key: 'ignore', label: 'تجاهل', done: 'تُجوهل', group: 'close', applies: (row) => row.lineStatus === 'unmatched',
         run: (row) => acc.post(`bank/lines/${row._id}/ignore`),
         confirm: (count) => `سيُعلَّم ${count} سطراً كمُتجاهَل فلا يظهر ضمن غير المطابق. يمكن التراجع لاحقاً.`,
       },
       {
-        key: 'unignore', label: 'إرجاع لغير مطابق', done: 'أُعيد', applies: (row) => ['matched', 'ignored'].includes(row.lineStatus),
+        key: 'unignore', label: 'إرجاع لغير مطابق', done: 'أُعيد', group: 'close', applies: (row) => ['matched', 'ignored'].includes(row.lineStatus),
         run: (row) => acc.post(`bank/lines/${row._id}/unignore`),
         confirm: (count) => `سيعود ${count} سطراً إلى «غير مطابق»، وتُفك مطابقة ما كان مطابقاً منها.`,
       },
@@ -897,43 +899,34 @@ const BankReconciliation = () => {
         <StatementCoverage onPick={(id) => setAccountId(id)} />
         <Panel flush title="سطور الكشف" subtitle={data ? `عرض ${data.lines.length} من ${data.total ?? data.lines.length} سطر حسب الفلاتر · حدّد السطور أو عالج كل سطر وحده.` : 'حدّد السطور أو عالج كل سطر وحده.'}>
           {data?.hasMore && <Alert severity="info" className="mx-3 mb-2">يوجد أكثر من 500 نتيجة؛ ضيّق نطاق التاريخ أو البحث لعرض السطور المطلوبة. الفلترة تُطبّق على كامل الكشف.</Alert>}
-          {bulk.bar}
-          {bulk.selection.selected.size > 0 && <div className="px-3 pb-2">
-            <Button variant="contained" color="success" disabled={!(data?.lines || []).some((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched')}
-              onClick={() => setBulkPostLines((data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched'))}>مراجعة وترحيل المحدد</Button>
-            <Button variant="outlined" disabled={!(data?.lines || []).some((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched')}
-              onClick={() => setGroupMatchLines((data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched'))}>مطابقة المحدد مع دفعة أو مجموعة قيود</Button>
-            <Button size="small" variant="outlined" disabled={!!translationProgress} onClick={async () => {
-              const picked = (data?.lines || []).filter((row: any) => bulk.selection.selected.has(row._id) && canTranslateDescription(row)
-                && row.descriptionTranslation?.original !== row.description);
+          {(() => {
+            // One bar for the selection: post · match · close, then "cancel selection" at the end
+            const picked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id));
+            const open = picked.filter((l: any) => l.lineStatus === 'unmatched');
+            const outgoing = open.filter((l: any) => l.amount < 0);
+            const yuanPicked = open.filter((l: any) => yuanHints[l._id] && !yuanHints[l._id].beforeCount);
+            const toTranslate = picked.filter((row: any) => canTranslateDescription(row) && row.descriptionTranslation?.original !== row.description);
+            const translate = async () => {
               let completed = 0; const failures: string[] = [];
-              for (let index = 0; index < picked.length; index++) {
-                setTranslationProgress({ done: index, total: picked.length });
-                try { await acc.post(`bank/lines/${picked[index]._id}/translate`); completed++; }
-                catch (err: any) { failures.push(`${picked[index].day}: ${errorText(err)}`); break; }
+              for (let index = 0; index < toTranslate.length; index++) {
+                setTranslationProgress({ done: index, total: toTranslate.length });
+                try { await acc.post(`bank/lines/${toTranslate[index]._id}/translate`); completed++; }
+                catch (err: any) { failures.push(`${toTranslate[index].day}: ${errorText(err)}`); break; }
               }
               setTranslationProgress(null);
-              setMessage({ type: failures.length ? 'error' : 'success', text: `تُرجم ${completed} من ${picked.length} بيان. ${failures.join(' · ')}` });
+              setMessage({ type: failures.length ? 'error' : 'success', text: `تُرجم ${completed} من ${toTranslate.length} بيان. ${failures.join(' · ')}` });
               await load();
-            }}>{translationProgress ? `جارٍ الترجمة ${translationProgress.done}/${translationProgress.total}` : 'ترجمة بيانات المحدد للعربية'}</Button>
-          </div>}
-          {(() => {
-            const picked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched' && l.amount < 0);
-            const yuanPicked = (data?.lines || []).filter((l: any) => bulk.selection.selected.has(l._id) && l.lineStatus === 'unmatched' && yuanHints[l._id] && !yuanHints[l._id].beforeCount);
-            if (yuanPicked.length) return (
-              <div className="px-3 pb-2">
-                <Button size="small" variant="contained" color="success" onClick={() => setPicker({ kind: 'yuan', lines: yuanPicked })}>
-                  تسجيل شراء يوان للمحدد ({yuanPicked.length})
-                </Button>
-              </div>
-            );
-            return picked.length > 0 && (
-              <div className="px-3 pb-2">
-                <Button size="small" variant="outlined" onClick={() => setGroup({ lines: picked, order: null, items: [], itemId: '', confirmDifference: false })}>
-                  ربط المحدد ({picked.length}) بمشتريات طلب واحدة
-                </Button>
-              </div>
-            );
+            };
+            const lead = open.length > 0 && <>
+              <Button size="small" variant="contained" color="success" disableElevation onClick={() => setBulkPostLines(open)}>مراجعة وترحيل ({open.length})</Button>
+              {yuanPicked.length > 0 && <Button size="small" variant="contained" color="success" disableElevation onClick={() => setPicker({ kind: 'yuan', lines: yuanPicked })}>تسجيل شراء يوان ({yuanPicked.length})</Button>}
+            </>;
+            const extra = (open.length > 0 || toTranslate.length > 0) && <>
+              {open.length > 0 && <Button size="small" variant="text" onClick={() => setGroupMatchLines(open)}>مطابقة مع دفعة أو قيود</Button>}
+              {!yuanPicked.length && outgoing.length > 0 && <Button size="small" variant="text" onClick={() => setGroup({ lines: outgoing, order: null, items: [], itemId: '', confirmDifference: false })}>ربط بمشتريات طلب ({outgoing.length})</Button>}
+              {toTranslate.length > 0 && <Button size="small" variant="text" disabled={!!translationProgress} onClick={translate}>{translationProgress ? `جارٍ الترجمة ${translationProgress.done}/${translationProgress.total}` : 'ترجمة للعربية'}</Button>}
+            </>;
+            return bulk.barWith(lead || undefined, extra || undefined);
           })()}
           <DataTable
             selection={{ ...bulk.selection, selectable: (row: any) => localBankResetHost() || bulk.selection.selectable(row) }}

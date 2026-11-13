@@ -13,7 +13,11 @@ export type BulkAction<T> = {
   // Asked before running; with `needsReason` a reason is typed once and sent with every row
   confirm: (count: number) => string;
   needsReason?: boolean;
+  // The field's label when the reason is not a cancellation (e.g. "what were these operations")
+  reasonLabel?: string;
   danger?: boolean;
+  // Starts a new group in the bar (a thin divider before it)
+  group?: string;
 };
 
 // Cancelling posted documents of one kind: one reason, a reversing entry for each
@@ -27,9 +31,12 @@ export const cancelAction = (model: string, label: string, effect: string, appli
 // runs row by row through the same endpoint as the single-row button, so every server rule
 // still applies; rows the server refuses are listed with its reason.
 export function useBulk<T>({
-  rows, rowKey, rowLabel, actions, onDone,
+  rows, rowKey, rowLabel, actions, onDone, lead, extra,
 }: {
   rows: T[]; rowKey: (row: T) => string; rowLabel: (row: T) => string; actions: BulkAction<T>[]; onDone: () => any;
+  // Page buttons shown in the same bar: `lead` first (the main action), `extra` after the actions.
+  // Buttons that depend on the selection go through the returned `barWith` instead.
+  lead?: ReactNode; extra?: ReactNode;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<BulkAction<T> | null>(null);
@@ -77,7 +84,8 @@ export function useBulk<T>({
     selectable: (row: T) => actions.some((action) => action.applies(row)),
   };
 
-  const bar: ReactNode = (
+  // `barWith(lead, extra)`: the bar with page buttons that depend on the selection itself
+  const barWith = (lead?: ReactNode, extra?: ReactNode): ReactNode => (
     <>
       {result && (
         <Alert severity={result.failures.length ? 'warning' : 'success'} className="mx-3 mb-2" onClose={() => setResult(null)}>
@@ -88,22 +96,24 @@ export function useBulk<T>({
       {(selected.size > 0 || progress) && (
         <div className="acc-bulk">
           <span className="acc-bulk__count">{progress ? `جارٍ التنفيذ ${progress.done + 1} / ${progress.total}` : `${selected.size} محدد`}</span>
-          {!progress && actions.map((action) => {
-            const count = targets(action).length;
-            return count > 0 && (
-              <Button key={action.key} size="small" variant="outlined" color={action.danger ? 'error' : 'primary'} onClick={() => { setReason(''); setPending(action); }}>
-                {action.label} ({count})
+          {!progress && lead}
+          {!progress && actions.filter((action) => targets(action).length > 0).map((action, index, shown) => (
+            <span key={action.key} className="acc-bulk__item">
+              {(index > 0 ? action.group !== shown[index - 1].group : !!lead) && <span className="acc-bulk__sep" aria-hidden />}
+              <Button size="small" variant="outlined" color={action.danger ? 'error' : 'primary'} onClick={() => { setReason(''); setPending(action); }}>
+                {action.label} ({targets(action).length})
               </Button>
-            );
-          })}
-          {!progress && <Button size="small" onClick={() => setSelected(new Set())}>إلغاء التحديد</Button>}
+            </span>
+          ))}
+          {!progress && extra && <><span className="acc-bulk__sep" aria-hidden />{extra}</>}
+          {!progress && <Button size="small" color="inherit" className="acc-bulk__clear" onClick={() => setSelected(new Set())}>إلغاء التحديد</Button>}
         </div>
       )}
       <Dialog open={!!pending} onClose={() => setPending(null)} maxWidth="sm" fullWidth dir="rtl">
         <DialogTitle>{pending?.label}</DialogTitle>
         <DialogContent>
           <p className="acc-muted">{pending?.confirm(pending ? targets(pending).length : 0)}</p>
-          {pending?.needsReason && <TextField label="السبب (يُسجَّل على كل مستند)" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline minRows={2} required className="mt-2" />}
+          {pending?.needsReason && <TextField label={pending?.reasonLabel || 'السبب (يُسجَّل على كل مستند)'} value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline minRows={2} required className="mt-2" />}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPending(null)}>تراجع</Button>
@@ -113,5 +123,5 @@ export function useBulk<T>({
     </>
   );
 
-  return { selection, bar };
+  return { selection, bar: barWith(lead, extra), barWith };
 }

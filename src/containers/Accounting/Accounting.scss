@@ -398,6 +398,10 @@
 
   &__count { font-weight: 700; color: var(--accent-ink); margin-inline-end: 4px; }
   &__hint { color: var(--muted); font-size: 13.5px; }
+  &__item { display: inline-flex; align-items: center; gap: 8px; }
+  &__sep { width: 1px; align-self: stretch; min-height: 22px; background: #bfdcd8; margin: 0 2px; }
+  &__clear { margin-inline-start: auto !important; }
+  .MuiButton-root { white-space: nowrap; }
 }
 
 // ---------- Written guide ----------
