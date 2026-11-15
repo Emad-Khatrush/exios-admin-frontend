@@ -16,6 +16,7 @@ import PassportVerificationTab from './PassportVerificationTab';
 import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
 import { CustomerAccounting } from '../Accounting/AccountingPanels';
 import CustomerWallet from './CustomerWallet';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 
 // The fields the Customer info card edits; the rest of the loaded user stays as it is
 const pickCustomerInfo = (updated: any) => ({
@@ -30,7 +31,12 @@ type Props = {}
 
 const UserDetails = (props: Props) => {
   const { id } = useParams();
-  const canExchangeWallet = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
+  const isAdminOrAccountant = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
+  // «الإضافة والخصم من المحفظة» in Settings > Permissions. Staff nobody has configured yet keep what
+  // their role gave them: deposit and withdrawal for every staff member, exchange for admins and accountants.
+  const staff = useStaffAccess();
+  const canTransact = staff.configured ? staff.can('wallet_transactions') : true;
+  const canExchangeWallet = staff.configured ? staff.can('wallet_transactions') : isAdminOrAccountant;
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();
@@ -149,8 +155,8 @@ const UserDetails = (props: Props) => {
         <div className="row">
           <div className="col-12">
             <CustomerWallet user={user} debts={debts} debtLoading={debtLoading} debtError={debtError} walletUsd={walletUsd} walletLyd={walletLyd}
-              onDeposit={() => setDialog({ component: AddBalanceToWallet })}
-              onWithdraw={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
+              onDeposit={canTransact ? () => setDialog({ component: AddBalanceToWallet }) : undefined}
+              onWithdraw={canTransact ? () => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' }) : undefined}
               onExchange={canExchangeWallet ? () => setExchangeOpen(true) : undefined}
               onRefreshDebts={fetchDebtsOfUser}
               onPaymentSaved={async () => { await Promise.all([fetchDebtsOfUser(), refreshWalletAndStatement()]); }} />
