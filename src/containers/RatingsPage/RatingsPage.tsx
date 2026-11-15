@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowUpLeft, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, RefreshCw, Search, Star, X } from 'lucide-react';
 import { Rating } from '@mui/material';
 import moment from 'moment';
 import api from '../../api';
 import './RatingsPage.scss';
+import FeedbackPanel from './FeedbackPanel';
 
 type Question = { _id?: string; name?: string; label: string; type: string; value: unknown };
 type Review = {
@@ -27,7 +29,7 @@ function answer(value: unknown): string {
 }
 const dateValue = (value?: string) => value && moment(value).isValid() ? moment(value).valueOf() : 0;
 
-export default function RatingsPage() {
+function RatingsList() {
   const [ratings, setRatings] = useState<Review[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ export default function RatingsPage() {
   const badRange = !!(from && to && from > to);
   const reset = () => { setQuery(''); setFilter('all'); setFrom(''); setTo(''); setPage(1); };
 
-  return <main className="ratings-page" dir="rtl">
+  return <>
     <header className="ratings-header">
       <div><h1>تقييمات العملاء</h1><p>آراء العملاء حول تجربتهم مع Exios، وتفاصيل كل طلبية.</p></div>
       <button className="ratings-button" aria-label="تحديث التقييمات" disabled={loading} onClick={() => setRefresh(n => n + 1)}><RefreshCw size={16} />{loading && loaded ? 'جارٍ التحديث…' : 'تحديث التقييمات'}</button>
@@ -117,6 +119,39 @@ export default function RatingsPage() {
           {!!filtered.length && <nav className="ratings-pagination" aria-label="صفحات التقييمات"><span>عرض {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} من {filtered.length}</span><div><button aria-label="الصفحة السابقة" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}><ChevronRight size={18} /></button><span>{currentPage} / {pages}</span><button aria-label="الصفحة التالية" disabled={currentPage >= pages} onClick={() => setPage(currentPage + 1)}><ChevronLeft size={18} /></button></div></nav>}
         </section>
       </div>
+    </>}
+  </>;
+}
+
+// Ratings and, beside them, the complaints and suggestions customers send from the app
+export default function RatingsPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'feedback' ? 'feedback' : 'ratings';
+  const [open, setOpen] = useState<number | null>(null);
+  const onCounts = useCallback((n: number) => setOpen(n), []);
+
+  // The open-requests badge shows on the tab before it is opened
+  useEffect(() => {
+    if (tab === 'feedback') return;
+    let alive = true;
+    api.get('feedback').then((res: any) => {
+      if (alive && Array.isArray(res.data)) setOpen(res.data.filter((f: any) => f.status === 'new' || f.status === 'in_progress').length);
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [tab]);
+
+  const go = (t: 'ratings' | 'feedback') => setParams(t === 'feedback' ? { tab: 'feedback' } : {}, { replace: true });
+
+  return <main className="ratings-page" dir="rtl">
+    <nav className="ratings-tabs" role="tablist" aria-label="أقسام آراء العملاء">
+      <button role="tab" aria-selected={tab === 'ratings'} className={tab === 'ratings' ? 'is-active' : ''} onClick={() => go('ratings')}>تقييمات الطلبيات</button>
+      <button role="tab" aria-selected={tab === 'feedback'} className={tab === 'feedback' ? 'is-active' : ''} onClick={() => go('feedback')}>
+        الشكاوى والاقتراحات{!!open && <span className="ratings-tabs__n" aria-label={`${open} مفتوحة`}>{open}</span>}
+      </button>
+    </nav>
+    {tab === 'ratings' ? <RatingsList /> : <>
+      <header className="ratings-header"><div><h1>الشكاوى والاقتراحات</h1><p>ما يرسله العملاء من صفحة «شكوى / اقتراح» في التطبيق: تابع الحالة، رد على العميل، وسجّل ملاحظات الفريق.</p></div></header>
+      <FeedbackPanel onCounts={onCounts} />
     </>}
   </main>;
 }

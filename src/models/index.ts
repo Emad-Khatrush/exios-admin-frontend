@@ -393,6 +393,7 @@ export type OrderActivity = {
 }
 
 export type ApiErrorMessages = 'user-not-found' | 'user-subscription-canceled' | 'invalid-credentials' | 'authorize-invalid'
+  | 'account-locked' | 'too-many-requests'
   | 'token-not-found' | 'invalid-token' | 'order-id-taken' | 'order-not-found' | 'expense-id-taken' | 'user-role-invalid'
   | 'expense-not-found' | 'image-not-found' | 'fields-empty' | 'server-error' | 'balance-currency-not-accepted' | 'balance-already-paid' 
   | 'inventory-not-found' | 'balance-rate-zero' | 'balance-not-found' | 'balance-not-closable' | 'balance-has-payments' | 'balance-order-customer-mismatch';

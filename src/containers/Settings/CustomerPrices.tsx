@@ -1,6 +1,6 @@
 import { Alert } from '@mui/material';
 import {
-  ArrowRight, Banknote, Container as ContainerIcon, DollarSign, Landmark, MessageCircle, Plane, Plus, RefreshCw, Save, ShoppingBag, Ship, Trash2,
+  ArrowRight, Banknote, Container as ContainerIcon, Copy, DollarSign, Landmark, MessageCircle, Plane, Plus, RefreshCw, Save, ShoppingBag, Ship, Trash2,
 } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,14 +11,29 @@ import './CustomerPrices.scss';
 
 type Tier = { upTo: number | null, type?: 'fixed' | 'percent', value?: number, rate?: number, fee?: number };
 type Category = { key: string, label: string, price: number };
-type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, categories: Category[] };
+type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, categories: Category[], carrier?: string, updatedAt?: string };
+// A full-container offer: one container type on one shipping line between two ports
+type Offer = {
+  key: string, label: string, carrier: string, fromPort: string, toPort: string, route: string,
+  price: number, duration: string, visible: boolean, pricesUpdatedAt?: string,
+};
+// Suggestions only: any line or port can be typed
+const CONTAINER_TYPES = ['حاوية 20 قدم', 'حاوية 40 قدم', 'حاوية 40 قدم عالية (HQ)'];
+const CARRIERS = ['MSC', 'Maersk', 'CMA CGM', 'COSCO', 'Hapag-Lloyd', 'ONE', 'Evergreen', 'Yang Ming', 'ZIM', 'Arkas'];
+const AIRLINES = ['Turkish Airlines', 'Emirates', 'Qatar Airways', 'Etihad', 'EgyptAir', 'Libyan Airlines', 'China Southern', 'China Eastern'];
+const FROM_PORTS = ['شنغهاي', 'نينغبو', 'شنتشن', 'قوانغتشو', 'تشينغداو', 'شيامن', 'تيانجين', 'إسطنبول', 'مرسين', 'جبل علي'];
+const TO_PORTS = ['طرابلس', 'مصراتة', 'بنغازي', 'الخمس'];
+const updatedOn = (value?: string) => (value
+  ? new Intl.DateTimeFormat('ar-LY-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
+  : '');
+
 type Config = {
   exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null },
   shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[] },
   purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: { key: string, label: string, feePercent: number }[] },
   alipay: { visible: boolean, note: string, tiers: Tier[] },
   swift: { visible: boolean, note: string, tiers: Tier[], fixedFee: number, minFee: number },
-  fcl: { visible: boolean, note: string, containers: { key: string, label: string, route: string, price: number, duration: string, visible: boolean }[] },
+  fcl: { visible: boolean, note: string, containers: Offer[] },
   offices: { key: string, label: string, whatsapp: string, cities: string[] }[],
   updatedAt?: string,
 };
@@ -50,15 +65,19 @@ const NumberField = ({ label, value, onChange, unit, step = 'any', min = 0, plac
   </label>
 );
 
-const TextField = ({ label, value, onChange, placeholder, wide, multiline, dir }: {
-  label: string, value: string, onChange: (v: string) => void, placeholder?: string, wide?: boolean, multiline?: boolean, dir?: string,
+const TextField = ({ label, value, onChange, placeholder, wide, multiline, dir, list }: {
+  label: string, value: string, onChange: (v: string) => void, placeholder?: string, wide?: boolean, multiline?: boolean, dir?: string, list?: string,
 }) => (
   <label className={`cp-field${wide ? ' cp-field--wide' : ''}`}>
     <span>{label}</span>
     {multiline
       ? <textarea rows={2} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} dir={dir || 'auto'} />
-      : <input type="text" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} dir={dir || 'auto'} />}
+      : <input type="text" value={value} placeholder={placeholder} list={list} onChange={(e) => onChange(e.target.value)} dir={dir || 'auto'} />}
   </label>
+);
+
+const Suggestions = ({ id, items }: { id: string, items: string[] }) => (
+  <datalist id={id}>{items.map((v) => <option key={v} value={v} />)}</datalist>
 );
 
 const Section = ({ icon, title, sub, visible, onVisible, children }: {
@@ -210,6 +229,9 @@ const CustomerPrices = () => {
         {/* Shipping */}
         <Section icon={<Plane size={18} />} title="أسعار الشحن" sub="السعر هنا هو نفسه الذي تقرؤه الفواتير لكل خط."
           visible={d.shipping.visible} onVisible={(v) => patch('shipping', { visible: v })}>
+          {/* Shared by the shipping routes here and the FCL offers below */}
+          <Suggestions id="cp-carriers" items={CARRIERS} />
+          <Suggestions id="cp-airlines" items={AIRLINES} />
           <div className="cp-routes">
             {d.shipping.routes.map((r, i) => {
               const set = (p: Partial<Route>) => { const routes = [...d.shipping.routes]; routes[i] = { ...r, ...p }; patch('shipping', { routes }); };
@@ -218,6 +240,7 @@ const CustomerPrices = () => {
                   <div className="cp-route__head">
                     <span className="cp-route__icon">{r.method === 'sea' ? <Ship size={16} /> : <Plane size={16} />}</span>
                     <strong>{r.label}</strong>
+                    {r.updatedAt && <small className="cp-updated">آخر تغيير للسعر {updatedOn(r.updatedAt)}</small>}
                     <span className="cp-visibility"><small>{r.visible ? 'ظاهر' : 'مخفي'}</small><Switch checked={r.visible} onChange={(v) => set({ visible: v })} label={`إظهار ${r.label}`} /></span>
                   </div>
                   <div className="cp-kinds">
@@ -237,6 +260,14 @@ const CustomerPrices = () => {
                     <p className="cp-hint">النوع الذي سعره صفر لا يظهر للعملاء.</p>
                   </div>
                   <div className="cp-row">
+                    <TextField
+                      label={r.method === 'sea' ? 'الخط الملاحي (الشحن المشترك)' : 'شركة الطيران'}
+                      value={r.carrier || ''}
+                      list={r.method === 'sea' ? 'cp-carriers' : 'cp-airlines'}
+                      dir="auto"
+                      placeholder={r.method === 'sea' ? 'COSCO' : 'Turkish Airlines'}
+                      onChange={(v) => set({ carrier: v })}
+                    />
                     <TextField label="المدة" value={r.duration} placeholder="15 - 20 يوماً" onChange={(v) => set({ duration: v })} />
                     <NumberField label="أقل تكلفة للشحنة" value={r.minCharge} unit="$" onChange={(v) => set({ minCharge: v })} />
                   </div>
@@ -321,29 +352,45 @@ const CustomerPrices = () => {
         </Section>
 
         {/* FCL */}
-        <Section icon={<ContainerIcon size={18} />} title="الحاويات الكاملة FCL" sub="لا تظهر الحاوية للعملاء حتى تضع لها سعراً."
+        <Section icon={<ContainerIcon size={18} />} title="الحاويات الكاملة FCL" sub="كل سطر عرض: نوع حاوية على خط ملاحي من ميناء إلى ميناء بسعره. لا يظهر العرض للعملاء حتى تضع له سعراً."
           visible={d.fcl.visible} onVisible={(v) => patch('fcl', { visible: v })}>
+          <Suggestions id="cp-container-types" items={CONTAINER_TYPES} />
+          <Suggestions id="cp-from-ports" items={FROM_PORTS} />
+          <Suggestions id="cp-to-ports" items={TO_PORTS} />
           <div className="cp-list">
             {d.fcl.containers.map((c, i) => {
-              const set = (p: any) => { const containers = [...d.fcl.containers]; containers[i] = { ...c, ...p }; patch('fcl', { containers }); };
+              const set = (p: Partial<Offer>) => { const containers = [...d.fcl.containers]; containers[i] = { ...c, ...p }; patch('fcl', { containers }); };
+              const title = [c.label || 'حاوية جديدة', c.carrier].filter(Boolean).join(' - ');
               return (
-                <div key={i} className={`cp-route${c.visible ? '' : ' is-hidden'}`}>
+                <div key={c.key} className={`cp-route${c.visible ? '' : ' is-hidden'}`}>
                   <div className="cp-route__head">
                     <span className="cp-route__icon"><ContainerIcon size={16} /></span>
-                    <strong>{c.label || 'حاوية جديدة'}</strong>
-                    <span className="cp-visibility"><small>{c.visible ? 'ظاهرة' : 'مخفية'}</small><Switch checked={c.visible} onChange={(v) => set({ visible: v })} label="إظهار الحاوية" /></span>
-                    <button type="button" className="cp-icon-btn" aria-label="حذف الحاوية" onClick={() => patch('fcl', { containers: d.fcl.containers.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
+                    <strong>{title}</strong>
+                    {c.pricesUpdatedAt && <small className="cp-updated">آخر تغيير للسعر {updatedOn(c.pricesUpdatedAt)}</small>}
+                    <span className="cp-visibility"><small>{c.visible ? 'ظاهر' : 'مخفي'}</small><Switch checked={c.visible} onChange={(v) => set({ visible: v })} label="إظهار العرض" /></span>
+                    <button type="button" className="cp-icon-btn" aria-label="نسخ العرض لخط آخر" title="نسخ لخط آخر"
+                      onClick={() => { const containers = [...d.fcl.containers]; containers.splice(i + 1, 0, { ...c, key: `container-${Date.now()}`, carrier: '', price: 0, pricesUpdatedAt: undefined }); patch('fcl', { containers }); }}>
+                      <Copy size={16} />
+                    </button>
+                    <button type="button" className="cp-icon-btn" aria-label="حذف العرض" onClick={() => patch('fcl', { containers: d.fcl.containers.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
                   </div>
                   <div className="cp-row">
-                    <TextField label="الاسم" value={c.label} onChange={(v) => set({ label: v })} />
+                    <TextField label="نوع الحاوية" value={c.label} list="cp-container-types" placeholder="حاوية 40 قدم" onChange={(v) => set({ label: v })} />
+                    <TextField label="الخط الملاحي" value={c.carrier} list="cp-carriers" dir="auto" placeholder="COSCO" onChange={(v) => set({ carrier: v })} />
                     <NumberField label="السعر" value={c.price} unit="$" onChange={(v) => set({ price: v })} />
-                    <TextField label="الخط" value={c.route} placeholder="الصين إلى طرابلس" onChange={(v) => set({ route: v })} />
-                    <TextField label="المدة" value={c.duration} placeholder="45 - 60 يوماً" onChange={(v) => set({ duration: v })} />
                   </div>
+                  <div className="cp-row">
+                    <TextField label="ميناء الشحن" value={c.fromPort} list="cp-from-ports" placeholder="شنغهاي" onChange={(v) => set({ fromPort: v })} />
+                    <TextField label="ميناء الوصول" value={c.toPort} list="cp-to-ports" placeholder="طرابلس" onChange={(v) => set({ toPort: v })} />
+                    <TextField label="المدة" value={c.duration} placeholder="35 - 45 يوماً" onChange={(v) => set({ duration: v })} />
+                  </div>
+                  {!c.fromPort && !c.toPort && c.route && (
+                    <p className="cp-hint">الخط القديم «{c.route}» يظهر للعملاء حتى تكتب الميناءين.</p>
+                  )}
                 </div>
               );
             })}
-            <button type="button" className="cp-add" onClick={() => patch('fcl', { containers: [...d.fcl.containers, { key: `container-${Date.now()}`, label: '', route: '', price: 0, duration: '', visible: true }] })}><Plus size={15} /> أضف حاوية</button>
+            <button type="button" className="cp-add" onClick={() => patch('fcl', { containers: [...d.fcl.containers, { key: `container-${Date.now()}`, label: '', carrier: '', fromPort: '', toPort: 'طرابلس', route: '', price: 0, duration: '', visible: true }] })}><Plus size={15} /> أضف عرض حاوية</button>
           </div>
           <TextField label="ملاحظة" value={d.fcl.note} wide multiline onChange={(v) => patch('fcl', { note: v })} />
         </Section>
