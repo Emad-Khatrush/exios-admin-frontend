@@ -32,11 +32,12 @@ type Props = {}
 const UserDetails = (props: Props) => {
   const { id } = useParams();
   const isAdminOrAccountant = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
-  // «الإضافة والخصم من المحفظة» in Settings > Permissions. Staff nobody has configured yet keep what
-  // their role gave them: deposit and withdrawal for every staff member, exchange for admins and accountants.
+  // «الإضافة والخصم من المحفظة» and «الصرافة داخل المحفظة» in Settings > Permissions. Staff nobody has
+  // configured yet keep what their role gave them: deposit and withdrawal for every staff member,
+  // exchange for admins and accountants.
   const staff = useStaffAccess();
   const canTransact = staff.configured ? staff.can('wallet_transactions') : true;
-  const canExchangeWallet = staff.configured ? staff.can('wallet_transactions') : isAdminOrAccountant;
+  const canExchangeWallet = staff.configured ? staff.can('wallet_exchange') : isAdminOrAccountant;
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();

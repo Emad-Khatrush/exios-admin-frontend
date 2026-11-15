@@ -5,7 +5,7 @@
 export type StaffPermission =
   | 'invoices_create' | 'invoices_edit' | 'invoices_payments' | 'invoices_cancel' | 'invoices_list'
   | 'tracking' | 'delivery'
-  | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'wallet_transactions' | 'debts' | 'returned_payments' | 'expenses'
+  | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'wallet_transactions' | 'wallet_exchange' | 'debts' | 'returned_payments' | 'expenses'
   | 'inventory' | 'warehouse'
   | 'marketing' | 'goals' | 'analytics' | 'ratings'
   | 'tasks' | 'reports' | 'activities' | 'settings_prices' | 'settings_content';
@@ -23,8 +23,8 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/task/add': ['tasks'],
   '/task/:id/edit': ['tasks'],
   '/balances': ['debts'],
-  '/clients': ['clients', 'wallets', 'wallet_transactions', 'delivery', 'passports'],
-  '/user/:id': ['clients', 'wallets', 'wallet_transactions', 'delivery', 'passports', 'special_prices', 'debts'],
+  '/clients': ['clients', 'wallets', 'wallet_transactions', 'wallet_exchange', 'delivery', 'passports'],
+  '/user/:id': ['clients', 'wallets', 'wallet_transactions', 'wallet_exchange', 'delivery', 'passports', 'special_prices', 'debts'],
   '/special-prices': ['special_prices'],
   '/inventory': ['inventory'],
   '/inventory/add': ['inventory'],
