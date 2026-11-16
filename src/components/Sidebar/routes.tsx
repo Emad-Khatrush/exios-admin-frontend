@@ -1,5 +1,5 @@
 import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
-import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale, FaBullseye } from 'react-icons/fa';
+import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale, FaBullseye, FaStar } from 'react-icons/fa';
 import { FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
 import { RiBillFill } from 'react-icons/ri';
@@ -44,6 +44,11 @@ const adminRoutes = [
       title: 'Clients',
       path: '/clients',
       icon: <FaUsers className="sidebar-icon" />,
+     },
+     {
+      title: 'Loyalty points',
+      path: '/loyalty',
+      icon: <FaStar className="sidebar-icon" />,
      },
      ...accountingRoutes,
      {
@@ -202,6 +207,7 @@ const staffRoutes = (permissions: string[]) => {
     { title: 'Expenses', path: '/expenses', icon: <RiBillFill className="sidebar-icon" /> },
     { title: 'Debts', path: '/balances', icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" /> },
     { title: 'Clients', path: '/clients', icon: <FaUsers className="sidebar-icon" /> },
+    { title: 'Loyalty points', path: '/loyalty', icon: <FaStar className="sidebar-icon" /> },
     ...accountingRoutes,
     { mainTitle: 'Management' },
     { title: 'X-Tracking', path: '/xtracking', icon: <FaArchive className="sidebar-icon" /> },

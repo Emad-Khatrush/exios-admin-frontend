@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
-import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
+import { Chip, CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
 import CashflowUser from './CashflowUser';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
@@ -16,6 +16,8 @@ import PassportVerificationTab from './PassportVerificationTab';
 import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
 import { CustomerAccounting } from '../Accounting/AccountingPanels';
 import CustomerWallet from './CustomerWallet';
+import LoyaltyTab from './LoyaltyTab';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 
 // The fields the Customer info card edits; the rest of the loaded user stays as it is
 const pickCustomerInfo = (updated: any) => ({
@@ -30,6 +32,10 @@ type Props = {}
 
 const UserDetails = (props: Props) => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const staff = useStaffAccess();
+  const isAdminRole = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin));
+  const canLoyalty = isAdminRole || staff.can('loyalty');
   const canExchangeWallet = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
@@ -44,13 +50,25 @@ const UserDetails = (props: Props) => {
   const [isStatementLoading, setIsStatementLoading] = useState(false);
   const [dialog, setDialog] = useState<any>();
   const [dialogBusy, setDialogBusy] = useState(false);
-  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings' | 'accounting'>('profile');
+  const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings' | 'accounting' | 'points'>(searchParams.get('tab') === 'points' ? 'points' : 'profile');
+  // The customer's points, for the balance in the header (null when unknown or not allowed)
+  const [points, setPoints] = useState<{ points: number, usd: number } | null>(null);
+  const [pointsVersion, setPointsVersion] = useState(0);
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!canLoyalty || !id) return;
+    let stale = false;
+    api.get(`user/${id}/loyalty`)
+      .then((res: any) => { if (!stale) setPoints({ points: Number(res.data?.points || 0), usd: Number(res.data?.usd ?? Number(res.data?.points || 0) / 100) }); })
+      .catch(() => { if (!stale) setPoints(null); });
+    return () => { stale = true; };
+  }, [id, canLoyalty, pointsVersion]);
 
   useEffect(() => {
     fetchUserStatement();
@@ -129,6 +147,11 @@ const UserDetails = (props: Props) => {
 
   return (
     <div className="m-2 row">
+      {points && (
+        <div className="mb-2">
+          <Chip color="primary" variant="outlined" label={`${points.points.toLocaleString('en-US')} pts ($${points.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`} onClick={() => setActiveTap('points')} />
+        </div>
+      )}
       <Tabs
         className='mb-4'
         value={activeTap}
@@ -143,6 +166,7 @@ const UserDetails = (props: Props) => {
         <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
         {canReviewPassports && <Tab label="Accounting" value="accounting" />}
+        {canLoyalty && <Tab label="Points" value="points" />}
       </Tabs>
 
       {activeTap === 'profile' ? (
@@ -165,6 +189,10 @@ const UserDetails = (props: Props) => {
             onStatementChanged={refreshWalletAndStatement}
             isLoading={isStatementLoading}
           />
+        </div>
+      ) : activeTap === 'points' ? (
+        <div className="col-md-12">
+          <LoyaltyTab userId={user._id} version={pointsVersion} onChanged={() => setPointsVersion((v) => v + 1)} />
         </div>
       ) : activeTap === 'accounting' ? (
         <div className="col-md-12">
