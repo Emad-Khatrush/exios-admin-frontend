@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment, TextField } from '@mui/material';
 import api from '../../api';
+import '../Loyalty/loyalty.scss';
 
 type Category = 'invoice' | 'receivedGoods';
 
@@ -129,8 +130,7 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
           <>
             {(error || failed) && <Alert severity="error" className="op-alert op-alert--tight" dir="auto">{error || failed}</Alert>}
 
-            <dl className="op-outcome">
-              <div><dt>Amount due</dt><dd>{dueNow > 0 ? `$${money(dueNow)}` : 'Nothing is due'}</dd></div>
+            <dl className="lp lp-quote">
               <div><dt>Customer points</dt><dd>{loading ? '...' : quote ? `${pointsText(balance)} ($${money(balance / 100)})` : '-'}</dd></div>
               <div><dt>Max usable (20%)</dt><dd>{loading ? '...' : quote ? `${pointsText(max)} points (${cents(max)})` : '-'}</dd></div>
             </dl>
@@ -153,10 +153,10 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
               </div>
             </div>
 
-            <dl className="op-outcome">
-              <div><dt>Total</dt><dd>${money(dueNow)}</dd></div>
-              <div><dt>Points discount</dt><dd>{discount > 0 ? `-$${money(discount)}` : '-'}</dd></div>
-              <div><dt>Remaining to pay</dt><dd>${money(Math.max(0, dueNow - discount))}</dd></div>
+            <dl className="lp lp-receipt">
+              <div><dt>Amount due</dt><dd>{dueNow > 0 ? `$${money(dueNow)}` : 'Nothing is due'}</dd></div>
+              <div className="is-discount"><dt>Points discount</dt><dd>{discount > 0 ? `−$${money(discount)}` : '—'}</dd></div>
+              <div className="is-total"><dt>Remaining to pay</dt><dd>${money(Math.max(0, dueNow - discount))}</dd></div>
             </dl>
           </>
         )}

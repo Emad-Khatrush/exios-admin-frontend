@@ -3,7 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import UserWidget from '../ClientsView/UserWidget/UserWidget';
-import { Chip, CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
+import { CircularProgress, Dialog, Tab, Tabs } from '@mui/material';
+import { MdToll } from 'react-icons/md';
 import CashflowUser from './CashflowUser';
 import AddBalanceToWallet from './AddBalanceToWallet';
 import UseWalletBalance from './UseWalletBalance';
@@ -17,6 +18,8 @@ import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
 import { CustomerAccounting } from '../Accounting/AccountingPanels';
 import CustomerWallet from './CustomerWallet';
 import LoyaltyTab from './LoyaltyTab';
+import { money, pointsText } from '../Loyalty/format';
+import '../Loyalty/loyalty.scss';
 import { useStaffAccess } from '../../utils/useStaffAccess';
 
 // The fields the Customer info card edits; the rest of the loaded user stays as it is
@@ -154,7 +157,10 @@ const UserDetails = (props: Props) => {
     <div className="m-2 row">
       {points && (
         <div className="mb-2">
-          <Chip color="primary" variant="outlined" label={`${points.points.toLocaleString('en-US')} pts ($${points.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`} onClick={() => setActiveTap('points')} />
+          <button type="button" className="lp lp-header-chip lp-press" onClick={() => setActiveTap('points')} title="Open the Points tab">
+            <MdToll aria-hidden="true" />
+            {pointsText(points.points)} pts <span>· ${money(points.usd)}</span>
+          </button>
         </div>
       )}
       <Tabs
