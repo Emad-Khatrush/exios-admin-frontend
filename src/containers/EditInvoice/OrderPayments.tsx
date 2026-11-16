@@ -17,7 +17,8 @@ type Props = {
   debts: any[]
   // Write-offs of the order's claims (accounting), taken off what is left
   writeOffs?: any[]
-  // Opens the wallet dialog to pay the purchase invoice
+  // Opens the wallet dialog to pay the purchase invoice or the open packages' shipping (with points
+  // inside the dialog for staff who may use them)
   onPay: (category: Category, packages: any[], dueUsd: number) => void
   onDeletePayment: (payment: any) => void
   // An old dinar payment saved without a rate: an admin or the accountant writes it
@@ -28,10 +29,9 @@ type Props = {
   onRequestEdit: () => void
   onDecideChanges: (status: 'accepted' | 'rejected') => void
   onAddDebt: () => void
-  // Loyalty points: staff who may use them get the button; `pointsRedeemed` is what the order used in all
+  // Loyalty points: they are paid inside the wallet dialog; `pointsRedeemed` is what the order used in all
   canUsePoints?: boolean
   pointsRedeemed?: number
-  onUsePoints?: (category: Category, packages: any[], dueUsd: number) => void
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -277,7 +277,6 @@ const OrderPayments = (props: Props) => {
         </header>
         <div className="op-actions op-actions--start">
           <Button variant="contained" size="small" type="button" onClick={() => props.onPay('invoice', [], invoiceDue)} disabled={walletEmpty}>Pay from wallet</Button>
-          {props.canUsePoints && <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('invoice', [], invoiceDue)} disabled={invoiceDue <= 0}>استعمال النقاط</Button>}
           {isAdmin && (locked ? (
             <Button variant="outlined" size="small" type="button" onClick={props.onRequestEdit}>Request invoice edit</Button>
           ) : (
@@ -311,7 +310,7 @@ const OrderPayments = (props: Props) => {
         </header>
         {props.canUsePoints && (
           <div className="op-actions op-actions--start">
-            <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>استعمال النقاط</Button>
+            <Button variant="outlined" size="small" type="button" onClick={() => props.onPay('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>Pay from wallet</Button>
           </div>
         )}
         {!hasInvoice && (props.pointsRedeemed || 0) > 0 && pointsLine}

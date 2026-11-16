@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, InputAdornment, Skeleton, TablePagination, TextField } from '@mui/material';
 import { MdClose, MdErrorOutline, MdHourglassBottom, MdSearch, MdToll } from 'react-icons/md';
 import api from '../../api';
-import { requestError } from '../EditInvoice/OrderPointsDialog';
+import { requestError } from './PaymentPoints';
 import { initials, money, pageAriaLabel, pageLabel, pointsText, relativeDay, shortDate, usdOf } from './format';
 import { LoyaltyRtl, Num, stagger } from './LoyaltyRtl';
 import './loyalty.scss';

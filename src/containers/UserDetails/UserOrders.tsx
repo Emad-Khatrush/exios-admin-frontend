@@ -22,14 +22,13 @@ import {
   Avatar,
   InputAdornment,
 } from '@mui/material';
-import { Boxes, ChevronDown, CircleCheck, Coins, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
+import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import FileViewer from '../../components/FileViewer/FileViewer';
 import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
 import { useStaffAccess } from '../../utils/useStaffAccess';
-// @ts-ignore -- intentional side-effect stylesheet import (the loyalty tokens: gold coin, receipt)
-import '../Loyalty/loyalty.scss';
+import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -51,18 +50,6 @@ type SelectedPackage = {
   feeLydAmounts?: number[];
   // What loyalty points already paid on the shipping (cost is what is left)
   pointsUsd?: number;
-};
-
-// What the customer's points can pay on the selected packages' shipping (the server's delivery-quote)
-type PointsQuote = { balance: number; maxPoints: number; owedCents: number; billedCents: number; usedOnTarget: number };
-
-const pointsText = (value: number) => Number(value || 0).toLocaleString('en-US');
-
-// The message of a failed request, as the server wrote it (Arabic), else the fallback
-const requestError = (error: any, fallback: string) => {
-  const data = error?.response?.data;
-  const message = typeof data === 'string' ? data : data?.message || data?.error;
-  return typeof message === 'string' && message ? message : fallback;
 };
 
 type PaymentInput = { amountUSD: string; amountLYD: string };
@@ -307,16 +294,27 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     return { totalKG, totalCBM, totalFees: Number(totalFees.toFixed(2)), feesLYD: Number(feesLYD.toFixed(2)), separateLYD: effectiveFeeMode === 'separate' ? Number(feesLYD.toFixed(2)) : 0 };
   }, [selectedPackages, effectiveFeeMode, todayRate]);
 
+  // ---- Loyalty points on the selected packages' shipping (at most 20%, never the fees) ----
+  // A field of the payment (owner's decision): sent with the delivery, which takes both in one
+  // transaction. Quoted again whenever the selection changes; the old figures are cleared first.
+  const selectedIds = selectedPackages.map((pkg) => pkg.id).join(',');
+  const pointsQuote = usePointsQuote(openDialog && canUsePoints && selectedIds ? `user/${customerId}/loyalty/delivery-quote` : null, { packageIds: selectedIds });
+  const [pointsInput, setPointsInput] = useState('');
+  useEffect(() => { setPointsInput(''); }, [selectedIds]);
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, pointsQuote.quote);
+  // What the money pays: the total less the points. The amounts, the rate and the checks use it.
+  const dueTotal = remainingAfter(totals.totalFees, pointsUsd);
+
   // The rate is calculated, never typed (the server calculates it the same way):
   // USD only -> 0, LYD only -> LYD / total, both -> USD is taken first and LYD pays the rest.
   const paymentSummary = useMemo(() => {
     const amountUSD = toNumber(payment.amountUSD);
     const amountLYD = toNumber(payment.amountLYD);
-    const remainingUSD = round2(totals.totalFees - amountUSD);
+    const remainingUSD = round2(dueTotal - amountUSD);
     const rate = allowPartial ? Number(partialRate) : amountLYD > 0 && remainingUSD > 0 ? calculateRate(amountLYD, remainingUSD) : 0;
     const lydInUsd = rate > 0 ? allowPartial ? amountLYD / rate : remainingUSD : 0;
     const covered = round2(amountUSD + lydInUsd);
-    const difference = round2(covered - totals.totalFees);
+    const difference = round2(covered - dueTotal);
 
     const errors: string[] = [];
     if (amountUSD < 0 || amountLYD < 0) errors.push('Amounts cannot be negative.');
@@ -330,7 +328,8 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
       : 'The USD amount already covers the total, remove the LYD amount.');
     // Free shipping (offered with a purchase): packages that cost nothing are delivered with no payment
     // Separate LYD fees are collected automatically from that wallet, outside these inputs.
-    if (amountUSD === 0 && amountLYD === 0 && totals.totalFees > 0 && !allowPartial) errors.push('Enter a USD or LYD amount.');
+    if (amountUSD === 0 && amountLYD === 0 && dueTotal > 0 && !allowPartial) errors.push('Enter a USD or LYD amount.');
+    if (pointsInput && !pointsQuote.quote) errors.push('جارٍ تحميل نقاط العميل…');
     if (allowPartial && amountLYD > 0 && (!Number.isFinite(rate) || rate <= 0)) errors.push('أدخل سعر صرف صحيحًا للدينار.');
     if (allowPartial && totals.feesLYD > 0 && !todayRate) errors.push('سجل سعر الدينار أولًا لتحويل رسوم الطرود.');
     if (allowPartial && difference > 0) errors.push('الدفعة أكبر من إجمالي الطرود المحددة.');
@@ -340,7 +339,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     }
 
     return { amountUSD, amountLYD, rate, remainingUSD, lydInUsd, covered, difference, errors };
-  }, [payment, totals.totalFees, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd, allowPartial, partialRate, todayRate]);
+  }, [payment, dueTotal, totals.feesLYD, totals.separateLYD, walletUsd, walletLyd, allowPartial, partialRate, todayRate, pointsInput, pointsQuote.quote]);
 
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
@@ -348,83 +347,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   };
 
   const payFullInUsd = () => {
-    setPayment({ amountUSD: String(round2(Math.min(totals.totalFees, walletUsd))), amountLYD: '' });
-  };
-
-  // ---- Loyalty points on the selected packages' shipping (at most 20%, never the fees) ----
-  const [pointsQuote, setPointsQuote] = useState<PointsQuote | null>(null);
-  // The customer's balance as last read: the section stays in place while a new quote loads
-  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteVersion, setQuoteVersion] = useState(0);
-  const [pointsInput, setPointsInput] = useState('');
-  const [pointsError, setPointsError] = useState('');
-  const [pointsNotice, setPointsNotice] = useState('');
-  const [pointsSaving, setPointsSaving] = useState(false);
-  const selectedIds = selectedPackages.map((pkg) => pkg.id).join(',');
-
-  // Quoted again whenever the selection changes; the old figures are cleared first
-  useEffect(() => {
-    setPointsQuote(null);
-    setPointsInput('');
-    setPointsError('');
-    if (!openDialog || !canUsePoints || !selectedIds) return;
-    let stale = false;
-    setQuoteLoading(true);
-    api.get(`user/${customerId}/loyalty/delivery-quote`, { packageIds: selectedIds })
-      .then((res: any) => {
-        if (stale) return;
-        setPointsQuote(res.data || null);
-        setPointsBalance(Number(res.data?.balance) || 0);
-      })
-      .catch((error: any) => { if (!stale) setPointsError(requestError(error, 'تعذّر تحميل نقاط العميل.')); })
-      .finally(() => { if (!stale) setQuoteLoading(false); });
-    return () => { stale = true; };
-  }, [openDialog, canUsePoints, selectedIds, customerId, quoteVersion]);
-
-  const maxPoints = Math.max(pointsQuote?.maxPoints ?? 0, 0);
-  const pointsValue = Number(pointsInput) || 0;
-  const pointsDiscount = Math.min(Math.max(pointsValue, 0), maxPoints) / 100;
-  const showPoints = canUsePoints && ((pointsBalance ?? 0) > 0 || !!pointsNotice);
-  const canApplyPoints = !!pointsQuote && pointsValue >= 1 && pointsValue <= maxPoints && !pointsSaving && !quoteLoading && !isPending;
-
-  // Typing beyond the maximum is held at the maximum; whole points only
-  const changePoints = (text: string) => {
-    setPointsError('');
-    if (text === '') return setPointsInput('');
-    const next = Math.floor(Number(text));
-    if (Number.isNaN(next) || next < 0) return;
-    setPointsInput(String(Math.min(next, maxPoints)));
-  };
-
-  // Reads the packages again so the selection carries the costs left after the points
-  const refreshSelectedCosts = async () => {
-    const results = await fetchOrders(tabs.find((tab) => tab.value === filter)?.tabType || 'active');
-    if (!results) return;
-    const fresh = new Map<string, SelectedPackage>();
-    results.forEach((order: any) => (order.paymentList || []).forEach((pkg: any) => fresh.set(String(pkg._id), toSelectedPackage(pkg, order.orderId))));
-    setSelectedPackages((prev) => prev.map((pkg) => fresh.get(String(pkg.id)) || pkg));
-  };
-
-  const applyPoints = async () => {
-    if (!canApplyPoints) return;
-    setPointsSaving(true);
-    setPointsError('');
-    setPointsNotice('');
-    try {
-      const res = await api.post(`user/${customerId}/loyalty/redeem-packages`, { points: pointsValue, packageIds: selectedPackages.map((pkg) => pkg.id) });
-      const used = Number(res.data?.points ?? pointsValue);
-      setPointsInput('');
-      // The total due just went down: the amounts typed for the old total are cleared
-      setPayment(emptyPayment);
-      await refreshSelectedCosts();
-      setPointsNotice(`تم استعمال ${pointsText(used)} نقطة ($${formatMoney(used / 100)}). أدخل الدفعة للمبلغ المتبقي.`);
-      setQuoteVersion((v) => v + 1);
-    } catch (error: any) {
-      setPointsError(requestError(error, 'تعذّر استعمال النقاط.'));
-    } finally {
-      setPointsSaving(false);
-    }
+    setPayment({ amountUSD: String(round2(Math.min(dueTotal, walletUsd))), amountLYD: '' });
   };
 
   const closeDialog = () => {
@@ -433,9 +356,6 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     setAllowPartial(false);
     setPartialRate('');
     setPointsInput('');
-    setPointsNotice('');
-    setPointsError('');
-    setPointsBalance(null);
   };
 
   // An unfinished delivery of this customer (the page was closed or the connection cut)
@@ -530,6 +450,8 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
           selectedPackages: selectedPackages.map(({ images, ...pkg }) => pkg),
           payment: { amountUSD: paymentSummary.amountUSD, amountLYD: paymentSummary.amountLYD, rate: paymentSummary.rate },
           feeMode: effectiveFeeMode,
+          // Paid once at the start over every package, in the start's transaction
+          ...(pointsUsed > 0 && { points: pointsUsed }),
         })).data;
         closeDialog();
         const job = await runDelivery(started);
@@ -565,9 +487,10 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
           amountLYD: paymentSummary.amountLYD,
           rate: paymentSummary.rate,
         },
-        totalCost: totals.totalFees,
+        totalCost: dueTotal,
         feeMode: effectiveFeeMode,
         allowPartial,
+        ...(pointsUsed > 0 && { points: pointsUsed }),
       });
 
       closeDialog();
@@ -823,66 +746,11 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
             </div>
           </div>
 
-          {showPoints && (
-            <section className="lp co-points lp-fade-in" dir="rtl" aria-label="استعمال النقاط">
-              <header className="co-points__head">
-                <span className="co-points__coin" aria-hidden="true"><Coins size={16} strokeWidth={2} /></span>
-                <h3>استعمال النقاط</h3>
-              </header>
-
-              <dl className="co-points__facts">
-                <div>
-                  <dt>نقاط العميل</dt>
-                  <dd>{pointsQuote ? <><bdi className="lp-num" dir="ltr">{pointsText(pointsQuote.balance)}</bdi> نقطة (= <bdi className="lp-num" dir="ltr">${formatMoney(pointsQuote.balance / 100)}</bdi>)</> : '…'}</dd>
-                </div>
-                <div>
-                  <dt>الحد الأقصى لهذه الشحنات</dt>
-                  <dd>{pointsQuote ? <><bdi className="lp-num" dir="ltr">{pointsText(maxPoints)}</bdi> نقطة (= <bdi className="lp-num" dir="ltr">${formatMoney(maxPoints / 100)}</bdi>)</> : '…'}</dd>
-                </div>
-              </dl>
-
-              {pointsError && <Alert severity="error" className="co-points__alert" dir="auto">{pointsError}</Alert>}
-              {pointsNotice && <Alert severity="success" className="co-points__alert lp-fade-in">{pointsNotice}</Alert>}
-              {pointsQuote && maxPoints <= 0 && !quoteLoading && (
-                <p className="co-points__note">لا يمكن استعمال نقاط على هذه الشحنات الآن (الحد الأقصى 20% من الشحن، وما دُفع بالنقاط منه يُحسب).</p>
-              )}
-
-              {maxPoints > 0 && (
-                <>
-                  <div className="co-points__row">
-                    <TextField
-                      size="small"
-                      label="النقاط المستعملة"
-                      type="number"
-                      value={pointsInput}
-                      disabled={!pointsQuote || pointsSaving || isPending}
-                      onChange={(event) => changePoints(event.target.value)}
-                      onWheel={(event: any) => event.target.blur()}
-                      inputProps={{ min: 0, max: maxPoints, step: 1, dir: 'ltr', inputMode: 'numeric' }}
-                      InputProps={{ endAdornment: <InputAdornment position="end">نقطة</InputAdornment> }}
-                    />
-                    <Button size="small" type="button" onClick={() => { setPointsError(''); setPointsInput(String(maxPoints)); }} disabled={!pointsQuote || pointsSaving || isPending}>الحد الأقصى</Button>
-                    <Button size="small" type="button" onClick={() => setPointsInput('')} disabled={!pointsInput || pointsSaving}>مسح</Button>
-                  </div>
-
-                  <dl className="lp-receipt co-points__receipt">
-                    <div><dt>إجمالي الشحن</dt><dd><bdi className="lp-num" dir="ltr">${formatMoney(totals.totalFees)}</bdi></dd></div>
-                    <div className="is-discount"><dt>خصم النقاط</dt><dd>{pointsDiscount > 0 ? <bdi className="lp-num" dir="ltr">−${formatMoney(pointsDiscount)}</bdi> : '—'}</dd></div>
-                    <div className="is-total">
-                      <dt>المتبقي للدفع</dt>
-                      <dd aria-live="polite"><bdi key={pointsDiscount.toFixed(2)} className="lp-num lp-tick" dir="ltr">${formatMoney(Math.max(0, totals.totalFees - pointsDiscount))}</bdi></dd>
-                    </div>
-                  </dl>
-
-                  <div className="co-points__actions">
-                    <p className="co-points__note">النقاط لا تدفع رسوم النقل الداخلي أو التخليص.</p>
-                    <Button variant="contained" size="small" onClick={applyPoints} disabled={!canApplyPoints} startIcon={<Coins size={15} strokeWidth={2} />}>
-                      {pointsSaving ? 'جارٍ التطبيق…' : 'تطبيق النقاط'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </section>
+          {canUsePoints && (
+            <PaymentPoints
+              quote={pointsQuote.quote} balance={pointsQuote.balance} loading={pointsQuote.loading} failed={pointsQuote.failed}
+              value={pointsInput} onChange={setPointsInput} totalUsd={totals.totalFees} disabled={isPending}
+            />
           )}
 
           {totals.feesLYD > 0 && (
@@ -893,7 +761,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                 <label><input type="radio" checked={feeMode === 'usd'} onChange={() => setFeeMode('usd')} disabled={!todayRate} /> Convert to USD at {todayRate || '-'} and add to the total</label>
               </div>
               {feeMode === 'separate' && <p dir="rtl" style={{ margin: '8px 0 0' }}>
-                <b>{formatMoney(totals.feesLYD)} LYD</b> تُخصم تلقائيًا من محفظة الدينار. <b>لا تكتبها في خانة الدينار بالأسفل.</b> الإجمالي ${formatMoney(totals.totalFees)} هو الشحن فقط: ادفعه بالدولار (أو بالدينار إن أراد العميل).
+                <b>{formatMoney(totals.feesLYD)} LYD</b> تُخصم تلقائيًا من محفظة الدينار. <b>لا تكتبها في خانة الدينار بالأسفل.</b> الإجمالي ${formatMoney(dueTotal)} هو الشحن فقط: ادفعه بالدولار (أو بالدينار إن أراد العميل).
                 <br />سيُخصم: <b>${formatMoney(paymentSummary.amountUSD)}</b> من محفظة الدولار{paymentSummary.amountLYD > 0 && <> + <b>{formatMoney(paymentSummary.amountLYD)} LYD</b> للشحن</>} + <b>{formatMoney(totals.feesLYD)} LYD</b> رسوم من محفظة الدينار.
               </p>}</>}
             </div>
@@ -947,9 +815,9 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
             </div>
             <div className="is-total">
               <dt>Covered</dt>
-              <dd>${formatMoney(paymentSummary.covered)} of ${formatMoney(totals.totalFees)}</dd>
+              <dd>${formatMoney(paymentSummary.covered)} of ${formatMoney(dueTotal)}</dd>
             </div>
-            {allowPartial && <div className="co-remaining" dir="rtl" aria-live="polite"><dt>المتبقي على العميل</dt><dd dir="ltr">{paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0) ? '—' : `$${formatMoney(Math.max(0, totals.totalFees - paymentSummary.covered))}`}</dd></div>}
+            {allowPartial && <div className="co-remaining" dir="rtl" aria-live="polite"><dt>المتبقي على العميل</dt><dd dir="ltr">{paymentSummary.amountLYD > 0 && !(Number.isFinite(paymentSummary.rate) && paymentSummary.rate > 0) ? '—' : `$${formatMoney(Math.max(0, dueTotal - paymentSummary.covered))}`}</dd></div>}
           </dl>
 
           {paymentSummary.errors.length > 0 ? (
@@ -959,7 +827,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
               ))}
             </ul>
           ) : (
-            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> {allowPartial && paymentSummary.covered < totals.totalFees ? 'المتبقي سيُسجل كدين مرتبط بهذه الفاتورة والطرود.' : 'Payment covers the total.'}</p>
+            <p className="co-ok"><CircleCheck size={16} strokeWidth={2} /> {allowPartial && paymentSummary.covered < dueTotal ? 'المتبقي سيُسجل كدين مرتبط بهذه الفاتورة والطرود.' : 'Payment covers the total.'}</p>
           )}
 
           <details className="co-selected-list">

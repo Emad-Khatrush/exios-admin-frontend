@@ -8,8 +8,7 @@ import { BsCheck2 } from 'react-icons/bs';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { packageCharge } from './orderConstants';
-import { useOrderQuote } from './OrderPointsDialog';
-import { LoyaltyRtl } from '../Loyalty/LoyaltyRtl';
+import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 type Currency = 'USD' | 'LYD';
 
@@ -24,8 +23,8 @@ type Props = {
   dueUsd: number
   onClose: () => void
   onDone: (message: string) => void
-  // Opens the points dialog, when the person may use points (the hint below links to it)
-  onUsePoints?: () => void
+  // Staff who may use the customer's loyalty points: the form gets a points field, sent with the payment
+  canUsePoints?: boolean
 }
 
 // The accountant's dinar rate on the payment date and the lowest rate a payment may use
@@ -42,10 +41,19 @@ const ceil6 = (value: number) => Math.ceil(value * 1000000) / 1000000;
 //
 // Dinars are counted at a rate. By default the rate is worked out so that the payment closes
 // exactly what is due, but never below the accountant's rate minus the tolerance.
-const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, onClose, onDone, onUsePoints }: Props) => {
-  const { quote } = useOrderQuote(open && !!onUsePoints, order, category, packages);
+const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, onClose, onDone, canUsePoints }: Props) => {
+  // The customer's points on this part of the order, read again when the part or the packages change
+  const packageIds = packages.map((row: any) => row._id).filter(Boolean).join(',');
+  const points = usePointsQuote(open && canUsePoints && order?._id ? `order/${order._id}/loyalty` : null, { category, ...(packageIds ? { packageIds } : {}) });
+  const [pointsInput, setPointsInput] = useState('');
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote);
+  // What the money pays: what is due less the points. Every money figure below works from it (the
+  // amount filled in, the rate of a full dinar payment, what is due after the payment).
+  const due = remainingAfter(dueUsd, pointsUsd);
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
+  // Until the amount is typed, it follows what is due (it changes with the points)
+  const [amountTouched, setAmountTouched] = useState(false);
   // Dinars either pay everything that is due (the rate is worked out) or part of it (the rate is typed)
   const [mode, setMode] = useState<'full' | 'partial'>('full');
   const [rate, setRate] = useState('');
@@ -66,6 +74,8 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     setDate(new Date());
     setNote('');
     setError('');
+    setPointsInput('');
+    setAmountTouched(false);
     // Only when it opens: typing must not be overwritten by a refreshed balance
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -81,13 +91,29 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     return () => { stale = true; };
   }, [open, day]);
 
+  // The amount not typed yet follows what is left after the points (dollars, or dinars at the
+  // accountant's rate), as far as the wallet allows
+  const prefill = (code: Currency) => {
+    if (!(due > 0)) return '';
+    if (code === 'USD') return String(round2(Math.min(due, wallet.walletUsd)));
+    return limits ? String(round2(Math.min(due * limits.rate, wallet.walletLyd))) : '';
+  };
+  useEffect(() => {
+    if (!open || amountTouched) return;
+    if (currency === 'USD' || amount !== '') setAmount(prefill(currency));
+    // Only when the points change what is due
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [due]);
+
   const balance = currency === 'USD' ? wallet.walletUsd : wallet.walletLyd;
   const value = Number(amount) || 0;
   const minimum = limits?.minimum ?? 0;
+  // Points alone close what is due: the payment carries no money
+  const pointsOnly = pointsUsed > 0 && due <= 0.005 && value === 0;
   // The rate is never typed: it closes what is due, held up to the lowest allowed rate (the
   // accountant's rate minus the tolerance), and is the accountant's rate when nothing is due
-  const full = mode === 'full' && dueUsd > 0;
-  const closingRate = currency === 'LYD' && full && value > 0 ? ceil6(value / dueUsd) : 0;
+  const full = mode === 'full' && due > 0;
+  const closingRate = currency === 'LYD' && full && value > 0 ? ceil6(value / due) : 0;
   // A partial payment takes the rate that was typed, starting from the accountant's rate
   const typedRate = rate !== '' ? Number(rate) || 0 : (limits?.rate ?? 0);
   // Full payment: the rate is always what closes what is due with this amount (dinars / due), and
@@ -96,12 +122,13 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const rateValue = currency === 'USD' ? 1 : full ? (closingRate > 0 ? closingRate : (limits?.rate ?? 0)) : typedRate;
   const tooLow = full && currency === 'LYD' && closingRate > 0 && closingRate < minimum - 1e-9;
   // The fewest dinars that still close it, for the message
-  const closeFrom = dueUsd * minimum;
+  const closeFrom = due * minimum;
 
   const valueUsd = rateValue > 0 ? value / rateValue : null;
-  const dueAfter = valueUsd === null ? null : dueUsd - valueUsd;
+  const dueAfter = valueUsd === null ? null : due - valueUsd;
 
   const problem = (() => {
+    if (pointsOnly) return '';
     if (balance <= 0) return `The ${currency} wallet is empty.`;
     if (!amount) return '';
     if (value <= 0) return 'The amount must be more than zero.';
@@ -115,20 +142,23 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     if (!full && rateValue < minimum - 1e-9) return 'This rate is too low.';
     return '';
   })();
-  const canPay = !problem && !rateProblem && value > 0 && !!date && !isSaving;
+  // While the quote loads the points cannot be checked: the payment waits for it
+  const pointsReady = !pointsInput || !!points.quote;
+  const canPay = pointsReady && !!date && !isSaving && (pointsOnly || (!problem && !rateProblem && value > 0));
 
   const chooseCurrency = (next: Currency) => {
     setCurrency(next);
     // Dinars start at what is due at the accountant's rate; the rate then follows the amount
-    const dinars = dueUsd > 0 && limits ? String(round2(Math.min(dueUsd * limits.rate, wallet.walletLyd))) : '';
-    setAmount(next === 'USD' ? (dueUsd > 0 ? String(round2(Math.min(dueUsd, wallet.walletUsd))) : '') : dinars);
+    setAmount(prefill(next));
+    setAmountTouched(false);
     setError('');
   };
 
   // The amount that settles what is due at the accountant's rate, as far as the wallet allows
   const fillDue = () => {
-    const due = currency === 'USD' ? dueUsd : dueUsd * (full ? (limits?.rate ?? 0) : typedRate);
-    setAmount(String(round2(Math.min(due, balance))));
+    const owed = currency === 'USD' ? due : due * (full ? (limits?.rate ?? 0) : typedRate);
+    setAmount(String(round2(Math.min(owed, balance))));
+    setAmountTouched(false);
   };
 
   const pay = async () => {
@@ -136,7 +166,9 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
     setIsSaving(true);
     const data = new FormData();
     data.append('createdAt', (date || new Date()).toISOString());
-    data.append('amount', String(value));
+    data.append('amount', String(pointsOnly ? 0 : value));
+    // The points go with the payment: the server takes both in one transaction
+    if (pointsUsed > 0) data.append('points', String(pointsUsed));
     data.append('currency', currency);
     data.append('rate', String(currency === 'LYD' ? rateValue : 0));
     data.append('orderId', order.orderId);
@@ -155,7 +187,8 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
       const known = getErrorMessage(response?.message);
       return setError(known.startsWith('unexpected') ? (response?.message || known) : known);
     }
-    onDone(`${money(value)} ${currency} paid from the wallet`);
+    const paidPoints = pointsUsed > 0 ? `${pointsUsed.toLocaleString('en-US')} نقطة ($${money(pointsUsd)})` : '';
+    onDone(pointsOnly ? `دُفع بالنقاط: ${paidPoints}` : `${money(value)} ${currency} paid from the wallet${paidPoints ? ` + ${paidPoints}` : ''}`);
   };
 
   const wallets: [Currency, number][] = [['USD', wallet.walletUsd], ['LYD', wallet.walletLyd]];
@@ -174,11 +207,11 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
           <strong>{dueUsd > 0 ? `$${money(dueUsd)}` : 'Nothing is due'}</strong>
         </div>
 
-        {onUsePoints && quote && quote.maxPoints > 0 && (
-          <LoyaltyRtl><Alert severity="info" className="op-alert op-alert--tight" dir="rtl">
-            لدى العميل <bdi dir="ltr" className="lp-num">{quote.balance.toLocaleString('en-US')}</bdi> نقطة (<bdi dir="ltr" className="lp-num">${money(quote.balance / 100)}</bdi>)؛ يمكن دفع حتى <bdi dir="ltr" className="lp-num">${money(quote.maxPoints / 100)}</bdi> بالنقاط.{' '}
-            <Button size="small" type="button" onClick={onUsePoints}>استعمال النقاط</Button>
-          </Alert></LoyaltyRtl>
+        {canUsePoints && (
+          <PaymentPoints
+            quote={points.quote} balance={points.balance} loading={points.loading} failed={points.failed}
+            value={pointsInput} onChange={setPointsInput} totalUsd={dueUsd} disabled={isSaving}
+          />
         )}
 
         {packages.length > 0 && (
@@ -209,7 +242,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
 
         <div className="op-fields">
           <TextField
-            label="Amount" type="number" required autoFocus value={amount} onChange={(event) => setAmount(event.target.value)} onWheel={(event: any) => event.target.blur()}
+            label="Amount" type="number" required={!pointsOnly} autoFocus value={amount} onChange={(event) => { setAmount(event.target.value); setAmountTouched(true); }} onWheel={(event: any) => event.target.blur()}
             inputProps={{ min: 0, step: 'any' }} InputProps={{ endAdornment: <InputAdornment position="end">{currency}</InputAdornment> }}
             error={!!problem && !!amount} helperText={amount ? problem : ''}
           />
@@ -220,7 +253,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
 
         {currency === 'LYD' && (
           <>
-            {dueUsd > 0 && (
+            {due > 0 && (
               <div className="op-choices" role="radiogroup" aria-label="Dinar payment">
                 {([['full', 'Pay in full', 'The rate closes what is due'], ['partial', 'Partial payment', 'You enter the rate']] as const).map(([key, label, hint]) => (
                   <button
@@ -245,7 +278,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
           </>
         )}
 
-        {dueUsd > 0 && (currency === 'USD' || rateValue > 0) && (
+        {due > 0 && (currency === 'USD' || rateValue > 0) && (
           <Button size="small" type="button" onClick={fillDue} disabled={balance <= 0}>Fill what is due</Button>
         )}
 
@@ -259,11 +292,11 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
             <dd>{dueAfter === null ? 'Needs the rate' : dueAfter > 0.005 ? `$${money(dueAfter)}` : dueAfter < -0.005 ? `Overpaid by $${money(-dueAfter)}` : 'Settled'}</dd>
           </div>
         </dl>
-        {!amount && problem && <Alert severity="warning" className="op-alert">{problem}</Alert>}
+        {!amount && problem && !pointsOnly && <Alert severity="warning" className="op-alert">{problem}</Alert>}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving}>Cancel</Button>
-        <Button variant="contained" onClick={pay} disabled={!canPay}>{isSaving ? 'Paying' : `Pay ${value > 0 ? `${money(value)} ${currency}` : ''}`}</Button>
+        <Button variant="contained" onClick={pay} disabled={!canPay}>{isSaving ? 'Paying' : pointsOnly ? 'دفع بالنقاط' : `Pay ${value > 0 ? `${money(value)} ${currency}` : ''}${pointsUsed > 0 ? ' + النقاط' : ''}`}</Button>
       </DialogActions>
     </Dialog>
   );

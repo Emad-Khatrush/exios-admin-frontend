@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment, TextField } from '@mui/material';
 import api from '../../api';
-import { requestError } from '../EditInvoice/OrderPointsDialog';
+import { requestError } from '../Loyalty/PaymentPoints';
 import { money, pointsText } from '../Loyalty/format';
 import { LoyaltyRtl, Num, useDialogMotion } from '../Loyalty/LoyaltyRtl';
 import '../Loyalty/loyalty.scss';

@@ -3,7 +3,7 @@ import { Alert, Button, Skeleton, TablePagination } from '@mui/material';
 import { MdAdd, MdHourglassBottom, MdRemove, MdToll, MdTune, MdUndo } from 'react-icons/md';
 import moment from 'moment';
 import api from '../../api';
-import { requestError } from '../EditInvoice/OrderPointsDialog';
+import { requestError } from '../Loyalty/PaymentPoints';
 import { dayHeading, fullDate, money, pageAriaLabel, pageLabel, pointsText, usdOf } from '../Loyalty/format';
 import { LoyaltyRtl, Num, stagger } from '../Loyalty/LoyaltyRtl';
 import AdjustPointsDialog from './AdjustPointsDialog';

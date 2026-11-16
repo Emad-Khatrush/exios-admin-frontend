@@ -583,6 +583,44 @@
   }
 }
 
+// ---------- Points inside a payment form (Loyalty/PaymentPoints.tsx) ----------
+// A compact row: the coin, what the customer has and the most this payment may use, the field,
+// then the form's totals as a receipt
+
+.lp-pay-points {
+  margin: 0 0 16px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--op-line);
+  border-radius: 14px;
+  background: #fff;
+
+  &__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  &__coin {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--lp-coin-soft);
+    color: var(--lp-coin);
+    flex: none;
+  }
+  &__title { font-weight: 700; }
+  &__facts { color: var(--op-muted); font-size: 13px; .lp-num:first-child { color: var(--lp-coin-ink); font-weight: 600; } }
+  &__alert { margin-top: 10px; }
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    .MuiTextField-root { flex: 1 1 170px; }
+    .MuiOutlinedInput-root { border-radius: 10px; }
+  }
+  &__note { margin-top: 8px; font-size: 12.5px; color: var(--op-muted); }
+  &__receipt { margin-top: 12px; padding: 10px 14px; .is-total dd { font-size: 20px; } }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lp, .lp *, .lp-switch *, .lp-num, .lp-fade-in, .lp-tick { transition: none !important; animation: none !important; }
   .lp:active, .lp :active { transform: none !important; }

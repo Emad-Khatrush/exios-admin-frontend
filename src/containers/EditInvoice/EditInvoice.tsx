@@ -24,7 +24,6 @@ import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
 import OrderWalletDialog from './OrderWalletDialog';
-import OrderPointsDialog from './OrderPointsDialog';
 import ShippingLabelDialog from './ShippingLabelDialog';
 import OrderTheme from './OrderTheme';
 import {
@@ -75,8 +74,6 @@ type State = {
   editItemsDialog: boolean
   // The payment being made from the wallet: what for, which packages and how much is due
   walletPayment?: { category: WalletCategory, packages: any[], dueUsd: number }
-  // The points payment being made: what for, which packages and how much is due
-  pointsPayment?: { category: WalletCategory, packages: any[], dueUsd: number }
   // Points the order used in all (from GET order/:id/loyalty); null when unknown
   pointsRedeemed: number | null
   previewImages?: any[]
@@ -609,7 +606,6 @@ export class EditInvoice extends Component<Props, State> {
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
             canUsePoints={this.canUsePoints()}
             pointsRedeemed={this.state.pointsRedeemed || 0}
-            onUsePoints={(category, packages, dueUsd) => this.setState({ pointsPayment: { category, packages, dueUsd } })}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}
             canSetRate={isAdmin || !!account?.roles.isAccountant}
@@ -665,27 +661,13 @@ export class EditInvoice extends Component<Props, State> {
           dueUsd={walletPayment?.dueUsd || 0}
           order={order}
           wallet={{ walletUsd, walletLyd }}
-          onUsePoints={this.canUsePoints() ? () => {
-            const { walletPayment: current } = this.state;
-            this.setState({ walletPayment: undefined, pointsPayment: current });
-          } : undefined}
+          canUsePoints={this.canUsePoints()}
           onClose={() => this.setState({ walletPayment: undefined })}
           onDone={(message) => {
             this.setState({ walletPayment: undefined });
             this.toast('success', message);
             this.reloadMoney();
           }}
-        />
-
-        <OrderPointsDialog
-          open={!!this.state.pointsPayment}
-          category={this.state.pointsPayment?.category || 'invoice'}
-          packages={this.state.pointsPayment?.packages || []}
-          dueUsd={this.state.pointsPayment?.dueUsd || 0}
-          order={order}
-          onClose={() => this.setState({ pointsPayment: undefined })}
-          onRedeemed={(message) => { this.toast('success', message); this.reloadMoney(); }}
-          onPayRest={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
         />
 
         <Dialog open={this.state.deleteDialog} onClose={() => this.setState({ deleteDialog: false })} fullWidth maxWidth="sm">

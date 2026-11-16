@@ -4,7 +4,7 @@ import { Alert, Button, FormControlLabel, Switch, TextField } from '@mui/materia
 import moment from 'moment';
 import api from '../../api';
 import { useStaffAccess } from '../../utils/useStaffAccess';
-import { requestError } from '../../containers/EditInvoice/OrderPointsDialog';
+import { requestError } from '../../containers/Loyalty/PaymentPoints';
 import { LoyaltyRtl, Num } from '../../containers/Loyalty/LoyaltyRtl';
 import '../../containers/Loyalty/loyalty.scss';
 
