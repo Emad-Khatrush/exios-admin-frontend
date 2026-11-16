@@ -22,11 +22,14 @@ import {
   Avatar,
   InputAdornment,
 } from '@mui/material';
-import { Boxes, ChevronDown, CircleCheck, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
+import { Boxes, ChevronDown, CircleCheck, Coins, MapPin, Package as PackageIcon, PackageOpen, Plane, TriangleAlert, Wallet } from 'lucide-react';
 import FileViewer from '../../components/FileViewer/FileViewer';
 import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
+import { useStaffAccess } from '../../utils/useStaffAccess';
+// @ts-ignore -- intentional side-effect stylesheet import (the loyalty tokens: gold coin, receipt)
+import '../Loyalty/loyalty.scss';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -46,6 +49,20 @@ type SelectedPackage = {
   feeAmount?: number;
   feeCurrency?: string;
   feeLydAmounts?: number[];
+  // What loyalty points already paid on the shipping (cost is what is left)
+  pointsUsd?: number;
+};
+
+// What the customer's points can pay on the selected packages' shipping (the server's delivery-quote)
+type PointsQuote = { balance: number; maxPoints: number; owedCents: number; billedCents: number; usedOnTarget: number };
+
+const pointsText = (value: number) => Number(value || 0).toLocaleString('en-US');
+
+// The message of a failed request, as the server wrote it (Arabic), else the fallback
+const requestError = (error: any, fallback: string) => {
+  const data = error?.response?.data;
+  const message = typeof data === 'string' ? data : data?.message || data?.error;
+  return typeof message === 'string' && message ? message : fallback;
 };
 
 type PaymentInput = { amountUSD: string; amountLYD: string };
@@ -67,13 +84,18 @@ const formatMoney = (value: number) => value.toLocaleString('en-US', { minimumFr
 // The fees a package can carry beside its shipping: transport to another office, customs clearance
 const feesOf = (pkg: any) => ['domesticFee', 'customsFee'].map((field) => pkg?.deliveredPackages?.[field]).filter((fee) => Number(fee?.amount) > 0);
 
-// The shipping in dollars, plus the fees set in dollars. A fee in dinars stays in dinars: paid from
-// the dinar wallet on its own, or converted at today's rate (spec v8)
+// What loyalty points already paid on a package's shipping (sent by the server with the packages)
+const pointsUsdOf = (pkg: any) => Math.max(Number(pkg?.pointsUsd) || 0, 0);
+
+// The shipping in dollars, less what points already paid on it (never below zero), plus the fees set
+// in dollars. A fee in dinars stays in dinars: paid from the dinar wallet on its own, or converted
+// at today's rate (spec v8). The server takes the same figure.
 const getPackageCost = (pkg: Package): number => {
   const weight = pkg?.deliveredPackages?.weight?.total || 0;
   const price = pkg?.deliveredPackages?.exiosPrice || 0;
+  const shipping = Number((weight * price).toFixed(2));
   const feeUsd = feesOf(pkg).filter((fee) => fee.currency === 'USD').reduce((sum, fee) => sum + Number(fee.amount), 0);
-  return Number((weight * price + feeUsd).toFixed(2));
+  return Number((shipping - Math.min(pointsUsdOf(pkg), shipping) + feeUsd).toFixed(2));
 };
 
 const lydFeesOf = (pkg: any) => feesOf(pkg).filter((fee) => fee.currency === 'LYD').reduce((sum, fee) => sum + Number(fee.amount), 0);
@@ -92,6 +114,7 @@ const toSelectedPackage = (pkg: any, orderId: string): SelectedPackage => ({
   feeAmount: lydFeesOf(pkg),
   feeCurrency: lydFeesOf(pkg) > 0 ? 'LYD' : undefined,
   feeLydAmounts: feesOf(pkg).filter(fee => fee.currency === 'LYD').map(fee => Number(fee.amount)),
+  pointsUsd: pointsUsdOf(pkg) || undefined,
 });
 
 // Received packages were already delivered (and paid for), so they can never be selected again;
@@ -123,6 +146,10 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');
   const effectiveFeeMode = allowPartial ? 'usd' : feeMode;
   const { rate: todayRate } = usePackageSettings();
+  // Paying with points at delivery: the server allows the loyalty, delivery or payments permission;
+  // staff nobody has configured yet keep what their role gives them (this page is staff only)
+  const staffAccess = useStaffAccess();
+  const canUsePoints = staffAccess.configured ? staffAccess.can('loyalty', 'delivery', 'invoices_payments') : true;
 
   // A delivery in batches (see runDelivery): its progress, and one left unfinished to resume
   const [progress, setProgress] = useState<{ done: number, total: number } | null>(null);
@@ -135,7 +162,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const walletUsd = toNumber(balances?.walletUsd);
   const walletLyd = toNumber(balances?.walletLyd);
 
-  const fetchOrders = async (tabType: string) => {
+  const fetchOrders = async (tabType: string): Promise<any[] | undefined> => {
     const requestId = ++latestRequestId.current;
     ordersRequest.current?.cancel();
     const source = axios.CancelToken.source();
@@ -152,6 +179,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
       // Ignore responses from a tab switch that's since been superseded by a newer one.
       if (requestId !== latestRequestId.current) return;
       setOrders(res.data.results || []);
+      return res.data.results || [];
     } catch (err: any) {
       if (requestId !== latestRequestId.current) return;
       if (axios.isCancel(err)) return;
@@ -323,11 +351,91 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
     setPayment({ amountUSD: String(round2(Math.min(totals.totalFees, walletUsd))), amountLYD: '' });
   };
 
+  // ---- Loyalty points on the selected packages' shipping (at most 20%, never the fees) ----
+  const [pointsQuote, setPointsQuote] = useState<PointsQuote | null>(null);
+  // The customer's balance as last read: the section stays in place while a new quote loads
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteVersion, setQuoteVersion] = useState(0);
+  const [pointsInput, setPointsInput] = useState('');
+  const [pointsError, setPointsError] = useState('');
+  const [pointsNotice, setPointsNotice] = useState('');
+  const [pointsSaving, setPointsSaving] = useState(false);
+  const selectedIds = selectedPackages.map((pkg) => pkg.id).join(',');
+
+  // Quoted again whenever the selection changes; the old figures are cleared first
+  useEffect(() => {
+    setPointsQuote(null);
+    setPointsInput('');
+    setPointsError('');
+    if (!openDialog || !canUsePoints || !selectedIds) return;
+    let stale = false;
+    setQuoteLoading(true);
+    api.get(`user/${customerId}/loyalty/delivery-quote`, { packageIds: selectedIds })
+      .then((res: any) => {
+        if (stale) return;
+        setPointsQuote(res.data || null);
+        setPointsBalance(Number(res.data?.balance) || 0);
+      })
+      .catch((error: any) => { if (!stale) setPointsError(requestError(error, 'تعذّر تحميل نقاط العميل.')); })
+      .finally(() => { if (!stale) setQuoteLoading(false); });
+    return () => { stale = true; };
+  }, [openDialog, canUsePoints, selectedIds, customerId, quoteVersion]);
+
+  const maxPoints = Math.max(pointsQuote?.maxPoints ?? 0, 0);
+  const pointsValue = Number(pointsInput) || 0;
+  const pointsDiscount = Math.min(Math.max(pointsValue, 0), maxPoints) / 100;
+  const showPoints = canUsePoints && ((pointsBalance ?? 0) > 0 || !!pointsNotice);
+  const canApplyPoints = !!pointsQuote && pointsValue >= 1 && pointsValue <= maxPoints && !pointsSaving && !quoteLoading && !isPending;
+
+  // Typing beyond the maximum is held at the maximum; whole points only
+  const changePoints = (text: string) => {
+    setPointsError('');
+    if (text === '') return setPointsInput('');
+    const next = Math.floor(Number(text));
+    if (Number.isNaN(next) || next < 0) return;
+    setPointsInput(String(Math.min(next, maxPoints)));
+  };
+
+  // Reads the packages again so the selection carries the costs left after the points
+  const refreshSelectedCosts = async () => {
+    const results = await fetchOrders(tabs.find((tab) => tab.value === filter)?.tabType || 'active');
+    if (!results) return;
+    const fresh = new Map<string, SelectedPackage>();
+    results.forEach((order: any) => (order.paymentList || []).forEach((pkg: any) => fresh.set(String(pkg._id), toSelectedPackage(pkg, order.orderId))));
+    setSelectedPackages((prev) => prev.map((pkg) => fresh.get(String(pkg.id)) || pkg));
+  };
+
+  const applyPoints = async () => {
+    if (!canApplyPoints) return;
+    setPointsSaving(true);
+    setPointsError('');
+    setPointsNotice('');
+    try {
+      const res = await api.post(`user/${customerId}/loyalty/redeem-packages`, { points: pointsValue, packageIds: selectedPackages.map((pkg) => pkg.id) });
+      const used = Number(res.data?.points ?? pointsValue);
+      setPointsInput('');
+      // The total due just went down: the amounts typed for the old total are cleared
+      setPayment(emptyPayment);
+      await refreshSelectedCosts();
+      setPointsNotice(`تم استعمال ${pointsText(used)} نقطة ($${formatMoney(used / 100)}). أدخل الدفعة للمبلغ المتبقي.`);
+      setQuoteVersion((v) => v + 1);
+    } catch (error: any) {
+      setPointsError(requestError(error, 'تعذّر استعمال النقاط.'));
+    } finally {
+      setPointsSaving(false);
+    }
+  };
+
   const closeDialog = () => {
     setOpenDialog(false);
     setPayment(emptyPayment);
     setAllowPartial(false);
     setPartialRate('');
+    setPointsInput('');
+    setPointsNotice('');
+    setPointsError('');
+    setPointsBalance(null);
   };
 
   // An unfinished delivery of this customer (the page was closed or the connection cut)
@@ -640,6 +748,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                       <dl className="co-package-figures">
                         <div><dt>Measure</dt><dd>{measureValue} {measureUnit}</dd></div>
                         <div><dt>Price</dt><dd>${exiosPrice}</dd></div>
+                        {pointsUsdOf(pkg) > 0 && <div className="co-points-paid"><dt>نقاط</dt><dd>−${formatMoney(pointsUsdOf(pkg))}</dd></div>}
                         <div><dt>Cost</dt><dd className="is-strong">${formatMoney(getPackageCost(pkg))}</dd></div>
                       </dl>
 
@@ -713,6 +822,68 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
               <strong>${formatMoney(totals.totalFees)}</strong>
             </div>
           </div>
+
+          {showPoints && (
+            <section className="lp co-points lp-fade-in" dir="rtl" aria-label="استعمال النقاط">
+              <header className="co-points__head">
+                <span className="co-points__coin" aria-hidden="true"><Coins size={16} strokeWidth={2} /></span>
+                <h3>استعمال النقاط</h3>
+              </header>
+
+              <dl className="co-points__facts">
+                <div>
+                  <dt>نقاط العميل</dt>
+                  <dd>{pointsQuote ? <><bdi className="lp-num" dir="ltr">{pointsText(pointsQuote.balance)}</bdi> نقطة (= <bdi className="lp-num" dir="ltr">${formatMoney(pointsQuote.balance / 100)}</bdi>)</> : '…'}</dd>
+                </div>
+                <div>
+                  <dt>الحد الأقصى لهذه الشحنات</dt>
+                  <dd>{pointsQuote ? <><bdi className="lp-num" dir="ltr">{pointsText(maxPoints)}</bdi> نقطة (= <bdi className="lp-num" dir="ltr">${formatMoney(maxPoints / 100)}</bdi>)</> : '…'}</dd>
+                </div>
+              </dl>
+
+              {pointsError && <Alert severity="error" className="co-points__alert" dir="auto">{pointsError}</Alert>}
+              {pointsNotice && <Alert severity="success" className="co-points__alert lp-fade-in">{pointsNotice}</Alert>}
+              {pointsQuote && maxPoints <= 0 && !quoteLoading && (
+                <p className="co-points__note">لا يمكن استعمال نقاط على هذه الشحنات الآن (الحد الأقصى 20% من الشحن، وما دُفع بالنقاط منه يُحسب).</p>
+              )}
+
+              {maxPoints > 0 && (
+                <>
+                  <div className="co-points__row">
+                    <TextField
+                      size="small"
+                      label="النقاط المستعملة"
+                      type="number"
+                      value={pointsInput}
+                      disabled={!pointsQuote || pointsSaving || isPending}
+                      onChange={(event) => changePoints(event.target.value)}
+                      onWheel={(event: any) => event.target.blur()}
+                      inputProps={{ min: 0, max: maxPoints, step: 1, dir: 'ltr', inputMode: 'numeric' }}
+                      InputProps={{ endAdornment: <InputAdornment position="end">نقطة</InputAdornment> }}
+                    />
+                    <Button size="small" type="button" onClick={() => { setPointsError(''); setPointsInput(String(maxPoints)); }} disabled={!pointsQuote || pointsSaving || isPending}>الحد الأقصى</Button>
+                    <Button size="small" type="button" onClick={() => setPointsInput('')} disabled={!pointsInput || pointsSaving}>مسح</Button>
+                  </div>
+
+                  <dl className="lp-receipt co-points__receipt">
+                    <div><dt>إجمالي الشحن</dt><dd><bdi className="lp-num" dir="ltr">${formatMoney(totals.totalFees)}</bdi></dd></div>
+                    <div className="is-discount"><dt>خصم النقاط</dt><dd>{pointsDiscount > 0 ? <bdi className="lp-num" dir="ltr">−${formatMoney(pointsDiscount)}</bdi> : '—'}</dd></div>
+                    <div className="is-total">
+                      <dt>المتبقي للدفع</dt>
+                      <dd aria-live="polite"><bdi key={pointsDiscount.toFixed(2)} className="lp-num lp-tick" dir="ltr">${formatMoney(Math.max(0, totals.totalFees - pointsDiscount))}</bdi></dd>
+                    </div>
+                  </dl>
+
+                  <div className="co-points__actions">
+                    <p className="co-points__note">النقاط لا تدفع رسوم النقل الداخلي أو التخليص.</p>
+                    <Button variant="contained" size="small" onClick={applyPoints} disabled={!canApplyPoints} startIcon={<Coins size={15} strokeWidth={2} />}>
+                      {pointsSaving ? 'جارٍ التطبيق…' : 'تطبيق النقاط'}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           {totals.feesLYD > 0 && (
             <div className="co-fee-box" style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, margin: '12px 0' }}>
@@ -801,6 +972,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                     {pkg.weight} {pkg.measureUnit} x ${pkg.exiosPrice || 0}
                     {pkg.boxesCount ? `, ${pkg.boxesCount} boxes` : ''}
                     {pkg.locationPlace ? `, ${pkg.locationPlace}` : ''}
+                    {pkg.pointsUsd ? `, −$${formatMoney(pkg.pointsUsd)} بالنقاط` : ''}
                   </small>
                 </div>
                 <strong>${formatMoney(pkg.cost)}</strong>
