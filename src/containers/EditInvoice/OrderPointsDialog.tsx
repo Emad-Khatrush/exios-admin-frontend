@@ -73,7 +73,9 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
 
   const max = quote?.maxPoints ?? 0;
   const balance = quote?.balance ?? 0;
-  const dueNow = quote ? quote.owedCents / 100 : dueUsd;
+  // The page's own figure (it includes transport and customs fees); the quote only sets the cap
+  const dueNow = dueUsd;
+  const feesExcluded = !!quote && quote.owedCents / 100 < dueUsd - 0.005;
   const points = Number(value) || 0;
   const invalid = value !== '' && (!Number.isInteger(points) || points < 0);
   const over = points > max;
@@ -99,8 +101,8 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
       const res = await api.post(`order/${order._id}/loyalty/redeem`, body);
       const result = res.data || {};
       const used = Number(result.points ?? points);
-      // If the server does not say what is left, work it out from what was due
-      const remainingUsd = typeof result.remainingOwedCents === 'number' ? result.remainingOwedCents / 100 : Math.max(0, dueNow - used / 100);
+      // What is left of the page's figure (the server's own figure leaves the fees out)
+      const remainingUsd = Math.max(0, dueNow - used / 100);
       setDone({ points: used, remainingUsd });
       onRedeemed(`${pointsText(used)} points used (${cents(used)})`);
     } catch (e: any) {
@@ -132,6 +134,8 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
               <div><dt>Customer points</dt><dd>{loading ? '...' : quote ? `${pointsText(balance)} ($${money(balance / 100)})` : '-'}</dd></div>
               <div><dt>Max usable (20%)</dt><dd>{loading ? '...' : quote ? `${pointsText(max)} points (${cents(max)})` : '-'}</dd></div>
             </dl>
+
+            {feesExcluded && <Alert severity="info" className="op-alert">Points can't pay transport or customs fees.</Alert>}
 
             {quote && max <= 0 && !loading && <Alert severity="info" className="op-alert">No points can be used on this payment.</Alert>}
 

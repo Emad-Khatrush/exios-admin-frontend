@@ -95,7 +95,7 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
           <strong>On their way</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             {pending.map((row) => (
-              <li key={`${row.orderId}-${row.waitingFor}`}>
+              <li key={row.arKey}>
                 <a href={`/invoice/${row.orderId}/edit`} target="_blank" rel="noreferrer">{row.orderNumber || 'Order'}</a>
                 {': '}{pointsText(row.points)} pts, {WAITING[row.waitingFor] || row.waitingFor}
               </li>
