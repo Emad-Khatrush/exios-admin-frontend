@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import Card from '../../components/Card/Card';
 import api from '../../api';
 import { Account } from '../../models';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 
 // Sub-components
 import ClientsList from './ClientsList';
@@ -24,6 +25,7 @@ const VIEW_COPY: Record<View, { title: string, description: string }> = {
 
 export const ClientsView = () => {
   const account: Account = useSelector((state: any) => state.session?.account);
+  const staff = useStaffAccess();
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [view, setView] = useState<View>('list');
@@ -82,7 +84,8 @@ export const ClientsView = () => {
 
   const views: { value: View, label: string, icon: typeof Users, visible: boolean }[] = [
     { value: 'list', label: 'Clients', icon: Users, visible: true },
-    { value: 'wallets', label: 'Wallets', icon: Wallet, visible: !!account.roles.isAdmin },
+    // «قائمة المحافظ وحركاتها» in Settings > Permissions (admins have it)
+    { value: 'wallets', label: 'Wallets', icon: Wallet, visible: staff.can('wallets') },
     { value: 'passport', label: 'Passport Review', icon: IdCard, visible: !!canReviewPassports },
   ];
 

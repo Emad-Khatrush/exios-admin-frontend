@@ -33,10 +33,15 @@ type Props = {}
 const UserDetails = (props: Props) => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const staff = useStaffAccess();
   const isAdminRole = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin));
+  const isAdminOrAccountant = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
+  // «الإضافة والخصم من المحفظة» and «الصرافة داخل المحفظة» in Settings > Permissions. Staff nobody has
+  // configured yet keep what their role gave them: deposit and withdrawal for every staff member,
+  // exchange for admins and accountants.
+  const staff = useStaffAccess();
   const canLoyalty = isAdminRole || staff.can('loyalty');
-  const canExchangeWallet = useSelector((state: any) => Boolean(state.session.account.roles?.isAdmin || state.session.account.roles?.isAccountant));
+  const canTransact = staff.configured ? staff.can('wallet_transactions') : true;
+  const canExchangeWallet = staff.configured ? staff.can('wallet_exchange') : isAdminOrAccountant;
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
 
   const [user, setUser] = useState<any>();
@@ -173,8 +178,8 @@ const UserDetails = (props: Props) => {
         <div className="row">
           <div className="col-12">
             <CustomerWallet user={user} debts={debts} debtLoading={debtLoading} debtError={debtError} walletUsd={walletUsd} walletLyd={walletLyd}
-              onDeposit={() => setDialog({ component: AddBalanceToWallet })}
-              onWithdraw={() => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' })}
+              onDeposit={canTransact ? () => setDialog({ component: AddBalanceToWallet }) : undefined}
+              onWithdraw={canTransact ? () => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' }) : undefined}
               onExchange={canExchangeWallet ? () => setExchangeOpen(true) : undefined}
               onRefreshDebts={fetchDebtsOfUser}
               onPaymentSaved={async () => { await Promise.all([fetchDebtsOfUser(), refreshWalletAndStatement()]); }} />
