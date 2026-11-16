@@ -3,6 +3,7 @@ import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Input
 import api from '../../api';
 import { requestError } from '../EditInvoice/OrderPointsDialog';
 import { money, pointsText } from '../Loyalty/format';
+import { LoyaltyRtl, Num, useDialogMotion } from '../Loyalty/LoyaltyRtl';
 import '../Loyalty/loyalty.scss';
 
 type Props = {
@@ -15,17 +16,18 @@ type Props = {
 }
 
 type Mode = 'add' | 'deduct';
-const MODES: [Mode, string][] = [['add', 'Add'], ['deduct', 'Deduct']];
+const MODES: [Mode, string][] = [['add', 'إضافة'], ['deduct', 'خصم']];
 // Quick amounts, added to what is typed
 const STEPS = [100, 500, 1000];
 // Common reasons, one click fills the field
 const REASONS: Record<Mode, string[]> = {
-  add: ['Customer reward', 'Compensation', 'Promotion'],
-  deduct: ['Data-entry correction', 'Points given by mistake'],
+  add: ['مكافأة عميل', 'تعويض', 'عرض ترويجي'],
+  deduct: ['تصحيح خطأ إدخال', 'نقاط أُضيفت بالخطأ'],
 };
 
 // Staff add points to a customer or take points away, with the reason written down
 const AdjustPointsDialog = ({ open, userId, balance, onClose, onSaved }: Props) => {
+  const motion = useDialogMotion();
   const [mode, setMode] = useState<Mode>('add');
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
@@ -56,65 +58,71 @@ const AdjustPointsDialog = ({ open, userId, balance, onClose, onSaved }: Props) 
       onSaved();
       onClose();
     } catch (e: any) {
-      setError(requestError(e, 'Could not adjust the points.'));
+      setError(requestError(e, 'تعذّر تعديل النقاط.'));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={isSaving ? undefined : onClose} fullWidth maxWidth="xs" PaperProps={{ className: 'lp lp-dialog' }}>
-      <DialogTitle>Adjust points</DialogTitle>
-      <DialogContent dividers>
-        {error && <Alert severity="error" dir="auto">{error}</Alert>}
-        <div className="lp-segment lp-segment--full" role="group" aria-label="Add or deduct">
-          {MODES.map(([next, label]) => (
-            <button key={next} type="button" aria-pressed={mode === next} disabled={isSaving} onClick={() => setMode(next)}>{label}</button>
-          ))}
-        </div>
-        <div>
-          <TextField
-            fullWidth autoFocus label={mode === 'add' ? 'Points to add' : 'Points to deduct'} type="number" value={value} disabled={isSaving}
-            onChange={(event) => setValue(event.target.value)} onWheel={(event: any) => event.target.blur()}
-            inputProps={{ min: 1, step: 1 }} InputProps={{ endAdornment: <InputAdornment position="end">pts</InputAdornment> }}
-            error={invalid || tooMany} helperText={tooMany ? `The customer has only ${pointsText(balance)} points` : invalid ? 'Whole points above zero' : ''}
-          />
-          <div className="lp-quick" role="group" aria-label="Quick amounts">
-            {STEPS.map((step) => (
-              <button
-                key={step} type="button" className="lp-chip lp-press"
-                disabled={isSaving || (mode === 'deduct' && base + step > balance)}
-                onClick={() => setValue(String(base + step))}
-              >
-                +{pointsText(step)}
-              </button>
+    <LoyaltyRtl>
+      <Dialog
+        open={open} onClose={isSaving ? undefined : onClose} fullWidth maxWidth="xs" dir="rtl"
+        PaperProps={{ className: 'lp lp-dialog' }} {...motion}
+      >
+        <DialogTitle>تعديل النقاط</DialogTitle>
+        <DialogContent dividers>
+          {error && <Alert severity="error" dir="auto">{error}</Alert>}
+          <div className="lp-segment lp-segment--full" role="group" aria-label="إضافة أو خصم">
+            {MODES.map(([next, label]) => (
+              <button key={next} type="button" aria-pressed={mode === next} disabled={isSaving} onClick={() => setMode(next)}>{label}</button>
             ))}
           </div>
-        </div>
-        <div>
-          <TextField
-            fullWidth required multiline minRows={2} label="Reason" dir="auto" value={reason} disabled={isSaving}
-            onChange={(event) => setReason(event.target.value)} error={points > 0 && !reason.trim()} helperText={points > 0 && !reason.trim() ? 'A reason is required' : ''}
-          />
-          <div className="lp-quick" role="group" aria-label="Suggested reasons">
-            {REASONS[mode].map((text) => (
-              <button key={text} type="button" className="lp-chip lp-press" aria-pressed={reason === text} disabled={isSaving} onClick={() => setReason(text)}>{text}</button>
-            ))}
+          <div>
+            <TextField
+              fullWidth autoFocus label={mode === 'add' ? 'النقاط المضافة' : 'النقاط المخصومة'} type="number" value={value} disabled={isSaving}
+              onChange={(event) => setValue(event.target.value)} onWheel={(event: any) => event.target.blur()}
+              inputProps={{ min: 1, step: 1, dir: 'ltr' }} InputProps={{ endAdornment: <InputAdornment position="end">نقطة</InputAdornment> }}
+              error={invalid || tooMany}
+              helperText={tooMany ? <>لدى العميل <Num>{pointsText(balance)}</Num> نقطة فقط</> : invalid ? 'أرقام صحيحة أكبر من صفر' : ''}
+            />
+            <div className="lp-quick" role="group" aria-label="مبالغ سريعة">
+              {STEPS.map((step) => (
+                <button
+                  key={step} type="button" className="lp-chip lp-press"
+                  disabled={isSaving || (mode === 'deduct' && base + step > balance)}
+                  onClick={() => setValue(String(base + step))}
+                >
+                  <Num>+{pointsText(step)}</Num>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="lp-preview" aria-live="polite">
-          <span className="lp-label">New balance</span>
-          <span className="lp-preview__now">{pointsText(balance)}</span>
-          <span className="lp-preview__arrow" aria-hidden="true">→</span>
-          <span className="lp-preview__next">{pointsText(Math.max(0, after))} pts</span>
-          <span className="lp-preview__usd">(${money(Math.max(0, after) / 100)})</span>
-        </div>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={isSaving}>Cancel</Button>
-        <Button variant="contained" onClick={save} disabled={!canSave}>{isSaving ? 'Saving' : mode === 'add' ? 'Add points' : 'Deduct points'}</Button>
-      </DialogActions>
-    </Dialog>
+          <div>
+            <TextField
+              fullWidth required multiline minRows={2} label="السبب" dir="auto" value={reason} disabled={isSaving}
+              onChange={(event) => setReason(event.target.value)} error={points > 0 && !reason.trim()} helperText={points > 0 && !reason.trim() ? 'السبب إجباري' : ''}
+            />
+            <div className="lp-quick" role="group" aria-label="أسباب مقترحة">
+              {REASONS[mode].map((text) => (
+                <button key={text} type="button" className="lp-chip lp-press" aria-pressed={reason === text} disabled={isSaving} onClick={() => setReason(text)}>{text}</button>
+              ))}
+            </div>
+          </div>
+          <div className="lp-preview" aria-live="polite">
+            <span className="lp-label">الرصيد الجديد</span>
+            <Num className="lp-preview__now">{pointsText(balance)}</Num>
+            <span className="lp-preview__arrow" aria-hidden="true">←</span>
+            <span className="lp-preview__next"><Num>{pointsText(Math.max(0, after))}</Num> نقطة</span>
+            <span className="lp-preview__usd">(<Num>${money(Math.max(0, after) / 100)}</Num>)</span>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose} disabled={isSaving}>إلغاء</Button>
+          <Button variant="contained" onClick={save} disabled={!canSave}>{isSaving ? 'جارٍ الحفظ' : 'حفظ'}</Button>
+        </DialogActions>
+      </Dialog>
+    </LoyaltyRtl>
   );
 };
 

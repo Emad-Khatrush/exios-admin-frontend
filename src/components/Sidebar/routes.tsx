@@ -46,7 +46,7 @@ const adminRoutes = [
       icon: <FaUsers className="sidebar-icon" />,
      },
      {
-      title: 'Loyalty points',
+      title: 'نقاط الولاء',
       path: '/loyalty',
       icon: <FaStar className="sidebar-icon" />,
      },
@@ -207,7 +207,7 @@ const staffRoutes = (permissions: string[]) => {
     { title: 'Expenses', path: '/expenses', icon: <RiBillFill className="sidebar-icon" /> },
     { title: 'Debts', path: '/balances', icon: <MdOutlineAccountBalanceWallet className="sidebar-icon" /> },
     { title: 'Clients', path: '/clients', icon: <FaUsers className="sidebar-icon" /> },
-    { title: 'Loyalty points', path: '/loyalty', icon: <FaStar className="sidebar-icon" /> },
+    { title: 'نقاط الولاء', path: '/loyalty', icon: <FaStar className="sidebar-icon" /> },
     ...accountingRoutes,
     { mainTitle: 'Management' },
     { title: 'X-Tracking', path: '/xtracking', icon: <FaArchive className="sidebar-icon" /> },

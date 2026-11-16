@@ -16,7 +16,7 @@ import SpecialPricesTab from './SpecialPricesTab';
 import PassportVerificationTab from './PassportVerificationTab';
 import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
 import { CustomerAccounting } from '../Accounting/AccountingPanels';
-import CustomerWallet from './CustomerWallet';
+import CustomerWallet, { CustomerPoints } from './CustomerWallet';
 import LoyaltyTab from './LoyaltyTab';
 import { money, pointsText } from '../Loyalty/format';
 import '../Loyalty/loyalty.scss';
@@ -59,8 +59,8 @@ const UserDetails = (props: Props) => {
   const [dialog, setDialog] = useState<any>();
   const [dialogBusy, setDialogBusy] = useState(false);
   const [activeTap, setActiveTap] = useState<'profile' | 'orders' | 'invoices' | 'specialPrices' | 'settings' | 'accounting' | 'points'>(searchParams.get('tab') === 'points' ? 'points' : 'profile');
-  // The customer's points, for the balance in the header (null when unknown or not allowed)
-  const [points, setPoints] = useState<{ points: number, usd: number } | null>(null);
+  // The customer's points, for the header chip and the wallet box (null when unknown or not allowed)
+  const [points, setPoints] = useState<CustomerPoints | null>(null);
   const [pointsVersion, setPointsVersion] = useState(0);
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
@@ -73,7 +73,15 @@ const UserDetails = (props: Props) => {
     if (!canLoyalty || !id) return;
     let stale = false;
     api.get(`user/${id}/loyalty`)
-      .then((res: any) => { if (!stale) setPoints({ points: Number(res.data?.points || 0), usd: Number(res.data?.usd ?? Number(res.data?.points || 0) / 100) }); })
+      .then((res: any) => {
+        if (stale) return;
+        const soon = res.data?.expiringSoon;
+        setPoints({
+          points: Number(res.data?.points || 0),
+          usd: Number(res.data?.usd ?? Number(res.data?.points || 0) / 100),
+          expiringSoon: soon ? { points: Number(soon.points || 0), at: soon.at } : null,
+        });
+      })
       .catch(() => { if (!stale) setPoints(null); });
     return () => { stale = true; };
   }, [id, canLoyalty, pointsVersion]);
@@ -152,14 +160,16 @@ const UserDetails = (props: Props) => {
 
   const { totalUsd: walletUsd, totalLyd: walletLyd } = calculateTotalWallet(wallet);
   const Tag = dialog?.component;
+  const openPoints = () => setActiveTap('points');
 
   return (
     <div className="m-2 row">
-      {points && (
+      {/* On the profile tab the wallet box shows the points, so the chip is only for the other tabs */}
+      {points && activeTap !== 'profile' && (
         <div className="mb-2">
-          <button type="button" className="lp lp-header-chip lp-press" onClick={() => setActiveTap('points')} title="Open the Points tab">
+          <button type="button" className="lp lp-header-chip lp-press lp-fade-in" dir="rtl" onClick={openPoints} title="فتح تبويب النقاط">
             <MdToll aria-hidden="true" />
-            {pointsText(points.points)} pts <span>· ${money(points.usd)}</span>
+            <bdi dir="ltr" className="lp-num">{pointsText(points.points)}</bdi> نقطة <span>· <bdi dir="ltr" className="lp-num">${money(points.usd)}</bdi></span>
           </button>
         </div>
       )}
@@ -177,7 +187,7 @@ const UserDetails = (props: Props) => {
         <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
         {canReviewPassports && <Tab label="Accounting" value="accounting" />}
-        {canLoyalty && <Tab label="Points" value="points" />}
+        {canLoyalty && <Tab label="النقاط" value="points" />}
       </Tabs>
 
       {activeTap === 'profile' ? (
@@ -187,6 +197,8 @@ const UserDetails = (props: Props) => {
               onDeposit={canTransact ? () => setDialog({ component: AddBalanceToWallet }) : undefined}
               onWithdraw={canTransact ? () => setDialog({ component: UseWalletBalance, actionType: 'withdrawal' }) : undefined}
               onExchange={canExchangeWallet ? () => setExchangeOpen(true) : undefined}
+              points={canLoyalty ? points : null}
+              onOpenPoints={canLoyalty ? openPoints : undefined}
               onRefreshDebts={fetchDebtsOfUser}
               onPaymentSaved={async () => { await Promise.all([fetchDebtsOfUser(), refreshWalletAndStatement()]); }} />
           </div>

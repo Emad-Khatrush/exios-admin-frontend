@@ -9,6 +9,7 @@ import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { packageCharge } from './orderConstants';
 import { useOrderQuote } from './OrderPointsDialog';
+import { LoyaltyRtl } from '../Loyalty/LoyaltyRtl';
 
 type Currency = 'USD' | 'LYD';
 
@@ -174,10 +175,10 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
         </div>
 
         {onUsePoints && quote && quote.maxPoints > 0 && (
-          <Alert severity="info" className="op-alert op-alert--tight">
-            Customer has {quote.balance.toLocaleString('en-US')} points (${money(quote.balance / 100)}); up to ${money(quote.maxPoints / 100)} can be paid with points.{' '}
-            <Button size="small" type="button" onClick={onUsePoints}>Use points</Button>
-          </Alert>
+          <LoyaltyRtl><Alert severity="info" className="op-alert op-alert--tight" dir="rtl">
+            لدى العميل <bdi dir="ltr" className="lp-num">{quote.balance.toLocaleString('en-US')}</bdi> نقطة (<bdi dir="ltr" className="lp-num">${money(quote.balance / 100)}</bdi>)؛ يمكن دفع حتى <bdi dir="ltr" className="lp-num">${money(quote.maxPoints / 100)}</bdi> بالنقاط.{' '}
+            <Button size="small" type="button" onClick={onUsePoints}>استعمال النقاط</Button>
+          </Alert></LoyaltyRtl>
         )}
 
         {packages.length > 0 && (

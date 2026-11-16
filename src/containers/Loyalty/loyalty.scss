@@ -3,6 +3,17 @@
 // screens don't depend on its stylesheet): neutral greys and the admin's green as the only action
 // colour. A muted gold is used only for the coin and for points about to expire.
 // Radius: 14px containers, 10px controls, 8px chips.
+// The screens are Arabic and right-to-left: sides are written as logical properties (inline
+// start/end), numbers sit in <bdi dir="ltr" class="lp-num"> with tabular figures.
+// Motion: transform and opacity only, on one easing, and none at all under reduced motion.
+
+// The coin's gold, also for the points row in the customer's wallet box
+.lp, .lp-coin-tokens {
+  --lp-coin: #b7791f;
+  --lp-coin-soft: #fdf6e7;
+  // Gold text on light backgrounds (the coin hue, darkened to read at small sizes)
+  --lp-coin-ink: #8a5a12;
+}
 
 .lp {
   --op-ink: #1c2530;
@@ -11,17 +22,16 @@
   --op-soft: #f6f8fa;
   --op-accent: #007b3d;
   --op-accent-ink: #00602f;
-  --lp-coin: #b7791f;
-  --lp-coin-soft: #fdf6e7;
-  // Gold text on light backgrounds (the coin hue, darkened to read at small sizes)
-  --lp-coin-ink: #8a5a12;
+  --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --lp-hover: rgba(0, 123, 61, 0.045);
   --lp-shadow: 0 1px 2px rgba(28, 37, 48, 0.04), 0 10px 28px -14px rgba(28, 37, 48, 0.16);
 
   color: var(--op-ink);
+  font-family: 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Tahoma, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  text-align: start;
 
   a { color: var(--op-accent-ink); font-weight: 600; text-decoration: none; }
   a:hover { text-decoration: underline; }
@@ -42,11 +52,36 @@
 .lp-muted { color: var(--op-muted); }
 .lp-coin-icon { color: var(--lp-coin); flex: none; }
 
+// A number inside Arabic text: left-to-right, tabular
+.lp-num { unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+
 // A press that answers the hand, quickly
 .lp-press {
-  transition: transform 140ms ease-out, opacity 140ms ease-out;
-  &:active:not(:disabled) { transform: scale(0.97); }
+  transition: transform 160ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)), opacity 160ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background-color 180ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)), color 180ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)), box-shadow 180ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  &:active:not(:disabled) { transform: scale(0.98); }
 }
+
+// ---------- Motion ----------
+
+@keyframes lp-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes lp-rise-card { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+@keyframes lp-fade { from { opacity: 0; } }
+@keyframes lp-tick { from { opacity: 0; transform: translateY(-4px); } }
+
+// One entrance per screen: each child rises in turn (its place is --lp-i, ~65ms apart),
+// the summary or balance card also settles from 0.98. The last step ends before 0.7s.
+.lp-enter > * {
+  animation: lp-rise 420ms var(--lp-ease) backwards;
+  animation-delay: calc(var(--lp-i, 0) * 65ms);
+}
+.lp-enter > .lp-enter__card { animation-name: lp-rise-card; transform-origin: 50% 0; }
+
+// Rows and day groups when they are (re)loaded or the page changes
+.lp-fade-in { animation: lp-fade 260ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
+
+// A figure whose value changed (keyed on the value, so it plays again)
+.lp-tick { display: inline-block; animation: lp-tick 240ms var(--lp-ease, cubic-bezier(0.22, 1, 0.36, 1)) backwards; }
 
 // ---------- Chips ----------
 
@@ -61,6 +96,7 @@
   white-space: nowrap;
   background: var(--op-soft);
   color: var(--op-muted);
+  transition: background-color 180ms var(--lp-ease), color 180ms var(--lp-ease), transform 160ms var(--lp-ease);
 
   svg { font-size: 14px; }
 
@@ -88,10 +124,10 @@
     padding: 6px 14px;
     border-radius: 8px;
     cursor: pointer;
-    transition: transform 140ms ease-out;
+    transition: background-color 180ms var(--lp-ease), color 180ms var(--lp-ease), box-shadow 180ms var(--lp-ease), transform 160ms var(--lp-ease);
 
     &:hover { color: var(--op-ink); }
-    &:active { transform: scale(0.97); }
+    &:active:not(:disabled) { transform: scale(0.98); }
     &[aria-pressed='true'] { background: #fff; color: var(--op-ink); box-shadow: 0 1px 2px rgba(28, 37, 48, 0.1); }
     &:disabled { cursor: default; opacity: 0.6; }
   }
@@ -159,7 +195,7 @@
   padding: 10px 14px;
   border-radius: 10px;
   background: var(--op-soft);
-  text-align: left;
+  text-align: start;
 
   strong { font-size: 18px; font-weight: 700; line-height: 1.3; }
   small { font-size: 12.5px; color: var(--op-muted); }
@@ -218,7 +254,7 @@
 
 .lp-table {
   width: 100%;
-  min-width: 680px;
+  min-width: 760px;
   border-collapse: collapse;
 
   th {
@@ -226,19 +262,19 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--op-muted);
-    text-align: left;
+    text-align: start;
     background: var(--op-soft);
     white-space: nowrap;
   }
 
   td { padding: 12px 16px; border-top: 1px solid var(--op-line); vertical-align: middle; }
   tbody tr:first-child td { border-top: 0; }
-  .is-num { text-align: right; }
+  .is-num { text-align: end; }
 }
 
 .lp-row {
   cursor: pointer;
-  transition: opacity 140ms ease-out;
+  transition: background-color 160ms var(--lp-ease), opacity 160ms var(--lp-ease);
 
   &:hover { background: var(--lp-hover); }
   &:active { opacity: 0.8; }
@@ -405,14 +441,15 @@
 }
 
 .lp-history {
-  transition: opacity 160ms ease-out;
+  transition: opacity 160ms var(--lp-ease);
   &.is-loading { opacity: 0.55; }
 }
 
 .lp-day + .lp-day { margin-top: 16px; }
 
 .lp-day__title {
-  margin: 0 0 6px 4px;
+  margin: 0 0 6px;
+  margin-inline-start: 4px;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--op-muted);
@@ -442,7 +479,7 @@
   &__title { font-weight: 600; line-height: 1.35; }
   &__note { font-size: 12.5px; color: var(--op-muted); overflow-wrap: anywhere; }
 
-  &__side { flex: none; text-align: right; }
+  &__side { flex: none; text-align: end; }
   &__delta { font-size: 15px; font-weight: 700; line-height: 1.35; }
   &--gain &__delta { color: var(--op-accent-ink); }
   &--warn &__delta { color: var(--lp-coin-ink); }
@@ -466,6 +503,7 @@
 
   svg { font-size: 17px; color: var(--lp-coin); }
   span { color: var(--op-muted); font-weight: 500; }
+  transition: box-shadow 180ms var(--lp-ease), transform 160ms var(--lp-ease);
   &:hover { box-shadow: inset 0 0 0 1px var(--lp-coin); }
 }
 
@@ -546,6 +584,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp, .lp * { transition: none !important; }
-  .lp :active { transform: none !important; }
+  .lp, .lp *, .lp-switch *, .lp-num, .lp-fade-in, .lp-tick { transition: none !important; animation: none !important; }
+  .lp:active, .lp :active { transform: none !important; }
 }

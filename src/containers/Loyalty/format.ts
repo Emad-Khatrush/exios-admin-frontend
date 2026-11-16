@@ -13,21 +13,22 @@ export const shortDate = (value?: string | Date) => (value ? moment(value).forma
 // Calendar days between the date and today (0 = today)
 const daysAgo = (value: string | Date) => moment().startOf('day').diff(moment(value).startOf('day'), 'days');
 
-// "today", "yesterday", "3 days ago", then the date
+// «اليوم»، «أمس»، «منذ 3 أيام»، ثم التاريخ
 export const relativeDay = (value?: string) => {
   if (!value) return '—';
   const days = daysAgo(value);
-  if (days === 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days > 1 && days < 7) return `${days} days ago`;
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  if (days === 2) return 'منذ يومين';
+  if (days > 2 && days < 7) return `منذ ${days} أيام`;
   return fullDate(value);
 };
 
 // The heading of a day in a history list
 export const dayHeading = (value: string) => {
   const days = daysAgo(value);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'أمس';
   return fullDate(value);
 };
 
@@ -37,3 +38,9 @@ export const initials = (name?: string) => {
   if (!parts.length) return '?';
   return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)).toUpperCase();
 };
+
+// The pagination in Arabic: "1–25 من 120" and its buttons' names
+export const pageLabel = ({ from, to, count }: { from: number, to: number, count: number }) => `${from}–${to} من ${count}`;
+export const pageAriaLabel = (type: string) => (
+  type === 'next' ? 'الصفحة التالية' : type === 'previous' ? 'الصفحة السابقة' : type === 'first' ? 'الصفحة الأولى' : 'الصفحة الأخيرة'
+);

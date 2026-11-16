@@ -5,6 +5,8 @@ import moment from 'moment';
 import api from '../../api';
 import { useStaffAccess } from '../../utils/useStaffAccess';
 import { requestError } from '../../containers/EditInvoice/OrderPointsDialog';
+import { LoyaltyRtl, Num } from '../../containers/Loyalty/LoyaltyRtl';
+import '../../containers/Loyalty/loyalty.scss';
 
 type NoPoints = { reason?: string, by?: any, at?: string } | null;
 
@@ -51,7 +53,7 @@ const NoPointsSwitch = ({ orderId, disabled }: { orderId: string, disabled?: boo
       setState(enabled ? noPoints || { reason: reason.trim() } : null);
       setSaved(true);
     } catch (e: any) {
-      setError(requestError(e, 'Could not save.'));
+      setError(requestError(e, 'تعذّر الحفظ.'));
     } finally {
       setBusy(false);
     }
@@ -60,25 +62,32 @@ const NoPointsSwitch = ({ orderId, disabled }: { orderId: string, disabled?: boo
   const by = state?.by ? (typeof state.by === 'string' ? state.by : [state.by.firstName, state.by.lastName].filter(Boolean).join(' ') || state.by.username) : '';
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <FormControlLabel
-        control={<Switch checked={enabled} disabled={disabled || busy} onChange={(event) => { setEnabled(event.target.checked); setSaved(false); setError(''); }} />}
-        label="No loyalty points on this order"
-      />
-      {(enabled || state) && (
-        <TextField
-          fullWidth size="small" label="Reason" required multiline minRows={2} dir="auto" value={reason} disabled={disabled || busy || !enabled}
-          onChange={(event) => { setReason(event.target.value); setSaved(false); }}
-          error={enabled && changed && !reason.trim()} helperText={enabled && !reason.trim() ? 'A reason is required' : ''}
+    <LoyaltyRtl>
+      <div className="lp-switch" dir="rtl" style={{ marginTop: 12 }}>
+        <FormControlLabel
+          control={<Switch checked={enabled} disabled={disabled || busy} onChange={(event) => { setEnabled(event.target.checked); setSaved(false); setError(''); }} />}
+          label="بدون نقاط ولاء"
         />
-      )}
-      {state && <p className="op-muted" style={{ margin: '6px 0 0' }}>Set{by ? ` by ${by}` : ''}{state.at ? ` on ${moment(state.at).format('DD/MM/YYYY HH:mm')}` : ''}</p>}
-      {error && <Alert severity="error" sx={{ mt: 1 }} dir="auto">{error}</Alert>}
-      {saved && !error && <Alert severity="success" sx={{ mt: 1 }}>Saved</Alert>}
-      {changed && (
-        <Button sx={{ mt: 1 }} variant="outlined" size="small" type="button" onClick={save} disabled={busy || disabled || (enabled && !reason.trim())}>Save loyalty setting</Button>
-      )}
-    </div>
+        {(enabled || state) && (
+          <TextField
+            className="lp-fade-in" fullWidth size="small" label="سبب الاستثناء" required multiline minRows={2} dir="auto" value={reason} disabled={disabled || busy || !enabled}
+            onChange={(event) => { setReason(event.target.value); setSaved(false); }}
+            error={enabled && changed && !reason.trim()} helperText={enabled && !reason.trim() ? 'السبب إجباري' : ''}
+          />
+        )}
+        {state && (
+          <p className="op-muted" style={{ margin: '6px 0 0' }}>
+            {by ? <>بواسطة <bdi>{by}</bdi></> : 'حُدّد'}
+            {state.at ? <> في <Num>{moment(state.at).format('DD/MM/YYYY HH:mm')}</Num></> : ''}
+          </p>
+        )}
+        {error && <Alert severity="error" sx={{ mt: 1 }} dir="auto">{error}</Alert>}
+        {saved && !error && <Alert severity="success" sx={{ mt: 1 }} className="lp-fade-in">تم الحفظ</Alert>}
+        {changed && (
+          <Button sx={{ mt: 1 }} variant="outlined" size="small" type="button" onClick={save} disabled={busy || disabled || (enabled && !reason.trim())}>حفظ إعداد النقاط</Button>
+        )}
+      </div>
+    </LoyaltyRtl>
   );
 };
 

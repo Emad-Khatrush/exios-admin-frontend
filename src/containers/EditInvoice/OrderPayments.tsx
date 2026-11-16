@@ -230,7 +230,7 @@ const OrderPayments = (props: Props) => {
   const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
 
   // The points the order used in all (the split between its two parts is not recorded)
-  const pointsLine = `${Number(props.pointsRedeemed || 0).toLocaleString('en-US')} ($${money(Number(props.pointsRedeemed || 0) / 100)})`;
+  const pointsLine = <p className="op-muted" dir="rtl">مدفوع بالنقاط: <bdi dir="ltr" className="lp-num">{Number(props.pointsRedeemed || 0).toLocaleString('en-US')}</bdi> نقطة (<bdi dir="ltr" className="lp-num">${money(Number(props.pointsRedeemed || 0) / 100)}</bdi>)</p>;
 
   const paidTotals = (category: Category) => {
     const { totalUsd, totalLyd, totalEuro } = totalPaid(payments, category);
@@ -277,7 +277,7 @@ const OrderPayments = (props: Props) => {
         </header>
         <div className="op-actions op-actions--start">
           <Button variant="contained" size="small" type="button" onClick={() => props.onPay('invoice', [], invoiceDue)} disabled={walletEmpty}>Pay from wallet</Button>
-          {props.canUsePoints && <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('invoice', [], invoiceDue)} disabled={invoiceDue <= 0}>Use points</Button>}
+          {props.canUsePoints && <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('invoice', [], invoiceDue)} disabled={invoiceDue <= 0}>استعمال النقاط</Button>}
           {isAdmin && (locked ? (
             <Button variant="outlined" size="small" type="button" onClick={props.onRequestEdit}>Request invoice edit</Button>
           ) : (
@@ -295,7 +295,7 @@ const OrderPayments = (props: Props) => {
           ))}
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
-        {(props.pointsRedeemed || 0) > 0 && <p className="op-muted">Points paid: {pointsLine}</p>}
+        {(props.pointsRedeemed || 0) > 0 && pointsLine}
         <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>}
 
@@ -311,10 +311,10 @@ const OrderPayments = (props: Props) => {
         </header>
         {props.canUsePoints && (
           <div className="op-actions op-actions--start">
-            <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>Use points</Button>
+            <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>استعمال النقاط</Button>
           </div>
         )}
-        {!hasInvoice && (props.pointsRedeemed || 0) > 0 && <p className="op-muted">Points paid: {pointsLine}</p>}
+        {!hasInvoice && (props.pointsRedeemed || 0) > 0 && pointsLine}
         <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment, TextField } from '@mui/material';
 import api from '../../api';
+import { LoyaltyRtl, Num, useDialogMotion } from '../Loyalty/LoyaltyRtl';
 import '../Loyalty/loyalty.scss';
 
 type Category = 'invoice' | 'receivedGoods';
@@ -48,7 +49,7 @@ export const useOrderQuote = (open: boolean, order: any, category: string, packa
     setFailed('');
     api.get(`order/${order._id}/loyalty`, { category, ...(ids ? { packageIds: ids } : {}) })
       .then((res: any) => { if (!stale) setQuote(res.data?.quote || null); })
-      .catch((error: any) => { if (!stale) { setQuote(null); setFailed(requestError(error, 'Could not load the customer points.')); } })
+      .catch((error: any) => { if (!stale) { setQuote(null); setFailed(requestError(error, 'تعذّر تحميل نقاط العميل.')); } })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
   }, [open, order?._id, category, ids]);
@@ -59,6 +60,7 @@ export const useOrderQuote = (open: boolean, order: any, category: string, packa
 // due, the customer's points, the most that may be used (20%), and what is left to pay.
 const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, onRedeemed, onPayRest }: Props) => {
   const { quote, failed, loading } = useOrderQuote(open, order, category, packages);
+  const motion = useDialogMotion();
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -105,78 +107,85 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
       // What is left of the page's figure (the server's own figure leaves the fees out)
       const remainingUsd = Math.max(0, dueNow - used / 100);
       setDone({ points: used, remainingUsd });
-      onRedeemed(`${pointsText(used)} points used (${cents(used)})`);
+      onRedeemed(`تم استعمال ${pointsText(used)} نقطة (${cents(used)})`);
     } catch (e: any) {
-      setError(requestError(e, 'Could not use the points.'));
+      setError(requestError(e, 'تعذّر استعمال النقاط.'));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const label = category === 'invoice' ? 'Purchase invoice' : `Shipping of ${packages.length} package${packages.length === 1 ? '' : 's'}`;
+  const label = category === 'invoice' ? 'فاتورة الشراء' : <>شحن الطرود المختارة (<Num>{packages.length}</Num>)</>;
+  const remaining = Math.max(0, dueNow - discount);
 
   return (
-    <Dialog open={open} onClose={isSaving ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        Use points
-        <span className="op-dialog__sub">{label}, order {order?.orderId}</span>
-      </DialogTitle>
-      <DialogContent dividers>
-        {done ? (
-          <Alert severity="success" className="op-alert op-alert--tight">
-            {pointsText(done.points)} points ({cents(done.points)}) were taken off. {done.remainingUsd > 0.005 ? `$${money(done.remainingUsd)} is still due.` : 'Nothing is left to pay.'}
-          </Alert>
-        ) : (
-          <>
-            {(error || failed) && <Alert severity="error" className="op-alert op-alert--tight" dir="auto">{error || failed}</Alert>}
+    <LoyaltyRtl>
+      <Dialog open={open} onClose={isSaving ? undefined : onClose} fullWidth maxWidth="sm" dir="rtl" {...motion}>
+        <DialogTitle>
+          استعمال النقاط
+          <span className="op-dialog__sub">{label}، طلبية <Num>{order?.orderId}</Num></span>
+        </DialogTitle>
+        <DialogContent dividers>
+          {done ? (
+            <Alert severity="success" className="op-alert op-alert--tight lp-fade-in">
+              خُصمت <Num>{pointsText(done.points)}</Num> نقطة (<Num>{cents(done.points)}</Num>).{' '}
+              {done.remainingUsd > 0.005 ? <>المتبقي للدفع <Num>${money(done.remainingUsd)}</Num>.</> : 'لم يبقَ شيء للدفع.'}
+            </Alert>
+          ) : (
+            <>
+              {(error || failed) && <Alert severity="error" className="op-alert op-alert--tight" dir="auto">{error || failed}</Alert>}
 
-            <dl className="lp lp-quote">
-              <div><dt>Customer points</dt><dd>{loading ? '...' : quote ? `${pointsText(balance)} ($${money(balance / 100)})` : '-'}</dd></div>
-              <div><dt>Max usable (20%)</dt><dd>{loading ? '...' : quote ? `${pointsText(max)} points (${cents(max)})` : '-'}</dd></div>
-            </dl>
+              <dl className="lp lp-quote">
+                <div><dt>نقاط العميل</dt><dd>{loading ? '...' : quote ? <><Num>{pointsText(balance)}</Num> نقطة (<Num>${money(balance / 100)}</Num>)</> : '-'}</dd></div>
+                <div><dt>الحد الأقصى (20%)</dt><dd>{loading ? '...' : quote ? <><Num>{pointsText(max)}</Num> نقطة (<Num>{cents(max)}</Num>)</> : '-'}</dd></div>
+              </dl>
 
-            {feesExcluded && <Alert severity="info" className="op-alert">Points can't pay transport or customs fees.</Alert>}
+              {feesExcluded && <Alert severity="info" className="op-alert">النقاط لا تدفع رسوم النقل الداخلي أو التخليص.</Alert>}
 
-            {quote && max <= 0 && !loading && <Alert severity="info" className="op-alert">No points can be used on this payment.</Alert>}
+              {quote && max <= 0 && !loading && <Alert severity="info" className="op-alert">لا يمكن استعمال نقاط في هذه الدفعة.</Alert>}
 
-            <div className="op-fields">
-              <TextField
-                label="Points to use" type="number" autoFocus value={value} disabled={!quote || max <= 0 || isSaving}
-                onChange={(event) => change(event.target.value)} onWheel={(event: any) => event.target.blur()}
-                inputProps={{ min: 0, max, step: 1 }}
-                InputProps={{ endAdornment: <InputAdornment position="end">pts</InputAdornment> }}
-                error={invalid || over} helperText={over ? `At most ${pointsText(max)} points` : invalid ? 'Whole points only' : ''}
-              />
-              <div className="op-actions op-actions--start">
-                <Button size="small" type="button" onClick={() => setValue(String(max))} disabled={!quote || max <= 0 || isSaving}>Max</Button>
-                <Button size="small" type="button" onClick={() => setValue('')} disabled={!value || isSaving}>Clear</Button>
+              <div className="op-fields">
+                <TextField
+                  label="النقاط المستعملة" type="number" autoFocus value={value} disabled={!quote || max <= 0 || isSaving}
+                  onChange={(event) => change(event.target.value)} onWheel={(event: any) => event.target.blur()}
+                  inputProps={{ min: 0, max, step: 1, dir: 'ltr' }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">نقطة</InputAdornment> }}
+                  error={invalid || over} helperText={over ? <>الحد الأقصى <Num>{pointsText(max)}</Num> نقطة</> : invalid ? 'أرقام صحيحة فقط' : ''}
+                />
+                <div className="op-actions op-actions--start">
+                  <Button size="small" type="button" onClick={() => setValue(String(max))} disabled={!quote || max <= 0 || isSaving}>الحد الأقصى</Button>
+                  <Button size="small" type="button" onClick={() => setValue('')} disabled={!value || isSaving}>مسح</Button>
+                </div>
               </div>
-            </div>
 
-            <dl className="lp lp-receipt">
-              <div><dt>Amount due</dt><dd>{dueNow > 0 ? `$${money(dueNow)}` : 'Nothing is due'}</dd></div>
-              <div className="is-discount"><dt>Points discount</dt><dd>{discount > 0 ? `−$${money(discount)}` : '—'}</dd></div>
-              <div className="is-total"><dt>Remaining to pay</dt><dd>${money(Math.max(0, dueNow - discount))}</dd></div>
-            </dl>
-          </>
-        )}
-      </DialogContent>
-      <DialogActions>
-        {done ? (
-          <>
-            <Button onClick={onClose}>Close</Button>
-            {done.remainingUsd > 0.005 && (
-              <Button variant="contained" onClick={() => { onClose(); onPayRest(category, packages, done.remainingUsd); }}>Pay the rest from wallet</Button>
-            )}
-          </>
-        ) : (
-          <>
-            <Button onClick={onClose} disabled={isSaving}>Cancel</Button>
-            <Button variant="contained" onClick={confirm} disabled={!canConfirm}>{isSaving ? 'Confirming' : 'Confirm'}</Button>
-          </>
-        )}
-      </DialogActions>
-    </Dialog>
+              <dl className="lp lp-receipt" dir="rtl">
+                <div><dt>المبلغ المستحق</dt><dd>{dueNow > 0 ? <Num>${money(dueNow)}</Num> : 'لا يوجد مبلغ مستحق'}</dd></div>
+                <div className="is-discount"><dt>خصم النقاط</dt><dd>{discount > 0 ? <Num>−${money(discount)}</Num> : '—'}</dd></div>
+                <div className="is-total">
+                  <dt>المتبقي للدفع</dt>
+                  <dd aria-live="polite"><Num key={remaining.toFixed(2)} className="lp-tick">${money(remaining)}</Num></dd>
+                </div>
+              </dl>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {done ? (
+            <>
+              <Button onClick={onClose}>إغلاق</Button>
+              {done.remainingUsd > 0.005 && (
+                <Button variant="contained" onClick={() => { onClose(); onPayRest(category, packages, done.remainingUsd); }}>ادفع الباقي من المحفظة</Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button onClick={onClose} disabled={isSaving}>إلغاء</Button>
+              <Button variant="contained" onClick={confirm} disabled={!canConfirm}>{isSaving ? 'جارٍ التأكيد' : 'تأكيد'}</Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+    </LoyaltyRtl>
   );
 };
 

@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ChevronLeft, ReceiptText, Wallet } from 'lucide-react';
+import { MdToll } from 'react-icons/md';
 import { Debt } from '../../models';
+import { pointsText, shortDate } from '../Loyalty/format';
 import CustomerDebtsDialog from './CustomerDebtsDialog';
+import '../Loyalty/loyalty.scss';
 import './CustomerWallet.scss';
 
 export const openCustomerDebts = (debts: any): Debt[] => (Array.isArray(debts) ? debts.flat() : [])
   .filter((debt: Debt) => debt && ['open', 'overdue'].includes(debt.status) && Number(debt.amount) > 0);
+// The customer's loyalty points, as the page already read them for its header
+export type CustomerPoints = { points: number, usd: number, expiringSoon?: { points: number, at: string } | null };
+
 export const customerMoney = (value: number) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Props = {
@@ -19,6 +25,9 @@ type Props = {
   onDeposit?: () => void;
   onWithdraw?: () => void;
   onExchange?: () => void;
+  // Left out for staff without the loyalty permission: the points row is hidden
+  points?: CustomerPoints | null;
+  onOpenPoints?: () => void;
   onRefreshDebts: () => Promise<void>;
   onPaymentSaved: () => Promise<void>;
 };
@@ -36,6 +45,19 @@ export default function CustomerWallet(props: Props) {
           <div><dt><span className="cw-currency" dir="ltr">USD</span>دولار أمريكي</dt><dd dir="ltr">{customerMoney(props.walletUsd)} <span>$</span></dd></div>
           <div><dt><span className="cw-currency" dir="ltr">LYD</span>دينار ليبي</dt><dd dir="ltr">{customerMoney(props.walletLyd)} <span>د.ل</span></dd></div>
         </dl>
+        {props.points && props.onOpenPoints && (
+          <button type="button" className="cw-points lp-coin-tokens" onClick={props.onOpenPoints} title="فتح تبويب النقاط">
+            <span className="cw-points__label"><span className="cw-points__coin" aria-hidden="true"><MdToll /></span>نقاط الولاء</span>
+            <span className="cw-points__value">
+              <bdi dir="ltr">{pointsText(props.points.points)}</bdi> <span>نقطة</span>
+              <small>= <bdi dir="ltr">${customerMoney(props.points.usd)}</bdi></small>
+            </span>
+            {props.points.expiringSoon && props.points.expiringSoon.points > 0 && (
+              <span className="cw-points__expiring">تنتهي <bdi dir="ltr">{pointsText(props.points.expiringSoon.points)}</bdi> نقطة في <bdi dir="ltr">{shortDate(props.points.expiringSoon.at)}</bdi></span>
+            )}
+            <ChevronLeft className="cw-points__go" size={16} aria-hidden="true" />
+          </button>
+        )}
         {(props.onDeposit || props.onWithdraw || props.onExchange) && <div className="cw-actions">{props.onDeposit && <button className="cw-button cw-button--primary" type="button" onClick={props.onDeposit}><ArrowDownLeft size={16} aria-hidden="true" />إضافة رصيد</button>}{props.onWithdraw && <button className="cw-button" type="button" onClick={props.onWithdraw}><ArrowUpRight size={16} aria-hidden="true" />سحب نقدي</button>}{props.onExchange && <button className="cw-button" type="button" onClick={props.onExchange}><ArrowLeftRight size={16} aria-hidden="true" />صرافة داخل المحفظة</button>}</div>}
       </div>
       <div className={`cw-debts ${debts.length ? 'has-debts' : ''}`}>
