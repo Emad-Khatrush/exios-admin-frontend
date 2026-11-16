@@ -16,6 +16,7 @@ const SORTS: [Sort, string][] = [['balance', 'الرصيد'], ['expiring', 'ال
 // Customers who hold loyalty points, with what is outstanding in all
 // "عميل واحد", "عميلان", "3 عملاء", "11 عميلاً": the count with the noun Arabic grammar asks for
 const customersText = (n: number) => {
+  if (n === 0) return 'لا يوجد';
   if (n === 1) return 'عميل واحد';
   if (n === 2) return 'عميلان';
   return <><Num>{pointsText(n)}</Num> {n >= 3 && n <= 10 ? 'عملاء' : 'عميلاً'}</>;
