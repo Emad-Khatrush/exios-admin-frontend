@@ -190,7 +190,7 @@ const UserDetails = (props: Props) => {
             isLoading={isStatementLoading}
           />
         </div>
-      ) : activeTap === 'points' ? (
+      ) : activeTap === 'points' && canLoyalty ? (
         <div className="col-md-12">
           <LoyaltyTab userId={user._id} version={pointsVersion} onChanged={() => setPointsVersion((v) => v + 1)} />
         </div>

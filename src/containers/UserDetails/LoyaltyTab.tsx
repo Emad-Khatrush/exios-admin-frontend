@@ -140,7 +140,7 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
 
       <AdjustPointsDialog
         open={adjusting} userId={userId} balance={Number(data.points || 0)} onClose={() => setAdjusting(false)}
-        onSaved={() => { setPage(0); load(0); onChanged(); }}
+        onSaved={() => { setPage(0); onChanged(); }}
       />
     </div>
   );

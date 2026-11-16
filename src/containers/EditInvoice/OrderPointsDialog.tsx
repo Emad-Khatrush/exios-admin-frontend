@@ -40,6 +40,7 @@ export const useOrderQuote = (open: boolean, order: any, category: string, packa
   const [loading, setLoading] = useState(false);
   const ids = packages.map((row: any) => row._id).filter(Boolean).join(',');
   useEffect(() => {
+    setQuote(null);
     if (!open || !order?._id) return;
     let stale = false;
     setLoading(true);
@@ -98,7 +99,9 @@ const OrderPointsDialog = ({ open, category, order, packages, dueUsd, onClose, o
       const res = await api.post(`order/${order._id}/loyalty/redeem`, body);
       const result = res.data || {};
       const used = Number(result.points ?? points);
-      setDone({ points: used, remainingUsd: Number(result.remainingOwedCents ?? 0) / 100 });
+      // If the server does not say what is left, work it out from what was due
+      const remainingUsd = typeof result.remainingOwedCents === 'number' ? result.remainingOwedCents / 100 : Math.max(0, dueNow - used / 100);
+      setDone({ points: used, remainingUsd });
       onRedeemed(`${pointsText(used)} points used (${cents(used)})`);
     } catch (e: any) {
       setError(requestError(e, 'Could not use the points.'));
