@@ -153,7 +153,11 @@ const LoyaltyCustomers = () => {
           </div>
           <button type="button" className="lp-stat lp-stat--toggle lp-press" aria-pressed={expiringOnly} onClick={toggleExpiring}>
             <span className="lp-label">Expiring in 30 days</span>
-            <strong>{expiringOnly && data ? `${pointsText(data.total || 0)} customer${data.total === 1 ? '' : 's'}` : 'Show customers'}</strong>
+            <strong>{expiringOnly && data
+              ? `${pointsText(data.total || 0)} customer${data.total === 1 ? '' : 's'}`
+              : totals?.expiring
+                ? `${pointsText(totals.expiring.customers)} customer${totals.expiring.customers === 1 ? '' : 's'} · ${pointsText(totals.expiring.points)} pts`
+                : 'Show customers'}</strong>
             <small>{expiringOnly ? 'Showing only these' : 'Filter the list'}</small>
           </button>
         </div>
