@@ -28,6 +28,10 @@ type Props = {
   onRequestEdit: () => void
   onDecideChanges: (status: 'accepted' | 'rejected') => void
   onAddDebt: () => void
+  // Loyalty points: staff who may use them get the button; `pointsRedeemed` is what the order used in all
+  canUsePoints?: boolean
+  pointsRedeemed?: number
+  onUsePoints?: (category: Category, packages: any[], dueUsd: number) => void
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -222,6 +226,9 @@ const OrderPayments = (props: Props) => {
   };
   const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
 
+  // The points the order used in all (the split between its two parts is not recorded)
+  const pointsLine = `${Number(props.pointsRedeemed || 0).toLocaleString('en-US')} ($${money(Number(props.pointsRedeemed || 0) / 100)})`;
+
   const paidTotals = (category: Category) => {
     const { totalUsd, totalLyd, totalEuro } = totalPaid(payments, category);
     return [totalUsd && `${money(totalUsd)} $`, totalLyd && `${money(totalLyd)} LYD`, totalEuro && `${money(totalEuro)} EURO`].filter(Boolean).join(' + ');
@@ -267,6 +274,7 @@ const OrderPayments = (props: Props) => {
         </header>
         <div className="op-actions op-actions--start">
           <Button variant="contained" size="small" type="button" onClick={() => props.onPay('invoice', [], invoiceDue)} disabled={walletEmpty}>Pay from wallet</Button>
+          {props.canUsePoints && <Button variant="outlined" size="small" type="button" onClick={() => props.onUsePoints?.('invoice', [], invoiceDue)} disabled={invoiceDue <= 0}>Use points</Button>}
           {isAdmin && (locked ? (
             <Button variant="outlined" size="small" type="button" onClick={props.onRequestEdit}>Request invoice edit</Button>
           ) : (
@@ -284,6 +292,7 @@ const OrderPayments = (props: Props) => {
           ))}
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
+        {(props.pointsRedeemed || 0) > 0 && <p className="op-muted">Points paid: {pointsLine}</p>}
         <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>}
 
@@ -298,6 +307,7 @@ const OrderPayments = (props: Props) => {
           </div>
         </header>
 
+        {!hasInvoice && (props.pointsRedeemed || 0) > 0 && <p className="op-muted">Points paid: {pointsLine}</p>}
         <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>
 

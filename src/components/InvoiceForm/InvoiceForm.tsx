@@ -20,6 +20,7 @@ import { SpecialPrices, getShippingMode } from '../../utils/specialPrices';
 import Badge from '../Badge/Badge';
 import ImageUploader from '../ImageUploader/ImageUploader';
 import FilesPreviewers from '../FilesPreviewers/FilesPreviewers';
+import NoPointsSwitch from './NoPointsSwitch';
 import SpecialPricePicker from '../SpecialPricePicker/SpecialPricePicker';
 import FileViewer from '../FileViewer/FileViewer';
 import PackageDialog, { CLOSED_PACKAGE, PackageDraft, reportPackageField } from './PackageDialog';
@@ -324,6 +325,7 @@ const InvoiceForm = (props: Props) => {
           </div>
           {props.shippingRestrictionAction}
         </div>
+        {invoice?._id && <NoPointsSwitch orderId={String(invoice._id)} disabled={isCanceled} />}
       </Section>
 
       <Section title="Shipping and status">

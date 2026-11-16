@@ -7,6 +7,7 @@ import moment from 'moment';
 import api from '../../api';
 import { Account, Debt, User } from '../../models';
 import withRouter from '../../utils/WithRouter/WithRouter';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 import { calculateTotalWallet, getOrderSteps } from '../../utils/methods';
 import { formatInvoiceFields, formatPurchaseFields } from '../XTrackingPage/utils';
 import Badge from '../../components/Badge/Badge';
@@ -23,6 +24,7 @@ import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
 import OrderWalletDialog from './OrderWalletDialog';
+import OrderPointsDialog from './OrderPointsDialog';
 import ShippingLabelDialog from './ShippingLabelDialog';
 import OrderTheme from './OrderTheme';
 import {
@@ -42,6 +44,8 @@ type Props = {
   router: RouteMatch
   isEmployee: boolean
   account: Account
+  // May use loyalty points on this order (permission loyalty or invoices_payments)
+  canPoints?: boolean
 }
 
 type State = {
@@ -71,6 +75,10 @@ type State = {
   editItemsDialog: boolean
   // The payment being made from the wallet: what for, which packages and how much is due
   walletPayment?: { category: WalletCategory, packages: any[], dueUsd: number }
+  // The points payment being made: what for, which packages and how much is due
+  pointsPayment?: { category: WalletCategory, packages: any[], dueUsd: number }
+  // Points the order used in all (from GET order/:id/loyalty); null when unknown
+  pointsRedeemed: number | null
   previewImages?: any[]
   deleteDialog: boolean
   // The order number typed to confirm deleting it, and why the server refused
@@ -92,6 +100,7 @@ export class EditInvoice extends Component<Props, State> {
     wallet: null,
     payments: [],
     writeOffs: [],
+    pointsRedeemed: null,
     items: [],
     purchaseItems: [],
     paymentList: [],
@@ -111,6 +120,11 @@ export class EditInvoice extends Component<Props, State> {
     deleteError: '',
   };
 
+  componentDidUpdate(prev: Props) {
+    // Staff permissions arrive after the page: read the points once they allow it
+    if (!prev.canPoints && this.props.canPoints && this.state.order && this.state.pointsRedeemed === null) this.loadPoints();
+  }
+
   get orderId() { return String(this.props.router.params.id); }
 
   async componentDidMount() {
@@ -128,7 +142,19 @@ export class EditInvoice extends Component<Props, State> {
       optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, {} as any),
     ]);
     this.setState({ order, employees, userDebts, wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], items: order.items || [], purchaseItems: order.purchaseItems || [], paymentList: order.paymentList || [] });
+    this.loadPoints(order);
   }
+
+  // Points the order used. Staff without the permission, or an API without points, just get no line.
+  loadPoints = async (order = this.state.order) => {
+    if (!order?._id || !this.canUsePoints()) return;
+    const redeemed = await optional(api.get(`order/${order._id}/loyalty`, { category: 'invoice' }), (res) => Number(res.data?.redeemed || 0), null as number | null);
+    this.setState({ pointsRedeemed: redeemed });
+  };
+
+  canUsePoints = () => {
+    return !!this.props.canPoints;
+  };
 
   toast = (type: 'success' | 'error', message: string) => this.setState({ toast: { open: true, type, message } });
 
@@ -152,6 +178,7 @@ export class EditInvoice extends Component<Props, State> {
       optional(api.get(`debts/user/${order?.user?.customerId}`), (res) => res.data || [], this.state.userDebts),
     ]);
     this.setState({ wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], userDebts });
+    this.loadPoints();
   };
 
   // Runs a server action behind the busy overlay and reports its result
@@ -580,6 +607,9 @@ export class EditInvoice extends Component<Props, State> {
             wallet={{ walletUsd, walletLyd }}
             debts={Array.isArray(this.state.userDebts) ? this.state.userDebts : []}
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
+            canUsePoints={this.canUsePoints()}
+            pointsRedeemed={this.state.pointsRedeemed || 0}
+            onUsePoints={(category, packages, dueUsd) => this.setState({ pointsPayment: { category, packages, dueUsd } })}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}
             canSetRate={isAdmin || !!account?.roles.isAccountant}
@@ -635,12 +665,27 @@ export class EditInvoice extends Component<Props, State> {
           dueUsd={walletPayment?.dueUsd || 0}
           order={order}
           wallet={{ walletUsd, walletLyd }}
+          onUsePoints={this.canUsePoints() ? () => {
+            const { walletPayment: current } = this.state;
+            this.setState({ walletPayment: undefined, pointsPayment: current });
+          } : undefined}
           onClose={() => this.setState({ walletPayment: undefined })}
           onDone={(message) => {
             this.setState({ walletPayment: undefined });
             this.toast('success', message);
             this.reloadMoney();
           }}
+        />
+
+        <OrderPointsDialog
+          open={!!this.state.pointsPayment}
+          category={this.state.pointsPayment?.category || 'invoice'}
+          packages={this.state.pointsPayment?.packages || []}
+          dueUsd={this.state.pointsPayment?.dueUsd || 0}
+          order={order}
+          onClose={() => this.setState({ pointsPayment: undefined })}
+          onRedeemed={(message) => { this.toast('success', message); this.reloadMoney(); }}
+          onPayRest={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
         />
 
         <Dialog open={this.state.deleteDialog} onClose={() => this.setState({ deleteDialog: false })} fullWidth maxWidth="sm">
@@ -690,4 +735,9 @@ const mapStateToProps = (state: any) => ({
   account: state.session.account,
 });
 
-export default connect(mapStateToProps)(withRouter(EditInvoice));
+const WithPointsAccess = (props: any) => {
+  const staff = useStaffAccess();
+  return <EditInvoice {...props} canPoints={!!props.account?.roles?.isAdmin || staff.can('loyalty', 'invoices_payments')} />;
+};
+
+export default connect(mapStateToProps)(withRouter(WithPointsAccess));

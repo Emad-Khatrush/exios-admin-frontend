@@ -8,6 +8,7 @@ import { BsCheck2 } from 'react-icons/bs';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { packageCharge } from './orderConstants';
+import { useOrderQuote } from './OrderPointsDialog';
 
 type Currency = 'USD' | 'LYD';
 
@@ -22,6 +23,8 @@ type Props = {
   dueUsd: number
   onClose: () => void
   onDone: (message: string) => void
+  // Opens the points dialog, when the person may use points (the hint below links to it)
+  onUsePoints?: () => void
 }
 
 // The accountant's dinar rate on the payment date and the lowest rate a payment may use
@@ -38,7 +41,8 @@ const ceil6 = (value: number) => Math.ceil(value * 1000000) / 1000000;
 //
 // Dinars are counted at a rate. By default the rate is worked out so that the payment closes
 // exactly what is due, but never below the accountant's rate minus the tolerance.
-const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, onClose, onDone }: Props) => {
+const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, onClose, onDone, onUsePoints }: Props) => {
+  const { quote } = useOrderQuote(open && !!onUsePoints, order, category, packages);
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
   // Dinars either pay everything that is due (the rate is worked out) or part of it (the rate is typed)
@@ -168,6 +172,13 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
           <span>Still due</span>
           <strong>{dueUsd > 0 ? `$${money(dueUsd)}` : 'Nothing is due'}</strong>
         </div>
+
+        {onUsePoints && quote && quote.maxPoints > 0 && (
+          <Alert severity="info" className="op-alert op-alert--tight">
+            Customer has {quote.balance.toLocaleString('en-US')} points (${money(quote.balance / 100)}); up to ${money(quote.maxPoints / 100)} can be paid with points.{' '}
+            <Button size="small" type="button" onClick={onUsePoints}>Use points</Button>
+          </Alert>
+        )}
 
         {packages.length > 0 && (
           <ul className="op-picked">
