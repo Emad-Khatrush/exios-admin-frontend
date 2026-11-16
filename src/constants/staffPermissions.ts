@@ -7,7 +7,7 @@ export type StaffPermission =
   | 'tracking' | 'delivery'
   | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'debts' | 'returned_payments' | 'expenses'
   | 'inventory' | 'warehouse'
-  | 'marketing' | 'goals' | 'analytics' | 'ratings'
+  | 'marketing' | 'goals' | 'analytics' | 'ratings' | 'loyalty'
   | 'tasks' | 'reports' | 'activities' | 'settings_prices' | 'settings_content';
 
 // path -> the permissions that open it (any one is enough)
@@ -38,6 +38,7 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/marketing': ['marketing'],
   '/analytics': ['analytics'],
   '/goals': ['goals'],
+  '/loyalty': ['loyalty'],
   '/settings': ['settings_prices', 'settings_content'],
   '/settings/pricing': ['settings_prices'],
   '/settings/customer-prices': ['settings_prices'],
@@ -64,6 +65,7 @@ export const MENU_PAGES: { path: string, label: string }[] = [
   { path: '/goals', label: 'الأهداف' },
   { path: '/analytics', label: 'الإحصاءات' },
   { path: '/ratings', label: 'التقييمات' },
+  { path: '/loyalty', label: 'نقاط الولاء' },
   { path: '/mytasks', label: 'المهام' },
   { path: '/reports', label: 'التقارير' },
   { path: '/activities', label: 'سجل النشاطات' },
