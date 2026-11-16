@@ -14,6 +14,13 @@ type Sort = 'balance' | 'expiring';
 const SORTS: [Sort, string][] = [['balance', 'الرصيد'], ['expiring', 'الأقرب انتهاءً']];
 
 // Customers who hold loyalty points, with what is outstanding in all
+// "عميل واحد", "عميلان", "3 عملاء", "11 عميلاً": the count with the noun Arabic grammar asks for
+const customersText = (n: number) => {
+  if (n === 1) return 'عميل واحد';
+  if (n === 2) return 'عميلان';
+  return <><Num>{pointsText(n)}</Num> {n >= 3 && n <= 10 ? 'عملاء' : 'عميلاً'}</>;
+};
+
 const LoyaltyCustomers = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -137,9 +144,9 @@ const LoyaltyCustomers = () => {
   };
 
   const expiringText = () => {
-    if (expiringOnly && data) return <><Num>{pointsText(data.total || 0)}</Num> عملاء</>;
+    if (expiringOnly && data) return customersText(data.total || 0);
     if (totals?.expiring) {
-      return <><Num>{pointsText(totals.expiring.customers)}</Num> عملاء · <Num>{pointsText(totals.expiring.points)}</Num> نقطة</>;
+      return <>{customersText(totals.expiring.customers)} · <Num>{pointsText(totals.expiring.points)}</Num> نقطة</>;
     }
     return 'عرض العملاء';
   };
