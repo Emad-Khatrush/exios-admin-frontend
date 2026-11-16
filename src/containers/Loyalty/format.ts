@@ -32,6 +32,21 @@ export const dayHeading = (value: string) => {
   return fullDate(value);
 };
 
+// When a movement happened, short: «اليوم»، «أمس»، else DD/MM; and its time
+export const shortDay = (value: string) => {
+  const days = daysAgo(value);
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  return shortDate(value);
+};
+
+const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+// A month key 'YYYY-MM' as its Arabic name and year: { name: 'نوفمبر', year: 2026 }
+export const monthTitle = (key: string) => {
+  const [year, month] = String(key).split('-').map(Number);
+  return { name: MONTHS[(month || 1) - 1] || key, year };
+};
+
 // Up to two letters of a name, for the small avatar
 export const initials = (name?: string) => {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);

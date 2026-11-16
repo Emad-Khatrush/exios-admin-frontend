@@ -433,6 +433,42 @@
   &__pts { font-weight: 700; color: var(--op-accent-ink); }
 }
 
+// "N طلبيات · P نقطة في الطريق"
+.lp-summary-line {
+  margin: -4px 0 10px;
+  color: var(--op-muted);
+  font-size: 13px;
+  font-weight: 600;
+  .lp-num { color: var(--op-ink); font-weight: 700; }
+}
+
+// Filter chips over a list (pending and history): the chosen one filled
+.lp-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+.lp-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--op-line);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--op-muted);
+  cursor: pointer;
+  transition: background-color 180ms var(--lp-ease), border-color 180ms var(--lp-ease), color 180ms var(--lp-ease), transform 160ms var(--lp-ease);
+
+  .lp-num { font-size: 12px; opacity: 0.8; }
+  &:hover { border-color: var(--op-accent); color: var(--op-accent-ink); }
+  &:active { transform: scale(0.98); }
+  &[aria-pressed='true'] { border-color: var(--op-accent); background: var(--op-accent); color: #fff; }
+}
+
+// "عرض الكل" / "عرض المزيد" under a list
+.lp-more { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 12px; }
+
 // Where a pending claim stands: quiet, but told apart
 .lp-waiting {
   &--payment { background: var(--op-soft); color: var(--op-muted); }
@@ -445,14 +481,30 @@
   &.is-loading { opacity: 0.55; }
 }
 
-.lp-day + .lp-day { margin-top: 16px; }
+// Months: the name, then what the month gained (green) and spent (muted), over the whole month
+.lp-month + .lp-month { margin-top: 16px; }
+// A long history: the browser skips laying out months far off screen
+.lp-month { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 
-.lp-day__title {
+.lp-month__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0 0 6px;
-  margin-inline-start: 4px;
+  padding-inline: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--op-ink);
+}
+
+.lp-month__sums {
+  display: inline-flex;
+  gap: 10px;
   font-size: 12.5px;
-  font-weight: 600;
-  color: var(--op-muted);
+  font-weight: 700;
+  .is-gain { color: var(--op-accent-ink); }
+  .is-spent { color: var(--op-muted); }
 }
 
 .lp-move {
@@ -484,6 +536,26 @@
   &--gain &__delta { color: var(--op-accent-ink); }
   &--warn &__delta { color: var(--lp-coin-ink); }
   &__after { font-size: 12.5px; color: var(--op-muted); }
+
+  // One line per movement in a long history: title, then the time and the reason cut short
+  &--compact {
+    gap: 10px;
+    padding: 8px 14px;
+    .lp-move__icon { width: 28px; height: 28px; svg { font-size: 15px; } }
+    .lp-move__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lp-move__delta { font-size: 14px; }
+    .lp-move__after { font-size: 12px; white-space: nowrap; }
+  }
+  &__meta { display: flex; gap: 6px; min-width: 0; font-size: 12px; color: var(--op-muted); }
+  &__when { flex: none; white-space: nowrap; }
+  &__why {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    &::before { content: '·'; margin-inline-end: 6px; }
+  }
 }
 
 // The balance in the customer page's header
