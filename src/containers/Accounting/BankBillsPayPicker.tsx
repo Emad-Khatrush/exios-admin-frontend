@@ -10,11 +10,19 @@ const round = (value: number) => Math.round(value * 1000) / 1000;
 // From the bank matching page: one outgoing line paying several supplier bills (of one vendor or
 // several). Each chosen bill is paid in full from the line's account and the line is matched to
 // the payments; unmatching the line later cancels them and the bills are unpaid again.
-export default function BankBillsPayPicker({ line, embedded, initialVendorId, onClose, onDone, onBusyChange }: { line: any, embedded?: boolean, initialVendorId?: string, onClose: () => void, onDone: (text: string) => void, onBusyChange?: (busy: boolean) => void }) {
+// With several lines (owner 2026-11-17) the lines, oldest first, pay the chosen bills in the order
+// they were picked; lines short of the bills leave the last one partly paid.
+export default function BankBillsPayPicker({ line: single, lines: many, embedded, initialVendorId, onClose, onDone, onBusyChange }: { line?: any, lines?: any[], embedded?: boolean, initialVendorId?: string, onClose: () => void, onDone: (text: string) => void, onBusyChange?: (busy: boolean) => void }) {
+  const multi = (many?.length || 0) > 1;
+  const sortedLines = useMemo(() => [...(many?.length ? many : [single])].sort((a: any, b: any) => String(a.day).localeCompare(String(b.day)) || String(a._id).localeCompare(String(b._id))), [many, single]);
+  const line = sortedLines[0];
   const { vendors } = useVendors();
   // Opened from a line whose vendor is known to have unpaid bills: that vendor's bills first
   const [vendorId, setVendorId] = useState(initialVendorId || '');
   const [q, setQ] = useState('');
+  // A period of bill days: the bills of a month found at once
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [known, setKnown] = useState<Record<string, any>>({});
@@ -29,19 +37,39 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
     let active = true;
     setLoading(true);
     const timer = window.setTimeout(() => {
-      acc.get(`bank/lines/${line._id}/bill-options`, { q: q.trim() || undefined, vendorId: vendorId || undefined })
+      acc.get(`bank/lines/${line._id}/bill-options`, { q: q.trim() || undefined, vendorId: vendorId || undefined, from: from || undefined, to: to || undefined })
         .then((res: any) => { if (!active) return; setData(res.data); setError(''); setKnown((k) => ({ ...k, ...Object.fromEntries(res.data.results.map((r: any) => [String(r._id), r])) })); })
         .catch((err: any) => { if (active) setError(errorText(err)); })
         .finally(() => { if (active) setLoading(false); });
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [line._id, q, vendorId]);
+  }, [line._id, q, vendorId, from, to]);
   const currency = data?.bankCurrency || line.currency || 'USD';
-  const paid = data?.paid ?? 0;
+  const decimals = data?.decimals ?? 2;
+  const lineAmount = (l: any) => -l.amount / 10 ** decimals;
+  const paid = multi ? round(sortedLines.reduce((s: number, l: any) => s + lineAmount(l), 0)) : data?.paid ?? 0;
   const chosen = picked.map((id) => known[id]).filter(Boolean);
   const sameCurrency = chosen.every((b: any) => b.currency === currency);
   const total = round(chosen.reduce((s: number, b: any) => s + (sameCurrency ? b.openNative : b.openUsd / 100), 0));
   const excess = sameCurrency ? round(paid - total) : 0;
+  // Several lines: each line's money over the bills in the picked order, as the server will do it
+  const plan = useMemo(() => {
+    if (!multi) return [];
+    const left = chosen.map((b: any) => b.openNative);
+    let next = 0;
+    return sortedLines.map((l: any) => {
+      let money = lineAmount(l);
+      const pieces: { number: string, amount: number, partial: boolean }[] = [];
+      while (money > 0.0005 && next < chosen.length) {
+        const take = round(Math.min(money, left[next]));
+        left[next] = round(left[next] - take); money = round(money - take);
+        pieces.push({ number: chosen[next].number, amount: take, partial: left[next] > 0 });
+        if (left[next] <= 0) next++;
+      }
+      return { line: l, pieces, rest: money };
+    });
+  }, [multi, sortedLines, chosen, decimals]); // eslint-disable-line react-hooks/exhaustive-deps
+  const partlyPaid = multi && excess < 0 ? chosen.find((b: any, i: number) => round(chosen.slice(0, i + 1).reduce((s: number, x: any) => s + x.openNative, 0)) > paid) : null;
   // Both totals: the dollars, and each bill currency's own sum
   const totalUsd = round(chosen.reduce((s: number, b: any) => s + b.openUsd / 100, 0));
   const nativeTotals = Object.entries(chosen.reduce((sums: Record<string, number>, b: any) => {
@@ -59,31 +87,48 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
   useEffect(() => { setConfirmExcess(false); setConfirmDifference(false); }, [picked]);
   useEffect(() => { onBusyChange?.(busy); }, [busy]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (id: string, on: boolean) => setPicked((p) => (on ? [...p, id] : p.filter((x) => x !== id)));
-  const over = sameCurrency && excess < 0;
-  const ready = chosen.length > 0 && !over && (!sameCurrency || excess <= 0 || (!!excessVendorId && confirmExcess)) && (sameCurrency || confirmDifference);
+  // One line must cover its bills; several lines may leave the last bill partly paid
+  const over = sameCurrency && excess < 0 && !multi;
+  const ready = chosen.length > 0 && !over && (!sameCurrency || excess <= 0 || (!!excessVendorId && confirmExcess)) && (sameCurrency || confirmDifference) && (!multi || sameCurrency);
   const save = async () => {
     setBusy(true); setError('');
     try {
-      const res = await acc.post(`bank/lines/${line._id}/pay-bills`, { billIds: picked, excessVendorId: excess > 0 ? excessVendorId : undefined,
-        confirmExcess, confirmDifference, note: note.trim() || undefined });
-      onDone(`سُددت ${chosen.length} فاتورة من السطر بـ ${res.data.payments.length} دفعة (${res.data.payments.map((p: any) => p.number).join('، ')}) ورُبط السطر بها.`);
+      if (multi) {
+        const res = await acc.post('bank/pay-bills', { lineIds: sortedLines.map((l: any) => l._id), billIds: picked, excessVendorId: excess > 0 ? excessVendorId : undefined,
+          confirmExcess, note: note.trim() || undefined });
+        const payments = res.data.lines.flatMap((l: any) => l.payments);
+        const partial = res.data.partial.map((p: any) => `${p.number} (يبقى ${fmt(p.left, currency)})`).join('، ');
+        onDone(`سُوّيت ${chosen.length} فاتورة من ${res.data.lines.length} سطر بـ ${payments.length} دفعة ورُبط كل سطر بدفعاته.${partial ? ` مسددة جزئيًا: ${partial}.` : ''}`);
+      } else {
+        const res = await acc.post(`bank/lines/${line._id}/pay-bills`, { billIds: picked, excessVendorId: excess > 0 ? excessVendorId : undefined,
+          confirmExcess, confirmDifference, note: note.trim() || undefined });
+        onDone(`سُددت ${chosen.length} فاتورة من السطر بـ ${res.data.payments.length} دفعة (${res.data.payments.map((p: any) => p.number).join('، ')}) ورُبط السطر بها.`);
+      }
     } catch (err) { setError(errorText(err)); }
     setBusy(false);
   };
   const content = <>
-        <Alert severity="info" className="mb-2">اختر الفواتير التي دفعها هذا السطر، من مورد واحد أو عدة موردين. كل فاتورة تُسدد بالمتبقي عليها كاملًا، وتُنشأ دفعة واحدة لكل مورد ويُربط السطر بها. لا تُنشأ تكلفة جديدة. فك مطابقة السطر لاحقًا يلغي الدفعات وتعود الفواتير غير مسددة.</Alert>
+        {multi && <Alert severity="info" className="mb-2">
+          <b>{sortedLines.length} سطر مختار بمجموع <Ltr>{fmt(paid, currency)}</Ltr>:</b>
+          {sortedLines.map((l: any) => <div key={l._id}><Ltr>{l.day}</Ltr> · {l.description} · <b><Ltr>{fmt(lineAmount(l), currency)}</Ltr></b></div>)}
+          اختر الفواتير بالترتيب الذي تريد سدادها به. السطور تُسدد الفواتير بالترتيب، الأقدم أولًا، وكل سطر يُسجَّل دفعة بتاريخه ويُربط بها. إن نقص المبلغ تبقى آخر فاتورة مسددة جزئيًا. الفواتير يجب أن تكون بعملة الحساب ({currency}).
+        </Alert>}
+        {!multi && <Alert severity="info" className="mb-2">اختر الفواتير التي دفعها هذا السطر، من مورد واحد أو عدة موردين. كل فاتورة تُسدد بالمتبقي عليها كاملًا، وتُنشأ دفعة واحدة لكل مورد ويُربط السطر بها. لا تُنشأ تكلفة جديدة. فك مطابقة السطر لاحقًا يلغي الدفعات وتعود الفواتير غير مسددة.</Alert>}
         {error && <Alert severity="error" className="mb-2">{error}</Alert>}
         <div className="d-flex gap-2 flex-wrap mb-2">
           <Autocomplete size="small" style={{ minWidth: 240 }} options={vendors} value={vendors.find((v: any) => v._id === vendorId) || null}
             getOptionLabel={(v: any) => v.name} isOptionEqualToValue={(a: any, b: any) => a._id === b._id}
             onChange={(_, v: any) => setVendorId(v?._id || '')} renderInput={(p) => <TextField {...p} label="المورد (اختياري)" />} />
+          <TextField size="small" type="date" label="فواتير من" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 160 }} />
+          <TextField size="small" type="date" label="إلى" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 160 }} />
+          {(from || to) && <Button size="small" onClick={() => { setFrom(''); setTo(''); }}>مسح الفترة</Button>}
           <TextField size="small" style={{ flex: 1, minWidth: 260 }} label="بحث برقم الفاتورة أو الطلبية أو المورد أو الملاحظة أو مرجع المورد" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         {data?.truncated && <Alert severity="warning" className="mb-2">النتائج كثيرة؛ اختر المورد أو اكتب بحثًا لتضييقها.</Alert>}
         <DataTable dense loading={loading && !data} rows={data?.results || []} rowKey={(r: any) => String(r._id)}
           empty={{ title: 'لا توجد فواتير غير مسددة ضمن هذا البحث', hint: 'سجّل فاتورة المورد ورحّلها دون سداد، ثم ارجع إلى هذا السطر.' }}
           columns={[
-            { key: 'pick', header: '', width: 44, render: (r: any) => <Checkbox size="small" disabled={busy} checked={picked.includes(String(r._id))} onChange={(e) => toggle(String(r._id), e.target.checked)} /> },
+            { key: 'pick', header: '', width: 44, render: (r: any) => <Checkbox size="small" disabled={busy || (multi && r.currency !== currency && !picked.includes(String(r._id)))} title={multi && r.currency !== currency ? `بعملة غير ${currency}: سدّدها من سطر واحد` : undefined} checked={picked.includes(String(r._id))} onChange={(e) => toggle(String(r._id), e.target.checked)} /> },
             { key: 'bill', header: 'الفاتورة', render: (r: any) => <><Open to={`/accounting/bills/${r._id}`}><Ltr>{r.number}</Ltr></Open><Sub><Ltr>{r.day}</Ltr> · {r.vendorName}</Sub>{r.vendorRef && <Sub>مرجع المورد: <Ltr>{r.vendorRef}</Ltr></Sub>}</> },
             { key: 'orders', header: 'الطلبية / البيان', render: (r: any) => <>{r.orders.length > 0 && <Ltr>{r.orders.join('، ')}</Ltr>}{r.description && <Sub>{r.description}</Sub>}{r.note && <Sub>📝 {r.note}</Sub>}</> },
             { key: 'amount', header: 'المتبقي', numeric: true, render: (r: any) => <><b><Ltr>{fmt(r.openNative, r.currency)}</Ltr></b>{r.currency !== 'USD' && <Sub><Ltr>{fmt(r.openUsd / 100, 'USD')}</Ltr></Sub>}{r.partial && <Sub>مسددة جزئيًا · الإجمالي <Ltr>{fmt(r.total, r.currency)}</Ltr></Sub>}</> },
@@ -92,10 +137,18 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
           <Alert severity={over ? 'error' : excess === 0 || !sameCurrency ? 'success' : 'warning'} className="mt-3">
             المختار {chosen.length} فاتورة لـ {chosenVendors.length} مورد: {nativeTotals.map(([code, amount]) => <span key={code}><b><Ltr>{fmt(amount, code)}</Ltr></b> · </span>)}<b><Ltr>{fmt(totalUsd, 'USD')}</Ltr></b>{nativeTotals.length > 0 && ' بالدولار'} · مبلغ السطر <b><Ltr>{fmt(paid, currency)}</Ltr></b>
             {sameCurrency && excess === 0 && ' — مطابق تمامًا.'}
+            {multi && sameCurrency && excess < 0 && <> — السطور أقل من الفواتير بـ <b><Ltr>{fmt(-excess, currency)}</Ltr></b>؛ تبقى الفاتورة <Ltr>{partlyPaid?.number}</Ltr> مسددة جزئيًا.</>}
             {over && <> — الفواتير أكبر من السطر بـ <b><Ltr>{fmt(-excess, currency)}</Ltr></b>؛ أزل فاتورة.</>}
             {sameCurrency && excess > 0 && <> — يبقى <b><Ltr>{fmt(excess, currency)}</Ltr></b> زائدًا.</>}
             {!sameCurrency && <> — بعض الفواتير بعملة غير {currency}: يُوزَّع مبلغ السطر عليها حسب قيمتها بالدولار، والفرق يُضاف إلى تكلفتها (بحد أقصى 10%).</>}
           </Alert>
+          {multi && sameCurrency && <div className="mt-2">
+            <b>توزيع السطور على الفواتير:</b>
+            {plan.map(({ line: l, pieces, rest }: any) => <div key={l._id}>
+              <Ltr>{l.day}</Ltr> (<Ltr>{fmt(lineAmount(l), currency)}</Ltr>) ← {pieces.map((p: any, i: number) => <span key={i}>{i > 0 && ' + '}<Ltr>{p.number}</Ltr> <Ltr>{fmt(p.amount, currency)}</Ltr>{p.partial && ' (جزئي)'}</span>)}
+              {rest > 0 && <span>{pieces.length > 0 && ' + '}زائد <Ltr>{fmt(rest, currency)}</Ltr></span>}
+            </div>)}
+          </div>}
           {sameCurrency && excess > 0 && <div className="mt-2">
             <TextField select size="small" label="يبقى الزائد دفعة مقدمة لدى" value={excessVendorId} onChange={(e) => setExcessVendorId(e.target.value)} style={{ minWidth: 240 }}>
               {chosenVendors.map(([id, name]) => <MenuItem key={id} value={id}>{name}</MenuItem>)}
@@ -108,13 +161,13 @@ export default function BankBillsPayPicker({ line, embedded, initialVendorId, on
   </>;
   const actions = <>
     <Button disabled={busy} onClick={onClose}>إلغاء</Button>
-    <Button variant="contained" disabled={busy || !ready} onClick={save}>{busy ? 'جارٍ السداد…' : `سداد ${chosen.length || ''} فاتورة وربط السطر`}</Button>
+    <Button variant="contained" disabled={busy || !ready} onClick={save}>{busy ? 'جارٍ السداد…' : multi ? `تسوية ${chosen.length || ''} فاتورة مع ${sortedLines.length} سطر` : `سداد ${chosen.length || ''} فاتورة وربط السطر`}</Button>
   </>;
   if (embedded) return <>{content}<div className="d-flex justify-content-end gap-2 mt-3">{actions}</div></>;
   return (
     <Dialog open onClose={busy ? undefined : onClose} maxWidth="lg" fullWidth dir="rtl">
-      <DialogTitle>سداد فواتير موردين من سطر الكشف
-        <Sub><Ltr>{line.day}</Ltr> · {line.description} · <b><Ltr>{fmt(paid, currency)}</Ltr></b></Sub>
+      <DialogTitle>{multi ? `تسوية ${sortedLines.length} سطر من الكشف مع فواتير موردين` : 'سداد فواتير موردين من سطر الكشف'}
+        <Sub>{multi ? <>المجموع <b><Ltr>{fmt(paid, currency)}</Ltr></b></> : <><Ltr>{line.day}</Ltr> · {line.description} · <b><Ltr>{fmt(paid, currency)}</Ltr></b></>}</Sub>
       </DialogTitle>
       <DialogContent dividers>{content}</DialogContent>
       <DialogActions>{actions}</DialogActions>

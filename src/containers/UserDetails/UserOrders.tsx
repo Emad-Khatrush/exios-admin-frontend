@@ -27,6 +27,7 @@ import FileViewer from '../../components/FileViewer/FileViewer';
 import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -117,7 +118,11 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const [payment, setPayment] = useState<PaymentInput>(emptyPayment);
   const [allowPartial, setAllowPartial] = useState(false);
   const [partialRate, setPartialRate] = useState('');
-  const canCredit = useSelector((state: any) => !!(state.session.account?.roles?.isAdmin || state.session.account?.roles?.isAccountant));
+  // «التسليم مع دين متبقٍ» in Settings > Permissions. Staff nobody has configured yet keep what their
+  // role gave them: admins and accountants.
+  const isAdminOrAccountant = useSelector((state: any) => !!(state.session.account?.roles?.isAdmin || state.session.account?.roles?.isAccountant));
+  const staff = useStaffAccess();
+  const canCredit = staff.configured ? staff.can('delivery_on_credit') : isAdminOrAccountant;
   const [previewImages, setPreviewImages] = useState<any>();
   // Fees in dinars (transport, customs clearance): paid from the dinar wallet on their own, or converted to dollars
   const [feeMode, setFeeMode] = useState<'separate' | 'usd'>('separate');

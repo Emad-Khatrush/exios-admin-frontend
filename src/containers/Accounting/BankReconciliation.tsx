@@ -99,6 +99,8 @@ const BankReconciliation = () => {
   const [settlingDuplicates, setSettlingDuplicates] = useState(false);
   const [referenceReview, setReferenceReview] = useState<any>(null);
   const [groupMatchLines, setGroupMatchLines] = useState<any[] | null>(null);
+  // Outgoing lines picked together to settle one supplier bill or several
+  const [payBillsLines, setPayBillsLines] = useState<any[] | null>(null);
   // Several lines reviewed and posted at once, each on its own account
   const [bulkPostLines, setBulkPostLines] = useState<any[] | null>(null);
   const [integrityOpen, setIntegrityOpen] = useState(false);
@@ -529,7 +531,7 @@ const BankReconciliation = () => {
   const openEntry = (row: any, hints = suggested, source = data) => {
     const hint = hints[row._id];
     const previous = new Set(row.historyEntryIds || []);
-    const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id))
+    const possible = (source?.unmatchedMovements || []).filter((movement: any) => !previous.has(movement._id) && hint?.duplicates?.some((candidate: any) => candidate._id === movement._id && !candidate.difference))
       .sort((a: any, b: any) => Math.abs(Date.parse(a.day) - Date.parse(row.day)) - Math.abs(Date.parse(b.day) - Date.parse(row.day)) || String(a._id).localeCompare(String(b._id)));
     setEntryFor({
       mode: row.amount > 0 && (hint?.isRefund || row.movementKind === 'purchase_refund') ? 'refund' : hint?.combinations?.length && !hint?.tripCandidates?.length ? 'combos' : row.amount < 0 && (hint?.tripCandidates?.length || hint?.billCandidates?.length || hint?.link) ? 'purchase' : row.amount < 0 && hint?.vendorBills ? 'pay_bills' : possible.length ? 'ledger' : row.sourceProvider === 'alipay' && row.amount > 0 ? 'ledger' : 'new',
@@ -596,6 +598,19 @@ const BankReconciliation = () => {
     if (row.duplicateReviewPending) return <Alert severity="warning">قد يكون هذا السطر مستوردًا سابقًا ببيان مختلف.
       <Button onClick={() => setReferenceReview(row)}>مراجعة التكرار</Button></Alert>;
     const hint = suggested[row._id];
+    // A recorded payment a few cents or days off the line: a typing slip, corrected to the statement then matched
+    const slips = (hint?.duplicates || []).filter((d: any) => d.difference);
+    if (slips.length) return <div className="acc-suggest acc-suggest--class">
+      {slips.slice(0, 2).map((d: any) => <div key={d._id} className="acc-suggest__row">
+        <span>⚠ <b>قيد مسجل قريب جدًا:</b> <Ltr>{d.number}</Ltr> · <Ltr>{d.day}</Ltr> · بفرق <Ltr>{(d.difference / 10 ** decimals).toLocaleString('en-US', { maximumFractionDigits: decimals })} {currency}</Ltr> — غالبًا رقم أو تاريخ مكتوب خطأ</span>
+        <Button size="small" variant="contained" color="success" onClick={() => {
+          if (!window.confirm(`يُصحَّح ${d.number} (المبلغ والتاريخ، ومع فاتورته إن كانت مدفوعة فورًا) ليطابق الكشف، ثم يُربط به هذا السطر. متابعة؟`)) return;
+          runInRow(row._id, () => acc.post(`bank/lines/${row._id}/near-correct`, { entryId: d._id, reason: 'رقم أو تاريخ مكتوب خطأ؛ التصحيح حسب الكشف' }), () => `صُحح ${d.number} ليطابق الكشف ورُبط السطر به.`);
+        }}>تصحيح حسب الكشف ومطابقة</Button>
+      </div>)}
+      <div className="acc-suggest__row"><span>إن كانت عملية مختلفة فعلًا: سجّلها وأكّد أنها ليست تكرارًا.</span>
+        <Button size="small" onClick={() => openEntry(row)}>عملية مختلفة</Button></div>
+    </div>;
     const partner = partnerHints[row._id] || [];
     const transfers = transferHints[row._id];
     const yuan = yuanHints[row._id];
@@ -757,6 +772,8 @@ const BankReconciliation = () => {
           }}>{confirming ? 'جارٍ التنفيذ…' : confirmBox?.label}</Button>
         </DialogActions>
       </Dialog>
+      {payBillsLines && <BankBillsPayPicker lines={payBillsLines} onClose={() => setPayBillsLines(null)}
+        onDone={async (text) => { setPayBillsLines(null); bulk.selection.onChange(new Set()); setMessage({ type: 'success', text }); await load({ quiet: true }); }} />}
       {bulkPostLines && <BankBulkPost lines={bulkPostLines} hints={suggested} accounts={detailAccounts} currency={currency} decimals={decimals} office={account?.office || undefined}
         isBeforeCountCost={(line, id) => beforeCountCost(line, id)} onClose={() => setBulkPostLines(null)}
         onDone={async () => { bulk.selection.onChange(new Set()); await load({ quiet: true }); }} />}
@@ -923,6 +940,7 @@ const BankReconciliation = () => {
             </>;
             const extra = (open.length > 0 || toTranslate.length > 0) && <>
               {open.length > 0 && <Button size="small" variant="text" onClick={() => setGroupMatchLines(open)}>مطابقة مع دفعة أو قيود</Button>}
+              {outgoing.length > 0 && outgoing.length === open.length && <Button size="small" variant="text" onClick={() => setPayBillsLines(outgoing)}>تسوية مع فواتير ({outgoing.length})</Button>}
               {!yuanPicked.length && outgoing.length > 0 && <Button size="small" variant="text" onClick={() => setGroup({ lines: outgoing, order: null, items: [], itemId: '', confirmDifference: false })}>ربط بمشتريات طلب ({outgoing.length})</Button>}
               {toTranslate.length > 0 && <Button size="small" variant="text" disabled={!!translationProgress} onClick={translate}>{translationProgress ? `جارٍ الترجمة ${translationProgress.done}/${translationProgress.total}` : 'ترجمة للعربية'}</Button>}
             </>;
@@ -1178,6 +1196,7 @@ const BankReconciliation = () => {
                         {item.reason && <Sub>{item.reason}{item.source === 'yuan' && <Sub><Open to="/accounting/alipay">فتح شراء اليوان في Alipay</Open></Sub>}</Sub>}
                         {row.sourceReviewReason && <><Sub>{row.sourceReviewReason}</Sub><FormControlLabel control={<Checkbox size="small" checked={row.walletImpact === 'confirmed'} onChange={e => setPreview(current => current ? { ...current, rows: current.rows.map((r, i) => i === row.index ? { ...r, walletImpact: e.target.checked ? 'confirmed' : 'unknown' } : r) } : current)} />}
                           label="تأكدت أن المبلغ دخل رصيد Alipay" /></>}
+                        {item.status === 'maybeDuplicate' && item.entry?.difference > 0 && <Sub>⚠ قريب جدًا من <Ltr>{item.entry.number}</Ltr> (<Ltr>{item.entry.day}</Ltr>) بفرق <Ltr>{(item.entry.difference / 10 ** decimals).toLocaleString('en-US', { maximumFractionDigits: decimals })} {currency}</Ltr>: غالبًا رقم مكتوب خطأ. اتركه دون ترحيل، ثم صحّحه من صفحة المطابقة.</Sub>}
                         {item.status === 'maybeDuplicate' && (
                           <FormControlLabel className="acc-sub" control={<Checkbox size="small" checked={!!preview.choices[row.index]?.notDuplicate} onChange={(e) => markNotDuplicate(row.index, e.target.checked)} />} label="مختلف، رحّله" />
                         )}
