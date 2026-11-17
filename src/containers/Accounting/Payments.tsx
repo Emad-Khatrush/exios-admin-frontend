@@ -91,7 +91,11 @@ export const PaymentsList = () => {
                 : <Money value={row.allocations.reduce((s: number, a: any) => s + a.amountUsd, 0)} />),
             },
             { key: 'status', header: 'الحالة', render: (row: any) => <StatusBadge status={row.status} /> },
-            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status === 'posted' && !row.autoFromBillId ? <Button size="small" color="error" onClick={(e) => { e.stopPropagation(); setCancel(row); }}>إلغاء</Button> : null) },
+            { key: 'actions', header: '', align: 'end', render: (row: any) => (row.status !== 'posted' ? null : !row.autoFromBillId
+              ? <Button size="small" color="error" onClick={(e) => { e.stopPropagation(); setCancel(row); }}>إلغاء</Button>
+              // Paid on the spot with its bill: corrected or canceled from the bill, which carries the payment with it
+              : <Button size="small" title="دُفعت مع الفاتورة: عدّل قيمة الفاتورة أو تاريخها فتتعدل الدفعة معها، أو ألغِ الفاتورة فتُلغى معها"
+                onClick={(e) => { e.stopPropagation(); navigate(`/accounting/bills/${row.autoFromBillId._id || row.autoFromBillId}`); }}>تعديل من الفاتورة</Button>) },
           ]}
         />
       </Panel>

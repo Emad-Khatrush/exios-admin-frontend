@@ -4,7 +4,7 @@
 // the pages their role gave them (App.tsx, components/Sidebar/routes.tsx).
 export type StaffPermission =
   | 'invoices_create' | 'invoices_edit' | 'invoices_payments' | 'invoices_cancel' | 'invoices_list'
-  | 'tracking' | 'delivery'
+  | 'tracking' | 'delivery' | 'delivery_on_credit'
   | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'wallet_transactions' | 'wallet_exchange' | 'debts' | 'returned_payments' | 'expenses'
   | 'inventory' | 'warehouse'
   | 'marketing' | 'goals' | 'analytics' | 'ratings' | 'loyalty'

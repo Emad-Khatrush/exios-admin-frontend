@@ -220,6 +220,8 @@ const BillForm = () => {
               ? 'يُعدَّل السداد التاريخي المفترض ليساوي قيمة الفاتورة الجديدة فتُغلق بالكامل. الفرق يُسجَّل على الرصيد الافتتاحي؛ لا تتحرك أي خزينة أو بنك.'
               : financialReview.historicalPayment === 'restore'
               ? 'يُسترجع السداد التاريخي كما كان قبل تحويل الفاتورة إلى غير مدفوعة، ويُلغى قيد التصحيح. لا تتحرك الخزينة أو البنك.'
+              : financialReview.autoPayment
+              ? `الفاتورة مدفوعة فورًا: تُلغى دفعتها ${financialReview.autoPayment.number} وتُسجَّل دفعة جديدة بالقيمة والتاريخ المصححين من نفس الخزينة أو البنك، فتبقى الفاتورة مسددة بالكامل.`
               : 'يُحفظ التعديل وسببه وتُحدّث التكلفة. مبالغ الدفعات السابقة وعملاتها وحساباتها تبقى كما هي؛ قد ينتج متبقٍ للمورد أو رصيد لنا عنده.'}</Alert>
             <dl className="mb-3">
               <dt>القيمة الحالية</dt><dd><Amount value={financialReview.oldTotal} currency={financialReview.oldCurrency} /></dd>
@@ -238,6 +240,11 @@ const BillForm = () => {
                 <dt>الحساب المقابل للفرق</dt><dd>{financialReview.settlementCounterpart}</dd>
                 <dt>تاريخ قيد التسوية</dt><dd><Ltr>{financialReview.settlementCorrectionDay}</Ltr></dd>
                 <dt>أثر التسوية على الخزينة والبنك</dt><dd><Money value={0} /></dd>
+              </>}
+              {financialReview.autoPayment && <>
+                <dt>الدفعة الفورية {financialReview.autoPayment.number}</dt>
+                <dd><Amount value={financialReview.autoPayment.oldAmount} currency={financialReview.autoPayment.currency} /> ← <Amount value={financialReview.autoPayment.newAmount} currency={financialReview.autoPayment.currency} /></dd>
+                {financialReview.autoPayment.oldDay !== financialReview.autoPayment.newDay && <><dt>تاريخ الدفعة</dt><dd><Ltr>{financialReview.autoPayment.oldDay}</Ltr> ← <Ltr>{financialReview.autoPayment.newDay}</Ltr></dd></>}
               </>}
               {!!financialReview.restoredSettlementUsd && <>
                 <dt>السداد التاريخي المسترجع</dt><dd><Money value={financialReview.restoredSettlementUsd} /></dd>
