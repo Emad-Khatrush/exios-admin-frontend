@@ -735,3 +735,147 @@
   &:hover { color: var(--op-ink); }
   &:focus-visible { outline: 2px solid var(--op-accent-ink, #007b3d); outline-offset: 2px; border-radius: 2px; }
 }
+
+// ---------- The loyalty points page: list beside the programme's activity ----------
+.lp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+
+  &__main { min-width: 0; }
+  &__side { display: grid; gap: 16px; position: sticky; top: 16px; }
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+    &__side { position: static; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  }
+}
+
+.lp-count { margin-inline-start: auto; font-size: 13px; color: var(--op-muted); }
+
+.lp-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--op-line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font: 600 11px/1 inherit;
+  color: var(--op-muted);
+  background: var(--op-soft);
+}
+
+// While new rows load the old ones stay, dimmed, under a thin moving bar
+.lp-card { position: relative; }
+.lp-progress {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 160ms var(--lp-ease);
+  pointer-events: none;
+  z-index: 1;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 35%;
+    background: var(--op-accent);
+    border-radius: 2px;
+    animation: lp-progress 1s var(--lp-ease) infinite;
+  }
+}
+@keyframes lp-progress { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
+.lp-card.is-refreshing {
+  .lp-progress { opacity: 1; }
+  tbody { opacity: 0.5; transition: opacity 160ms var(--lp-ease); pointer-events: none; }
+}
+.lp-table tbody { transition: opacity 200ms var(--lp-ease); }
+
+// The row's "open" arrow shows on hover and focus only
+.lp-row__go {
+  width: 32px;
+  color: var(--op-muted);
+  svg { font-size: 20px; display: block; opacity: 0; transform: translateX(4px); transition: opacity 160ms var(--lp-ease), transform 160ms var(--lp-ease); }
+}
+.lp-row:hover .lp-row__go svg, .lp-row:focus-visible .lp-row__go svg { opacity: 1; transform: none; }
+
+.lp-panel {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--lp-shadow);
+
+  &__title { font-size: 15px; font-weight: 700; margin-bottom: 10px; .lp-muted { font-weight: 500; font-size: 13px; } }
+  &__rows { display: grid; gap: 2px; margin: 0; }
+  &__empty { font-size: 13px; padding: 6px 0; }
+}
+
+.lp-month-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--op-line);
+  &:last-child { border-bottom: 0; }
+
+  dt { font-size: 13.5px; color: var(--op-ink); }
+  dd { margin: 0; display: flex; align-items: baseline; gap: 8px; }
+  strong { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  small { font-size: 11.5px; color: var(--op-muted); white-space: nowrap; }
+  &.is-gain strong { color: var(--op-accent-ink); }
+  &.is-warn strong { color: var(--lp-coin-ink); }
+}
+
+.lp-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--op-line);
+    &:last-child { border-bottom: 0; }
+  }
+  &__icon {
+    display: grid; place-items: center; flex: none;
+    width: 28px; height: 28px; border-radius: 50%;
+    svg { font-size: 15px; }
+  }
+  .is-gain &__icon { background: rgba(0, 123, 61, 0.09); color: var(--op-accent); }
+  .is-spend &__icon { background: var(--op-soft); color: var(--op-muted); }
+  .is-warn &__icon { background: var(--lp-coin-soft); color: var(--lp-coin); }
+
+  &__body { flex: 1 1 auto; min-width: 0; }
+  &__who {
+    display: block; max-width: 100%; padding: 0; border: 0; background: none; cursor: pointer;
+    font: 600 13.5px/1.35 inherit; color: var(--op-ink); text-align: start;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    &:hover { color: var(--op-accent-ink); text-decoration: underline; }
+    &:focus-visible { outline: 2px solid var(--op-accent); outline-offset: 2px; border-radius: 4px; }
+  }
+  &__what {
+    font-size: 12px; color: var(--op-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    a { color: var(--op-accent-ink); text-decoration: none; &:hover { text-decoration: underline; } }
+  }
+  &__side { flex: none; text-align: end; line-height: 1.3; }
+  &__side strong { display: block; font-size: 14px; font-weight: 700; }
+  &__side small { font-size: 11.5px; color: var(--op-muted); }
+  .is-gain &__side strong { color: var(--op-accent-ink); }
+  .is-warn &__side strong { color: var(--lp-coin-ink); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-progress::after { animation: none !important; width: 100%; opacity: 0.4; }
+}
