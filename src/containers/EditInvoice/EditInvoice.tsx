@@ -39,6 +39,8 @@ export { countries, orderActions, removeBr } from './orderConstants';
 
 type TabKey = 'details' | 'payments' | 'accounting' | 'refund' | 'costs';
 type WalletCategory = 'invoice' | 'receivedGoods';
+type PointsPaid = { invoice: number, packages: Record<string, number> };
+const NO_POINTS_PAID: PointsPaid = { invoice: 0, packages: {} };
 
 type Props = {
   router: RouteMatch
@@ -79,12 +81,22 @@ type State = {
   pointsRedeemed: number | null
   // Each use of points on the order (same call), newest first
   redemptions: Redemption[]
+  // Points paid (net of cancels) on the invoice and on each package's shipping (same call,
+  // `redeemedBy`): taken off every due on the Payments tab
+  pointsPaid: PointsPaid
   previewImages?: any[]
   deleteDialog: boolean
   // The order number typed to confirm deleting it, and why the server refused
   deleteConfirmation: string
   deleteError: string
 }
+
+// The points paid per part of the order from the staff loyalty call's `redeemedBy`
+const pointsPaidOf = (by: any): PointsPaid => {
+  const packages: Record<string, number> = {};
+  for (const [id, points] of Object.entries(by?.packages || {})) if (Number(points) > 0) packages[id] = Number(points);
+  return { invoice: Math.max(Number(by?.invoice) || 0, 0), packages };
+};
 
 // A request that may fail without taking the page down with it
 const optional = async <T,>(request: Promise<any>, pick: (response: any) => T, fallback: T): Promise<T> => {
@@ -102,6 +114,7 @@ export class EditInvoice extends Component<Props, State> {
     writeOffs: [],
     pointsRedeemed: null,
     redemptions: [],
+    pointsPaid: NO_POINTS_PAID,
     items: [],
     purchaseItems: [],
     paymentList: [],
@@ -150,9 +163,15 @@ export class EditInvoice extends Component<Props, State> {
   loadPoints = async (order = this.state.order) => {
     if (!order?._id || !this.canUsePoints()) return;
     const points = await optional(api.get(`order/${order._id}/loyalty`, { category: 'invoice' }),
-      (res) => ({ redeemed: Number(res.data?.redeemed || 0), redemptions: Array.isArray(res.data?.redemptions) ? res.data.redemptions as Redemption[] : [] }),
-      null as { redeemed: number, redemptions: Redemption[] } | null);
-    this.setState({ pointsRedeemed: points ? points.redeemed : null, redemptions: points ? points.redemptions : [] });
+      (res) => ({
+        redeemed: Number(res.data?.redeemed || 0),
+        redemptions: Array.isArray(res.data?.redemptions) ? res.data.redemptions as Redemption[] : [],
+        pointsPaid: pointsPaidOf(res.data?.redeemedBy),
+      }),
+      null as { redeemed: number, redemptions: Redemption[], pointsPaid: PointsPaid } | null);
+    // A failed re-read keeps what was known: dropping the points would ask the customer for them again
+    if (!points) return this.setState((state) => (state.pointsRedeemed === null ? { pointsRedeemed: null, redemptions: [], pointsPaid: NO_POINTS_PAID } : null) as any);
+    this.setState({ pointsRedeemed: points.redeemed, redemptions: points.redemptions, pointsPaid: points.pointsPaid });
   };
 
   canUsePoints = () => {
@@ -612,6 +631,7 @@ export class EditInvoice extends Component<Props, State> {
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
             canUsePoints={this.canUsePoints()}
             redemptions={this.state.redemptions}
+            pointsPaid={this.state.pointsPaid}
             onPointsChanged={() => { this.toast('success', 'أُلغيت النقاط ورجعت إلى رصيد العميل'); this.reloadMoney(); this.reloadOrder().catch(() => {}); }}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}

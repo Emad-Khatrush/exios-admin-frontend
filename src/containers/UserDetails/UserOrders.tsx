@@ -671,7 +671,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
                       <dl className="co-package-figures">
                         <div><dt>Measure</dt><dd>{measureValue} {measureUnit}</dd></div>
                         <div><dt>Price</dt><dd>${exiosPrice}</dd></div>
-                        {pointsUsdOf(pkg) > 0 && <div className="co-points-paid"><dt>نقاط</dt><dd>−${formatMoney(pointsUsdOf(pkg))}</dd></div>}
+                        {pointsUsdOf(pkg) > 0 && <div className="co-points-paid"><dt>بالنقاط</dt><dd>−${formatMoney(pointsUsdOf(pkg))}</dd></div>}
                         <div><dt>Cost</dt><dd className="is-strong">${formatMoney(getPackageCost(pkg))}</dd></div>
                       </dl>
 

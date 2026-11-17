@@ -1,11 +1,12 @@
 import { ReactNode, useState } from 'react';
 import { Alert, Avatar, AvatarGroup, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, TextField, Tooltip } from '@mui/material';
-import { MdDeleteOutline } from 'react-icons/md';
+import { MdDeleteOutline, MdToll } from 'react-icons/md';
 import moment from 'moment';
 import Badge from '../../components/Badge/Badge';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { packageCharge, paidInUsd, totalDebts, totalPaid } from './orderConstants';
 import PointsRedemptions, { Redemption } from './PointsRedemptions';
+import '../Loyalty/loyalty.scss';
 
 type Category = 'invoice' | 'receivedGoods';
 
@@ -35,6 +36,9 @@ type Props = {
   canUsePoints?: boolean
   redemptions?: Redemption[]
   onPointsChanged?: () => void
+  // Points paid (active redemptions, net of cancels) on the invoice and on each package's shipping,
+  // in points: they count as paid, so every due shown or passed on is net of them
+  pointsPaid?: { invoice: number, packages: Record<string, number> }
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -44,25 +48,38 @@ const usd = (value: number) => `$${money(value)}`;
 
 // Total, paid and remaining of one thing the customer pays for, with a bar for the paid part
 // What was written off (accounting write-offs of the claim) is no longer owed: it is taken off
-// what is left, as in the X-Tracking list
-const Balance = ({ title, total, paid, lydWithoutRate, empty, note, writeOffs = [] }: { title: string, total: number, paid: number, lydWithoutRate: number, empty: string, note?: string, writeOffs?: any[] }) => {
+// what is left, as in the X-Tracking list. Points paid on it (`points`, in dollars) count as paid:
+// shown on their own line in the coin's gold and as a gold part of the bar.
+const Balance = ({ title, total, paid, points = 0, lydWithoutRate, empty, note, writeOffs = [] }: { title: string, total: number, paid: number, points?: number, lydWithoutRate: number, empty: string, note?: string, writeOffs?: any[] }) => {
   const writtenOff = writeOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0);
-  const remaining = total - paid - writtenOff;
-  const share = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
+  const remaining = total - paid - points - writtenOff;
+  const clamp = (value: number) => Math.min(100, Math.max(0, value));
+  const moneyShare = total > 0 ? clamp((paid / total) * 100) : 0;
+  const pointsShare = total > 0 ? clamp(((paid + points) / total) * 100) - moneyShare : 0;
+  const share = moneyShare + pointsShare;
   const settled = total > 0 && remaining <= 0.005;
+  const anyPaid = paid + points > 0;
   return (
     <div className="op-stat">
       <div className="op-stat__head">
         <span className="op-stat__title">{title}</span>
-        {total > 0 && <Badge text={settled ? (writtenOff > 0.005 ? 'Closed, rest written off' : 'Settled') : paid > 0 ? 'Partly paid' : 'Not paid'} color={settled ? 'success' : paid > 0 ? 'warning' : 'danger'} />}
+        {total > 0 && <Badge text={settled ? (writtenOff > 0.005 ? 'Closed, rest written off' : 'Settled') : anyPaid ? 'Partly paid' : 'Not paid'} color={settled ? 'success' : anyPaid ? 'warning' : 'danger'} />}
       </div>
       {writeOffs.map((w) => <span key={w._id} className="op-stat__warn" dir="rtl">شُطب {usd(w.usd)} ({w.number} · {w.day}): {w.reason}</span>)}
       {total > 0 ? (
         <>
           <strong className="op-stat__value">{remaining > 0.005 ? usd(remaining) : remaining < -0.005 ? `Overpaid ${usd(-remaining)}` : usd(0)}</strong>
           <span className="op-stat__caption">{remaining < -0.005 ? 'more than the total' : 'remaining'}</span>
-          <div className="op-bar" role="img" aria-label={`${Math.round(share)}% paid`}><span style={{ width: `${share}%` }} /></div>
+          <div className="op-bar" role="img" aria-label={`${Math.round(share)}% paid`}>
+            <span style={{ width: `${moneyShare}%` }} />
+            {pointsShare > 0 && <span className="op-bar__points lp-coin-tokens" style={{ width: `${pointsShare}%` }} />}
+          </div>
           <span className="op-stat__line">{usd(paid)} paid of {usd(total)}</span>
+          {points > 0.005 && (
+            <span className="op-stat__points lp-coin-tokens">
+              <MdToll aria-hidden="true" /><bdi dir="ltr">{usd(points)}</bdi> <span dir="rtl">بالنقاط</span>
+            </span>
+          )}
         </>
       ) : <span className="op-stat__line">{empty}</span>}
       {note && <span className="op-stat__line">{note}</span>}
@@ -188,20 +205,24 @@ const OrderPayments = (props: Props) => {
   const packages: any[] = order.paymentList || [];
   const invoicePaid = paidInUsd(payments, 'invoice');
   const shippingPaid = paidInUsd(payments, 'receivedGoods');
+  // Points paid, in dollars: on the purchase invoice (PUR claim) and on the packages' shipping (SHP claims)
+  const invoicePoints = Number(props.pointsPaid?.invoice || 0) / 100;
+  const pointsOnPackage = (row: any) => Number(props.pointsPaid?.packages?.[String(row?._id)] || 0) / 100;
+  const shippingPoints = packages.reduce((sum, row) => sum + pointsOnPackage(row), 0);
   const invoiceTotal = Number(order.totalInvoice || 0);
   // A package closed after a compensation is billed only the shipping already paid; the rest was
   // cancelled (as in the accounting). Payments are kept per order, so they go to the open packages first.
   const isClosed = (row: any) => !!row?.deliveredPackages?.compensation?.closed;
   const openCharge = packages.filter((row) => !isClosed(row)).reduce((sum, row) => sum + packageCharge(row), 0);
   const closedCharge = packages.filter(isClosed).reduce((sum, row) => sum + packageCharge(row), 0);
-  const shippingTotal = openCharge + Math.min(closedCharge, Math.max(0, shippingPaid.usd - openCharge));
+  const shippingTotal = openCharge + Math.min(closedCharge, Math.max(0, shippingPaid.usd + shippingPoints - openCharge));
   const cancelledShipping = closedCharge - (shippingTotal - openCharge);
   const writeOffs = props.writeOffs || [];
   const invoiceWriteOffs = writeOffs.filter((w) => w.kind === 'invoice');
   const shippingWriteOffs = writeOffs.filter((w) => w.kind === 'receivedGoods');
-  const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
+  const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoicePoints - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
 
-  const shippingDue = Math.max(0, shippingTotal - shippingPaid.usd - shippingWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
+  const shippingDue = Math.max(0, shippingTotal - shippingPaid.usd - shippingPoints - shippingWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
   const openPackages = packages.filter((row) => !isClosed(row));
 
   const onOrder = debts.filter((debt) => String(debt.order?._id || debt.order || '') === String(order._id));
@@ -227,12 +248,12 @@ const OrderPayments = (props: Props) => {
   const openRate = (payment: any) => {
     // What is due without this payment (a rate written before counts it already)
     const own = Number(payment.rate) > 0 ? Number(payment.receivedAmount) / Number(payment.rate) : 0;
-    const due = (payment.category === 'receivedGoods' ? shippingTotal - shippingPaid.usd : invoiceTotal - invoicePaid.usd) + own;
+    const due = (payment.category === 'receivedGoods' ? shippingTotal - shippingPaid.usd - shippingPoints : invoiceTotal - invoicePaid.usd - invoicePoints) + own;
     setRateFor({ payment, due, rate: due > 0 ? String(Math.round((Number(payment.receivedAmount) / due) * 10000) / 10000) : '' });
   };
   const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
 
-  // The uses of points on the order (shown once: the split between its two parts is not recorded)
+  // The uses of points on the order, listed once (each use's own claim is in `pointsPaid`)
   const pointsLine = (
     <PointsRedemptions orderId={String(order._id)} redemptions={props.redemptions || []} canCancel={!!props.canUsePoints} onChanged={() => props.onPointsChanged?.()} />
   );
@@ -246,8 +267,8 @@ const OrderPayments = (props: Props) => {
   return (
     <div className="op-payments-grid">
       <section className="op-stats op-panel--wide">
-        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." writeOffs={invoiceWriteOffs} />}
-        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} lydWithoutRate={shippingPaid.lydWithoutRate} writeOffs={shippingWriteOffs}
+        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} points={invoicePoints} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." writeOffs={invoiceWriteOffs} />}
+        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} points={shippingPoints} lydWithoutRate={shippingPaid.lydWithoutRate} writeOffs={shippingWriteOffs}
           empty={closedCharge > 0 ? 'Compensated and closed: nothing left to pay.' : 'No package has a weight and a price yet.'}
           note={cancelledShipping > 0.005 ? `${usd(cancelledShipping)} of unpaid shipping cancelled: the package was compensated and closed.` : undefined} />
         <div className="op-stat">

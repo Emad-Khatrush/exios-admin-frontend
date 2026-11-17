@@ -264,6 +264,13 @@
   &__caption { font-size: 12.5px; color: var(--op-muted); }
   &__line { font-size: 12.5px; line-height: 1.5; color: var(--op-muted); }
   &__warn { font-size: 12px; line-height: 1.5; color: #9a5b00; }
+  // What points paid, on its own line in the coin's gold
+  &__points {
+    display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+    font-size: 12.5px; font-weight: 600; line-height: 1.5; color: var(--lp-coin-ink);
+    svg { color: var(--lp-coin); font-size: 15px; flex: none; }
+    bdi { font-variant-numeric: tabular-nums; }
+  }
   &__link { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--op-accent-ink); text-decoration: none; &:hover { text-decoration: underline; } }
 }
 
@@ -274,7 +281,12 @@
   background: #e9edf1;
   overflow: hidden;
 
+  display: flex;
+
   span { display: block; height: 100%; border-radius: 999px; background: var(--op-accent); transition: width 0.3s ease; }
+  // Points paid: the coin's gold, right after the money paid
+  span.op-bar__points { background: var(--lp-coin); }
+  span + span.op-bar__points { border-radius: 0 999px 999px 0; }
 }
 
 .op-subtitle { margin: 16px 0 10px; font-size: 13px; font-weight: 700; color: var(--op-ink); }
