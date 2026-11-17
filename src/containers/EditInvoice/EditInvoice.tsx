@@ -81,8 +81,8 @@ type State = {
   pointsRedeemed: number | null
   // Each use of points on the order (same call), newest first
   redemptions: Redemption[]
-  // Points paid (net of cancels) on the invoice and on each package's shipping (same call,
-  // `redeemedBy`): taken off every due on the Payments tab
+  // Points paid (net of cancels) on the invoice and on each package's shipping (GET
+  // order/:id/loyalty/paid, open to all staff): taken off every due on the Payments tab
   pointsPaid: PointsPaid
   previewImages?: any[]
   deleteDialog: boolean
@@ -91,7 +91,7 @@ type State = {
   deleteError: string
 }
 
-// The points paid per part of the order from the staff loyalty call's `redeemedBy`
+// The points paid per part of the order from `redeemedBy` of order/:id/loyalty/paid
 const pointsPaidOf = (by: any): PointsPaid => {
   const packages: Record<string, number> = {};
   for (const [id, points] of Object.entries(by?.packages || {})) if (Number(points) > 0) packages[id] = Number(points);
@@ -159,19 +159,27 @@ export class EditInvoice extends Component<Props, State> {
     this.loadPoints(order);
   }
 
+  // Points already paid on the invoice and each package, for every staff member: the dues take them off,
+  // so this does not depend on the points permission. A failed read keeps what was known.
+  loadPaid = async (order = this.state.order) => {
+    if (!order?._id) return;
+    const pointsPaid = await optional(api.get(`order/${order._id}/loyalty/paid`), (res) => pointsPaidOf(res.data?.redeemedBy), null as PointsPaid | null);
+    if (pointsPaid) this.setState({ pointsPaid });
+  };
+
   // Points the order used. Staff without the permission, or an API without points, just get no line.
   loadPoints = async (order = this.state.order) => {
+    this.loadPaid(order);
     if (!order?._id || !this.canUsePoints()) return;
     const points = await optional(api.get(`order/${order._id}/loyalty`, { category: 'invoice' }),
       (res) => ({
         redeemed: Number(res.data?.redeemed || 0),
         redemptions: Array.isArray(res.data?.redemptions) ? res.data.redemptions as Redemption[] : [],
-        pointsPaid: pointsPaidOf(res.data?.redeemedBy),
       }),
-      null as { redeemed: number, redemptions: Redemption[], pointsPaid: PointsPaid } | null);
+      null as { redeemed: number, redemptions: Redemption[] } | null);
     // A failed re-read keeps what was known: dropping the points would ask the customer for them again
-    if (!points) return this.setState((state) => (state.pointsRedeemed === null ? { pointsRedeemed: null, redemptions: [], pointsPaid: NO_POINTS_PAID } : null) as any);
-    this.setState({ pointsRedeemed: points.redeemed, redemptions: points.redemptions, pointsPaid: points.pointsPaid });
+    if (!points) return this.setState((state) => (state.pointsRedeemed === null ? { pointsRedeemed: null, redemptions: [] } : null) as any);
+    this.setState({ pointsRedeemed: points.redeemed, redemptions: points.redemptions });
   };
 
   canUsePoints = () => {
