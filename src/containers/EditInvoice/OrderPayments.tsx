@@ -5,6 +5,7 @@ import moment from 'moment';
 import Badge from '../../components/Badge/Badge';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { packageCharge, paidInUsd, totalDebts, totalPaid } from './orderConstants';
+import PointsRedemptions, { Redemption } from './PointsRedemptions';
 
 type Category = 'invoice' | 'receivedGoods';
 
@@ -29,9 +30,11 @@ type Props = {
   onRequestEdit: () => void
   onDecideChanges: (status: 'accepted' | 'rejected') => void
   onAddDebt: () => void
-  // Loyalty points: they are paid inside the wallet dialog; `pointsRedeemed` is what the order used in all
+  // Loyalty points: they are paid inside the wallet dialog; `redemptions` are the uses of points on
+  // the order (staff with the points permission may cancel one, then `onPointsChanged` reloads)
   canUsePoints?: boolean
-  pointsRedeemed?: number
+  redemptions?: Redemption[]
+  onPointsChanged?: () => void
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -229,8 +232,11 @@ const OrderPayments = (props: Props) => {
   };
   const rateProps = props.canSetRate && props.onSetRate ? { onSetRate: openRate } : {};
 
-  // The points the order used in all (the split between its two parts is not recorded)
-  const pointsLine = <p className="op-muted" dir="rtl">مدفوع بالنقاط: <bdi dir="ltr" className="lp-num">{Number(props.pointsRedeemed || 0).toLocaleString('en-US')}</bdi> نقطة (<bdi dir="ltr" className="lp-num">${money(Number(props.pointsRedeemed || 0) / 100)}</bdi>)</p>;
+  // The uses of points on the order (shown once: the split between its two parts is not recorded)
+  const pointsLine = (
+    <PointsRedemptions orderId={String(order._id)} redemptions={props.redemptions || []} canCancel={!!props.canUsePoints} onChanged={() => props.onPointsChanged?.()} />
+  );
+  const hasRedemptions = (props.redemptions || []).length > 0;
 
   const paidTotals = (category: Category) => {
     const { totalUsd, totalLyd, totalEuro } = totalPaid(payments, category);
@@ -294,7 +300,7 @@ const OrderPayments = (props: Props) => {
           ))}
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
-        {(props.pointsRedeemed || 0) > 0 && pointsLine}
+        {hasRedemptions && pointsLine}
         <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>}
 
@@ -313,7 +319,7 @@ const OrderPayments = (props: Props) => {
             <Button variant="outlined" size="small" type="button" onClick={() => props.onPay('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>Pay from wallet</Button>
           </div>
         )}
-        {!hasInvoice && (props.pointsRedeemed || 0) > 0 && pointsLine}
+        {!hasInvoice && hasRedemptions && pointsLine}
         <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>
 

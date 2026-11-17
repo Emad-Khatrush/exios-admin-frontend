@@ -23,6 +23,7 @@ import FreeShippingReview from '../Accounting/FreeShippingReview';
 import { sys } from '../Accounting/accountingApi';
 import OrderSidebar from './OrderSidebar';
 import OrderPayments from './OrderPayments';
+import { Redemption } from './PointsRedemptions';
 import OrderWalletDialog from './OrderWalletDialog';
 import ShippingLabelDialog from './ShippingLabelDialog';
 import OrderTheme from './OrderTheme';
@@ -76,6 +77,8 @@ type State = {
   walletPayment?: { category: WalletCategory, packages: any[], dueUsd: number }
   // Points the order used in all (from GET order/:id/loyalty); null when unknown
   pointsRedeemed: number | null
+  // Each use of points on the order (same call), newest first
+  redemptions: Redemption[]
   previewImages?: any[]
   deleteDialog: boolean
   // The order number typed to confirm deleting it, and why the server refused
@@ -98,6 +101,7 @@ export class EditInvoice extends Component<Props, State> {
     payments: [],
     writeOffs: [],
     pointsRedeemed: null,
+    redemptions: [],
     items: [],
     purchaseItems: [],
     paymentList: [],
@@ -145,8 +149,10 @@ export class EditInvoice extends Component<Props, State> {
   // Points the order used. Staff without the permission, or an API without points, just get no line.
   loadPoints = async (order = this.state.order) => {
     if (!order?._id || !this.canUsePoints()) return;
-    const redeemed = await optional(api.get(`order/${order._id}/loyalty`, { category: 'invoice' }), (res) => Number(res.data?.redeemed || 0), null as number | null);
-    this.setState({ pointsRedeemed: redeemed });
+    const points = await optional(api.get(`order/${order._id}/loyalty`, { category: 'invoice' }),
+      (res) => ({ redeemed: Number(res.data?.redeemed || 0), redemptions: Array.isArray(res.data?.redemptions) ? res.data.redemptions as Redemption[] : [] }),
+      null as { redeemed: number, redemptions: Redemption[] } | null);
+    this.setState({ pointsRedeemed: points ? points.redeemed : null, redemptions: points ? points.redemptions : [] });
   };
 
   canUsePoints = () => {
@@ -605,7 +611,8 @@ export class EditInvoice extends Component<Props, State> {
             debts={Array.isArray(this.state.userDebts) ? this.state.userDebts : []}
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
             canUsePoints={this.canUsePoints()}
-            pointsRedeemed={this.state.pointsRedeemed || 0}
+            redemptions={this.state.redemptions}
+            onPointsChanged={() => { this.toast('success', 'أُلغيت النقاط ورجعت إلى رصيد العميل'); this.reloadMoney(); this.reloadOrder().catch(() => {}); }}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}
             canSetRate={isAdmin || !!account?.roles.isAccountant}

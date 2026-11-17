@@ -697,3 +697,41 @@
   .lp, .lp *, .lp-switch *, .lp-num, .lp-fade-in, .lp-tick { transition: none !important; animation: none !important; }
   .lp:active, .lp :active { transform: none !important; }
 }
+
+// ---------- Points used on an order (the order's payments) ----------
+
+.lp-redemptions {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 4px;
+
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  li + li { border-top: 1px solid var(--op-soft, #eef0f3); }
+  &__when, &__by, &__note { font-size: 12.5px; color: var(--op-muted); }
+  &__amount { font-weight: 600; }
+  &__note { overflow-wrap: anywhere; }
+  li.is-canceled .lp-redemptions__amount { text-decoration: line-through; color: var(--op-muted); font-weight: 500; }
+  > .lp-text-btn { justify-self: start; }
+}
+
+.lp-text-btn {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--op-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  &:hover { color: var(--op-ink); }
+  &:focus-visible { outline: 2px solid var(--op-accent-ink, #007b3d); outline-offset: 2px; border-radius: 2px; }
+}
