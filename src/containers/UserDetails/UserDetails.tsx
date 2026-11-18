@@ -225,7 +225,6 @@ const UserDetails = (props: Props) => {
           </div>
 
           <div className="col-12"><UserWidget client={user} onEdit={() => setActiveTap('settings')} /></div>
-          <div className="col-12"><AppStatusCard userId={user._id} /></div>
           <div className="col-12"><ShippingMarkCard customerCode={user.customerId} onOpen={() => setDialog({ component: ShippingMarkDialog })} /></div>
 
           <CashflowUser
@@ -271,6 +270,9 @@ const UserDetails = (props: Props) => {
               onSaved={(updated) => setUser({ ...user, customerId: updated?.customerId ?? user.customerId })}
             />
           </div>
+
+          {/* The client app on the customer's phone: installed or not, notifications on or not */}
+          <div className="mt-4"><AppStatusCard userId={user._id} /></div>
 
           {canReviewPassports && (
             <div className="mt-4">
