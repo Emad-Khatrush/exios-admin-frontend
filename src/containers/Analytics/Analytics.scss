@@ -303,3 +303,50 @@ $an-ease: cubic-bezier(0.16, 1, 0.3, 1);
   .analytics-table__device,
   .analytics-table__date { font-size: 0.76rem; }
 }
+
+/* ---- Client app: installs and notifications ---- */
+.analytics-app {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid $an-line;
+}
+
+.analytics-app__head {
+  margin-bottom: 16px;
+}
+
+.analytics-app__head h2 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.analytics-app__head p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: $an-muted;
+  max-width: 70ch;
+}
+
+.analytics-bars--short {
+  height: 120px;
+}
+
+.analytics-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: $an-accent-soft;
+  color: $an-accent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.analytics-pill--muted {
+  background: $an-canvas;
+  color: $an-muted;
+}

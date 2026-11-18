@@ -3,6 +3,7 @@ import { CircularProgress } from '@mui/material';
 import { Eye, Globe2, LineChart, Smartphone, Users } from 'lucide-react';
 import api from '../../api';
 import { AnalyticsSummary, SiteVisit } from '../../models';
+import AppUsage from './AppUsage';
 import '../Settings/SettingsCommon.scss';
 import './Analytics.scss';
 
@@ -215,6 +216,8 @@ const Analytics = () => {
           </div>
         </>
       )}
+
+      <AppUsage />
     </div>
   );
 };

@@ -1,0 +1,93 @@
+.app-card {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid #e3e7ec;
+  border-radius: 14px;
+  background: #fff;
+  color: #18212b;
+}
+
+.app-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.app-card__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #f6f7f9;
+  color: #5b6673;
+
+  &.is-on { background: #dcfce7; color: #15803d; }
+  &.is-off { background: #fef3c7; color: #b45309; }
+}
+
+.app-card__title {
+  flex: 1 1 220px;
+  min-width: 0;
+
+  h3 { margin: 0; font-size: 0.98rem; font-weight: 700; }
+  p { margin: 2px 0 0; font-size: 0.82rem; color: #5b6673; }
+  .is-on { color: #15803d; }
+  .is-off { color: #b45309; }
+  .is-muted { color: #5b6673; }
+}
+
+.app-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.app-card__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f6f7f9;
+  color: #5b6673;
+  font-size: 0.78rem;
+  font-weight: 600;
+
+  &.is-on { background: #dcfce7; color: #15803d; }
+}
+
+.app-card__devices {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid #e3e7ec;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    font-size: 0.84rem;
+    color: #5b6673;
+  }
+}
+
+.app-card__device { color: #18212b; font-weight: 600; }
+
+.app-card__tag {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f6f7f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  &.is-on { background: #dcfce7; color: #15803d; }
+  &.is-off { background: #fef3c7; color: #b45309; }
+}
+
+.app-card__when { margin-inline-start: auto; font-size: 0.78rem; }

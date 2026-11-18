@@ -18,6 +18,7 @@ import { CustomerCodeCard, CustomerInfoCard } from './CustomerInfoSettings';
 import { CustomerAccounting } from '../Accounting/AccountingPanels';
 import CustomerWallet, { CustomerPoints } from './CustomerWallet';
 import LoyaltyTab from './LoyaltyTab';
+import AppStatusCard from './AppStatusCard';
 import { money, pointsText } from '../Loyalty/format';
 import { LevelBadge, useTiers } from '../Loyalty/levels';
 import '../Loyalty/loyalty.scss';
@@ -224,6 +225,7 @@ const UserDetails = (props: Props) => {
           </div>
 
           <div className="col-12"><UserWidget client={user} onEdit={() => setActiveTap('settings')} /></div>
+          <div className="col-12"><AppStatusCard userId={user._id} /></div>
           <div className="col-12"><ShippingMarkCard customerCode={user.customerId} onOpen={() => setDialog({ component: ShippingMarkDialog })} /></div>
 
           <CashflowUser
