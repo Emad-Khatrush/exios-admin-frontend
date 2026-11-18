@@ -350,3 +350,21 @@ $an-ease: cubic-bezier(0.16, 1, 0.3, 1);
   background: $an-canvas;
   color: $an-muted;
 }
+
+/* Website / Client app tabs */
+.analytics-tabs {
+  margin-bottom: 20px;
+  border-bottom: 1px solid $an-line;
+}
+
+.analytics-app {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.analytics-app__note {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: $an-muted;
+}

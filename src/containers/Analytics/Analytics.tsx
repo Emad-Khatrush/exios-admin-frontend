@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, Tab, Tabs } from '@mui/material';
 import { Eye, Globe2, LineChart, Smartphone, Users } from 'lucide-react';
 import api from '../../api';
 import { AnalyticsSummary, SiteVisit } from '../../models';
@@ -25,6 +25,8 @@ const Analytics = () => {
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVisitsLoading, setIsVisitsLoading] = useState(true);
+  // Two separate reads: the website's visits, and the client app on customers' phones
+  const [tab, setTab] = useState<'website' | 'app'>(() => (new URLSearchParams(window.location.search).get('tab') === 'app' ? 'app' : 'website'));
 
   useEffect(() => {
     fetchSummary();
@@ -62,11 +64,18 @@ const Analytics = () => {
   return (
     <div className="analytics-page">
       <header className="analytics-page__header">
-        <h1>Website analytics</h1>
-        <p>How many people are visiting Exios-Client, and what they're looking at. Visible to admins only.</p>
+        <h1>Analytics</h1>
+        <p>{tab === 'website'
+          ? "How many people are visiting Exios-Client, and what they're looking at. Visible to admins only."
+          : 'Customers who installed the client app on their phone, and who get notifications.'}</p>
       </header>
 
-      {isLoading ? (
+      <Tabs className="analytics-tabs" value={tab} onChange={(_, value) => setTab(value)} aria-label="Analytics sections">
+        <Tab label="Website" value="website" />
+        <Tab label="Client app" value="app" />
+      </Tabs>
+
+      {tab === 'app' ? <AppUsage /> : isLoading ? (
         <div className="analytics-loading"><CircularProgress /></div>
       ) : !summary ? (
         <div className="settings-empty">
@@ -216,8 +225,6 @@ const Analytics = () => {
           </div>
         </>
       )}
-
-      <AppUsage />
     </div>
   );
 };

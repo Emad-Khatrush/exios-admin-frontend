@@ -45,10 +45,7 @@ const AppUsage = () => {
 
   return (
     <section className="analytics-app" aria-labelledby="analytics-app-title">
-      <div className="analytics-app__head">
-        <h2 id="analytics-app-title">Client app</h2>
-        <p>Customers who installed the app on their phone, and who get notifications. Not opened for {data.activeDays} days counts as no longer used.</p>
-      </div>
+      <p className="analytics-app__note" id="analytics-app-title">Not opened for {data.activeDays} days counts as no longer used (browsers never say when an app is removed).</p>
 
       <div className="analytics-stats">
         <div className="analytics-stat">
