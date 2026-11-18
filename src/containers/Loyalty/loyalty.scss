@@ -879,3 +879,59 @@
 @media (prefers-reduced-motion: reduce) {
   .lp-progress::after { animation: none !important; width: 100%; opacity: 0.4; }
 }
+
+// ---- Loyalty levels ----
+// A level's name in its own colour (`--lv`), outlined; the first level stays grey
+.lp-level-badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 10px 1px 8px; border: 1px solid var(--lv, #64748b);
+  border-radius: 8px; color: var(--lv, #64748b); font-size: 13px; font-weight: 700; line-height: 1.6; white-space: nowrap;
+  &.is-sm { padding: 0 7px; font-size: 12px; }
+  &.is-base { border-color: var(--op-line, #e4e8ee); color: var(--op-muted, #5d6875); }
+}
+.lp-level-line { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--op-muted); }
+.lp-head__link { display: inline-block; margin-top: 6px; font-size: 13.5px; }
+
+.lp-levelbox {
+  border-inline-start: 4px solid var(--lv);
+  &__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  &__name { font-size: 26px; font-weight: 700; line-height: 1.2; color: var(--lv); }
+  &__facts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px; margin: 14px 0 10px;
+    dt { font-size: 12px; color: var(--op-muted); }
+    dd { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  }
+  &__progress { display: grid; gap: 6px; font-size: 13.5px; }
+  &__bar { height: 8px; overflow: hidden; border-radius: 999px; background: var(--op-soft);
+    span { display: block; height: 100%; border-radius: inherit; background: var(--lv); } }
+  &__manual { margin-top: 8px; font-size: 13px; }
+  &__perks, &__history { margin-top: 14px;
+    ul { margin: 6px 0 0; padding-inline-start: 18px; display: grid; gap: 4px; font-size: 13.5px; } }
+  &__history ul { list-style: none; padding: 0; }
+  &__why { color: var(--op-ink); }
+}
+.lp-level-pick[aria-checked='true'] { border-color: var(--lv); background: var(--lv); color: #fff; }
+
+.lp-ladder {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;
+  &__step { display: grid; gap: 2px; padding: 14px 16px; border-radius: 14px; background: #fff; box-shadow: var(--lp-shadow);
+    border-top: 4px solid var(--lv); }
+  &__name { font-weight: 700; color: var(--lv); }
+  &__count { font-size: 30px; font-weight: 700; line-height: 1.2; }
+  &__rule { margin-top: 4px; font-size: 12px; color: var(--op-muted); }
+}
+.lp-levels-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; align-items: start; }
+.lp-panel__hint { margin: -6px 0 8px; font-size: 12.5px; }
+
+// The level stamp (LevelEmblem.tsx): in badges, the customers' table and the Points tab
+.lv-emblem { display: block; flex: none; overflow: visible; }
+.lv-emblem.is-locked { filter: grayscale(1); opacity: 0.45; }
+.lv-emblem__sparks path { transform-box: fill-box; transform-origin: center; }
+.lv-emblem__sheen { transform-box: fill-box; transform-origin: center; transform: rotate(20deg); }
+@media (prefers-reduced-motion: no-preference) {
+  .lv-emblem__sheen { animation: lv-sheen 5s 1s ease-in-out infinite; }
+  .lv-emblem__sparks path { animation: lv-twinkle 2.4s ease-in-out infinite; }
+  .lv-emblem__sparks path:nth-child(2) { animation-delay: 0.8s; }
+  .lv-emblem__sparks path:nth-child(3) { animation-delay: 1.6s; }
+}
+@keyframes lv-sheen { 0% { transform: translateX(0) rotate(20deg); } 22%, 100% { transform: translateX(110px) rotate(20deg); } }
+@keyframes lv-twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.15); } }

@@ -14,7 +14,7 @@ import './IssuedInvoices.scss';
 import Card from '../../components/Card/Card';
 import { User } from '../../models';
 import InvoicePDFPreview from '../UserDetails/InvoicePDFPreview';
-import { invoiceMoney, packageRefund } from '../UserDetails/invoiceDeliverySummary';
+import { POINTS_PER_USD, invoiceMoney, invoicePoints, packageRefund } from '../UserDetails/invoiceDeliverySummary';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 import DatePicker from '@mui/lab/DatePicker';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
@@ -156,6 +156,12 @@ const DailyInvoices = () => {
                     <Typography>Refunded to wallet: {sums.refundedUSD} $, {sums.refundedLYD} LYD</Typography>
                     <Typography className='mt-0 mb-2'><b>Paid after cancelling: {sums.netUSD} $, {sums.netLYD} LYD</b></Typography>
                   </>;
+                })()}
+                {(() => {
+                  const points = invoicePoints(invoice);
+                  return points.usd > 0 && (
+                    <Typography>Paid with points: {points.usd} $ ({Math.round(points.usd * POINTS_PER_USD).toLocaleString('en-US')} points)</Typography>
+                  );
                 })()}
                 {invoice.partialDelivery && <Typography dir="rtl">المتبقي: {invoice.settlement?.remainingUSD || 0} USD · {Number(invoice.settlement?.remainingUSD) > 0 ? 'بانتظار السداد' : 'مدفوعة بالكامل'}</Typography>}
                 {invoice.note && <Typography>Note: {invoice.note}</Typography>}

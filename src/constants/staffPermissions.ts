@@ -7,7 +7,7 @@ export type StaffPermission =
   | 'tracking' | 'delivery' | 'delivery_on_credit'
   | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'wallet_transactions' | 'wallet_exchange' | 'debts' | 'returned_payments' | 'expenses'
   | 'inventory' | 'warehouse'
-  | 'marketing' | 'goals' | 'analytics' | 'ratings' | 'loyalty'
+  | 'marketing' | 'goals' | 'analytics' | 'ratings' | 'loyalty' | 'loyalty_customer' | 'loyalty_adjust' | 'loyalty_level'
   | 'tasks' | 'reports' | 'activities' | 'settings_prices' | 'settings_content';
 
 // path -> the permissions that open it (any one is enough)
@@ -24,7 +24,7 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/task/:id/edit': ['tasks'],
   '/balances': ['debts'],
   '/clients': ['clients', 'wallets', 'wallet_transactions', 'wallet_exchange', 'delivery', 'passports'],
-  '/user/:id': ['clients', 'wallets', 'wallet_transactions', 'wallet_exchange', 'delivery', 'passports', 'special_prices', 'debts'],
+  '/user/:id': ['clients', 'wallets', 'wallet_transactions', 'wallet_exchange', 'delivery', 'passports', 'special_prices', 'debts', 'loyalty_customer', 'loyalty_adjust', 'loyalty_level'],
   '/special-prices': ['special_prices'],
   '/inventory': ['inventory'],
   '/inventory/add': ['inventory'],
@@ -39,6 +39,7 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/analytics': ['analytics'],
   '/goals': ['goals'],
   '/loyalty': ['loyalty'],
+  '/loyalty/levels': ['loyalty'],
   '/settings': ['settings_prices', 'settings_content'],
   '/settings/pricing': ['settings_prices'],
   '/settings/customer-prices': ['settings_prices'],

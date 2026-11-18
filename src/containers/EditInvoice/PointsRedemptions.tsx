@@ -15,6 +15,9 @@ export type Redemption = {
   createdAt?: string
   by?: string
   canceled: { at?: string | null, by?: string | null, reason?: string } | null
+  // The delivery invoice its packages were handed over in: cancelled only from the customer's
+  // Created Invoices (by cancelling the invoice or the shipment), never here
+  invoice?: { id: string, referenceId: number } | null
 }
 
 type Props = {
@@ -48,7 +51,9 @@ const PointsRedemptions = ({ orderId, redemptions, canCancel, onChanged }: Props
               {row.by && <span className="lp-redemptions__by">بواسطة <bdi>{row.by}</bdi></span>}
               {row.canceled
                 ? <span className="lp-redemptions__note">أُلغيت: <bdi>{row.canceled.reason || '—'}</bdi>{row.canceled.by ? <> (<bdi>{row.canceled.by}</bdi>)</> : null}</span>
-                : canCancel && <button type="button" className="lp-text-btn" onClick={() => setTarget(row)}>إلغاء</button>}
+                : row.invoice
+                  ? <span className="lp-redemptions__note">في فاتورة التسليم <Num>#0{row.invoice.referenceId}</Num>: تُلغى من فواتير العميل</span>
+                  : canCancel && <button type="button" className="lp-text-btn" onClick={() => setTarget(row)}>إلغاء</button>}
             </li>
           ))}
         </ul>

@@ -11,7 +11,8 @@ import './loyalty.scss';
 // (a wallet payment on an order, a delivery). The form sends `points` with its payment and the
 // server takes both in one transaction. This file holds that field and the quote it reads.
 
-export type PointsQuote = { balance: number, maxPoints: number, owedCents: number, billedCents: number, usedOnTarget: number };
+// `off`: the customer's points are switched off (nothing can be paid with them)
+export type PointsQuote = { balance: number, maxPoints: number, owedCents: number, billedCents: number, usedOnTarget: number, off?: boolean };
 
 // The message of a failed request: the server writes it (in Arabic) and it is shown as it is
 export const requestError = (error: any, fallback: string) => {
@@ -86,7 +87,8 @@ type Props = {
 // The compact "النقاط" row of a payment form: the customer's points and the most this payment may
 // use, the points typed, and the form's totals as a receipt (total, points, what is left to pay)
 const PaymentPoints = ({ quote, balance, loading, failed, value, onChange, totalUsd, disabled }: Props) => {
-  if (!(balance > 0) && !failed) return null;
+  // No points, or the customer's points switched off: the form shows no points row
+  if ((!(balance > 0) && !failed) || quote?.off) return null;
   const max = Math.max(quote?.maxPoints ?? 0, 0);
   const { usd: discount } = pointsOf(value, quote);
   const remaining = remainingAfter(totalUsd, discount);

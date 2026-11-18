@@ -14,7 +14,9 @@ import './CashflowUser.scss';
 import './UserInvoices.scss';
 import { User } from '../../models';
 import { formatMoney } from './statementUtils';
-import { invoiceDeliverySummary, invoiceMoney, packageRefund } from './invoiceDeliverySummary';
+import { POINTS_PER_USD, invoiceDeliverySummary, invoiceMoney, invoicePoints, packageRefund } from './invoiceDeliverySummary';
+
+const pointsCount = (usd: number) => Math.round(usd * POINTS_PER_USD).toLocaleString('en-US');
 
 type Invoice = {
   _id: string;
@@ -26,6 +28,8 @@ type Invoice = {
   createdAt: string;
   list: any[];
   referenceId: number
+  // Loyalty points that paid the shipping before the delivery, in dollars (total is the rest)
+  pointsUsd?: number;
   amountUSD?: number;
   amountLYD?: number;
   partialDelivery?: boolean;
@@ -167,6 +171,7 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
             const paidUSD = partlyCanceled ? money.netUSD : money.paidUSD;
             const paidLYD = partlyCanceled ? money.netLYD : money.paidLYD;
             const hasLYD = money.paidLYD > 0;
+            const points = invoicePoints(invoice);
             return (
               <article
                 key={invoice._id}
@@ -200,6 +205,11 @@ const UserInvoices = ({ customerId, onInvoiceCanceled }: Props) => {
                     {/* On screen only: the printed invoice carries no exchange rate */}
                     {hasLYD && money.rate > 0 && <span className="invoice-card__rate">Rate 1 USD = {money.rate} LYD</span>}
                   </div>
+                  {points.usd > 0 && <div>
+                    <span className="invoice-card__label">Paid with points</span>
+                    <span className="invoice-card__value">{formatMoney(points.usd, 'USD')}</span>
+                    <span className="invoice-card__rate">{pointsCount(points.usd)} points</span>
+                  </div>}
                   {invoice.partialDelivery && <div dir="rtl"><span className="invoice-card__label">المتبقي للسداد</span><strong className="invoice-card__value">{formatMoney(invoice.settlement?.remainingUSD || 0, 'USD')}</strong></div>}
                 </div>
 

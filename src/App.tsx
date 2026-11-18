@@ -35,6 +35,7 @@ import WarehouseInventory from './containers/WarehouseInventory/WarehouseInvento
 import ReturnedPayments from './containers/ReturnedPayments/ReturnedPayments';
 import { ClientsView } from './containers/ClientsView/ClientsView';
 import LoyaltyCustomers from './containers/Loyalty/LoyaltyCustomers';
+import LoyaltyLevels from './containers/Loyalty/LoyaltyLevels';
 import SpecialPriceCustomers from './containers/SpecialPriceCustomers/SpecialPriceCustomers';
 import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
@@ -252,6 +253,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/analytics' element={<Analytics />} />
       <Route path='/goals' element={<Goals />} />
       <Route path='/loyalty' element={<LoyaltyCustomers />} />
+      <Route path='/loyalty/levels' element={<LoyaltyLevels />} />
       {accountingRoutes}
     </>
   } else if (roles?.isAccountant) {
@@ -292,6 +294,7 @@ const STAFF_PAGES: [string, JSX.Element][] = [
   ['/analytics', <Analytics />],
   ['/goals', <Goals />],
   ['/loyalty', <LoyaltyCustomers />],
+  ['/loyalty/levels', <LoyaltyLevels />],
   ['/settings', <Settings />],
   ['/settings/pricing', <ServicesPrice />],
   ['/settings/customer-prices', <CustomerPrices />],

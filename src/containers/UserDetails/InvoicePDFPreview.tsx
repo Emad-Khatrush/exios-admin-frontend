@@ -3,7 +3,7 @@
 import { forwardRef } from 'react';
 import moment from 'moment';
 import { User } from '../../models';
-import { invoiceDeliverySummary, invoiceMoney, packageRefund } from './invoiceDeliverySummary';
+import { POINTS_PER_USD, invoiceDeliverySummary, invoiceMoney, invoicePoints, packageRefund } from './invoiceDeliverySummary';
 // @ts-ignore
 import './InvoicePDFPreview.scss';
 
@@ -14,6 +14,8 @@ type Invoice = {
   category: 'invoice' | 'shipment';
   rate: number;
   list: any[];
+  // Loyalty points that paid the shipping before the delivery, in dollars (total is the rest)
+  pointsUsd?: number;
   note?: string;
   createdAt: string;
   referenceId: number;
@@ -47,6 +49,8 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
   };
   const fullName = `${invoice.customer?.firstName || ''} ${invoice.customer?.lastName || ''}`.trim();
   const delivery = invoiceDeliverySummary(invoice);
+  const points = invoicePoints(invoice);
+  const pointsCount = (usd: number) => Math.round(usd * POINTS_PER_USD).toLocaleString('en-US');
 
   return (
     <div ref={ref} className={`invoice-doc ${invoice.isCanceled ? 'is-canceled' : ''}`}>
@@ -111,7 +115,7 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
                 </td>
                 <td className="is-num">{item.weight?.total ?? '-'} {item.weight?.measureUnit || ''}</td>
                 <td className="is-num">{item.boxesCount || '-'}</td>
-                <td className="is-num invoice-doc__strong">{money(item.cost)} {invoice.currency}</td>
+                <td className="is-num invoice-doc__strong">{money(Number(item.cost || 0) + Math.max(Number(item.pointsUsd) || 0, 0))} {invoice.currency}</td>
               </tr>
             ))}
           </tbody>
@@ -137,6 +141,8 @@ const InvoicePDFPreview = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) =
           {partlyCanceled && <div><dt>Cancelled</dt><dd>− {money(sums.canceledTotal)} {invoice.currency}</dd></div>}
           {partlyCanceled && sums.paidUSD > 0 && <div><dt>Refunded USD</dt><dd>{money(sums.refundedUSD)} USD</dd></div>}
           {partlyCanceled && sums.paidLYD > 0 && <div><dt>Refunded LYD</dt><dd>{money(sums.refundedLYD)} LYD</dd></div>}
+          {points.usd > 0 && <div><dt>Subtotal</dt><dd>{money(points.before)} {invoice.currency}</dd></div>}
+          {points.usd > 0 && <div><dt>Points ({pointsCount(points.usd)})</dt><dd>− {money(points.usd)} {invoice.currency}</dd></div>}
           <div className="is-total"><dt>Total</dt><dd>{money(partlyCanceled ? sums.totalAfter : invoice.total)} {invoice.currency}</dd></div>
           {partlyCanceled && <div className="is-total"><dt>Paid / المدفوع</dt><dd>{[paidUSD > 0 || !paidLYD ? `${money(paidUSD)} USD` : '', paidLYD > 0 ? `${money(paidLYD)} LYD` : ''].filter(Boolean).join(' + ')}</dd></div>}
           {invoice.partialDelivery && <div className="is-total"><dt>Remaining / المتبقي</dt><dd>{money(invoice.settlement?.remainingUSD || 0)} USD</dd></div>}

@@ -1,13 +1,17 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Skeleton } from '@mui/material';
-import { MdAdd, MdHourglassBottom, MdRemove, MdToll, MdTune, MdUndo } from 'react-icons/md';
+import { MdAdd, MdBlock, MdHourglassBottom, MdLocalShipping, MdReceiptLong, MdRemove, MdToll, MdTune, MdUndo } from 'react-icons/md';
 import moment from 'moment';
 import api from '../../api';
 import { requestError } from '../Loyalty/PaymentPoints';
 import { fullDate, money, monthTitle, pointsText, shortDay, usdOf } from '../Loyalty/format';
 import { LoyaltyRtl, Num, stagger } from '../Loyalty/LoyaltyRtl';
 import AdjustPointsDialog from './AdjustPointsDialog';
+import PointsOffDialog from './PointsOffDialog';
+import LevelPanel from './LevelPanel';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 import '../Loyalty/loyalty.scss';
+import './loyaltyTab.scss';
 
 type Props = {
   userId: string
@@ -112,13 +116,13 @@ const PendingSection = ({ pending, index }: { pending: any[], index: number }) =
   const rows = active === 'all' ? pending : pending.filter((row) => row.waitingFor === active);
   const shown = expanded ? rows : rows.slice(0, PENDING_FIRST);
   return (
-    <section className="lp-section" style={stagger(index)}>
-      <h3 className="lp-section__title">نقاط في الطريق</h3>
-      <p className="lp-summary-line">
-        <Num>{pointsText(orders)}</Num> {ordersWord(orders)}
-        <span aria-hidden="true"> · </span>
-        <Num>{pointsText(points)}</Num> نقطة في الطريق
-      </p>
+    <section className="lpx-card" style={stagger(index)}>
+      <header className="lpx-card__head">
+        <h3 className="lpx-card__title"><MdLocalShipping aria-hidden="true" /> نقاط في الطريق</h3>
+        <p className="lpx-card__aside">
+          <Num>{pointsText(orders)}</Num> {ordersWord(orders)}، <strong><Num>+{pointsText(points)}</Num></strong> نقطة
+        </p>
+      </header>
       <div className="lp-filters" role="group" aria-label="تصفية النقاط في الطريق">
         {chips.map((c) => (
           <button key={c.f} type="button" className="lp-filter-chip" aria-pressed={active === c.f} onClick={() => setFilter(c.f)}>
@@ -162,6 +166,12 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
   const [error, setError] = useState('');
   const [moreError, setMoreError] = useState('');
   const [adjusting, setAdjusting] = useState(false);
+  // The points switched off / on for this customer (partners on a special price)
+  const [offDialog, setOffDialog] = useState<'' | 'off' | 'on'>('');
+  // «إضافة وخصم نقاط العميل» and «تغيير مستوى العميل» in Settings > Permissions (admins have both)
+  const staff = useStaffAccess();
+  const canAdjust = staff.can('loyalty_adjust');
+  const canChangeLevel = staff.can('loyalty_level');
   // Rows from this index on came with the last page added: only they fade in
   const [freshFrom, setFreshFrom] = useState(Infinity);
   // Every request takes a number; any answer but the latest one is ignored
@@ -235,6 +245,7 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
   }
 
   const pending: any[] = data.pending || [];
+  const pendingPoints = pending.reduce((sum, row) => sum + Number(row.points || 0), 0);
   const loadingList = busy === 'filter';
 
   return (
@@ -244,18 +255,32 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
           <Alert severity="error" dir="auto" action={<Button color="inherit" size="small" onClick={() => load(type, 1)}>إعادة المحاولة</Button>}>{error}</Alert>
         )}
 
-        <section className="lp-passbook lp-enter__card" style={stagger(0)}>
-          <div className="lp-passbook__top">
-            <div>
-              <span className="lp-label">الرصيد</span>
-              <div className="lp-balance">
-                <MdToll className="lp-coin-icon" aria-hidden="true" />
-                <strong><Num>{pointsText(data.points)}</Num></strong>
-                <span className="lp-balance__unit">نقطة</span>
-                <span className="lp-balance__usd">= <Num>${money(usdOf(data))}</Num></span>
-              </div>
+        {data.off && (
+          <section className="lpx-off" role="status">
+            <span className="lpx-off__icon" aria-hidden="true"><MdBlock /></span>
+            <div className="lpx-off__body">
+              <strong>النقاط موقوفة لهذا العميل</strong>
+              <span>
+                لا يكسب نقاطاً ولا يدفع بها، ولا يرى النقاط في التطبيق.
+                {data.offInfo?.reason && <> السبب: <bdi dir="auto">{data.offInfo.reason}</bdi>.</>}
+                {data.offInfo?.at && <> منذ <Num>{fullDate(data.offInfo.at)}</Num>{data.offInfo.by ? <> بواسطة <bdi>{data.offInfo.by}</bdi></> : null}.</>}
+              </span>
             </div>
-            <Button variant="contained" type="button" startIcon={<MdTune />} onClick={() => setAdjusting(true)}>تعديل النقاط</Button>
+            {canAdjust && <Button size="small" variant="contained" onClick={() => setOffDialog('on')}>تفعيل النقاط</Button>}
+          </section>
+        )}
+
+        <div className="lpx-hero" style={stagger(0)}>
+        <section className="lp-passbook lpx-wallet lp-enter__card">
+          <header className="lpx-wallet__head">
+            <span className="lp-label">رصيد النقاط</span>
+            {canAdjust && <Button variant="contained" size="small" type="button" startIcon={<MdTune />} onClick={() => setAdjusting(true)}>تعديل النقاط</Button>}
+          </header>
+          <div className="lp-balance lpx-wallet__balance">
+            <MdToll className="lp-coin-icon" aria-hidden="true" />
+            <strong><Num>{pointsText(data.points)}</Num></strong>
+            <span className="lp-balance__unit">نقطة</span>
+            <span className="lp-balance__usd">= <Num>${money(usdOf(data))}</Num></span>
           </div>
           <div className="lp-passbook__meta">
             <span className="lp-chip lp-chip--coin"><MdToll aria-hidden="true" />كل <Num>100</Num> نقطة = <Num>$1</Num></span>
@@ -266,16 +291,26 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
               </span>
             )}
           </div>
-          <dl className="lp-totals">
-            <div><dt>إجمالي المكتسب</dt><dd><Num>{pointsText(data.earnedTotal)}</Num></dd></div>
+          <dl className="lpx-stats">
+            <div><dt>إجمالي المكتسب</dt><dd className="is-gain"><Num>{pointsText(data.earnedTotal)}</Num></dd></div>
             <div><dt>إجمالي المستعمل</dt><dd><Num>{pointsText(data.redeemedTotal)}</Num></dd></div>
+            <div><dt>في الطريق</dt><dd><Num>{pointsText(pendingPoints)}</Num></dd></div>
           </dl>
+          {canAdjust && !data.off && (
+            <button type="button" className="lpx-off-link" onClick={() => setOffDialog('off')}><MdBlock aria-hidden="true" /> إيقاف النقاط لهذا العميل</button>
+          )}
         </section>
+
+        {data.level && <LevelPanel userId={userId} level={data.level} canChange={canChangeLevel} onChanged={() => { load(type, 1); onChanged(); }} />}
+        </div>
 
         {pending.length > 0 && <PendingSection pending={pending} index={1} />}
 
-        <section className="lp-section" style={stagger(pending.length > 0 ? 2 : 1)}>
-          <h3 className="lp-section__title">السجل</h3>
+        <section className="lpx-card" style={stagger(pending.length > 0 ? 2 : 1)}>
+          <header className="lpx-card__head">
+            <h3 className="lpx-card__title"><MdReceiptLong aria-hidden="true" /> سجل الحركات</h3>
+            {total > 0 && <p className="lpx-card__aside"><Num>{pointsText(total)}</Num> حركة</p>}
+          </header>
           <div className="lp-filters" role="group" aria-label="تصفية السجل">
             {HISTORY_TYPES.map((t) => (
               <button key={t.type} type="button" className="lp-filter-chip" aria-pressed={type === t.type} onClick={() => choose(t.type)}>{t.label}</button>
@@ -343,8 +378,13 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
           )}
         </section>
 
+        <PointsOffDialog
+          open={!!offDialog && canAdjust} userId={userId} turningOff={offDialog === 'off'} onClose={() => setOffDialog('')}
+          onSaved={() => { setOffDialog(''); load(type, 1); onChanged(); }}
+        />
+
         <AdjustPointsDialog
-          open={adjusting} userId={userId} balance={Number(data.points || 0)} onClose={() => setAdjusting(false)}
+          open={adjusting && canAdjust} userId={userId} balance={Number(data.points || 0)} onClose={() => setAdjusting(false)}
           onSaved={() => { load(type, 1); onChanged(); }}
         />
       </div>

@@ -8,6 +8,7 @@ import api from '../../api';
 import { requestError } from './PaymentPoints';
 import { initials, money, monthTitle, pageAriaLabel, pageLabel, pointsText, relativeDay, shortDate, shortDay, usdOf } from './format';
 import { LoyaltyRtl, Num, stagger } from './LoyaltyRtl';
+import { LevelBadge, useTiers } from './levels';
 import './loyalty.scss';
 
 const PAGE_SIZE = 25;
@@ -69,6 +70,7 @@ const MONTH_ROWS: [string, string, 'gain' | 'spend' | 'warn'][] = [
 
 const LoyaltyCustomers = () => {
   const navigate = useNavigate();
+  const tiers = useTiers();
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   // Search, sort, filter and page live in the address, so coming back from a customer lands on the same list
   const [params, setParams] = useSearchParams();
@@ -175,6 +177,7 @@ const LoyaltyCustomers = () => {
             <tr>
               <th>العميل</th>
               <th>الكود</th>
+              <th>المستوى</th>
               <th>الهاتف</th>
               <th className="is-num">النقاط</th>
               <th>تنتهي قريباً</th>
@@ -192,6 +195,7 @@ const LoyaltyCustomers = () => {
                     <Skeleton width={140} />
                   </div>
                 </td>
+                <td><Skeleton width={60} /></td>
                 <td><Skeleton width={60} /></td>
                 <td><Skeleton width={90} /></td>
                 <td className="is-num"><Skeleton width={60} sx={{ ml: 'auto' }} /><Skeleton width={44} sx={{ ml: 'auto' }} /></td>
@@ -212,6 +216,7 @@ const LoyaltyCustomers = () => {
                   </div>
                 </td>
                 <td className="lp-muted">{row.customerId ? <Num>{row.customerId}</Num> : '—'}</td>
+                <td>{tiers.length > 0 ? <LevelBadge level={row.level} tiers={tiers} size="sm" /> : null}</td>
                 <td className="lp-muted">{row.phone ? <Num>{row.phone}</Num> : '—'}</td>
                 <td className="is-num">
                   <div className="lp-amount">
@@ -249,6 +254,7 @@ const LoyaltyCustomers = () => {
         <header className="lp-head" style={stagger(0)}>
           <h1>نقاط الولاء</h1>
           <p>النقاط التي يملكها العملاء، وقيمتها، وما سينتهي قريباً.</p>
+          <Link to="/loyalty/levels" className="lp-head__link">المستويات وتقريرها</Link>
         </header>
 
         <section className="lp-summary lp-enter__card" aria-label="الملخص" style={stagger(1)}>

@@ -59,3 +59,20 @@ export const invoiceMoney = (invoice: MoneyInvoice) => {
     totalAfter: round2(Math.max(0, Number(invoice.total || 0) - canceledTotal)),
   };
 };
+
+// Loyalty points (100 points = $1) that paid the shipping of a delivery invoice's packages before
+// it: the invoice total is what was left after them. Counted on the packages still delivered (a
+// cancelled package keeps its points on the package, not on this invoice); a whole cancelled
+// invoice shows what it carried. `before` is the shipping before the points.
+export const POINTS_PER_USD = 100;
+export const invoicePoints = (invoice: MoneyInvoice & { pointsUsd?: number }) => {
+  const rows = invoice.list || [];
+  const kept = invoice.isCanceled ? rows : rows.filter(row => !row.canceledAt);
+  const fromRows = rows.some(row => Number(row?.pointsUsd) > 0);
+  const usd = round2(fromRows
+    ? kept.reduce((s, row) => s + Math.max(Number(row?.pointsUsd) || 0, 0), 0)
+    : (kept.length === rows.length ? Math.max(Number(invoice.pointsUsd) || 0, 0) : 0));
+  const money = invoiceMoney(invoice);
+  const total = !invoice.isCanceled && money.hasCancellation ? money.totalAfter : Number(invoice.total || 0);
+  return { usd, points: Math.round(usd * POINTS_PER_USD), before: round2(total + usd), after: round2(total) };
+};

@@ -19,6 +19,7 @@ import { CustomerAccounting } from '../Accounting/AccountingPanels';
 import CustomerWallet, { CustomerPoints } from './CustomerWallet';
 import LoyaltyTab from './LoyaltyTab';
 import { money, pointsText } from '../Loyalty/format';
+import { LevelBadge, useTiers } from '../Loyalty/levels';
 import '../Loyalty/loyalty.scss';
 import { useStaffAccess } from '../../utils/useStaffAccess';
 
@@ -42,7 +43,9 @@ const UserDetails = (props: Props) => {
   // configured yet keep what their role gave them: deposit and withdrawal for every staff member,
   // exchange for admins and accountants.
   const staff = useStaffAccess();
-  const canLoyalty = isAdminRole || staff.can('loyalty');
+  // The Points tab: «تبويب Points في ملف العميل», or either operation on the customer's points (the
+  // Loyalty page's own permission does not open it)
+  const canLoyalty = isAdminRole || staff.can('loyalty_customer', 'loyalty_adjust', 'loyalty_level');
   const canTransact = staff.configured ? staff.can('wallet_transactions') : true;
   const canExchangeWallet = staff.configured ? staff.can('wallet_exchange') : isAdminOrAccountant;
   const canReviewPassports = useSelector((state: any) => (state.session.account.roles.isAdmin || state.session.account.roles?.isAccountant));
@@ -62,6 +65,9 @@ const UserDetails = (props: Props) => {
   // The customer's points, for the header chip and the wallet box (null when unknown or not allowed)
   const [points, setPoints] = useState<CustomerPoints | null>(null);
   const [pointsVersion, setPointsVersion] = useState(0);
+  // The customer's loyalty level: every staff member sees it (priority and perks at the counter)
+  const [level, setLevel] = useState<string | null>(null);
+  const tiers = useTiers();
   const [statementCurrency, setStatementCurrency] = useState('USD');
 
   useEffect(() => {
@@ -85,6 +91,15 @@ const UserDetails = (props: Props) => {
       .catch(() => { if (!stale) setPoints(null); });
     return () => { stale = true; };
   }, [id, canLoyalty, pointsVersion]);
+
+  useEffect(() => {
+    if (!id) return;
+    let stale = false;
+    api.get(`user/${id}/loyalty/level`)
+      .then((res: any) => { if (!stale) setLevel(res.data?.level || null); })
+      .catch(() => { if (!stale) setLevel(null); });
+    return () => { stale = true; };
+  }, [id, pointsVersion]);
 
   useEffect(() => {
     fetchUserStatement();
@@ -165,6 +180,11 @@ const UserDetails = (props: Props) => {
   return (
     <div className="m-2 row">
       {/* On the profile tab the wallet box shows the points, so the chip is only for the other tabs */}
+      {level && tiers.length > 0 && (
+        <div className="mb-2 lp" dir="rtl">
+          <span className="lp-level-line">مستوى العميل: <LevelBadge level={level} tiers={tiers} perks /></span>
+        </div>
+      )}
       {points && activeTap !== 'profile' && (
         <div className="mb-2">
           <button type="button" className="lp lp-header-chip lp-press lp-fade-in" dir="rtl" onClick={openPoints} title="فتح تبويب النقاط">
@@ -187,7 +207,7 @@ const UserDetails = (props: Props) => {
         <Tab label="Special Prices" value="specialPrices" />
         <Tab label="Settings" value="settings" />
         {canReviewPassports && <Tab label="Accounting" value="accounting" />}
-        {canLoyalty && <Tab label="النقاط" value="points" />}
+        {canLoyalty && <Tab label="Points" value="points" />}
       </Tabs>
 
       {activeTap === 'profile' ? (
