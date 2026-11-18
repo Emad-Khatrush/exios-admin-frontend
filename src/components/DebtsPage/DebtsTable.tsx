@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux';
-import { getTabsOfDebts, formatAmount } from './wrapper-util';
+import { canManageAllDebts, getTabsOfDebts, formatAmount } from './wrapper-util';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 import { Account, Debt } from '../../models';
 import DebtDetails from './DebtDetails';
 import api, { base } from '../../api';
@@ -22,6 +23,7 @@ const DebtsTable = (props: Props) => {
   // Offices are data (spec C4)
   const OFFICES = useOffices().filter((o) => ['tripoli', 'benghazi'].includes(o.code)).map((o) => ({ value: o.code, label: o.name }));
   const account: Account = useSelector((state: any) => state.session?.account)
+  const access = useStaffAccess();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<boolean>(false);
@@ -165,7 +167,7 @@ const DebtsTable = (props: Props) => {
     XLSX.writeFile(workbook, `Debts List.xlsx`);
   }
 
-  const debtTabs = getTabsOfDebts(countList, (account.roles.isAdmin || !!account.roles?.isAccountant))
+  const debtTabs = getTabsOfDebts(countList, canManageAllDebts(account.roles, access))
   const { totalLyd, totalUsd } = calculateTotalDebt(debts as any, currentOffice);
   const isSearching = !!searchValue.trim();
   const refreshInPlace = () => (isSearching ? searchForDebt(searchValue.trim(), true) : fetchBalanceOfUsers(undefined, undefined, true));

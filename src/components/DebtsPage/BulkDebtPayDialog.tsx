@@ -6,7 +6,7 @@ import api from '../../api';
 import { calculateTotalWallet } from '../../utils/methods';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { Debt } from '../../models';
-import { formatAmount } from './wrapper-util';
+import { DinarRateLimits, formatAmount } from './wrapper-util';
 import './Debts.scss';
 
 type Props = { setDialog: (state: any) => void; item: Debt[]; onSaved?: (message: string) => void; onBusyChange?: (busy: boolean) => void };
@@ -30,6 +30,21 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
   const [done, setDone] = useState<Record<string, { amount: number; currency: Currency }>>({});
   const lock = useRef(false);
   const changeAmount = (id: string, value: string) => setAmounts(prev => ({ ...prev, [id]: value }));
+  // The accountant's dinar rate for today fills the rate in; it can be raised, or lowered down to
+  // the lowest allowed (the API refuses lower), like an order's wallet payment
+  const [limits, setLimits] = useState<DinarRateLimits | null>(null);
+  useEffect(() => {
+    let active = true;
+    api.get('payment-rate', { date: moment().format('YYYY-MM-DD') })
+      .then((res: any) => {
+        if (!active) return;
+        const found = res.data?.limits || null;
+        setLimits(found);
+        if (found?.rate) setRate((typed) => (typed === '' ? String(found.rate) : typed));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     let active = true; setWalletLoading(true); setWalletError(false);
     api.get(`wallet/${owner?._id}`).then(res => { if (active) { if (!Array.isArray(res.data?.results)) throw new Error('Invalid wallet'); setWallet(res.data.results); } })
@@ -56,6 +71,7 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
   if (!owner?._id || open.some(d => d.owner?._id !== owner._id)) problems.push('يجب أن تكون الديون المختارة لعميل واحد.');
   if (!plan.length) problems.push('اختر دينًا واحدًا على الأقل لم يُسدَّد بعد.');
   if (needsRate && (!Number.isFinite(Number(rate)) || Number(rate) <= 0)) problems.push('أدخل سعر صرف صحيحًا أكبر من صفر.');
+  else if (needsRate && limits && Number(rate) < limits.minimum - 1e-9) problems.push(`سعر الصرف أقل من المسموح. سعر المحاسب ${limits.rate}، وأقل سعر مسموح ${limits.minimum}.`);
   if (plan.some(r => !Number.isFinite(r.amount) || r.amount <= 0 || Math.abs(r.amount - round2(r.amount)) > .000001)) problems.push('أدخل مبلغًا أكبر من صفر، وبحد أقصى منزلتين عشريتين لكل دين.');
   if (plan.some(r => Number.isFinite(r.settled) && r.settled <= 0)) problems.push('أحد المبالغ صغير جدًا بعد التحويل؛ عدّله قبل السداد.');
   if (plan.some(r => Number.isFinite(r.settled) && r.settled > Number(r.debt.amount) + .000001)) problems.push('أحد المبالغ يتجاوز الرصيد المتبقي للدين.');
@@ -93,7 +109,7 @@ export default function BulkDebtPayDialog({ item, setDialog, onSaved, onBusyChan
       <fieldset className="bdp-settings" disabled={saving || Object.keys(done).length > 0}>
         <legend>طريقة السداد</legend>
         <div className="bdp-currencies" role="group" aria-label="عملة سداد الديون الدولارية"><button type="button" aria-pressed={currency === 'USD'} onClick={() => { setCurrency('USD'); setAmounts({}); }}>بالدولار <bdi>USD</bdi></button><button type="button" aria-pressed={currency === 'LYD'} onClick={() => { setCurrency('LYD'); setAmounts({}); }}>بالدينار <bdi>LYD</bdi></button></div>
-        {currency === 'LYD' && open.some(d => d.currency === 'USD') && <label className="bdp-rate">سعر الصرف<input type="number" inputMode="decimal" step="any" min="0" value={rate} onChange={e => { setRate(e.target.value); setAmounts({}); }} placeholder="مثال: 7.5" /><small>عدد الدنانير مقابل دولار واحد · <bdi dir="ltr">1 USD = {rate || '…'} LYD</bdi></small></label>}
+        {currency === 'LYD' && open.some(d => d.currency === 'USD') && <label className="bdp-rate">سعر الصرف<input type="number" inputMode="decimal" step="any" min="0" value={rate} onChange={e => { setRate(e.target.value); setAmounts({}); }} placeholder="مثال: 7.5" /><small>عدد الدنانير مقابل دولار واحد · <bdi dir="ltr">1 USD = {rate || '…'} LYD</bdi>{limits && <> · سعر المحاسب <bdi dir="ltr">{limits.rate}</bdi>، الأدنى <bdi dir="ltr">{limits.minimum}</bdi></>}</small></label>}
         {open.some(d => d.currency === 'LYD') && <p className="bdp-note">الديون الأصلية بالدينار تُسدَّد من محفظة الدينار. اختيار العملة أعلاه يخص الديون الدولارية.</p>}
       </fieldset>
       <div className="bdp-list-head"><h3>الديون المفتوحة <span>{open.length}</span></h3><button type="button" disabled={saving} onClick={() => setChosen(chosen.length === open.length ? [] : open.map(d => d._id))}>{chosen.length === open.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}</button></div>

@@ -9,7 +9,8 @@ import FileViewer from '../FileViewer/FileViewer';
 import { useSelector } from 'react-redux';
 import api from '../../api';
 import { convertGoogleStorageUrl } from '../../utils/methods';
-import { DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, debtPaidAmount, formatAmount } from './wrapper-util';
+import { canManageAllDebts, DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, debtPaidAmount, formatAmount } from './wrapper-util';
+import { useStaffAccess } from '../../utils/useStaffAccess';
 import { Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, HandCoins, Lock, ShieldCheck, Trash2 } from 'lucide-react';
 
 type Props = {
@@ -42,6 +43,8 @@ const DebtHistory = (props: Props) => {
   const roles = useSelector((state: any) => state.session.account.roles);
   const isAdmin = !!roles?.isAdmin;
   const allowViewHiddenFields = isAdmin || !!roles?.isAccountant;
+  // Closing a debt manually goes with the «الديون» permission, as the API allows
+  const canManageDebts = canManageAllDebts(roles, useStaffAccess());
 
   const handleChange = (event: any) => setForm({ ...form, [event.target.name]: event.target.value })
 
@@ -80,7 +83,7 @@ const DebtHistory = (props: Props) => {
 
   const isOpen = debt.status === 'open';
   const isOwed = isOpen || debt.status === 'overdue';
-  const canCloseManually = allowViewHiddenFields && isOwed && !debt.deliveryInvoiceId;
+  const canCloseManually = canManageDebts && isOwed && !debt.deliveryInvoiceId;
   const closure = debt.manualClosure;
   const closedBy = closure?.closedBy && typeof closure.closedBy === 'object'
     ? `${closure.closedBy.firstName || ''} ${closure.closedBy.lastName || ''}`.trim()
