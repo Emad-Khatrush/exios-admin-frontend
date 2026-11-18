@@ -27,7 +27,7 @@ export default function CustomerDebtsDialog(props: Props) {
     try { await props.onPaymentSaved(); } finally { setRefreshing(false); }
   };
   return <Dialog open={props.open} onClose={selected || bulk || refreshing || paymentBusy ? undefined : props.onClose} disableEscapeKeyDown={!!selected || bulk || refreshing || paymentBusy}
-    fullWidth maxWidth="md" fullScreen={mobile} className="cw-dialog" aria-labelledby={selected ? undefined : 'cw-debts-title'} PaperProps={{ dir: selected ? 'ltr' : 'rtl' }}>
+    fullWidth maxWidth="md" fullScreen={mobile} className="cw-dialog" aria-labelledby={selected ? undefined : 'cw-debts-title'} PaperProps={{ dir: 'rtl' }}>
     {bulk ? <BulkDebtPayDialog item={payableDebts.map(debt => ({ ...debt, owner: props.user }))}
       setDialog={() => { if (!paymentBusy) setBulk(false); }} onBusyChange={setPaymentBusy} onSaved={() => { void paid(); }} />
       : selected ? <CreateDebtHistoryDialog key={selected._id} item={{ ...selected, owner: props.user }} setDialog={() => setSelected(null)} onSaved={() => { void paid(); }} /> : <>
