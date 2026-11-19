@@ -23,6 +23,8 @@ export type Feedback = {
   lastMessageAt?: string;
   orderRef?: string;
   order?: { _id: string; orderId?: string } | null;
+  // Every order a complaint is about (order is the first)
+  orders?: { _id: string; orderId?: string }[];
   status: Status;
   priority: Priority;
   resolvedAt?: string | null;
@@ -275,9 +277,12 @@ function Detail({ item, onSaved, onDeleted }: { item: Feedback; onSaved: (f: Fee
       <dl className="fb-detail__customer">
         <div><dt>العميل</dt><dd><bdi>{nameOf(item.user)}</bdi>{item.user?.customerId && <bdi className="fb-code">{item.user.customerId}</bdi>}</dd></div>
         {item.user?.phone && <div><dt>الهاتف</dt><dd><bdi dir="ltr">{item.user.phone}</bdi>{wa && <a href={wa} target="_blank" rel="noopener noreferrer">واتساب<ArrowUpLeft size={13} /></a>}</dd></div>}
-        {(item.order || item.orderRef) && <div><dt>الطلبية</dt><dd>{item.order?._id
-          ? <a href={`/invoice/${item.order._id}/edit`} target="_blank" rel="noopener noreferrer"><bdi>{item.order.orderId || item.orderRef}</bdi><ArrowUpLeft size={13} /></a>
-          : <><bdi dir="ltr">{item.orderRef}</bdi><span className="fb-muted">غير موجودة في طلبيات العميل</span></>}</dd></div>}
+        {(item.order || item.orderRef) && <div><dt>{(item.orders?.length || 0) > 1 ? `الطلبيات (${item.orders!.length})` : 'الطلبية'}</dt><dd>{
+          (item.orders?.length ? item.orders : item.order?._id ? [item.order] : []).length
+            ? (item.orders?.length ? item.orders : [item.order!]).map((o) => (
+              <a key={o._id} href={`/invoice/${o._id}/edit`} target="_blank" rel="noopener noreferrer" style={{ marginInlineEnd: 12, display: "inline-flex" }}><bdi>{o.orderId || item.orderRef}</bdi><ArrowUpLeft size={13} /></a>
+            ))
+            : <><bdi dir="ltr">{item.orderRef}</bdi><span className="fb-muted">غير موجودة في طلبيات العميل</span></>}</dd></div>}
       </dl>
 
       {item.kind === 'suggestion' ? (
