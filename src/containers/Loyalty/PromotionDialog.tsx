@@ -9,6 +9,7 @@ import { useDialogMotion } from './LoyaltyRtl';
 export type Promotion = {
   _id: string, name: string, multiplierPct: number, startsAt: string, endsAt: string,
   kinds: Kind[], methods: ('air' | 'sea')[], countries: string[], notify: boolean, notifiedAt?: string, endedEarlyAt?: string,
+  announceAt?: string, announcedAt?: string,
   state: 'upcoming' | 'active' | 'ended', orders: number, bonusPoints: number,
 };
 type Kind = 'shipping' | 'purchase' | 'remittance';
@@ -21,6 +22,7 @@ const QUICK = [150, 200, 300];
 // Libya time whatever the computer's own timezone, so a running offer's days go back unchanged.
 const TZ = 'Africa/Tripoli';
 export const fromDayOf = (p: Pick<Promotion, 'startsAt'>) => moment.tz(p.startsAt, TZ).format('YYYY-MM-DD');
+export const announceDayOf = (p: Pick<Promotion, 'announceAt'>) => (p.announceAt ? moment.tz(p.announceAt, TZ).format('YYYY-MM-DD') : '');
 export const toDayOf = (p: Pick<Promotion, 'endsAt'>) => moment.tz(new Date(p.endsAt).getTime() - 1, TZ).format('YYYY-MM-DD');
 
 // What it covers, in the words the customers' notification uses
@@ -47,6 +49,7 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
   const [times, setTimes] = useState('2');
   const [fromDay, setFromDay] = useState('');
   const [toDay, setToDay] = useState('');
+  const [announceDay, setAnnounceDay] = useState('');
   const [kinds, setKinds] = useState<Kind[]>(['shipping']);
   const [method, setMethod] = useState<'' | 'air' | 'sea'>('');
   const [countries, setCountries] = useState<string[]>([]);
@@ -61,6 +64,7 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
     setTimes(String((promotion?.multiplierPct || 200) / 100));
     setFromDay(promotion ? fromDayOf(promotion) : moment.tz(TZ).format('YYYY-MM-DD'));
     setToDay(promotion ? toDayOf(promotion) : moment.tz(TZ).add(6, 'days').format('YYYY-MM-DD'));
+    setAnnounceDay(promotion ? announceDayOf(promotion) : '');
     setKinds(promotion?.kinds || ['shipping']);
     setMethod(promotion?.methods?.length === 1 ? promotion.methods[0] : '');
     setCountries(promotion?.countries || []);
@@ -73,7 +77,7 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
   const save = async () => {
     setBusy(true);
     setError('');
-    const body = { name, multiplierPct, fromDay, toDay, kinds, methods: method ? [method] : [], countries, notify };
+    const body = { name, multiplierPct, fromDay, toDay, announceDay, kinds, methods: method ? [method] : [], countries, notify };
     try {
       if (promotion) await api.update(`loyalty/promotions/${promotion._id}`, body);
       else await api.post('loyalty/promotions', body);
@@ -110,6 +114,13 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
           <p className="lp-muted">تدخل في العرض كل طلبية تُنشأ في هذه الأيام (بتوقيت ليبيا)، حتى لو دُفعت واستُلمت بعده.</p>
 
           <div className="lpr-field">
+            <TextField type="date" label="تاريخ الإعلان (اختياري)" value={announceDay} onChange={(e) => setAnnounceDay(e.target.value)} disabled={running}
+              InputLabelProps={{ shrink: true }} inputProps={{ max: fromDay || undefined }} fullWidth
+              helperText={announceDay ? 'من هذا اليوم يرى العملاء العرض قادماً مع عدّ تنازلي حتى بدايته، ويصلهم إشعار «قريباً».' : 'بدونه يظهر العرض للعملاء يوم بدايته فقط.'} />
+            {announceDay && <button type="button" className="lpr-chip" disabled={running} onClick={() => setAnnounceDay('')}>بدون إعلان مسبق</button>}
+          </div>
+
+          <div className="lpr-field">
             <span className="lpr-label">على</span>
             <div className="lpr-chips">
               {(Object.keys(KIND_LABELS) as Kind[]).map((k) => (
@@ -141,7 +152,7 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
           )}
 
           <FormControlLabel control={<Switch checked={notify} onChange={(e) => setNotify(e.target.checked)} />}
-            label={promotion?.notifiedAt ? 'أُبلغ العملاء بهذا العرض' : 'أبلغ العملاء بإشعار عند بداية العرض'} disabled={!!promotion?.notifiedAt} />
+            label={promotion?.notifiedAt ? 'أُبلغ العملاء بهذا العرض' : announceDay ? 'أبلغ العملاء بإشعار يوم الإعلان ويوم البداية' : 'أبلغ العملاء بإشعار عند بداية العرض'} disabled={!!promotion?.notifiedAt} />
 
           {kinds.length > 0 && name.trim() && (
             <div className="lpr-preview">

@@ -5,7 +5,7 @@ import api from '../../api';
 import { requestError } from './PaymentPoints';
 import { fullDate, pointsText } from './format';
 import { LoyaltyRtl, Num, stagger, useDialogMotion } from './LoyaltyRtl';
-import PromotionDialog, { Promotion, coverText, toDayOf } from './PromotionDialog';
+import PromotionDialog, { Promotion, announceDayOf, coverText, toDayOf } from './PromotionDialog';
 import './loyalty.scss';
 
 const GROUPS: { state: Promotion['state'], title: string, empty: string }[] = [
@@ -59,6 +59,9 @@ const LoyaltyPromotions = () => {
       <p className="lpr-dates">
         من <Num>{fullDate(p.startsAt)}</Num> إلى <Num>{fullDate(toDayOf(p))}</Num>
         {p.endedEarlyAt && <span className="lpr-tag">أُنهي مبكراً</span>}
+        {p.announceAt && p.state === 'upcoming' && (
+          <span className={`lpr-tag${p.announcedAt ? ' is-ok' : ''}`}>{p.announcedAt ? 'معلَن للعملاء' : <>يُعلن عنه <Num>{fullDate(announceDayOf(p))}</Num></>}</span>
+        )}
         {p.notifiedAt ? <span className="lpr-tag is-ok">أُبلغ العملاء</span> : p.notify && <span className="lpr-tag">يُبلَّغ العملاء عند بدايته</span>}
       </p>
       {p.state !== 'upcoming' && (
