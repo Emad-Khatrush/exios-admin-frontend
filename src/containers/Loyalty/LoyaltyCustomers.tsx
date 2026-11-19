@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, IconButton, InputAdornment, Skeleton, TablePagination, TextField, useMediaQuery } from '@mui/material';
 import {
-  MdAdd, MdChevronLeft, MdClose, MdErrorOutline, MdHourglassBottom, MdRemove, MdSearch, MdShoppingBag, MdToll, MdUndo,
+  MdAdd, MdChevronLeft, MdClose, MdErrorOutline, MdHourglassBottom, MdLayers, MdLocalFireDepartment, MdRemove, MdSearch, MdShoppingBag, MdToll, MdUndo,
 } from 'react-icons/md';
 import api from '../../api';
 import { requestError } from './PaymentPoints';
@@ -254,8 +254,10 @@ const LoyaltyCustomers = () => {
         <header className="lp-head" style={stagger(0)}>
           <h1>نقاط الولاء</h1>
           <p>النقاط التي يملكها العملاء، وقيمتها، وما سينتهي قريباً.</p>
-          <Link to="/loyalty/levels" className="lp-head__link">المستويات وتقريرها</Link>
-          <Link to="/loyalty/promotions" className="lp-head__link">عروض النقاط</Link>
+          <nav className="lp-head__nav" aria-label="صفحات الولاء">
+            <Link to="/loyalty/levels" className="lp-head__link"><MdLayers aria-hidden /> المستويات وتقريرها</Link>
+            <Link to="/loyalty/promotions" className="lp-head__link is-offer"><MdLocalFireDepartment aria-hidden /> عروض النقاط</Link>
+          </nav>
         </header>
 
         <section className="lp-summary lp-enter__card" aria-label="الملخص" style={stagger(1)}>

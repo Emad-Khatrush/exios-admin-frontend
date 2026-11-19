@@ -84,8 +84,10 @@ const LoyaltyPromotions = () => {
         <header className="lp-head" style={stagger(0)}>
           <h1>عروض النقاط</h1>
           <p>مضاعفة النقاط لطلبيات تُنشأ في أيام محددة، مثل الجمعة البيضاء. يأخذ العميل الأعلى بين عضويته والعرض.</p>
-          <Link to="/loyalty" className="lp-head__link">العودة إلى النقاط</Link>
-          <Button variant="contained" onClick={() => setEditing(null)} sx={{ mt: 1 }}>عرض جديد</Button>
+          <nav className="lp-head__nav">
+            <Link to="/loyalty" className="lp-head__link">→ العودة إلى النقاط</Link>
+            <Button variant="contained" color="warning" onClick={() => setEditing(null)} sx={{ borderRadius: '12px', fontWeight: 700 }}>+ عرض جديد</Button>
+          </nav>
         </header>
 
         {error && <Alert severity="error" action={<Button size="small" onClick={load}>إعادة</Button>}>{error}</Alert>}

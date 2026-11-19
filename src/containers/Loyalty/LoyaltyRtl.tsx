@@ -17,7 +17,10 @@ const rtlCache = createCache({ key: 'lp-rtl', stylisPlugins: [prefixer, rtlPlugi
 // theme and leaves every MUI component without palette or typography (the page crashed).
 export const LoyaltyRtl = ({ children }: { children: ReactNode }) => {
   const outer = useTheme();
-  const theme = useMemo(() => createTheme(outer, { direction: 'rtl' }), [outer]);
+  const theme = useMemo(() => createTheme(outer, {
+    direction: 'rtl',
+    typography: { fontFamily: "'Readex Pro', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif", fontSize: 15 },
+  }), [outer]);
   return (
     <CacheProvider value={rtlCache}>
       <ThemeProvider theme={theme}>{children}</ThemeProvider>

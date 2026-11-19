@@ -47,7 +47,7 @@ const LoyaltyLevels = () => {
         <header className="lp-head" style={stagger(0)}>
           <h1>مستويات الولاء</h1>
           <p>كم عميلاً في كل مستوى، ومن يستحق اتصالاً هذا الشهر.</p>
-          <Link to="/loyalty" className="lp-head__link">العودة إلى النقاط</Link>
+          <nav className="lp-head__nav"><Link to="/loyalty" className="lp-head__link">→ العودة إلى النقاط</Link></nav>
         </header>
 
         {error && <Alert severity="error" action={<Button size="small" onClick={load}>إعادة</Button>}>{error}</Alert>}
