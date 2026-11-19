@@ -8,7 +8,7 @@ import { BsCheck2 } from 'react-icons/bs';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { packageCharge } from './orderConstants';
-import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
+import PaymentPoints, { pointsOf, remainingAfter, roomFor, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 type Currency = 'USD' | 'LYD';
 
@@ -46,10 +46,6 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const packageIds = packages.map((row: any) => row._id).filter(Boolean).join(',');
   const points = usePointsQuote(open && canUsePoints && order?._id ? `order/${order._id}/loyalty` : null, { category, ...(packageIds ? { packageIds } : {}) });
   const [pointsInput, setPointsInput] = useState('');
-  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote);
-  // What the money pays: what is due less the points. Every money figure below works from it (the
-  // amount filled in, the rate of a full dinar payment, what is due after the payment).
-  const due = remainingAfter(dueUsd, pointsUsd);
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
   // Until the amount is typed, it follows what is due (it changes with the points)
@@ -62,6 +58,20 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Points only cover what the money typed leaves unpaid, never an overpayment (owner's rule
+  // 2026-11-19). Money that follows the points (not typed, or dinars closing all at a worked-out
+  // rate) leaves them free: it is what the points leave.
+  const typedUsd = !amountTouched ? null
+    : currency === 'USD' ? Number(amount) || 0
+      : mode === 'partial' ? ((rate !== '' ? Number(rate) : limits?.rate ?? 0) > 0 ? (Number(amount) || 0) / (rate !== '' ? Number(rate) : (limits?.rate ?? 0)) : null)
+        : null;
+  const owedUsd = points.quote ? Math.min(dueUsd, points.quote.owedCents / 100) : dueUsd;
+  const pointsRoom = typedUsd === null || !(typedUsd > 0) ? undefined : roomFor(owedUsd, typedUsd);
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote, pointsRoom);
+  // What the money pays: what is due less the points. Every money figure below works from it (the
+  // amount filled in, the rate of a full dinar payment, what is due after the payment).
+  const due = remainingAfter(dueUsd, pointsUsd);
 
   // Each time it opens: the wallet that has money, and the amount still due
   useEffect(() => {
@@ -210,7 +220,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
         {canUsePoints && (
           <PaymentPoints
             quote={points.quote} balance={points.balance} loading={points.loading} failed={points.failed}
-            value={pointsInput} onChange={setPointsInput} totalUsd={dueUsd} disabled={isSaving}
+            value={pointsInput} onChange={setPointsInput} totalUsd={dueUsd} disabled={isSaving} room={pointsRoom}
           />
         )}
 

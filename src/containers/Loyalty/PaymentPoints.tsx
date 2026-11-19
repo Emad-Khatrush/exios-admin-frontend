@@ -62,9 +62,17 @@ export const holdPoints = (text: string, max: number) => {
   return String(Math.min(next, Math.max(max, 0)));
 };
 
+// The most points this payment may use: the quote's maximum, and never more than what the money
+// typed leaves unpaid (owner's rule 2026-11-19: points cover the rest, never an overpayment).
+// `room`: the points the money leaves room for; undefined when the money follows the points.
+export const pointsMax = (quote: PointsQuote | null, room?: number) => Math.max(Math.min(quote?.maxPoints ?? 0, room ?? Infinity), 0);
+
+// The points the money typed leaves room for: what is owed less the money, in cents
+export const roomFor = (owedUsd: number, moneyUsd: number) => Math.max(0, Math.floor(Math.round(owedUsd * 100) - Math.round(moneyUsd * 100)));
+
 // The points that go with the payment and what they take off, given the quote (0 while it loads)
-export const pointsOf = (value: string, quote: PointsQuote | null) => {
-  const max = Math.max(quote?.maxPoints ?? 0, 0);
+export const pointsOf = (value: string, quote: PointsQuote | null, room?: number) => {
+  const max = pointsMax(quote, room);
   const points = quote ? Math.min(Math.max(Math.floor(Number(value) || 0), 0), max) : 0;
   return { points, usd: points / 100 };
 };
@@ -82,15 +90,22 @@ type Props = {
   // The form's total before points (dollars, fees included)
   totalUsd: number
   disabled?: boolean
+  // The points the money typed leaves room for (see pointsMax)
+  room?: number
 }
 
 // The compact "النقاط" row of a payment form: the customer's points and the most this payment may
 // use, the points typed, and the form's totals as a receipt (total, points, what is left to pay)
-const PaymentPoints = ({ quote, balance, loading, failed, value, onChange, totalUsd, disabled }: Props) => {
+const PaymentPoints = ({ quote, balance, loading, failed, value, onChange, totalUsd, disabled, room }: Props) => {
+  const max = pointsMax(quote, room);
+  // Money typed after the points: the points typed come down to what is left unpaid
+  useEffect(() => {
+    if (quote && value !== '' && Number(value) > max) onChange(max > 0 ? String(max) : '');
+  }, [quote, value, max, onChange]);
   // No points, or the customer's points switched off: the form shows no points row
   if ((!(balance > 0) && !failed) || quote?.off) return null;
-  const max = Math.max(quote?.maxPoints ?? 0, 0);
-  const { usd: discount } = pointsOf(value, quote);
+  const { usd: discount } = pointsOf(value, quote, room);
+  const moneyCovers = !!quote && quote.maxPoints > 0 && max <= 0;
   const remaining = remainingAfter(totalUsd, discount);
   const feesLeft = !!quote && quote.owedCents / 100 < totalUsd - 0.005;
   const change = (text: string) => {
@@ -123,7 +138,9 @@ const PaymentPoints = ({ quote, balance, loading, failed, value, onChange, total
             <Button size="small" type="button" onClick={() => onChange('')} disabled={disabled || !value}>مسح</Button>
           </div>
         )}
-        {quote && max <= 0 && !loading && <p className="lp-pay-points__note">لا يمكن استعمال نقاط في هذه الدفعة (الحد الأقصى 20%، وما دُفع بالنقاط منها يُحسب).</p>}
+        {moneyCovers && !loading && <p className="lp-pay-points__note">المبلغ المكتوب يغطي كامل المستحق، فلا تُستعمل معه نقاط. النقاط لتغطية المتبقي فقط: قلّل المبلغ لتستعملها.</p>}
+        {quote && max > 0 && room !== undefined && room < quote.maxPoints && !loading && <p className="lp-pay-points__note">النقاط لتغطية المتبقي بعد المبلغ المكتوب فقط: حتى <Num>{pointsText(max)}</Num> نقطة.</p>}
+        {quote && max <= 0 && !moneyCovers && !loading && <p className="lp-pay-points__note">لا يمكن استعمال نقاط في هذه الدفعة (الحد الأقصى 20%، وما دُفع بالنقاط منها يُحسب).</p>}
         {feesLeft && max > 0 && <p className="lp-pay-points__note">النقاط لا تدفع رسوم النقل الداخلي أو التخليص.</p>}
 
         <dl className="lp-receipt lp-pay-points__receipt">

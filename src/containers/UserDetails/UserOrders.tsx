@@ -28,7 +28,7 @@ import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
 import { useStaffAccess } from '../../utils/useStaffAccess';
-import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
+import PaymentPoints, { pointsOf, remainingAfter, roomFor, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -305,7 +305,11 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const pointsQuote = usePointsQuote(openDialog && canUsePoints && selectedIds ? `user/${customerId}/loyalty/delivery-quote` : null, { packageIds: selectedIds });
   const [pointsInput, setPointsInput] = useState('');
   useEffect(() => { setPointsInput(''); }, [selectedIds]);
-  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, pointsQuote.quote);
+  // Points only cover what the dollars typed leave unpaid, never an overpayment (owner's rule
+  // 2026-11-19). Dinars pay the rest at a worked-out rate, so they leave the points free.
+  const typedUsd = toNumber(payment.amountUSD);
+  const pointsRoom = typedUsd > 0 ? roomFor(pointsQuote.quote ? Math.min(totals.totalFees, pointsQuote.quote.owedCents / 100) : totals.totalFees, typedUsd) : undefined;
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, pointsQuote.quote, pointsRoom);
   // What the money pays: the total less the points. The amounts, the rate and the checks use it.
   const dueTotal = remainingAfter(totals.totalFees, pointsUsd);
 
@@ -753,7 +757,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
           {canUsePoints && (
             <PaymentPoints
               quote={pointsQuote.quote} balance={pointsQuote.balance} loading={pointsQuote.loading} failed={pointsQuote.failed}
-              value={pointsInput} onChange={setPointsInput} totalUsd={totals.totalFees} disabled={isPending}
+              value={pointsInput} onChange={setPointsInput} totalUsd={totals.totalFees} disabled={isPending} room={pointsRoom}
             />
           )}
 
