@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Switch, TextField } from '@mui/material';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import api from '../../api';
 import { requestError } from './PaymentPoints';
 import { useDialogMotion } from './LoyaltyRtl';
@@ -17,9 +17,11 @@ export const KIND_LABELS: Record<Kind, string> = { shipping: 'الشحن', purch
 export const COUNTRY_LABELS: Record<string, string> = { china: 'الصين', uae: 'الإمارات', turkey: 'تركيا', usa: 'أمريكا', uk: 'بريطانيا' };
 const QUICK = [150, 200, 300];
 
-// Libya days of an offer: the first day, and the last one (endsAt is the midnight after it)
-export const fromDayOf = (p: Pick<Promotion, 'startsAt'>) => moment(p.startsAt).format('YYYY-MM-DD');
-export const toDayOf = (p: Pick<Promotion, 'endsAt'>) => moment(new Date(p.endsAt).getTime() - 1).format('YYYY-MM-DD');
+// Libya days of an offer: the first day, and the last one (endsAt is the midnight after it). Read in
+// Libya time whatever the computer's own timezone, so a running offer's days go back unchanged.
+const TZ = 'Africa/Tripoli';
+export const fromDayOf = (p: Pick<Promotion, 'startsAt'>) => moment.tz(p.startsAt, TZ).format('YYYY-MM-DD');
+export const toDayOf = (p: Pick<Promotion, 'endsAt'>) => moment.tz(new Date(p.endsAt).getTime() - 1, TZ).format('YYYY-MM-DD');
 
 // What it covers, in the words the customers' notification uses
 export const coverText = (p: Pick<Promotion, 'kinds' | 'methods' | 'countries'>) => {
@@ -57,8 +59,8 @@ const PromotionDialog = ({ open, promotion, onClose, onSaved }: Props) => {
     setError('');
     setName(promotion?.name || '');
     setTimes(String((promotion?.multiplierPct || 200) / 100));
-    setFromDay(promotion ? fromDayOf(promotion) : moment().format('YYYY-MM-DD'));
-    setToDay(promotion ? toDayOf(promotion) : moment().add(6, 'days').format('YYYY-MM-DD'));
+    setFromDay(promotion ? fromDayOf(promotion) : moment.tz(TZ).format('YYYY-MM-DD'));
+    setToDay(promotion ? toDayOf(promotion) : moment.tz(TZ).add(6, 'days').format('YYYY-MM-DD'));
     setKinds(promotion?.kinds || ['shipping']);
     setMethod(promotion?.methods?.length === 1 ? promotion.methods[0] : '');
     setCountries(promotion?.countries || []);
