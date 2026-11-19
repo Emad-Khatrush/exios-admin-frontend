@@ -255,6 +255,7 @@ const LoyaltyCustomers = () => {
           <h1>نقاط الولاء</h1>
           <p>النقاط التي يملكها العملاء، وقيمتها، وما سينتهي قريباً.</p>
           <Link to="/loyalty/levels" className="lp-head__link">المستويات وتقريرها</Link>
+          <Link to="/loyalty/promotions" className="lp-head__link">عروض النقاط</Link>
         </header>
 
         <section className="lp-summary lp-enter__card" aria-label="الملخص" style={stagger(1)}>

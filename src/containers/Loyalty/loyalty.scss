@@ -935,3 +935,35 @@
 }
 @keyframes lv-sheen { 0% { transform: translateX(0) rotate(20deg); } 22%, 100% { transform: translateX(110px) rotate(20deg); } }
 @keyframes lv-twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* ---- Points offers (LoyaltyPromotions, PromotionDialog) ---- */
+.lpr-group { margin-top: 22px; animation: lp-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--lp-i, 0) * 65ms) both; }
+.lpr-group h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 1.05rem; font-weight: 800; }
+.lpr-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin: 0; padding: 0; list-style: none; }
+.lpr-card { display: grid; gap: 10px; padding: 16px; border: 1px solid #e4e7ec; border-radius: 16px; background: #fff; }
+.lpr-card.is-active { border-color: #f59e0b; box-shadow: 0 10px 24px -16px rgba(180, 83, 9, 0.6); background: linear-gradient(180deg, #fffbeb, #fff 60%); }
+.lpr-card.is-ended { opacity: 0.75; }
+.lpr-card__top { display: flex; align-items: center; gap: 12px; }
+.lpr-card__name { display: grid; gap: 2px; min-width: 0; }
+.lpr-card__name b { font-size: 1.05rem; }
+.lpr-times { display: grid; place-items: center; flex: none; min-width: 56px; height: 48px; padding: 0 8px; border-radius: 14px; background: linear-gradient(135deg, #fb923c, #dc2626); color: #fff; font-size: 1.25rem; font-weight: 900; }
+.lpr-card.is-ended .lpr-times { background: #9ca3af; }
+.lpr-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: #475467; font-size: 0.9rem; }
+.lpr-tag { padding: 1px 8px; border-radius: 999px; background: #f2f4f7; color: #475467; font-size: 0.78rem; font-weight: 700; }
+.lpr-tag.is-ok { background: #ecfdf3; color: #067647; }
+.lpr-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.lpr-stats div { padding: 8px 10px; border-radius: 10px; background: #f9fafb; }
+.lpr-stats dt { color: #667085; font-size: 0.78rem; }
+.lpr-stats dd { margin: 0; font-size: 1.1rem; font-weight: 800; }
+.lpr-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.lpr-form { display: grid; gap: 16px; }
+.lpr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lpr-field { display: grid; gap: 6px; }
+.lpr-label { color: #344054; font-size: 0.9rem; font-weight: 700; }
+.lpr-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lpr-chip { padding: 6px 14px; border: 1px solid #d0d5dd; border-radius: 999px; background: #fff; color: #344054; font: inherit; font-weight: 700; cursor: pointer; }
+.lpr-chip.is-on { border-color: #ea580c; background: #fff7ed; color: #c2410c; }
+.lpr-chip:disabled { opacity: 0.55; cursor: not-allowed; }
+.lpr-preview { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #fff7ed; color: #7c2d12; }
+@media (max-width: 600px) { .lpr-two { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .lpr-group { animation: none; } }
