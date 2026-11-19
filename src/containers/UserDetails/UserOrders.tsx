@@ -28,7 +28,7 @@ import FlightPdfButton from '../Inventory/FlightPdfButton';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { usePackageSettings } from '../../utils/usePackageSettings';
 import { useStaffAccess } from '../../utils/useStaffAccess';
-import PaymentPoints, { pointsOf, remainingAfter, roomFor, usePointsQuote } from '../Loyalty/PaymentPoints';
+import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 // Paying up to this many USD short of (or over) the total is accepted to absorb rounding.
 const PAYMENT_TOLERANCE_USD = 2;
@@ -305,11 +305,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const pointsQuote = usePointsQuote(openDialog && canUsePoints && selectedIds ? `user/${customerId}/loyalty/delivery-quote` : null, { packageIds: selectedIds });
   const [pointsInput, setPointsInput] = useState('');
   useEffect(() => { setPointsInput(''); }, [selectedIds]);
-  // Points only cover what the dollars typed leave unpaid, never an overpayment (owner's rule
-  // 2026-11-19). Dinars pay the rest at a worked-out rate, so they leave the points free.
-  const typedUsd = toNumber(payment.amountUSD);
-  const pointsRoom = typedUsd > 0 ? roomFor(pointsQuote.quote ? Math.min(totals.totalFees, pointsQuote.quote.owedCents / 100) : totals.totalFees, typedUsd) : undefined;
-  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, pointsQuote.quote, pointsRoom);
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, pointsQuote.quote);
   // What the money pays: the total less the points. The amounts, the rate and the checks use it.
   const dueTotal = remainingAfter(totals.totalFees, pointsUsd);
 
@@ -352,6 +348,30 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
   const updatePayment = (field: keyof PaymentInput) => (event: any) => {
     const value = event.target.value;
     setPayment(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Points typed (owner's rule 2026-11-19): the money comes down, or back up, so money and points
+  // together pay the total exactly, never more. A full payment stays full: dollars alone follow
+  // what is due; with dinars, the dollars stay and the dinars pay the rest at the same rate. A
+  // part payment is only held to what is due.
+  const changePoints = (next: string) => {
+    setPointsInput(next);
+    const nextDue = remainingAfter(totals.totalFees, pointsOf(next, pointsQuote.quote).usd);
+    const { amountUSD, amountLYD, rate, difference } = paymentSummary;
+    if (!amountUSD && !amountLYD) return;
+    const usd = (value: number) => (value > 0 ? String(round2(value)) : '');
+    if (allowPartial) {
+      if (amountUSD > nextDue) setPayment(prev => ({ ...prev, amountUSD: usd(nextDue) }));
+      return;
+    }
+    if (amountLYD > 0) {
+      const nextUsd = Math.min(amountUSD, nextDue);
+      const rest = round2(nextDue - nextUsd);
+      setPayment({ amountUSD: usd(nextUsd), amountLYD: rest > 0 && rate > 0 ? usd(rest * rate) : rest > 0 ? payment.amountLYD : '' });
+      return;
+    }
+    const wasFull = Math.abs(difference) <= PAYMENT_TOLERANCE_USD;
+    setPayment(prev => ({ ...prev, amountUSD: usd(wasFull ? Math.min(nextDue, walletUsd) : Math.min(amountUSD, nextDue)) }));
   };
 
   const payFullInUsd = () => {
@@ -757,7 +777,7 @@ const CustomerOrders = ({ customerId, balances, onDelivered }: any) => {
           {canUsePoints && (
             <PaymentPoints
               quote={pointsQuote.quote} balance={pointsQuote.balance} loading={pointsQuote.loading} failed={pointsQuote.failed}
-              value={pointsInput} onChange={setPointsInput} totalUsd={totals.totalFees} disabled={isPending} room={pointsRoom}
+              value={pointsInput} onChange={changePoints} totalUsd={totals.totalFees} disabled={isPending}
             />
           )}
 

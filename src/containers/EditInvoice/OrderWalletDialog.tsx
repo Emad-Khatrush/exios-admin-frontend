@@ -8,7 +8,7 @@ import { BsCheck2 } from 'react-icons/bs';
 import api from '../../api';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { packageCharge } from './orderConstants';
-import PaymentPoints, { pointsOf, remainingAfter, roomFor, usePointsQuote } from '../Loyalty/PaymentPoints';
+import PaymentPoints, { pointsOf, remainingAfter, usePointsQuote } from '../Loyalty/PaymentPoints';
 
 type Currency = 'USD' | 'LYD';
 
@@ -46,6 +46,10 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const packageIds = packages.map((row: any) => row._id).filter(Boolean).join(',');
   const points = usePointsQuote(open && canUsePoints && order?._id ? `order/${order._id}/loyalty` : null, { category, ...(packageIds ? { packageIds } : {}) });
   const [pointsInput, setPointsInput] = useState('');
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote);
+  // What the money pays: what is due less the points. Every money figure below works from it (the
+  // amount filled in, the rate of a full dinar payment, what is due after the payment).
+  const due = remainingAfter(dueUsd, pointsUsd);
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
   // Until the amount is typed, it follows what is due (it changes with the points)
@@ -58,20 +62,6 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
-  // Points only cover what the money typed leaves unpaid, never an overpayment (owner's rule
-  // 2026-11-19). Money that follows the points (not typed, or dinars closing all at a worked-out
-  // rate) leaves them free: it is what the points leave.
-  const typedUsd = !amountTouched ? null
-    : currency === 'USD' ? Number(amount) || 0
-      : mode === 'partial' ? ((rate !== '' ? Number(rate) : limits?.rate ?? 0) > 0 ? (Number(amount) || 0) / (rate !== '' ? Number(rate) : (limits?.rate ?? 0)) : null)
-        : null;
-  const owedUsd = points.quote ? Math.min(dueUsd, points.quote.owedCents / 100) : dueUsd;
-  const pointsRoom = typedUsd === null || !(typedUsd > 0) ? undefined : roomFor(owedUsd, typedUsd);
-  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote, pointsRoom);
-  // What the money pays: what is due less the points. Every money figure below works from it (the
-  // amount filled in, the rate of a full dinar payment, what is due after the payment).
-  const due = remainingAfter(dueUsd, pointsUsd);
 
   // Each time it opens: the wallet that has money, and the amount still due
   useEffect(() => {
@@ -156,6 +146,19 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
   const pointsReady = !pointsInput || !!points.quote;
   const canPay = pointsReady && !!date && !isSaving && (pointsOnly || (!problem && !rateProblem && value > 0));
 
+  // Points typed (owner's rule 2026-11-19): an amount that was typed comes down, or back up, so the
+  // money and the points together pay what is due exactly, never more (an amount not typed follows
+  // on its own). A full payment keeps its rate; a part payment is only held to what is due.
+  const changePoints = (next: string) => {
+    setPointsInput(next);
+    if (!amountTouched) return;
+    const nextDue = remainingAfter(dueUsd, pointsOf(next, points.quote).usd);
+    const toAmount = (usd: number) => { const v = round2(usd * rateValue); setAmount(v > 0 ? String(v) : ''); };
+    if (!(rateValue > 0)) return;
+    if (mode === 'full') toAmount(Math.min(nextDue, balance / rateValue));
+    else if (valueUsd !== null && valueUsd > nextDue) toAmount(nextDue);
+  };
+
   const chooseCurrency = (next: Currency) => {
     setCurrency(next);
     // Dinars start at what is due at the accountant's rate; the rate then follows the amount
@@ -220,7 +223,7 @@ const OrderWalletDialog = ({ open, category, order, wallet, packages, dueUsd, on
         {canUsePoints && (
           <PaymentPoints
             quote={points.quote} balance={points.balance} loading={points.loading} failed={points.failed}
-            value={pointsInput} onChange={setPointsInput} totalUsd={dueUsd} disabled={isSaving} room={pointsRoom}
+            value={pointsInput} onChange={changePoints} totalUsd={dueUsd} disabled={isSaving}
           />
         )}
 
