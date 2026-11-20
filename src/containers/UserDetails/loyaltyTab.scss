@@ -300,4 +300,5 @@
 .lpx-ref {
   &__line { margin: 0; font-size: 14px; line-height: 1.8; }
   &__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  &__amb { padding: 1px 9px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 800; }
 }
