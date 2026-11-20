@@ -295,3 +295,9 @@
   &:hover { color: #b42318; text-decoration: underline; }
 }
 .lpx-off-list { display: grid; gap: 6px; margin: 0; padding-inline-start: 18px; font-size: 13.5px; line-height: 1.7; color: var(--op-ink); }
+
+// ---- Invite a friend (ReferralPanel) ----
+.lpx-ref {
+  &__line { margin: 0; font-size: 14px; line-height: 1.8; }
+  &__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+}

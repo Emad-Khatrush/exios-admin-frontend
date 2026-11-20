@@ -9,6 +9,7 @@ import { LoyaltyRtl, Num, stagger } from '../Loyalty/LoyaltyRtl';
 import AdjustPointsDialog from './AdjustPointsDialog';
 import PointsOffDialog from './PointsOffDialog';
 import LevelPanel from './LevelPanel';
+import ReferralPanel from './ReferralPanel';
 import { useStaffAccess } from '../../utils/useStaffAccess';
 import '../Loyalty/loyalty.scss';
 import './loyaltyTab.scss';
@@ -303,6 +304,8 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
 
         {data.level && <LevelPanel userId={userId} level={data.level} canChange={canChangeLevel} onChanged={() => { load(type, 1); onChanged(); }} />}
         </div>
+
+        <ReferralPanel userId={userId} canEdit={canAdjust} onChanged={() => { load(type, 1); onChanged(); }} />
 
         {pending.length > 0 && <PendingSection pending={pending} index={1} />}
 
