@@ -19,6 +19,7 @@ type Info = {
   canSet: boolean
   canSetUntil: string | null
   invited: number
+  qualifyUsd?: number
   qualified: number
 }
 
@@ -62,8 +63,8 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
   };
 
   const status = info.canceledAt ? `أُلغيت ${fullDate(info.canceledAt)}${info.cancelReason ? ` · ${info.cancelReason}` : ''}`
-    : info.qualifiedAt ? `دفع 50$ في ${fullDate(info.qualifiedAt)} · حصة الداعي حتى ${fullDate(info.shareEndsAt as string)}`
-      : 'لم يدفع 50$ بعد';
+    : info.qualifiedAt ? `دفع ${info.qualifyUsd || 200}$ في ${fullDate(info.qualifiedAt)} · حصة الداعي حتى ${fullDate(info.shareEndsAt as string)}`
+      : `لم يصل إلى ${info.qualifyUsd || 200}$ بعد`;
 
   return (
     <section className="lpx-card lpx-ref">
@@ -96,7 +97,7 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
           {error && <Alert severity="error" dir="auto" sx={{ mb: 1.5 }}>{error}</Alert>}
           {dialog === 'set' ? (
             <>
-              <p className="lp-muted">يأخذ العميل هدية الانضمام فوراً، ويكسب الداعي مكافأته عندما يدفع العميل 50$، ثم حصته لمدة سنة.</p>
+              <p className="lp-muted">يأخذ العميل هدية الانضمام فوراً، ويكسب الداعي مكافأته عندما يصل مجموع ما يدفعه العميل {info.qualifyUsd || 200}$، ثم حصته لمدة سنة.</p>
               <TextField fullWidth autoFocus label="كود دعوة الداعي" value={value} disabled={saving} sx={{ mt: 2 }}
                 inputProps={{ dir: 'ltr', maxLength: 8 }} onChange={(e) => setValue(e.target.value.toUpperCase())} />
             </>
