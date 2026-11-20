@@ -20,7 +20,7 @@ type Info = {
   canSetUntil: string | null
   invited: number
   qualifyUsd?: number
-  // When this customer became «سفير Exios» (5 friends and $3,000): their share is 15 points per $50 since
+  // When this customer became «سفير Exios» (10 friends and $10,000): their share is 15 points per $50 since
   ambassadorAt?: string | null
   qualified: number
 }
