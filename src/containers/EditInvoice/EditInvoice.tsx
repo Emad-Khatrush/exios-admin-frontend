@@ -641,6 +641,7 @@ export class EditInvoice extends Component<Props, State> {
             redemptions={this.state.redemptions}
             pointsPaid={this.state.pointsPaid}
             onPointsChanged={() => { this.toast('success', 'أُلغيت النقاط ورجعت إلى رصيد العميل'); this.reloadMoney(); this.reloadOrder().catch(() => {}); }}
+            onWriteOffCanceled={() => { this.toast('success', 'أُلغي الشطب وعاد المبلغ مستحقاً على العميل'); this.reloadMoney(); this.reloadOrder().catch(() => {}); }}
             onAddDebt={() => this.setState({ debtDialog: true })}
             onDeletePayment={this.deletePayment}
             canSetRate={isAdmin || !!account?.roles.isAccountant}

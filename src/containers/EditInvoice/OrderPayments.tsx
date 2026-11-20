@@ -6,6 +6,7 @@ import Badge from '../../components/Badge/Badge';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { packageCharge, paidInUsd, totalDebts, totalPaid } from './orderConstants';
 import PointsRedemptions, { Redemption } from './PointsRedemptions';
+import { CancelDialog } from '../Accounting/shared';
 import '../Loyalty/loyalty.scss';
 
 type Category = 'invoice' | 'receivedGoods';
@@ -39,6 +40,8 @@ type Props = {
   // Points paid (active redemptions, net of cancels) on the invoice and on each package's shipping,
   // in points: they count as paid, so every due shown or passed on is net of them
   pointsPaid?: { invoice: number, packages: Record<string, number> }
+  // A write-off cancelled from its line (accounting cancel: a reversing entry, the amount is owed again)
+  onWriteOffCanceled?: () => void
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -50,7 +53,7 @@ const usd = (value: number) => `$${money(value)}`;
 // What was written off (accounting write-offs of the claim) is no longer owed: it is taken off
 // what is left, as in the X-Tracking list. Points paid on it (`points`, in dollars) count as paid:
 // shown on their own line in the coin's gold and as a gold part of the bar.
-const Balance = ({ title, total, paid, points = 0, lydWithoutRate, empty, note, writeOffs = [] }: { title: string, total: number, paid: number, points?: number, lydWithoutRate: number, empty: string, note?: string, writeOffs?: any[] }) => {
+const Balance = ({ title, total, paid, points = 0, lydWithoutRate, empty, note, writeOffs = [], onCancelWriteOff }: { title: string, total: number, paid: number, points?: number, lydWithoutRate: number, empty: string, note?: string, writeOffs?: any[], onCancelWriteOff?: (w: any) => void }) => {
   const writtenOff = writeOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0);
   const remaining = total - paid - points - writtenOff;
   const clamp = (value: number) => Math.min(100, Math.max(0, value));
@@ -65,7 +68,12 @@ const Balance = ({ title, total, paid, points = 0, lydWithoutRate, empty, note, 
         <span className="op-stat__title">{title}</span>
         {total > 0 && <Badge text={settled ? (writtenOff > 0.005 ? 'Closed, rest written off' : 'Settled') : anyPaid ? 'Partly paid' : 'Not paid'} color={settled ? 'success' : anyPaid ? 'warning' : 'danger'} />}
       </div>
-      {writeOffs.map((w) => <span key={w._id} className="op-stat__warn" dir="rtl">شُطب {usd(w.usd)} ({w.number} · {w.day}): {w.reason}</span>)}
+      {writeOffs.map((w) => (
+        <span key={w._id} className="op-stat__warn" dir="rtl">
+          شُطب {usd(w.usd)} ({w.number} · {w.day}): {w.reason}
+          {onCancelWriteOff && <button type="button" className="op-stat__undo" onClick={() => onCancelWriteOff(w)}>إلغاء الشطب</button>}
+        </span>
+      ))}
       {total > 0 ? (
         <>
           <strong className="op-stat__value">{remaining > 0.005 ? usd(remaining) : remaining < -0.005 ? `Overpaid ${usd(-remaining)}` : usd(0)}</strong>
@@ -218,6 +226,7 @@ const OrderPayments = (props: Props) => {
   const shippingTotal = openCharge + Math.min(closedCharge, Math.max(0, shippingPaid.usd + shippingPoints - openCharge));
   const cancelledShipping = closedCharge - (shippingTotal - openCharge);
   const writeOffs = props.writeOffs || [];
+  const [cancelingWriteOff, setCancelingWriteOff] = useState<any>(null);
   const invoiceWriteOffs = writeOffs.filter((w) => w.kind === 'invoice');
   const shippingWriteOffs = writeOffs.filter((w) => w.kind === 'receivedGoods');
   const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoicePoints - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
@@ -267,8 +276,8 @@ const OrderPayments = (props: Props) => {
   return (
     <div className="op-payments-grid">
       <section className="op-stats op-panel--wide">
-        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} points={invoicePoints} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." writeOffs={invoiceWriteOffs} />}
-        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} points={shippingPoints} lydWithoutRate={shippingPaid.lydWithoutRate} writeOffs={shippingWriteOffs}
+        {hasInvoice && <Balance title="Purchase invoice" total={invoiceTotal} paid={invoicePaid.usd} points={invoicePoints} lydWithoutRate={invoicePaid.lydWithoutRate} empty="This order has no invoice total." writeOffs={invoiceWriteOffs} onCancelWriteOff={props.onWriteOffCanceled ? setCancelingWriteOff : undefined} />}
+        <Balance title="Shipping" total={shippingTotal} paid={shippingPaid.usd} points={shippingPoints} lydWithoutRate={shippingPaid.lydWithoutRate} writeOffs={shippingWriteOffs} onCancelWriteOff={props.onWriteOffCanceled ? setCancelingWriteOff : undefined}
           empty={closedCharge > 0 ? 'Compensated and closed: nothing left to pay.' : 'No package has a weight and a price yet.'}
           note={cancelledShipping > 0.005 ? `${usd(cancelledShipping)} of unpaid shipping cancelled: the package was compensated and closed.` : undefined} />
         <div className="op-stat">
@@ -406,6 +415,11 @@ const OrderPayments = (props: Props) => {
           <Button variant="contained" color={confirm?.danger ? 'error' : 'primary'} autoFocus onClick={() => { confirm?.run(); setConfirm(null); }}>{confirm?.action}</Button>
         </DialogActions>
       </Dialog>
+      {/* Cancelling a write-off: the amount is owed again (refused once something was paid after it) */}
+      {cancelingWriteOff && (
+        <CancelDialog open model="AccountingClaimWriteOff" id={cancelingWriteOff._id} title={`الشطب ${cancelingWriteOff.number} (${usd(cancelingWriteOff.usd)})`}
+          onClose={() => setCancelingWriteOff(null)} onDone={() => props.onWriteOffCanceled?.()} />
+      )}
     </div>
   );
 };
