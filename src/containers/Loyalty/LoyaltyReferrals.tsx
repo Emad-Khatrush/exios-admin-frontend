@@ -101,7 +101,7 @@ const LoyaltyReferrals = () => {
                   <p className="lrv-line"><b>{personLink(s.inviter)}</b></p>
                   <p className="lrv-line">
                     مكافأة <Num>{s.friends}</Num> أصدقاء و<Num>{pointsText(s.usd)}$</Num>: <b><Num>{pointsText(s.points)}</Num> نقطة</b>
-                    {s.ambassador && <span className="lpr-tag is-ok">ولقب سفير Exios</span>}
+                    {s.ambassador && <span className="lpr-tag is-ok">ولقب سفير إكسيوس</span>}
                   </p>
                   <p className="lrv-line lp-muted">
                     الآن: <Num>{s.qualified ?? 0}</Num> أصدقاء وصلوا 200$ بجوازات موثّقة · دفع أصدقاؤه <Num>{pointsText(s.paidUsd ?? 0)}$</Num> · منذ <Num>{fullDate(s.at)}</Num>

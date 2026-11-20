@@ -22,7 +22,7 @@ type Info = {
   canSetUntil: string | null
   invited: number
   qualifyUsd?: number
-  // When this customer became «سفير Exios» (10 friends and $10,000): their share is 15 points per $50 since
+  // When this customer became «سفير إكسيوس» (10 friends and $10,000): their share is 15 points per $50 since
   ambassadorAt?: string | null
   // Signs both sides may be one person or one family, and the office's review of them
   flags?: { code: string, detail: string }[]
@@ -77,7 +77,7 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
     <section className="lpx-card lpx-ref">
       <header className="lpx-card__head">
         <h3 className="lpx-card__title"><MdPersonAdd aria-hidden="true" /> دعوة صديق
-          {info.ambassadorAt && <span className="lpx-ref__amb" title={`منذ ${fullDate(info.ambassadorAt)} · حصته 15 نقطة عن كل 50$`}>سفير Exios</span>}
+          {info.ambassadorAt && <span className="lpx-ref__amb" title={`منذ ${fullDate(info.ambassadorAt)} · حصته 15 نقطة عن كل 50$`}>سفير إكسيوس</span>}
         </h3>
         <span className="lpx-card__aside">
           دعا <strong><Num>{info.invited}</Num></strong>{info.invited ? <>، دفع منهم <strong><Num>{info.qualified}</Num></strong></> : null}
