@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Snackbar, TextField } from '@mui/material';
 import moment from 'moment';
 import api from '../../api';
+import PassportNumberField from './PassportNumberField';
 // @ts-ignore
 import './PassportReviewList.scss';
 
@@ -29,6 +30,7 @@ const PassportReviewCard = ({ customer, onReviewed }: { customer: any, onReviewe
 
   const [firstName, setFirstName] = useState(customer.firstName || '');
   const [lastName, setLastName] = useState(customer.lastName || '');
+  const [passportNumber, setPassportNumber] = useState(passport?.number || '');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,6 +48,7 @@ const PassportReviewCard = ({ customer, onReviewed }: { customer: any, onReviewe
         rejectionReason: status === 'rejected' ? rejectionReason.trim() : undefined,
         firstName: status === 'verified' ? firstName.trim() : undefined,
         lastName: status === 'verified' ? lastName.trim() : undefined,
+        passportNumber: status === 'verified' ? passportNumber.trim() : undefined,
       });
       onReviewed(customer._id);
     } catch (error: any) {
@@ -81,6 +84,7 @@ const PassportReviewCard = ({ customer, onReviewed }: { customer: any, onReviewe
             disabled={isSaving}
           />
         </div>
+        <PassportNumberField value={passportNumber} onChange={setPassportNumber} passport={passport} disabled={isSaving} />
         <p>Customer ID: {customer.customerId}</p>
         <p>Phone: {customer.phone}</p>
         <p>City: {customer.city?.toUpperCase()}</p>

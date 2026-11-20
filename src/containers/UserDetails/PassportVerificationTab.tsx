@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Alert, Snackbar, TextField } from '@mui/material';
+import PassportNumberField from '../ClientsView/PassportNumberField';
 import moment from 'moment';
 import api from '../../api';
 import Badge from '../../components/Badge/Badge';
@@ -21,6 +22,7 @@ const PassportVerificationTab = ({ user, onSaved }: Props) => {
 
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
+  const [passportNumber, setPassportNumber] = useState(user?.passportVerification?.number || '');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +46,7 @@ const PassportVerificationTab = ({ user, onSaved }: Props) => {
         rejectionReason: status === 'rejected' ? rejectionReason.trim() : undefined,
         firstName: status === 'verified' ? firstName.trim() : undefined,
         lastName: status === 'verified' ? lastName.trim() : undefined,
+        passportNumber: status === 'verified' ? passportNumber.trim() : undefined,
       });
       onSaved?.({
         passportVerification: res.data.passportVerification,
@@ -79,6 +82,10 @@ const PassportVerificationTab = ({ user, onSaved }: Props) => {
         <p className="pvt-reason"><strong>Rejection reason:</strong> {passport.rejectionReason}</p>
       )}
 
+      {passport?.status === 'verified' && passport?.number && (
+        <p className="pvt-meta">Passport number: <strong dir="ltr">{passport.number}</strong></p>
+      )}
+
       {passport?.submittedAt && (
         <p className="pvt-meta">Submitted: {moment(passport.submittedAt).format('DD/MM/YYYY HH:mm')}</p>
       )}
@@ -107,6 +114,7 @@ const PassportVerificationTab = ({ user, onSaved }: Props) => {
               disabled={isSaving}
             />
           </div>
+          <PassportNumberField value={passportNumber} onChange={setPassportNumber} passport={passport} disabled={isSaving} />
         </div>
       )}
 

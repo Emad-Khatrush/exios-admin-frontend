@@ -190,6 +190,11 @@ export type User = {
 export type PassportVerification = {
   status: 'pending' | 'verified' | 'rejected'
   imageUrl?: string
+  // The passport number: confirmed by the customer at sign-up (read from the photo or typed), or typed
+  // by staff when approving; `numberRead` is what the photo gave
+  number?: string
+  numberSource?: 'read' | 'typed'
+  numberRead?: string
   rejectionReason?: string
   wasRejected?: boolean
   submittedAt?: string
