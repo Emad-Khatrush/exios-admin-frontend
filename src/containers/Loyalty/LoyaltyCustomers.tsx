@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, IconButton, InputAdornment, Skeleton, TablePagination, TextField, useMediaQuery } from '@mui/material';
 import {
-  MdAdd, MdChevronLeft, MdClose, MdErrorOutline, MdHourglassBottom, MdLayers, MdLocalFireDepartment, MdRemove, MdSearch, MdShoppingBag, MdToll, MdUndo,
+  MdAdd, MdChevronLeft, MdClose, MdErrorOutline, MdHourglassBottom, MdLayers, MdLocalFireDepartment, MdPersonSearch, MdRemove, MdSearch, MdShoppingBag, MdToll, MdUndo,
 } from 'react-icons/md';
 import api from '../../api';
 import { requestError } from './PaymentPoints';
@@ -257,6 +257,7 @@ const LoyaltyCustomers = () => {
           <nav className="lp-head__nav" aria-label="صفحات الولاء">
             <Link to="/loyalty/levels" className="lp-head__link"><MdLayers aria-hidden /> المستويات وتقريرها</Link>
             <Link to="/loyalty/promotions" className="lp-head__link is-offer"><MdLocalFireDepartment aria-hidden /> عروض النقاط</Link>
+            <Link to="/loyalty/referrals" className="lp-head__link"><MdPersonSearch aria-hidden /> مراجعة الدعوات</Link>
           </nav>
         </header>
 

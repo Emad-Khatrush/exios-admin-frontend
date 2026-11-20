@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { MdPersonAdd } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 import api from '../../api';
+import '../Loyalty/loyalty.scss';
 import { requestError } from '../Loyalty/PaymentPoints';
 import { fullDate } from '../Loyalty/format';
 import { Num, useDialogMotion } from '../Loyalty/LoyaltyRtl';
@@ -22,6 +24,9 @@ type Info = {
   qualifyUsd?: number
   // When this customer became «سفير Exios» (10 friends and $10,000): their share is 15 points per $50 since
   ambassadorAt?: string | null
+  // Signs both sides may be one person or one family, and the office's review of them
+  flags?: { code: string, detail: string }[]
+  review?: { status: 'pending' | 'approved' | 'rejected', at: string | null, note: string | null } | null
   qualified: number
 }
 
@@ -84,6 +89,16 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
           دعاه <b>{info.by.name}</b>{info.by.customerId && <> (<bdi dir="ltr">{info.by.customerId}</bdi>)</>}
           {info.at && <> · {fullDate(info.at)}</>}{info.source && <> · {SOURCE[info.source]}</>}
           <br /><span className="lp-muted">{status}</span>
+          {!!info.flags?.length && (
+            <>
+              <br />
+              {info.flags.map((f) => <span key={f.code} className="lpr-tag lrv-flag">{f.detail}</span>)}
+              {info.review && <span className={`lpr-tag${info.review.status === 'approved' ? ' is-ok' : ''}`}>
+                {info.review.status === 'pending' ? <>تنتظر المراجعة · <Link to="/loyalty/referrals">مراجعة الدعوات</Link></>
+                  : info.review.status === 'approved' ? 'وافق عليها المكتب' : `رُفضت${info.review.note ? `: ${info.review.note}` : ''}`}
+              </span>}
+            </>
+          )}
         </p>
       ) : (
         <p className="lpx-ref__line lp-muted">لم يُدعَ من أحد.{info.canSet && info.canSetUntil && <> يمكن إضافة من دعاه حتى {fullDate(info.canSetUntil)}.</>}</p>

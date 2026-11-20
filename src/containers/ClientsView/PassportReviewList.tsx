@@ -30,7 +30,7 @@ const PassportReviewCard = ({ customer, onReviewed }: { customer: any, onReviewe
 
   const [firstName, setFirstName] = useState(customer.firstName || '');
   const [lastName, setLastName] = useState(customer.lastName || '');
-  const [passportNumber, setPassportNumber] = useState(passport?.number || '');
+  const [passportNumber, setPassportNumber] = useState(passport?.number || passport?.numberRead || '');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

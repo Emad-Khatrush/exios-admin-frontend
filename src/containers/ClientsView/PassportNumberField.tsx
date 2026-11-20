@@ -25,12 +25,18 @@ const PassportNumberField = ({ value, onChange, passport, disabled }: Props) => 
         onChange={(event) => onChange(event.target.value.toUpperCase())}
         inputProps={{ dir: 'ltr', maxLength: 14, style: { letterSpacing: '0.08em', fontWeight: 700 } }}
         helperText={
-          !passport?.number ? 'Not given at sign-up: type it from the photo before approving.'
+          !passport?.number && passport?.numberRead ? 'Read from the stored photo: check it against the photo.'
+            : !passport?.number ? 'Not given at sign-up: type it from the photo before approving.'
             : passport.numberSource === 'read' ? 'Read from the photo and confirmed by the customer. Check it against the photo.'
               : 'Typed by the customer. Check it against the photo.'
         }
       />
       {changed && <p className="pvt-meta">The photo read: <strong dir="ltr">{read}</strong></p>}
+      {!!passport?.numberConflict?.length && (
+        <p className="pvt-meta" style={{ color: '#b42318', fontWeight: 700 }}>
+          This passport number was also read on {passport.numberConflict.length} other account(s): check they are not the same person before approving.
+        </p>
+      )}
     </div>
   );
 };

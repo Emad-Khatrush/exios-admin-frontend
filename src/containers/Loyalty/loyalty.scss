@@ -985,3 +985,10 @@ $lp-font: 'Readex Pro', 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Taho
   &:hover { border-color: var(--op-accent); text-decoration: none !important; transform: translateY(-1px); }
   &.is-offer svg { color: #ea580c; }
 }
+// ---- Reviewing invites (LoyaltyReferrals) ----
+.lrv-line { margin: 0 0 6px; font-size: 14px; line-height: 1.8; }
+.lrv-flag { background: #fef2f2; color: #b42318; }
+.lrv-staff { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none;
+  li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: #fff; }
+}
+.lrv-row { padding: 8px 12px; border-radius: 10px; background: #fff; font-size: 14px; }

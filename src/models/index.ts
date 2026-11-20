@@ -195,6 +195,8 @@ export type PassportVerification = {
   number?: string
   numberSource?: 'read' | 'typed'
   numberRead?: string
+  // Older accounts whose stored photo gave the same number (staff decide)
+  numberConflict?: string[]
   rejectionReason?: string
   wasRejected?: boolean
   submittedAt?: string

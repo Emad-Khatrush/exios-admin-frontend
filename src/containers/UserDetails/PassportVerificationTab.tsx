@@ -22,7 +22,7 @@ const PassportVerificationTab = ({ user, onSaved }: Props) => {
 
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
-  const [passportNumber, setPassportNumber] = useState(user?.passportVerification?.number || '');
+  const [passportNumber, setPassportNumber] = useState(user?.passportVerification?.number || user?.passportVerification?.numberRead || '');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
