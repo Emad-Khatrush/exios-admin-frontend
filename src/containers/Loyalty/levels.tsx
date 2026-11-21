@@ -57,4 +57,4 @@ export const LevelBadge = ({ level, tiers, perks = false, size = 'md' }: { level
   );
 };
 
-export const WHY: Record<string, string> = { upgrade: 'ترقية', review: 'مراجعة سنوية', manual: 'تغيير يدوي' };
+export const WHY: Record<string, string> = { upgrade: 'ترقية', review: 'مراجعة سنوية', manual: 'تغيير يدوي', cancel: 'أُلغيت الطلبية التي وصلت به للمستوى' };

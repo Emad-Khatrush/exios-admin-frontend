@@ -231,8 +231,6 @@ const OrderPayments = (props: Props) => {
   const shippingWriteOffs = writeOffs.filter((w) => w.kind === 'receivedGoods');
   const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoicePoints - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
 
-  const shippingDue = Math.max(0, shippingTotal - shippingPaid.usd - shippingPoints - shippingWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
-  const openPackages = packages.filter((row) => !isClosed(row));
 
   const onOrder = debts.filter((debt) => String(debt.order?._id || debt.order || '') === String(order._id));
   const elsewhere = debts.filter((debt) => !onOrder.includes(debt));
@@ -344,11 +342,9 @@ const OrderPayments = (props: Props) => {
             </p>
           </div>
         </header>
-        {props.canUsePoints && (
-          <div className="op-actions op-actions--start">
-            <Button variant="outlined" size="small" type="button" onClick={() => props.onPay('receivedGoods', openPackages, shippingDue)} disabled={shippingDue <= 0 || openPackages.length === 0}>Pay from wallet</Button>
-          </div>
-        )}
+        {/* Shipping is paid only at delivery, from the delivery screen (owner, 2026-11-21): paid here,
+            the delivery asked the full amount again and the customer paid twice */}
+        <p className="op-muted">Shipping is paid when the packages are delivered, from the delivery screen.</p>
         {!hasInvoice && hasRedemptions && pointsLine}
         <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
       </section>
