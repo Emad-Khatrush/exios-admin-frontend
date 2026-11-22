@@ -3,6 +3,7 @@ import { Debt } from '../../models'
 import CreateDebtHistoryDialog from './CreateDebtHistoryDialog';
 import CloseDebtDialog from './CloseDebtDialog';
 import DeleteDebtDialog from './DeleteDebtDialog';
+import CancelDebtPaymentDialog, { canCancelDebtPayment } from './CancelDebtPaymentDialog';
 import { useState } from 'react';
 import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Snackbar, TextField } from '@mui/material';
 import FileViewer from '../FileViewer/FileViewer';
@@ -11,7 +12,7 @@ import api from '../../api';
 import { convertGoogleStorageUrl } from '../../utils/methods';
 import { canManageAllDebts, DEBT_STATUS_LABELS, DEBT_TYPE_LABELS, debtPaidAmount, formatAmount } from './wrapper-util';
 import { useStaffAccess } from '../../utils/useStaffAccess';
-import { Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, HandCoins, Lock, ShieldCheck, Trash2 } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, HandCoins, Lock, ShieldCheck, Trash2, Undo2 } from 'lucide-react';
 
 type Props = {
   debt: Debt
@@ -34,6 +35,7 @@ const DebtHistory = (props: Props) => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [cancelPayment, setCancelPayment] = useState<any>();
   const [alert, setAlert] = useState({
     open: false,
     message: '',
@@ -262,6 +264,18 @@ const DebtHistory = (props: Props) => {
                       }
                     </button>
                   }
+
+                  {canCancelDebtPayment(debt, payment, canManageDebts) &&
+                    <button
+                      type='button'
+                      className='debts-btn is-ghost is-small'
+                      onClick={() => setCancelPayment(payment)}
+                      title='إلغاء دفعة سُجّلت بالخطأ: ترجع القيمة إلى المحفظة'
+                    >
+                      <Undo2 size={14} strokeWidth={2} />
+                      إلغاء الدفعة
+                    </button>
+                  }
                 </div>
 
                 {payment.notes &&
@@ -392,6 +406,20 @@ const DebtHistory = (props: Props) => {
           onClose={() => setDeleteOpen(false)}
           onDeleted={() => {
             setDeleteOpen(false);
+            props.fetchData();
+          }}
+        />
+      }
+
+      {cancelPayment &&
+        <CancelDebtPaymentDialog
+          debt={debt}
+          payment={cancelPayment}
+          open={!!cancelPayment}
+          onClose={() => setCancelPayment(undefined)}
+          onCancelled={() => {
+            setCancelPayment(undefined);
+            showAlert('أُلغيت الدفعة ورجعت قيمتها إلى المحفظة');
             props.fetchData();
           }}
         />
