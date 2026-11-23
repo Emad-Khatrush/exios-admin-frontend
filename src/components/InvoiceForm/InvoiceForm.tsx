@@ -575,6 +575,8 @@ const InvoiceForm = (props: Props) => {
         disabled={isCanceled || stepDone(paymentList[packageDialog.id], 'received')}
         onUploadFiles={props.onUploadPackageFiles}
         onDeleteFile={props.onDeletePackageFile}
+        orderId={invoice?._id ? String(invoice._id) : undefined}
+        customerId={customerId}
       />
 
       <Dialog open={removingPackage !== null} onClose={() => setRemovingPackage(null)}>

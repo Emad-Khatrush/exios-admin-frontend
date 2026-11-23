@@ -503,3 +503,10 @@ $danger-soft: #fdecea;
   opacity: 1;
   width: 100%;
 }
+
+// Where else the tracking number being typed already is (a warning, never a block)
+.of-tracking-matches {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}

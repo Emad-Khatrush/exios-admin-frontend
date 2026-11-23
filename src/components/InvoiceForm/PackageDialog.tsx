@@ -11,6 +11,7 @@ import { SpecialPrices, getShippingMode } from '../../utils/specialPrices';
 import { SHIPMENT_METHODS, toDate, unitForMethod } from './constants';
 import { NUMBER_INPUT, SelectField, blurOnWheel, formatMoney } from './parts';
 import { cbmOf, usePackageSettings } from '../../utils/usePackageSettings';
+import TrackingMatches from './TrackingMatches';
 
 export type Volumetric = { enabled?: boolean, cbm?: any, length?: any, width?: any, height?: any, factor?: number, calculatedWeight?: number, chargeableWeight?: number | string | null };
 export type DomesticFee = { amount?: any, currency?: string };
@@ -57,6 +58,9 @@ type Props = {
   disabled?: boolean
   onUploadFiles?: (event: any) => Promise<any[]>
   onDeleteFile?: (file: any, packageId: string) => Promise<any[]>
+  // The order being edited and its customer, to warn about a tracking number that is elsewhere
+  orderId?: string
+  customerId?: string
 }
 
 const UNITS: [string, string][] = [['KG', 'KG'], ['CBM', 'CBM']];
@@ -76,7 +80,7 @@ const Group = ({ title, children }: { title: string, children: ReactNode }) => (
 );
 
 // Everything about one package of the order: what it is, what it weighs and costs, where it is
-const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, disabled: formDisabled, onUploadFiles, onDeleteFile }: Props) => {
+const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, disabled: formDisabled, onUploadFiles, onDeleteFile, orderId, customerId }: Props) => {
   const filesRef = useRef();
   const { volumetricFactor } = usePackageSettings();
   const disabled = formDisabled || !!value.received;
@@ -140,6 +144,7 @@ const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, 
             <SelectField label="Shipment method" name="shipmentMethod" options={SHIPMENT_METHODS} value={value.shipmentMethod} onChange={(event) => changeMethod(event.target.value)} disabled={disabled} />
             <TextField label="Boxes count" type="number" inputProps={{ ...NUMBER_INPUT, step: 1 }} onWheel={blurOnWheel} value={value.boxesCount ?? ''} onChange={text('boxesCount')} disabled={savedDetailsLocked} />
           </div>
+          {value.open && !value.received && <TrackingMatches number={value.trackingNumber} orderId={orderId} customerId={customerId} />}
         </Group>
 
         <Group title="Weight and price">
