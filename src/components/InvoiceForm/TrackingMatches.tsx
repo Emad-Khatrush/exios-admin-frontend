@@ -10,6 +10,7 @@ type Match = {
   isCanceled: boolean
   isFinished: boolean
   received: boolean
+  shipmentMethod?: string | null
   customer: { customerId?: string, name?: string } | null
 };
 
@@ -18,13 +19,17 @@ type Props = {
   // The order being edited (left out of the search) and its customer
   orderId?: string
   customerId?: string
+  // The method staff picked for this package, compared with the customer's choice
+  method?: string
 };
 
 const normalize = (value: string) => String(value || '').replace(/\s+/g, '').toLowerCase();
+const METHODS: Record<string, string> = { air: 'جوي', sea: 'بحري', unknown: 'غير محدد' };
+const methodName = (method?: string | null) => METHODS[String(method || 'unknown')] || String(method);
 
 // Where else the tracking number being typed already is: a customer's waiting package (طرود منتظرة)
 // or another order. A warning only; saving is never stopped. Each one opens in a new tab.
-const TrackingMatches = ({ number, orderId, customerId }: Props) => {
+const TrackingMatches = ({ number, orderId, customerId, method }: Props) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const wanted = normalize(number);
 
@@ -49,11 +54,16 @@ const TrackingMatches = ({ number, orderId, customerId }: Props) => {
       {matches.map((match) => {
         const who = match.customer ? `${match.customer.customerId || ''}${match.customer.name ? ` · ${match.customer.name}` : ''}` : 'بدون عميل';
         const sameCustomer = !!customerId && match.customer?.customerId === customerId;
+        // The customer's choice of method, and a note when staff picked another one
+        const chosen = match.unsureOrder && (
+          <> طريقة الشحن التي اختارها العميل: <b>{methodName(match.shipmentMethod)}</b>
+            {method && match.shipmentMethod && match.shipmentMethod !== 'unknown' && method !== match.shipmentMethod && <> (تختلف عن {methodName(method)} المختارة هنا)</>}.</>
+        );
         const link = <a href={`/invoice/${match.orderObjectId}/edit`} target="_blank" rel="noreferrer">{match.orderId}</a>;
         if (match.unsureOrder && sameCustomer) {
           return (
             <Alert key={`${match.orderObjectId}-${match.trackingNumber}`} severity="info">
-              العميل نفسه بلّغ عن هذا الرقم في طرود منتظرة (الطلبية {link}). عند حفظ الفاتورة يُربط الطرد بها تلقائياً ويُحذف من الطرود المنتظرة.
+              العميل نفسه بلّغ عن هذا الرقم في طرود منتظرة (الطلبية {link}). عند حفظ الفاتورة يُربط الطرد بها تلقائياً ويُحذف من الطرود المنتظرة.{chosen}
             </Alert>
           );
         }
@@ -61,7 +71,7 @@ const TrackingMatches = ({ number, orderId, customerId }: Props) => {
         return (
           <Alert key={`${match.orderObjectId}-${match.trackingNumber}`} severity="warning">
             {match.unsureOrder
-              ? <>هذا الرقم بلّغ عنه <b>عميل آخر</b> ({who}) في طرود منتظرة: الطلبية {link}. تأكد من الرقم ومن العميل.</>
+              ? <>هذا الرقم بلّغ عنه <b>عميل آخر</b> ({who}) في طرود منتظرة: الطلبية {link}. تأكد من الرقم ومن العميل.{chosen}</>
               : <>هذا الرقم موجود في الفاتورة {link} للعميل {who}{state ? ` (${state})` : ''}. تأكد أنه ليس إدخالاً مكرراً.</>}
           </Alert>
         );

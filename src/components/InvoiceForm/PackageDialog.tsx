@@ -144,7 +144,7 @@ const PackageDialog = ({ value, onChange, onClose, handleChange, specialPrices, 
             <SelectField label="Shipment method" name="shipmentMethod" options={SHIPMENT_METHODS} value={value.shipmentMethod} onChange={(event) => changeMethod(event.target.value)} disabled={disabled} />
             <TextField label="Boxes count" type="number" inputProps={{ ...NUMBER_INPUT, step: 1 }} onWheel={blurOnWheel} value={value.boxesCount ?? ''} onChange={text('boxesCount')} disabled={savedDetailsLocked} />
           </div>
-          {value.open && !value.received && <TrackingMatches number={value.trackingNumber} orderId={orderId} customerId={customerId} />}
+          {value.open && !value.received && <TrackingMatches number={value.trackingNumber} orderId={orderId} customerId={customerId} method={value.shipmentMethod} />}
         </Group>
 
         <Group title="Weight and price">
