@@ -161,6 +161,14 @@ const InvoiceForm = (props: Props) => {
     checkCustomer(UNKNOWN_CUSTOMER.id, UNKNOWN_CUSTOMER.name);
   };
 
+  // The tracking number is another customer's waiting package (or the order is on the unknown
+  // owner): the order moves to that customer; saving then links the package to it
+  const useReportingCustomer = (id: string) => {
+    setCustomerId(id);
+    handleChange({ target: { name: 'customerId', value: id } });
+    checkCustomer(id);
+  };
+
   const changeShipmentPrice = (price: number | string) => {
     setShipmentPrice(price);
     handleChange({ target: { name: 'exiosShipmentPrice', value: price, inputMode: 'numeric' } });
@@ -577,6 +585,7 @@ const InvoiceForm = (props: Props) => {
         onDeleteFile={props.onDeletePackageFile}
         orderId={invoice?._id ? String(invoice._id) : undefined}
         customerId={customerId}
+        onUseCustomer={isCanceled ? undefined : useReportingCustomer}
       />
 
       <Dialog open={removingPackage !== null} onClose={() => setRemovingPackage(null)}>
