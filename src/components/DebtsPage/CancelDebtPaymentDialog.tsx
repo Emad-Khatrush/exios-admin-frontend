@@ -84,7 +84,9 @@ const CancelDebtPaymentDialog = ({ debt, payment, open, onClose, onCancelled }: 
         </div>
 
         <p className="debt-dialog-copy">
-          {`ترجع ${formatAmount(payment?.amount)} ${payment?.currency} إلى محفظة العميل بحركة إلغاء في كشف الحساب، `}
+          {payment?.paymentType === 'points'
+            ? `ترجع ${payment.points || Math.round(Number(payment.amount) * 100)} نقطة إلى رصيد نقاط العميل، `
+            : `ترجع ${formatAmount(payment?.amount)} ${payment?.currency} إلى محفظة العميل بحركة إلغاء في كشف الحساب، `}
           {`ويعود ${formatAmount(backOnDebt)} ${debt.currency} إلى الدين، ويُعكس القيد المحاسبي. استعملها فقط لدفعة سُجّلت بالخطأ.`}
         </p>
       </DialogContent>

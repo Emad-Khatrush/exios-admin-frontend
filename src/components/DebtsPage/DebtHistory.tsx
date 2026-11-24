@@ -245,8 +245,8 @@ const DebtHistory = (props: Props) => {
               <li className='debt-payment' key={payment._id}>
                 <div className='debt-payment-row'>
                   <div className='debt-payment-amount'>
-                    <strong>{formatAmount(payment.amount)} {payment.currency}</strong>
-                    <span>{moment(payment.createdAt).format('DD/MM/YYYY')}, rate {payment.rate}</span>
+                    <strong>{formatAmount(payment.amount)} {payment.currency}{payment.paymentType === 'points' && <> · <span dir='rtl'>بالنقاط ({payment.points})</span></>}</strong>
+                    <span>{moment(payment.createdAt).format('DD/MM/YYYY')}{payment.paymentType === 'points' ? '' : `, rate ${payment.rate}`}</span>
                   </div>
 
                   {attachments.length > 0 &&

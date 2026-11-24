@@ -454,6 +454,9 @@ export type Debt = {
       rate: number,
       amount: number,
       currency: 'LYD' | 'USD',
+      // Paid with loyalty points: amount is their dollars
+      paymentType?: 'wallet' | 'points',
+      points?: number,
       companyBalance: {
         isExist: boolean,
         reference: string
@@ -506,6 +509,9 @@ export type Credit = {
       rate: number,
       amount: number,
       currency: 'LYD' | 'USD',
+      // Paid with loyalty points: amount is their dollars
+      paymentType?: 'wallet' | 'points',
+      points?: number,
       companyBalance: {
         isExist: boolean,
         reference: string

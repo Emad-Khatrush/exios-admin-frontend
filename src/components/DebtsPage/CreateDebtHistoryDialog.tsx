@@ -7,6 +7,7 @@ import api from '../../api';
 import { calculateTotalWallet } from '../../utils/methods';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { dinarPaymentRate, DinarRateLimits, DEBT_TYPE_LABELS, formatAmount, maxDebtPayment } from './wrapper-util';
+import PaymentPoints, { pointsOf, usePointsQuote } from '../../containers/Loyalty/PaymentPoints';
 import './Debts.scss';
 
 /* Paying one debt from the customer's wallet (Record payment), in Arabic.
@@ -16,7 +17,10 @@ import './Debts.scss';
    - Dinars on a dollar debt are counted like an order's wallet payment: "سداد كامل" works the rate
      out so the amount closes the debt, "سداد جزئي" starts at the accountant's rate. Neither goes
      below the accountant's rate minus the tolerance (the API refuses lower too).
-   - The strip at the top shows the debt now and after this payment, as it is typed. */
+   - The strip at the top shows the debt now and after this payment, as it is typed.
+   - Points (owner 2026-11-24): a dollar debt of an order's purchase or shipping takes the customer's
+     loyalty points as a field of this form, under the 20% rule (the API's quote). They pay first;
+     the wallet amount pays what they leave, or nothing when they close the debt. */
 
 type Props = {
   setDialog: (state: any) => void
@@ -44,7 +48,7 @@ const Money = ({ value, currency }: { value: number, currency: Currency }) => (
 const CreateDebtHistoryDialog = (props: Props) => {
   const debt = props.item || {};
   const owner = debt.owner;
-  const remaining = Number(debt.amount) || 0;
+  const debtLeft = Number(debt.amount) || 0;
   const debtCurrency: Currency = debt.currency === 'LYD' ? 'LYD' : 'USD';
   const { roles } = useSelector((state: any) => state.session.account);
 
@@ -61,6 +65,14 @@ const CreateDebtHistoryDialog = (props: Props) => {
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // The customer's points on this debt (no quote for a general debt or one in dinars)
+  const points = usePointsQuote(debt._id ? `balances/${debt._id}/points` : null, {});
+  const [pointsInput, setPointsInput] = useState('');
+  const { points: pointsUsed, usd: pointsUsd } = pointsOf(pointsInput, points.quote?.maxPoints !== undefined ? points.quote : null);
+  const canUsePoints = (points.quote?.maxPoints || 0) > 0;
+  // What the wallet money pays: the debt less the points
+  const remaining = Math.max(0, round2(debtLeft - pointsUsd));
 
   useEffect(() => {
     let active = true;
@@ -86,6 +98,8 @@ const CreateDebtHistoryDialog = (props: Props) => {
   const allowed: Currency[] = debtCurrency === 'LYD' ? ['LYD'] : ['USD', 'LYD'];
   const usable = allowed.filter((c) => held[c] > 0);
   const walletEmpty = !walletLoading && usable.length === 0;
+  // Nothing in the wallet, but the points can pay
+  const pointsOnlyWay = walletEmpty && canUsePoints;
 
   // What closes the debt, in a currency (dinars at the accountant's rate)
   const dueIn = (c: Currency) => (c === debtCurrency ? remaining : limits ? remaining * limits.rate : 0);
@@ -117,12 +131,13 @@ const CreateDebtHistoryDialog = (props: Props) => {
   const rate = conversion?.rate ?? 0;
   const counts = converting ? (rate > 0 ? value / rate : null) : value;
   const after = counts === null ? null : Math.max(0, round2(remaining - counts));
-  const closes = after !== null && value > 0 && after <= 0.005;
+  const closes = after !== null && (value > 0 || pointsUsed > 0) && after <= 0.005;
   const left = currency ? round2(held[currency] - value) : 0;
 
   // What stops the payment, said where it can be fixed
   const problem = (() => {
     if (!currency || !amount) return '';
+    if (pointsUsed > 0 && remaining <= 0 && value > 0) return 'النقاط تسدد كامل الدين؛ امسح المبلغ أو قلّل النقاط.';
     if (value <= 0) return 'اكتب مبلغاً أكبر من صفر.';
     if (value > held[currency] + 1e-9) return `الرصيد في ${WALLET_NAME[currency]} ${formatAmount(held[currency])} ${SYMBOL[currency]} فقط.`;
     if (converting) {
@@ -142,7 +157,21 @@ const CreateDebtHistoryDialog = (props: Props) => {
     return '';
   })();
 
-  const canPay = !!currency && value > 0 && !problem && !saving && !walletLoading;
+  // Points alone, or money (with or without points)
+  const paysPointsOnly = pointsUsed > 0 && value <= 0;
+  const canPay = !saving && !walletLoading && !problem && (paysPointsOnly || (!!currency && value > 0));
+
+  // New points: the amount becomes what they leave (all of it from the chosen wallet, when it holds it)
+  const lastPoints = useRef(0);
+  useEffect(() => {
+    if (lastPoints.current === pointsUsed) return;
+    lastPoints.current = pointsUsed;
+    if (!currency) return;
+    const due = dueIn(currency);
+    setAmount(due > 0 && held[currency] > 0 ? String(round2(Math.min(due, held[currency]))) : '');
+    setMode(currency !== debtCurrency && due > 0 && held[currency] < due ? 'partial' : 'full');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsUsed]);
 
   const close = () => { if (!saving) props.setDialog({ customComponentTag: undefined, isOpen: false }); };
 
@@ -154,13 +183,17 @@ const CreateDebtHistoryDialog = (props: Props) => {
 
   const pay = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canPay || !currency) return;
+    if (!canPay) return;
+    const withMoney = !!currency && value > 0;
     const body = new FormData();
     body.append('createdAt', moment(day).isSame(moment(), 'day') ? new Date().toISOString() : new Date(`${day}T12:00:00`).toISOString());
-    body.append('amount', String(value));
-    body.append('currency', currency);
-    body.append('rate', String(converting ? rate : 0));
-    body.append('sameCurrency', String(currency === debtCurrency));
+    if (withMoney) {
+      body.append('amount', String(value));
+      body.append('currency', currency as string);
+      body.append('rate', String(converting ? rate : 0));
+      body.append('sameCurrency', String(currency === debtCurrency));
+    }
+    if (pointsUsed > 0) body.append('points', String(pointsUsed));
     if (debt.debtType) body.append('debtType', debt.debtType);
     if (notes.trim()) body.append('notes', notes.trim());
     files.forEach((file) => body.append('files', file));
@@ -172,7 +205,8 @@ const CreateDebtHistoryDialog = (props: Props) => {
     setSaving(false);
     props.onBusyChange?.(false);
     if (res instanceof Error || res?.success === false) return showApiError(res?.message);
-    const message = `تم تسديد ${formatAmount(value)} ${SYMBOL[currency]} من دين ${owner?.customerId || 'العميل'}`;
+    const paid = [withMoney ? `${formatAmount(value)} ${SYMBOL[currency as Currency]}` : '', pointsUsed > 0 ? `${pointsUsed} نقطة` : ''].filter(Boolean).join(' و');
+    const message = `تم تسديد ${paid} من دين ${owner?.customerId || 'العميل'}`;
     if (props.onSaved) props.onSaved(message);
     else window.location.reload();
   };
@@ -195,7 +229,7 @@ const CreateDebtHistoryDialog = (props: Props) => {
       <div className={`dp-ledger${closes ? ' is-closed' : ''}`} aria-live="polite">
         <div className="dp-ledger__side">
           <span>الدين الآن</span>
-          <strong><Money value={remaining} currency={debtCurrency} /></strong>
+          <strong><Money value={debtLeft} currency={debtCurrency} /></strong>
         </div>
         <span className="dp-ledger__arrow" aria-hidden>←</span>
         <div className="dp-ledger__side is-after">
@@ -210,10 +244,17 @@ const CreateDebtHistoryDialog = (props: Props) => {
       <div className="dp-body">
         {error && <Alert severity="error" className="dp-alert">{error}</Alert>}
         {walletEmpty && (
-          <Alert severity="warning" className="dp-alert">
-            العميل ليس لديه رصيد {debtCurrency === 'LYD' ? 'بالدينار ' : ''}في المحفظة. أضف رصيداً لمحفظته أولاً، ثم سدّد الدين منه.
+          <Alert severity={pointsOnlyWay ? 'info' : 'warning'} className="dp-alert">
+            العميل ليس لديه رصيد {debtCurrency === 'LYD' ? 'بالدينار ' : ''}في المحفظة.
+            {pointsOnlyWay ? ' تقدر تسدد بالنقاط أدناه، أو تضيف رصيداً لمحفظته.' : ' أضف رصيداً لمحفظته أولاً، ثم سدّد الدين منه.'}
           </Alert>
         )}
+
+        {/* The points pay first; the wallet amount below is what they leave */}
+        <PaymentPoints
+          quote={points.quote?.maxPoints !== undefined ? points.quote : null} balance={points.balance} loading={points.loading} failed={points.failed}
+          value={pointsInput} onChange={(v) => { setPointsInput(v); setError(undefined); }} totalUsd={debtLeft} disabled={saving}
+        />
 
         <div className="dp-field" role="group" aria-labelledby="dp-from">
           <p className="dp-field__title" id="dp-from">تدفع من</p>
@@ -292,13 +333,14 @@ const CreateDebtHistoryDialog = (props: Props) => {
             <p id="dp-problem" className={`dp-summary${problem ? ' is-problem' : ''}`} role={problem ? 'alert' : undefined}>
               {problem || (value > 0
                 ? <>يُخصم <Money value={value} currency={currency} /> من {WALLET_NAME[currency]}، ويبقى فيها <Money value={Math.max(0, left)} currency={currency} />.</>
-                : 'اكتب المبلغ الذي سيُخصم من المحفظة.')}
+                : pointsUsed > 0 ? (remaining > 0 ? 'تسدد النقاط وحدها جزءاً من الدين، أو اكتب مبلغاً للباقي.' : 'النقاط تسدد كامل الدين، فلا يُخصم شيء من المحفظة.')
+                  : 'اكتب المبلغ الذي سيُخصم من المحفظة.')}
             </p>
           </>
         )}
 
         {/* Nothing to pay from: no date, notes or receipt to fill */}
-        {!walletEmpty && (
+        {(!walletEmpty || pointsOnlyWay) && (
           <>
           <div className="dp-row dp-row--extra">
             <label className="dp-input">
@@ -337,7 +379,9 @@ const CreateDebtHistoryDialog = (props: Props) => {
 
       <footer className="dp-footer">
         <button type="submit" className="dp-pay" disabled={!canPay}>
-          {saving ? <><CircularProgress size={16} sx={{ color: '#fff' }} /> جارٍ التسديد…</> : value > 0 && currency ? <>سدّد <Money value={value} currency={currency} /></> : 'سدّد'}
+          {saving ? <><CircularProgress size={16} sx={{ color: '#fff' }} /> جارٍ التسديد…</>
+            : value > 0 && currency ? <>سدّد <Money value={value} currency={currency} />{pointsUsed > 0 && ' + النقاط'}</>
+              : pointsUsed > 0 ? 'سدّد بالنقاط' : 'سدّد'}
         </button>
         <button type="button" className="dp-cancel" onClick={close} disabled={saving}>إلغاء</button>
       </footer>
