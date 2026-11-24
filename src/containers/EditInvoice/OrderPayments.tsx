@@ -7,6 +7,7 @@ import { convertGoogleStorageUrl } from '../../utils/methods';
 import { packageCharge, paidInUsd, totalDebts, totalPaid } from './orderConstants';
 import PointsRedemptions, { Redemption } from './PointsRedemptions';
 import { CancelDialog } from '../Accounting/shared';
+import PaymentReturnDialog from './PaymentReturnDialog';
 import '../Loyalty/loyalty.scss';
 
 type Category = 'invoice' | 'receivedGoods';
@@ -42,6 +43,11 @@ type Props = {
   pointsPaid?: { invoice: number, packages: Record<string, number> }
   // A write-off cancelled from its line (accounting cancel: a reversing entry, the amount is owed again)
   onWriteOffCanceled?: () => void
+  // Money given back from the invoice's payments to the wallet (owner 2026-11-25): taken off what
+  // was paid. `canReturn`: may give money back (payments permission); `onReturned` reloads.
+  returns?: any[]
+  canReturn?: boolean
+  onReturned?: (message: string) => void
 }
 
 type Confirm = { title: string, text: ReactNode, action: string, danger?: boolean, run: () => void };
@@ -211,7 +217,13 @@ const OrderPayments = (props: Props) => {
   const [rateFor, setRateFor] = useState<{ payment: any, rate: string, due: number } | null>(null);
 
   const packages: any[] = order.paymentList || [];
-  const invoicePaid = paidInUsd(payments, 'invoice');
+  const returns = props.returns || [];
+  const returnedUsd = returns.reduce((sum, r) => sum + Number(r.usd || 0), 0);
+  // What was paid on the invoice, less what was given back to the wallet since
+  const paidOnInvoice = paidInUsd(payments, 'invoice');
+  const invoicePaid = { ...paidOnInvoice, usd: paidOnInvoice.usd - returnedUsd };
+  const [returning, setReturning] = useState(false);
+  const [cancelingReturn, setCancelingReturn] = useState<any>(null);
   const shippingPaid = paidInUsd(payments, 'receivedGoods');
   // Points paid, in dollars: on the purchase invoice (PUR claim) and on the packages' shipping (SHP claims)
   const invoicePoints = Number(props.pointsPaid?.invoice || 0) / 100;
@@ -311,6 +323,9 @@ const OrderPayments = (props: Props) => {
         </header>
         <div className="op-actions op-actions--start">
           <Button variant="contained" size="small" type="button" onClick={() => props.onPay('invoice', [], invoiceDue)} disabled={walletEmpty}>Pay from wallet</Button>
+          {props.canReturn && invoicePaid.usd > 0.005 && (
+            <Button variant="outlined" size="small" type="button" onClick={() => setReturning(true)}>Give money back</Button>
+          )}
           {isAdmin && (locked ? (
             <Button variant="outlined" size="small" type="button" onClick={props.onRequestEdit}>Request invoice edit</Button>
           ) : (
@@ -330,6 +345,19 @@ const OrderPayments = (props: Props) => {
         </div>
         {hasRedemptions && pointsLine}
         <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
+        {returns.length > 0 && (
+          <ul className="op-debts" dir="rtl">
+            {returns.map((r) => (
+              <li key={r._id}>
+                <strong dir="ltr">−{usd(r.usd)}</strong>
+                <Badge text="أُرجع للمحفظة" color="warning" />
+                <span className="op-muted">{r.number} · {moment(r.createdAt).format('DD/MM/YYYY')}{r.createdBy?.firstName ? ` · ${r.createdBy.firstName}` : ''}</span>
+                <span className="op-debts__note" dir="auto">{r.description}</span>
+                {isAdmin && <Button size="small" color="error" type="button" onClick={() => setCancelingReturn(r)}>إلغاء</Button>}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>}
 
       <section className="op-panel">
@@ -411,6 +439,13 @@ const OrderPayments = (props: Props) => {
           <Button variant="contained" color={confirm?.danger ? 'error' : 'primary'} autoFocus onClick={() => { confirm?.run(); setConfirm(null); }}>{confirm?.action}</Button>
         </DialogActions>
       </Dialog>
+      <PaymentReturnDialog orderId={order._id} open={returning} onClose={() => setReturning(false)} onDone={(message) => props.onReturned?.(message)} />
+      {/* Cancelling a return made by mistake: the wallet gives it back (accounting cancel: a reversing entry) */}
+      {cancelingReturn && (
+        <CancelDialog open model="AccountingPaymentReturn" id={cancelingReturn._id} title={`إرجاع المبلغ ${cancelingReturn.number} (${usd(cancelingReturn.usd)})`}
+          askConfirm="أؤكد الإلغاء حتى لو صار رصيد محفظة العميل سالباً"
+          onClose={() => setCancelingReturn(null)} onDone={() => props.onReturned?.('أُلغي الإرجاع وخُصم المبلغ من المحفظة')} />
+      )}
       {/* Cancelling a write-off: the amount is owed again (refused once something was paid after it) */}
       {cancelingWriteOff && (
         <CancelDialog open model="AccountingClaimWriteOff" id={cancelingWriteOff._id} title={`الشطب ${cancelingWriteOff.number} (${usd(cancelingWriteOff.usd)})`}

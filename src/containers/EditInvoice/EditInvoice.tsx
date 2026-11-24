@@ -48,6 +48,8 @@ type Props = {
   account: Account
   // May use loyalty points on this order (permission loyalty or invoices_payments)
   canPoints?: boolean
+  // May give back part of the invoice's payments to the wallet (payments permission)
+  canReturn?: boolean
 }
 
 type State = {
@@ -59,6 +61,8 @@ type State = {
   payments: any[]
   // Write-offs of the order's claims (accounting), shown and taken off what is left
   writeOffs: any[]
+  // Money given back from the invoice's payments to the wallet (taken off what was paid)
+  returns: any[]
   // The rows being edited; the page keeps them because the form's inputs are uncontrolled
   items: any[]
   purchaseItems: any[]
@@ -112,6 +116,7 @@ export class EditInvoice extends Component<Props, State> {
     wallet: null,
     payments: [],
     writeOffs: [],
+    returns: [],
     pointsRedeemed: null,
     redemptions: [],
     pointsPaid: NO_POINTS_PAID,
@@ -155,7 +160,7 @@ export class EditInvoice extends Component<Props, State> {
       optional(api.get(`wallet/${order?.user?._id}`), (res) => res.data?.results, null),
       optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, {} as any),
     ]);
-    this.setState({ order, employees, userDebts, wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], items: order.items || [], purchaseItems: order.purchaseItems || [], paymentList: order.paymentList || [] });
+    this.setState({ order, employees, userDebts, wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], returns: paid.returns || [], items: order.items || [], purchaseItems: order.purchaseItems || [], paymentList: order.paymentList || [] });
     this.loadPoints(order);
   }
 
@@ -204,10 +209,10 @@ export class EditInvoice extends Component<Props, State> {
     // A payment on the order also pays down the debts opened on it, so those are re-read too
     const [wallet, paid, userDebts] = await Promise.all([
       optional(api.get(`wallet/${order?.user?._id}`), (res) => res.data?.results, this.state.wallet),
-      optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, { results: this.state.payments, writeOffs: this.state.writeOffs } as any),
+      optional(api.get(`order/${order?._id}/payments`), (res) => res.data || {}, { results: this.state.payments, writeOffs: this.state.writeOffs, returns: this.state.returns } as any),
       optional(api.get(`debts/user/${order?.user?.customerId}`), (res) => res.data || [], this.state.userDebts),
     ]);
-    this.setState({ wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], userDebts });
+    this.setState({ wallet, payments: paid.results || [], writeOffs: paid.writeOffs || [], returns: paid.returns || [], userDebts });
     this.loadPoints();
   };
 
@@ -634,6 +639,9 @@ export class EditInvoice extends Component<Props, State> {
             isAdmin={isAdmin}
             payments={payments}
             writeOffs={this.state.writeOffs}
+            returns={this.state.returns}
+            canReturn={!!this.props.canReturn}
+            onReturned={(message) => { this.toast('success', message); this.reloadMoney(); this.reloadOrder().catch(() => {}); }}
             wallet={{ walletUsd, walletLyd }}
             debts={Array.isArray(this.state.userDebts) ? this.state.userDebts : []}
             onPay={(category, packages, dueUsd) => this.setState({ walletPayment: { category, packages, dueUsd } })}
@@ -755,7 +763,8 @@ const mapStateToProps = (state: any) => ({
 
 const WithPointsAccess = (props: any) => {
   const staff = useStaffAccess();
-  return <EditInvoice {...props} canPoints={!!props.account?.roles?.isAdmin || staff.can('loyalty', 'invoices_payments')} />;
+  return <EditInvoice {...props} canPoints={!!props.account?.roles?.isAdmin || staff.can('loyalty', 'invoices_payments')}
+    canReturn={!!props.account?.roles?.isAdmin || staff.can('invoices_payments')} />;
 };
 
 export default connect(mapStateToProps)(withRouter(WithPointsAccess));
