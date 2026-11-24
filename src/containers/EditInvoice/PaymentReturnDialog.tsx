@@ -7,16 +7,17 @@ import './PaymentReturnDialog.scss';
 
 // Gives back part of what the customer paid on the order to their wallet, with a description (owner
 // 2026-11-25): the invoice lowered after it was paid (200$ paid, now 180$), the 20$ goes back without
-// cancelling the 200$ payment. In dollars, or in dinars at a rate (never above the accountant's rate
-// plus the tolerance). The API caps it: the invoice at the money paid on it (less earlier returns and
-// supplier refunds; more than the extra makes it owed again); the shipping at its extra only. Points
-// paid on the invoice are never given back as money.
+// cancelling the 200$ payment. Back in the currency the customer paid in, never more than they paid
+// in it (owner 2026-11-25): dinars at the rate those dinars were paid at (no rate is typed). The API
+// caps the whole: the invoice at the money paid on it (more than the extra makes it owed again), the
+// shipping at its extra only. Points paid on the invoice are never given back as money.
 // Drawn like the debt payment window (Debts.scss, dp-*): the figures on top, the wallet to pay into,
 // the amount, then the description.
 
 type Category = 'invoice' | 'receivedGoods';
 type Currency = 'USD' | 'LYD';
-type Room = { maxUsd: number, extraUsd: number, pointsUsd: number, lyd: { rate: number, maximum: number } | null };
+type Own = { paid: number, available: number, rate?: number };
+type Room = { maxUsd: number, extraUsd: number, pointsUsd: number, currencies: { USD: Own, LYD: Own } };
 type Props = { orderId: string, category?: Category, open: boolean, onClose: () => void, onDone: (message: string) => void };
 
 const money2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -26,6 +27,12 @@ const SYMBOL: Record<Currency, string> = { USD: '$', LYD: 'د.ل' };
 const Money = ({ value, currency = 'USD' }: { value: number, currency?: Currency }) => (
   <span className="dp-money"><bdi dir="ltr">{money(value)}</bdi> <span>{SYMBOL[currency]}</span></span>
 );
+// A dollar amount in a currency the customer paid in, never more than can go back in it
+const fillIn = (room: Room, currency: Currency, usd: number) => {
+  const own = room.currencies[currency];
+  const value = currency === 'USD' ? usd : (own.rate || 0) * usd;
+  return round2(Math.min(value, own.available));
+};
 const TITLES: Record<Category, string> = { invoice: 'إرجاع مبلغ من دفعات الفاتورة', receivedGoods: 'إرجاع مبلغ من دفعات الشحن' };
 
 const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onDone }: Props) => {
@@ -33,7 +40,6 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
   const [loadError, setLoadError] = useState('');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [amount, setAmount] = useState('');
-  const [rate, setRate] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -47,24 +53,25 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
     sys.get(`acc/orders/${orderId}/payment-returns`)
       .then((res: any) => {
         if (stale) return;
-        const part = res.data?.parts?.[category] || { maxUsd: res.data?.returnableUsd, extraUsd: res.data?.extraUsd, pointsUsd: res.data?.pointsUsd };
-        const next: Room = { maxUsd: Number(part.maxUsd) || 0, extraUsd: Number(part.extraUsd) || 0, pointsUsd: Number(part.pointsUsd) || 0, lyd: res.data?.lyd || null };
+        const part = res.data?.parts?.[category] || {};
+        const own = (c: Currency): Own => ({ paid: Number(part.currencies?.[c]?.paid) || 0, available: Number(part.currencies?.[c]?.available) || 0, rate: Number(part.currencies?.[c]?.rate) || 0 });
+        const next: Room = { maxUsd: Number(part.maxUsd) || 0, extraUsd: Number(part.extraUsd) || 0, pointsUsd: Number(part.pointsUsd) || 0, currencies: { USD: own('USD'), LYD: own('LYD') } };
         setRoom(next);
-        setAmount(next.extraUsd > 0 ? String(round2(next.extraUsd)) : '');
-        setRate(next.lyd ? String(next.lyd.rate) : '');
+        // The currency the customer paid in (dollars first when both), filled with the extra in it
+        const first: Currency = next.currencies.USD.available > 0 || !(next.currencies.LYD.available > 0) ? 'USD' : 'LYD';
+        setCurrency(first);
+        setAmount(next.extraUsd > 0 ? String(fillIn(next, first, next.extraUsd)) : '');
       })
       .catch((err: any) => { if (!stale) setLoadError(errorText(err, 'تعذّر قراءة المدفوع على الطلب.')); });
     return () => { stale = true; };
   }, [open, orderId, category]);
 
-  const rateValue = Number(rate) || 0;
-  // Switching the wallet keeps the value: dollars become dinars at the rate, and back
+  const rateValue = room?.currencies.LYD.rate || 0;
+  // Choosing the other currency starts again from the extra, in that currency
   const choose = (next: Currency) => {
     if (next === currency || !room) return;
-    const r = rateValue || room.lyd?.rate || 0;
-    const v = Number(amount) || 0;
-    if (v > 0 && r > 0) setAmount(String(next === 'LYD' ? round2(v * r) : round2(v / r)));
     setCurrency(next);
+    setAmount(room.extraUsd > 0 ? String(fillIn(room, next, room.extraUsd)) : '');
     setError('');
   };
 
@@ -74,16 +81,13 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
   const nothing = !!room && room.maxUsd <= 0;
   // "The whole extra" (or all that may go back when there is no extra) in the chosen currency
   const fillValue = room ? (room.extraUsd > 0 ? room.extraUsd : room.maxUsd) : 0;
-  const inCurrency = (usd: number) => (currency === 'USD' ? round2(usd) : rateValue > 0 ? round2(usd * rateValue) : 0);
 
   // What stops the return, said where it can be fixed
   const problem = (() => {
     if (!room || !amount) return '';
-    if (currency === 'LYD') {
-      if (!(rateValue > 0)) return 'اكتب سعر الصرف.';
-      if (room.lyd && rateValue > room.lyd.maximum + 1e-9) return `أعلى سعر مسموح ${room.lyd.maximum}: سعر أعلى يعطي العميل دنانير أكثر من المبلغ.`;
-    }
     if (value <= 0) return 'اكتب مبلغاً أكبر من صفر.';
+    const own = room.currencies[currency];
+    if (value > own.available + 1e-9) return `أقصى ما يُرجع ${currency === 'USD' ? 'بالدولار' : 'بالدينار'} ${money(own.available)} ${SYMBOL[currency]}، وهو ما دفعه بهذه العملة ولم يُرجع له.`;
     if (usdValue > room.maxUsd + 1e-9) return `أقصى ما يُرجع ${money(room.maxUsd)} $${currency === 'LYD' && rateValue > 0 ? ` (${money(room.maxUsd * rateValue)} د.ل)` : ''}.`;
     return '';
   })();
@@ -96,7 +100,7 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
     setSaving(true); setError('');
     try {
       await sys.post(`acc/orders/${orderId}/payment-returns`, {
-        category, currency, amount: value, ...(currency === 'LYD' && { rate: rateValue }), description: description.trim(), idempotencyKey: key.current,
+        category, currency, amount: value, description: description.trim(), idempotencyKey: key.current,
       });
       onDone(`أُرجع ${money(value)} ${SYMBOL[currency]} إلى محفظة العميل`);
       onClose();
@@ -146,20 +150,26 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
           {room && !nothing && (
             <>
               <div role="group" aria-labelledby="pr-to">
-                <p className="dp-field__title" id="pr-to">تُرجع إلى</p>
+                <p className="dp-field__title" id="pr-to">تُرجع بالعملة التي دفع بها</p>
                 <div className="dp-wallets">
-                  {(['USD', 'LYD'] as Currency[]).map((c) => (
-                    <button key={c} type="button" className={`dp-wallet${currency === c ? ' is-active' : ''}`} aria-pressed={currency === c}
-                      disabled={saving || (c === 'LYD' && !room.lyd)} onClick={() => choose(c)}>
-                      <Wallet size={18} aria-hidden />
-                      <span className="dp-wallet__name">{c === 'USD' ? 'محفظة الدولار' : 'محفظة الدينار'}</span>
-                      <span className="dp-wallet__held">{c === 'USD' ? 'بالدولار' : room.lyd ? `بسعر الصرف، سعر المحاسب ${room.lyd.rate}` : 'لا يوجد سعر للدينار اليوم'}</span>
-                    </button>
-                  ))}
+                  {(['USD', 'LYD'] as Currency[]).map((c) => {
+                    const own = room.currencies[c];
+                    return (
+                      <button key={c} type="button" className={`dp-wallet${currency === c ? ' is-active' : ''}`} aria-pressed={currency === c}
+                        disabled={saving || !(own.available > 0)} onClick={() => choose(c)}>
+                        <Wallet size={18} aria-hidden />
+                        <span className="dp-wallet__name">{c === 'USD' ? 'محفظة الدولار' : 'محفظة الدينار'}</span>
+                        <span className="dp-wallet__held">
+                          {!(own.paid > 0) ? `لم يدفع ${c === 'USD' ? 'بالدولار' : 'بالدينار'}`
+                            : <>يُرجع حتى <Money value={own.available} currency={c} />{c === 'LYD' && own.rate ? ` · بسعر ${own.rate}` : ''}</>}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className={`dp-amount${currency === 'LYD' ? ' has-rate' : ''}`}>
+              <div className="dp-amount">
                 <div className="dp-input dp-input--amount">
                   <label htmlFor="pr-amount">المبلغ</label>
                   <div className="dp-input__box">
@@ -167,29 +177,19 @@ const PaymentReturnDialog = ({ orderId, category = 'invoice', open, onClose, onD
                       onChange={(e) => { setAmount(e.target.value); setError(''); }} onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       aria-invalid={!!problem} aria-describedby="pr-summary" />
                     <span className="dp-input__unit">{SYMBOL[currency]}</span>
-                    <button type="button" className="dp-fill" disabled={saving || !(fillValue > 0) || (currency === 'LYD' && !(rateValue > 0))}
-                      onClick={() => { setAmount(String(inCurrency(fillValue))); setError(''); }}>
+                    <button type="button" className="dp-fill" disabled={saving || !(fillValue > 0)}
+                      onClick={() => { setAmount(String(fillIn(room, currency, fillValue))); setError(''); }}>
                       {room.extraUsd > 0 ? 'كامل الزائد' : 'الحد الأقصى'}
                     </button>
                   </div>
                 </div>
-                {currency === 'LYD' && (
-                  <div className="dp-input dp-input--rate">
-                    <label htmlFor="pr-rate">سعر الصرف</label>
-                    <div className="dp-input__box">
-                      <input id="pr-rate" type="number" inputMode="decimal" min="0" step="any" dir="ltr" value={rate} disabled={saving}
-                        onChange={(e) => { setRate(e.target.value); setError(''); }} onWheel={(e) => (e.target as HTMLInputElement).blur()} />
-                    </div>
-                    {room.lyd && <small>الأعلى {room.lyd.maximum}</small>}
-                  </div>
-                )}
               </div>
 
               <p id="pr-summary" className={`dp-summary${problem ? ' is-problem' : reopened > 0.005 && value > 0 ? ' pr-warn' : ''}`} role={problem ? 'alert' : undefined}>
                 {problem || (value > 0
                   ? (reopened > 0.005
                     ? <>المبلغ أكبر من الزائد بـ <Money value={reopened} />: يصبح هذا المبلغ مستحقاً على العميل في الفاتورة من جديد.</>
-                    : <>يُضاف <Money value={value} currency={currency} />{currency === 'LYD' && usdValue > 0 && <> (= <Money value={usdValue} />)</>} إلى {currency === 'USD' ? 'محفظة الدولار' : 'محفظة الدينار'}.</>)
+                    : <>يُضاف <Money value={value} currency={currency} />{currency === 'LYD' && usdValue > 0 && <> (= <Money value={usdValue} /> بسعر دفعه {rateValue})</>} إلى {currency === 'USD' ? 'محفظة الدولار' : 'محفظة الدينار'}.</>)
                   : 'اكتب المبلغ الذي يُرجع للمحفظة.')}
               </p>
 
