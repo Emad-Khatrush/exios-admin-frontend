@@ -323,6 +323,10 @@
   &__warn { color: #9a5b00; font-weight: 600; }
   &__note { margin-top: 6px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
   &__meta { display: block; margin-top: 6px; font-size: 12px; color: var(--op-muted); }
+  // A payment with money given back: what it was, struck, then what it is now
+  &__was { color: var(--op-muted); font-weight: 600 !important; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  &__kept { color: var(--op-ink); }
+  > li.is-given-back { background: #fff; border-style: dashed; }
 
   &__packages {
     margin: 6px 0 0;
@@ -543,4 +547,21 @@
   .order-page { padding: 12px 12px 40px; }
   .op-header__title h1 { font-size: 20px; }
   .op-savebar { flex-direction: column; align-items: stretch; text-align: center; }
+}
+
+// Money given back to the wallet from a payment, inside its card
+.op-returns {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px dashed var(--op-line);
+  display: grid;
+  gap: 6px;
+
+  > li { display: flex; align-items: flex-start; gap: 10px; }
+  &__amount { flex: none; min-width: 92px; font-size: 13.5px; font-weight: 700; color: #9a5b00; font-variant-numeric: tabular-nums; }
+  &__what { display: grid; gap: 1px; flex: 1; min-width: 0; }
+  &__note { font-size: 13px; color: var(--op-ink); overflow-wrap: anywhere; }
+  &__meta { font-size: 12px; color: var(--op-muted); }
+  .MuiButton-root { margin-inline-start: auto; min-width: 0; padding: 0 6px; font-size: 12px; }
 }

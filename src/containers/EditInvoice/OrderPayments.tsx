@@ -102,16 +102,66 @@ const Balance = ({ title, total, paid, points = 0, lydWithoutRate, empty, note, 
   );
 };
 
-const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages, onSetRate }: { rows: any[], isAdmin: boolean, onDelete: (payment: any) => void, onPreviewImages: (images: any[]) => void, onSetRate?: (payment: any) => void }) => {
-  if (!rows.length) return <p className="op-muted">No payments recorded yet.</p>;
+// Money given back to the wallet, shown on the payments it came from (owner 2026-11-25: a return
+// listed apart left the payment looking fully paid). A return is in the currency of the payments it
+// takes back; it is set against them newest first, so the most recent payment is the one undone.
+// What finds no payment (old payments known to the books only) is listed on its own.
+type ReturnPart = { ret: any, amount: number };
+const returnedAmount = (r: any) => Number(r.amount ?? r.usd ?? 0);
+export const allocateReturns = (payments: any[], returns: any[]) => {
+  const byPayment = new Map<string, ReturnPart[]>();
+  const left: any[] = [];
+  const room = new Map(payments.map((p) => [String(p._id), Number(p.receivedAmount || 0)]));
+  const newestFirst = [...payments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  [...returns].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).forEach((ret) => {
+    let rest = returnedAmount(ret);
+    for (const payment of newestFirst) {
+      if (rest <= 0.0005) break;
+      if (payment.currency !== (ret.currency || 'USD')) continue;
+      const free = room.get(String(payment._id)) || 0;
+      if (free <= 0.0005) continue;
+      const take = Math.min(free, rest);
+      room.set(String(payment._id), free - take);
+      byPayment.set(String(payment._id), [...(byPayment.get(String(payment._id)) || []), { ret, amount: take }]);
+      rest -= take;
+    }
+    if (rest > 0.0005) left.push({ ...ret, unplaced: rest });
+  });
+  return { byPayment, left };
+};
+
+const ReturnLines = ({ parts, currency, onCancel }: { parts: ReturnPart[], currency: string, onCancel?: (ret: any) => void }) => (
+  <ul className="op-returns">
+    {parts.map(({ ret, amount }) => (
+      <li key={ret._id}>
+        <span className="op-returns__amount" dir="ltr">−{money(amount)} {currency}</span>
+        <span className="op-returns__what">
+          <span className="op-returns__note" dir="auto">{ret.description}</span>
+          <span className="op-returns__meta">{ret.number} · {moment(ret.createdAt).format('DD/MM/YYYY')}{ret.createdBy?.firstName ? ` · ${ret.createdBy.firstName}` : ''}{currency === 'LYD' && ret.rate ? ` · rate ${ret.rate}` : ''}</span>
+        </span>
+        {onCancel && <Button size="small" color="error" type="button" onClick={() => onCancel(ret)}>Cancel</Button>}
+      </li>
+    ))}
+  </ul>
+);
+
+const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages, onSetRate, returns = [], onCancelReturn }: { rows: any[], isAdmin: boolean, onDelete: (payment: any) => void, onPreviewImages: (images: any[]) => void, onSetRate?: (payment: any) => void, returns?: any[], onCancelReturn?: (ret: any) => void }) => {
+  const { byPayment, left } = allocateReturns(rows, returns);
+  if (!rows.length && !left.length) return <p className="op-muted">No payments recorded yet.</p>;
   return (
     <ul className="op-payments">
       {rows.map((payment) => {
         const rate = Number(payment.rate) || 0;
+        const back = byPayment.get(String(payment._id)) || [];
+        const backTotal = back.reduce((sum, part) => sum + part.amount, 0);
+        const kept = Math.max(0, Number(payment.receivedAmount || 0) - backTotal);
+        const allBack = back.length > 0 && kept <= 0.005;
         return (
-          <li key={payment._id}>
+          <li key={payment._id} className={allBack ? 'is-given-back' : undefined}>
             <div className="op-payments__main">
-              <strong>{money(payment.receivedAmount)} {payment.currency}</strong>
+              <strong className={back.length ? 'op-payments__was' : undefined}>{money(payment.receivedAmount)} {payment.currency}</strong>
+              {back.length > 0 && <strong className="op-payments__kept">{money(kept)} {payment.currency}</strong>}
+              {back.length > 0 && <Badge text={allBack ? 'Given back to the wallet' : `${money(backTotal)} ${payment.currency} given back`} color="warning" />}
               <Badge text={payment.paymentType === 'wallet' ? 'Wallet' : 'Cash'} color={payment.paymentType === 'wallet' ? 'primary' : 'sky'} />
               {payment.currency === 'LYD' && (rate > 0
                 ? <span className="op-muted">rate {rate}, counts as {usd(payment.receivedAmount / rate)}{onSetRate && payment.rateSetAt && <> <Button size="small" type="button" onClick={() => onSetRate(payment)}>Change rate</Button></>}</span>
@@ -145,9 +195,16 @@ const PaymentRows = ({ rows, isAdmin, onDelete, onPreviewImages, onSetRate }: { 
             <span className="op-payments__meta">
               {moment(payment.createdAt).format('DD/MM/YYYY hh:mm A')} by {payment.createdBy ? `${payment.createdBy.firstName} ${payment.createdBy.lastName}` : 'unknown'}
             </span>
+            {back.length > 0 && <ReturnLines parts={back} currency={payment.currency} onCancel={isAdmin ? onCancelReturn : undefined} />}
           </li>
         );
       })}
+      {left.length > 0 && (
+        <li>
+          <div className="op-payments__main"><strong>Given back to the wallet</strong><span className="op-muted">from older payments</span></div>
+          <ReturnLines parts={left.map((ret) => ({ ret, amount: ret.unplaced }))} currency={left[0].currency || 'USD'} onCancel={isAdmin ? onCancelReturn : undefined} />
+        </li>
+      )}
     </ul>
   );
 };
@@ -246,21 +303,6 @@ const OrderPayments = (props: Props) => {
   const invoiceDue = Math.max(0, invoiceTotal - invoicePaid.usd - invoicePoints - invoiceWriteOffs.reduce((sum, w) => sum + Number(w.usd || 0), 0));
 
 
-  // Money given back to the wallet from a part's payments: its amount, what, by whom, and a cancel for admins
-  const ReturnRows = ({ rows }: { rows: any[] }) => (rows.length ? (
-    <ul className="op-debts" dir="rtl">
-      {rows.map((r) => (
-        <li key={r._id}>
-          <strong dir="ltr">−{r.currency === 'LYD' ? `${money(r.amount)} LYD` : usd(r.usd)}</strong>
-          <Badge text="أُرجع للمحفظة" color="warning" />
-          <span className="op-muted">{r.number} · {moment(r.createdAt).format('DD/MM/YYYY')}{r.currency === 'LYD' ? ` · rate ${r.rate} = ${usd(r.usd)}` : ''}{r.createdBy?.firstName ? ` · ${r.createdBy.firstName}` : ''}</span>
-          <span className="op-debts__note" dir="auto">{r.description}</span>
-          {isAdmin && <Button size="small" color="error" type="button" onClick={() => setCancelingReturn(r)}>إلغاء</Button>}
-        </li>
-      ))}
-    </ul>
-  ) : null);
-
   const onOrder = debts.filter((debt) => String(debt.order?._id || debt.order || '') === String(order._id));
   const elsewhere = debts.filter((debt) => !onOrder.includes(debt));
   const otherTotals = totalDebts(elsewhere);
@@ -295,9 +337,15 @@ const OrderPayments = (props: Props) => {
   );
   const hasRedemptions = (props.redemptions || []).length > 0;
 
+  // What was received in each currency, less what was given back in it
   const paidTotals = (category: Category) => {
     const { totalUsd, totalLyd, totalEuro } = totalPaid(payments, category);
-    return [totalUsd && `${money(totalUsd)} $`, totalLyd && `${money(totalLyd)} LYD`, totalEuro && `${money(totalEuro)} EURO`].filter(Boolean).join(' + ');
+    const back = (currency: string) => returnsOf(category).filter((r) => (r.currency || 'USD') === currency).reduce((sum, r) => sum + returnedAmount(r), 0);
+    const usdNet = totalUsd - back('USD');
+    const lydNet = totalLyd - back('LYD');
+    const backText = [back('USD') && `${money(back('USD'))} $`, back('LYD') && `${money(back('LYD'))} LYD`].filter(Boolean).join(' + ');
+    const received = [totalUsd && `${money(usdNet)} $`, totalLyd && `${money(lydNet)} LYD`, totalEuro && `${money(totalEuro)} EURO`].filter(Boolean).join(' + ');
+    return received ? `${received}${backText ? ` (${backText} given back)` : ''}` : '';
   };
 
   return (
@@ -361,8 +409,8 @@ const OrderPayments = (props: Props) => {
           {walletEmpty && <span className="op-muted">The wallet is empty</span>}
         </div>
         {hasRedemptions && pointsLine}
-        <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
-        <ReturnRows rows={returnsOf('invoice')} />
+        <PaymentRows rows={invoicePayments} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps}
+          returns={returnsOf('invoice')} onCancelReturn={setCancelingReturn} />
       </section>}
 
       <section className="op-panel">
@@ -379,14 +427,15 @@ const OrderPayments = (props: Props) => {
             the delivery asked the full amount again and the customer paid twice */}
         <p className="op-muted">Shipping is paid when the packages are delivered, from the delivery screen.</p>
         {!hasInvoice && hasRedemptions && pointsLine}
-        <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps} />
+        <PaymentRows rows={payments.filter((payment) => payment.category === 'receivedGoods')} isAdmin={isAdmin} onDelete={deletePayment} onPreviewImages={props.onPreviewImages} {...rateProps}
+          returns={returnsOf('receivedGoods')} onCancelReturn={setCancelingReturn} />
         {/* Old payments made before delivery can have left extra on the shipping: it can go back */}
         {props.canReturn && shippingPaid.usd > 0.005 && (
           <div className="op-actions op-actions--start">
             <Button variant="outlined" size="small" type="button" onClick={() => setReturning('receivedGoods')}>Give money back</Button>
           </div>
         )}
-        <ReturnRows rows={returnsOf('receivedGoods')} />
+
       </section>
 
       <section className="op-panel op-panel--wide">
