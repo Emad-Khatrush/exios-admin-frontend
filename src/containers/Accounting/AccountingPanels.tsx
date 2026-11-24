@@ -294,6 +294,17 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
   // A refund entered by mistake is cancelled: the money in and the wallet credit are both undone
   const [canceling, setCanceling] = useState<any>(null);
   const idempotencyKey = useRef(newKey());
+  // Points still paid on the invoice (owner 2026-11-25): never given back as wallet money (the API
+  // counts only money in the cap); they come back as points, cancelled on the order page
+  const [invoicePoints, setInvoicePoints] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    let stale = false;
+    sys.get(`order/${orderId}/loyalty/paid`)
+      .then((res: any) => { if (!stale) setInvoicePoints(Number(res.data?.redeemedBy?.invoice) || 0); })
+      .catch(() => { if (!stale) setInvoicePoints(0); });
+    return () => { stale = true; };
+  }, [open, orderId]);
   const load = useCallback(() => {
     sys.get(`acc/orders/${orderId}/refunds`).then((res: any) => setRows(res.data.results || [])).catch(() => {});
   }, [orderId]);
@@ -364,6 +375,12 @@ const CustomerRefundPanel = ({ orderId, onSaved }: { orderId: string; onSaved: (
         <DialogTitle>ريفاند من المورد على هذا الطلب</DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" className="mb-2">{error}</Alert>}
+          {invoicePoints > 0 && (
+            <Alert severity="warning" className="mb-2">
+              دفع العميل <Ltr>{(invoicePoints / 100).toFixed(2)}$</Ltr> من هذه الفاتورة بالنقاط (<Ltr>{invoicePoints}</Ltr> نقطة). النقاط لا تُرجع فلوساً:
+              أقصى ما يُضاف لمحفظته هو ما دفعه فلوساً. لإرجاع النقاط ألغِها من قسم نقاط الطلبية، فترجع لرصيد نقاطه.
+            </Alert>
+          )}
           <TextField select fullWidth className="mb-2" label="تسجيل استرداد جديد أو استخدام ريفاند موجود" value={existingRefundId} onChange={e => {
             const id = e.target.value; setExistingRefundId(id);
             const selected = rows.find((r: any) => r._id === id);
