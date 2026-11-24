@@ -13,7 +13,6 @@ import './App.scss';
 import EditTask from './containers/EditTask/EditTask';
 import Settings from './containers/Settings/Settings';
 import TripNumbering from './containers/Settings/TripNumbering';
-import ServicesPrice from './containers/Settings/ServicesPrice';
 import Announcements from './components/Announcements/Announcements';
 import AdminPosts from './containers/AdminPosts/AdminPosts';
 import PopupAds from './containers/Settings/PopupAds';
@@ -194,7 +193,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/:id/edit' element={<EditTask />} />
       {(roles?.isAccountant || roles?.isAdmin) && <>
         <Route path='/settings' element={<Settings />} />
-        <Route path='/settings/pricing' element={<ServicesPrice />} />
+        <Route path='/settings/pricing' element={<Navigate to='/settings/customer-prices' replace />} />
         <Route path='/settings/customer-prices' element={<CustomerPrices />} />
         <Route path='/settings/announcements' element={<Announcements />} />
         <Route path='/settings/posts' element={<AdminPosts />} />
@@ -230,7 +229,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/task/add' element={<CreateTask />} />
       <Route path='/task/:id/edit' element={<EditTask />} />
       <Route path='/settings' element={<Settings />} />
-      <Route path='/settings/pricing' element={<ServicesPrice />} />
+      <Route path='/settings/pricing' element={<Navigate to='/settings/customer-prices' replace />} />
         <Route path='/settings/customer-prices' element={<CustomerPrices />} />
       <Route path='/settings/announcements' element={<Announcements />} />
       <Route path='/settings/posts' element={<AdminPosts />} />
@@ -302,7 +301,7 @@ const STAFF_PAGES: [string, JSX.Element][] = [
   ['/loyalty/promotions', <LoyaltyPromotions />],
   ['/loyalty/referrals', <LoyaltyReferrals />],
   ['/settings', <Settings />],
-  ['/settings/pricing', <ServicesPrice />],
+  ['/settings/pricing', <Navigate to='/settings/customer-prices' replace />],
   ['/settings/customer-prices', <CustomerPrices />],
   ['/settings/announcements', <Announcements />],
   ['/settings/posts', <AdminPosts />],

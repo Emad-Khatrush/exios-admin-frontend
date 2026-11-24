@@ -70,7 +70,7 @@ export const MENU_PAGES: { path: string, label: string }[] = [
   { path: '/mytasks', label: 'المهام' },
   { path: '/reports', label: 'التقارير' },
   { path: '/activities', label: 'سجل النشاطات' },
-  { path: '/settings/pricing', label: 'الأسعار وسعر الصرف' },
+  { path: '/settings/customer-prices', label: 'الأسعار وسعر الصرف' },
   { path: '/settings/announcements', label: 'الإعلانات والمنشورات' },
 ];
 

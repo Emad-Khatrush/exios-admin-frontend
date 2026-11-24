@@ -11,7 +11,7 @@ import './CustomerPrices.scss';
 
 type Tier = { upTo: number | null, type?: 'fixed' | 'percent', value?: number, rate?: number, fee?: number };
 type Category = { key: string, label: string, price: number };
-type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, minWeight?: number, categories: Category[], carrier?: string, updatedAt?: string };
+type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, minWeight?: number, message?: string, categories: Category[], carrier?: string, updatedAt?: string };
 // A full-container offer: one container type on one shipping line between two ports
 type Offer = {
   key: string, label: string, carrier: string, fromPort: string, toPort: string, route: string,
@@ -173,7 +173,7 @@ const CustomerPrices = () => {
     setSaving(true); setError(''); setNotice('');
     try {
       const res = await api.update('pricing/config', {
-        exchangeRate: { visible: draft.exchangeRate.visible },
+        exchangeRate: { visible: draft.exchangeRate.visible, rate: draft.exchangeRate.current?.rate },
         shipping: draft.shipping,
         purchase: draft.purchase,
         alipay: draft.alipay,
@@ -192,8 +192,8 @@ const CustomerPrices = () => {
       <Link className="settings-page__back" to="/settings"><ArrowRight size={15} /> الإعدادات</Link>
       <header className="cp-header">
         <div>
-          <h1>أسعار العملاء</h1>
-          <p>كل ما يظهر في صفحة الأسعار والحاسبة في تطبيق العميل. أخفِ أي قسم بالمفتاح بجانبه.</p>
+          <h1>الأسعار</h1>
+          <p>سعر الصرف وأسعار الشحن التي تقرؤها الفواتير، وكل ما يظهر في صفحة الأسعار والحاسبة في تطبيق العميل. أخفِ أي قسم عن العملاء بالمفتاح بجانبه.</p>
         </div>
         <button type="button" className="cp-btn cp-btn--quiet" disabled={loading || saving}
           onClick={() => { if (!dirty || window.confirm('التحديث سيتجاهل تعديلاتك غير المحفوظة. متابعة؟')) void load(); }}>
@@ -223,11 +223,13 @@ const CustomerPrices = () => {
 
       <div className="cp-grid">
         {/* Exchange rate */}
-        <Section icon={<DollarSign size={18} />} title="سعر الصرف" sub="سعر الدولار بالدينار في أعلى صفحة الأسعار."
+        <Section icon={<DollarSign size={18} />} title="سعر الصرف" sub="سعر الدولار بالدينار: للمحاسبة، وفي أعلى صفحة الأسعار."
           visible={d.exchangeRate.visible} onVisible={(v) => patch('exchangeRate', { visible: v })}>
-          <p className="cp-text">
-            السعر الحالي <strong dir="ltr">1$ = {d.exchangeRate.current?.rate ?? '-'} د.ل</strong>. يُغيَّر من صفحة <Link to="/settings/pricing">Pricing</Link> لأنه سعر المحاسبة أيضاً. إخفاؤه هنا لا يؤثر على المحاسبة.
-          </p>
+          <div className="cp-row">
+            <NumberField label="1 دولار =" value={d.exchangeRate.current?.rate ?? null} unit="د.ل" step="0.01"
+              onChange={(v) => patch('exchangeRate', { current: { rate: v, updatedAt: d.exchangeRate.current?.updatedAt || '' } })} />
+          </div>
+          <p className="cp-hint">هو سعر المحاسبة أيضاً: حفظه يغيّر سعر اليوم في المحاسبة وتحويل الدولار للعملاء الذين يدفعون بالدينار. إخفاؤه هنا يخفيه من صفحة الأسعار فقط.</p>
         </Section>
 
         {/* Shipping */}
@@ -278,6 +280,9 @@ const CustomerPrices = () => {
                       placeholder="0 = بدون" onChange={(v) => set({ minWeight: v })} />
                   </div>
                   <TextField label="ملاحظة تظهر تحت الخط" value={r.note} multiline wide onChange={(v) => set({ note: v })} />
+                  <TextField label="نص رسالة «وصلت طلبيتك للمخزن»" value={r.message || ''} multiline wide
+                    placeholder={`سعر الشحن: ${r.price || 0} دولار / ${r.unit === 'kg' ? 'كجم' : 'متر مكعب'}`} onChange={(v) => set({ message: v })} />
+                  <p className="cp-hint">يُضاف لرسالة وصول الطلبية للمخزن التي يرسلها الموظف من صفحة الطلبية. فارغ = سطر السعر كما في المثال. لا يظهر في صفحة الأسعار.</p>
                 </div>
               );
             })}
