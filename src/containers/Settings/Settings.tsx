@@ -7,7 +7,7 @@ import './SettingsCommon.scss';
 import './Settings.scss';
 
 const sections = [
-  { to: '/settings/customer-prices', icon: DollarSign, label: 'Prices', description: 'Exchange rate, the shipping price of each route, and the Prices page and calculators customers see.' },
+  { to: '/settings/customer-prices', icon: DollarSign, label: 'Prices', description: 'The shipping price of each route, and the Prices page and calculators customers see (with their dollar rate).' },
   { to: '/settings/announcements', icon: Megaphone, label: 'Announcements', description: 'Short notices shown to customers in the app.' },
   { to: '/settings/posts', icon: Newspaper, label: 'Posts', description: 'News and updates published to customers.' },
   { to: '/settings/popup-ads', icon: MonitorSmartphone, label: 'Popup ads', description: 'Full-screen announcements customers must acknowledge.' },

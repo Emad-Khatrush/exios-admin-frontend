@@ -32,7 +32,8 @@ const updatedOn = (value?: string) => (value
   : '');
 
 type Config = {
-  exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null },
+  // current: what customers see; own: set on this page (else it follows accounting); accounting: reference only
+  exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null, own?: boolean, accounting?: { rate: number } | null },
   shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[] },
   purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: Site[] },
   alipay: { visible: boolean, note: string, tiers: Tier[] },
@@ -193,7 +194,7 @@ const CustomerPrices = () => {
       <header className="cp-header">
         <div>
           <h1>الأسعار</h1>
-          <p>سعر الصرف وأسعار الشحن التي تقرؤها الفواتير، وكل ما يظهر في صفحة الأسعار والحاسبة في تطبيق العميل. أخفِ أي قسم عن العملاء بالمفتاح بجانبه.</p>
+          <p>أسعار الشحن التي تقرؤها الفواتير، وكل ما يظهر في صفحة الأسعار والحاسبة في تطبيق العميل. أخفِ أي قسم عن العملاء بالمفتاح بجانبه.</p>
         </div>
         <button type="button" className="cp-btn cp-btn--quiet" disabled={loading || saving}
           onClick={() => { if (!dirty || window.confirm('التحديث سيتجاهل تعديلاتك غير المحفوظة. متابعة؟')) void load(); }}>
@@ -223,13 +224,17 @@ const CustomerPrices = () => {
 
       <div className="cp-grid">
         {/* Exchange rate */}
-        <Section icon={<DollarSign size={18} />} title="سعر الصرف" sub="سعر الدولار بالدينار: للمحاسبة، وفي أعلى صفحة الأسعار."
+        <Section icon={<DollarSign size={18} />} title="سعر الصرف للعملاء" sub="سعر الدولار بالدينار الذي يراه العملاء في أعلى صفحة الأسعار."
           visible={d.exchangeRate.visible} onVisible={(v) => patch('exchangeRate', { visible: v })}>
           <div className="cp-row">
             <NumberField label="1 دولار =" value={d.exchangeRate.current?.rate ?? null} unit="د.ل" step="0.01"
               onChange={(v) => patch('exchangeRate', { current: { rate: v, updatedAt: d.exchangeRate.current?.updatedAt || '' } })} />
           </div>
-          <p className="cp-hint">هو سعر المحاسبة أيضاً: حفظه يغيّر سعر اليوم في المحاسبة وتحويل الدولار للعملاء الذين يدفعون بالدينار. إخفاؤه هنا يخفيه من صفحة الأسعار فقط.</p>
+          <p className="cp-hint">
+            للعملاء فقط، ولا يغيّر سعر المحاسبة (يُغيَّر من أسعار الصرف في المحاسبة).
+            {!d.exchangeRate.own && ' لم يُحدَّد بعد: يظهر للعملاء سعر المحاسبة حتى تكتب سعراً هنا.'}
+            {d.exchangeRate.accounting?.rate ? <> سعر المحاسبة الآن <bdi dir="ltr">{d.exchangeRate.accounting.rate}</bdi> د.ل.</> : null}
+          </p>
         </Section>
 
         {/* Shipping */}
