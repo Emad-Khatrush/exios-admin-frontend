@@ -11,13 +11,17 @@ import './CustomerPrices.scss';
 
 type Tier = { upTo: number | null, type?: 'fixed' | 'percent', value?: number, rate?: number, fee?: number };
 type Category = { key: string, label: string, price: number };
-type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, categories: Category[], carrier?: string, updatedAt?: string };
+type Route = { key: string, label: string, method: 'air' | 'sea', unit: 'kg' | 'cbm', price: number, visible: boolean, duration: string, note: string, minCharge: number, minWeight?: number, categories: Category[], carrier?: string, updatedAt?: string };
 // A full-container offer: one container type on one shipping line between two ports
 type Offer = {
   key: string, label: string, carrier: string, fromPort: string, toPort: string, route: string,
   price: number, duration: string, visible: boolean, pricesUpdatedAt?: string,
 };
-// Suggestions only: any line or port can be typed
+// A shopping site: the site's own fee, and its own commission in place of the brackets when set
+type SiteCommission = 'default' | 'none' | 'percent' | 'fixed';
+type Site = { key: string, label: string, feePercent: number, commission?: SiteCommission, commissionValue?: number, freeShipping?: boolean };
+// Suggestions only: any line, port or site can be typed
+const SITES = ['شي ان - Shein', 'علي بابا', 'موقع 1688 او Taobao', 'علي إكسبريس - AliExpress', 'تيمو - Temu', 'أمازون - Amazon', 'ترينديول - Trendyol', 'آي هيرب - iHerb', 'إيباي - eBay', 'مواقع أخرى'];
 const CONTAINER_TYPES = ['حاوية 20 قدم', 'حاوية 40 قدم', 'حاوية 40 قدم عالية (HQ)'];
 const CARRIERS = ['MSC', 'Maersk', 'CMA CGM', 'COSCO', 'Hapag-Lloyd', 'ONE', 'Evergreen', 'Yang Ming', 'ZIM', 'Arkas'];
 const AIRLINES = ['Turkish Airlines', 'Emirates', 'Qatar Airways', 'Etihad', 'EgyptAir', 'Libyan Airlines', 'China Southern', 'China Eastern'];
@@ -30,7 +34,7 @@ const updatedOn = (value?: string) => (value
 type Config = {
   exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null },
   shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[] },
-  purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: { key: string, label: string, feePercent: number }[] },
+  purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: Site[] },
   alipay: { visible: boolean, note: string, tiers: Tier[] },
   swift: { visible: boolean, note: string, tiers: Tier[], fixedFee: number, minFee: number },
   fcl: { visible: boolean, note: string, containers: Offer[] },
@@ -270,6 +274,8 @@ const CustomerPrices = () => {
                     />
                     <TextField label="المدة" value={r.duration} placeholder="15 - 20 يوماً" onChange={(v) => set({ duration: v })} />
                     <NumberField label="أقل تكلفة للشحنة" value={r.minCharge} unit="$" onChange={(v) => set({ minCharge: v })} />
+                    <NumberField label={r.unit === 'kg' ? 'أقل وزن للشحن' : 'أقل حجم للشحن'} value={r.minWeight || 0} unit={r.unit === 'kg' ? 'كجم' : 'CBM'}
+                      placeholder="0 = بدون" onChange={(v) => set({ minWeight: v })} />
                   </div>
                   <TextField label="ملاحظة تظهر تحت الخط" value={r.note} multiline wide onChange={(v) => set({ note: v })} />
                 </div>
@@ -300,20 +306,44 @@ const CustomerPrices = () => {
           <div className="cp-row">
             <NumberField label="أقل عمولة" value={d.purchase.minCommission} unit="$" onChange={(v) => patch('purchase', { minCommission: v })} />
           </div>
-          <h3 className="cp-subtitle">رسوم المواقع</h3>
+          <h3 className="cp-subtitle">المواقع</h3>
+          <p className="cp-hint">لكل موقع رسومه، ويمكن أن تكون له عمولة خاصة بدل الشرائح أعلاه، مثل شي ان بدون عمولة وشحن مجاني.</p>
+          <Suggestions id="cp-sites" items={SITES} />
           <div className="cp-list">
             {d.purchase.sites.map((s, i) => {
-              const set = (p: any) => { const sites = [...d.purchase.sites]; sites[i] = { ...s, ...p }; patch('purchase', { sites }); };
+              const set = (p: Partial<Site>) => { const sites = [...d.purchase.sites]; sites[i] = { ...s, ...p }; patch('purchase', { sites }); };
+              const commission = s.commission || 'default';
               return (
-                <div key={i} className="cp-row cp-row--item">
-                  <TextField label="الموقع" value={s.label} onChange={(v) => set({ label: v })} />
-                  <NumberField label="رسوم الموقع" value={s.feePercent} unit="%" onChange={(v) => set({ feePercent: v })} />
-                  <button type="button" className="cp-icon-btn" aria-label="حذف الموقع" onClick={() => patch('purchase', { sites: d.purchase.sites.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
+                <div key={s.key || i} className="cp-site">
+                  <div className="cp-row cp-row--item">
+                    <TextField label="الموقع" value={s.label} list="cp-sites" placeholder="اختر أو اكتب اسم الموقع" onChange={(v) => set({ label: v })} />
+                    <NumberField label="رسوم الموقع" value={s.feePercent} unit="%" onChange={(v) => set({ feePercent: v })} />
+                    <button type="button" className="cp-icon-btn" aria-label="حذف الموقع" onClick={() => patch('purchase', { sites: d.purchase.sites.filter((_, j) => j !== i) })}><Trash2 size={16} /></button>
+                  </div>
+                  <div className="cp-row cp-row--item">
+                    <label className="cp-field">
+                      <span>عمولة الشراء</span>
+                      <select value={commission} onChange={(e) => set({ commission: e.target.value as SiteCommission, commissionValue: 0 })}>
+                        <option value="default">العمولة العادية (الشرائح)</option>
+                        <option value="none">بدون عمولة</option>
+                        <option value="percent">عمولة خاصة: نسبة %</option>
+                        <option value="fixed">عمولة خاصة: مبلغ ثابت $</option>
+                      </select>
+                    </label>
+                    {commission === 'percent' || commission === 'fixed'
+                      ? <NumberField label="العمولة الخاصة" value={s.commissionValue || 0} unit={commission === 'fixed' ? '$' : '%'} onChange={(v) => set({ commissionValue: v })} />
+                      : <span />}
+                    <span className="cp-site__ship">
+                      <Switch checked={!!s.freeShipping} onChange={(v) => set({ freeShipping: v })} label={`شحن مجاني من ${s.label || 'الموقع'}`} />
+                      <small>شحن مجاني</small>
+                    </span>
+                  </div>
                 </div>
               );
             })}
-            <button type="button" className="cp-add" onClick={() => patch('purchase', { sites: [...d.purchase.sites, { key: `site-${Date.now()}`, label: '', feePercent: 0 }] })}><Plus size={15} /> أضف موقعاً</button>
+            <button type="button" className="cp-add" onClick={() => patch('purchase', { sites: [...d.purchase.sites, { key: `site-${Date.now()}`, label: '', feePercent: 0, commission: 'default', commissionValue: 0, freeShipping: false }] })}><Plus size={15} /> أضف موقعاً</button>
           </div>
+          <p className="cp-hint">«أقل عمولة» تُطبَّق على العمولة الخاصة أيضاً، ولا تُطبَّق على «بدون عمولة».</p>
           <TextField label="ملاحظة" value={d.purchase.note} wide multiline onChange={(v) => patch('purchase', { note: v })} />
         </Section>
 

@@ -286,6 +286,21 @@ $shadow: 0 1px 2px rgba(22, 32, 52, 0.05), 0 4px 14px -6px rgba(22, 32, 52, 0.08
   align-items: end;
 }
 .cp-hint { font-size: 0.76rem; color: $muted; }
+// A shopping site: its name and fee, then its own commission and free shipping
+.cp-site {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid $line;
+  border-radius: 12px;
+}
+.cp-site__ship {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  small { font-size: 0.82rem; font-weight: 600; color: $ink-2; }
+}
 
 // ---- Switch (right to left: on moves to the left)
 .cp-switch {
