@@ -31,13 +31,16 @@ const updatedOn = (value?: string) => (value
   ? new Intl.DateTimeFormat('ar-LY-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
   : '');
 
+// What a customer pays on top, in qirsh (1/100 dinar) a dollar, by where they pay
+type Delivery = { libya: number, turkey: number };
+
 type Config = {
   // current: what customers see; own: set on this page (else it follows accounting); accounting: reference only
   exchangeRate: { visible: boolean, current: { rate: number, updatedAt: string } | null, own?: boolean, accounting?: { rate: number } | null },
-  shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[] },
-  purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: Site[] },
-  alipay: { visible: boolean, note: string, tiers: Tier[] },
-  swift: { visible: boolean, note: string, tiers: Tier[], fixedFee: number, minFee: number },
+  shipping: { visible: boolean, note: string, volumetricDivisor: number, routes: Route[], delivery?: Delivery },
+  purchase: { visible: boolean, note: string, minCommission: number, tiers: Tier[], sites: Site[], delivery?: Delivery },
+  alipay: { visible: boolean, note: string, tiers: Tier[], delivery?: Delivery },
+  swift: { visible: boolean, note: string, tiers: Tier[], fixedFee: number, minFee: number, delivery?: Delivery },
   fcl: { visible: boolean, note: string, containers: Offer[] },
   offices: { key: string, label: string, whatsapp: string, cities: string[] }[],
   updatedAt?: string,
@@ -105,6 +108,26 @@ const Section = ({ icon, title, sub, visible, onVisible, children }: {
     <div className="cp-card__body">{children}</div>
   </section>
 );
+
+// The qirsh a dollar added by where the customer pays. 10 qirsh on a $100 total = $100 + 10 LYD.
+const DeliveryFields = ({ value, onChange, of }: { value?: Delivery, onChange: (v: Delivery) => void, of: string }) => {
+  const v = value || { libya: 0, turkey: 0 };
+  // $100 x q qirsh = q x 100 / 100 LYD = q LYD
+  const example = (q: number) => (q ? `فاتورة 100$ = 100$ + ${Math.round(q * 100) / 100} د.ل` : 'لا يُضاف شيء');
+  return (
+    <>
+      <h3 className="cp-subtitle">فرق القروش حسب مكان الدفع</h3>
+      <div className="cp-row">
+        <NumberField label="فرق قروش تسليم ليبيا" value={v.libya} unit="قرش / دولار" step="1" placeholder="0" onChange={(x) => onChange({ ...v, libya: x })} />
+        <NumberField label="فرق قروش تسليم تركيا" value={v.turkey} unit="قرش / دولار" step="1" placeholder="0" onChange={(x) => onChange({ ...v, turkey: x })} />
+      </div>
+      <p className="cp-hint">
+        يُضاف بالدينار على كل دولار من إجمالي {of}، حسب مكان دفع العميل. ليبيا: {example(v.libya)}. تركيا: {example(v.turkey)}.
+        الحاسبة في التطبيق تعرض المبلغين معاً.
+      </p>
+    </>
+  );
+};
 
 // Brackets: "up to X" rows, then a last "and above" row that cannot be removed
 const TierRows = ({ tiers, onChange, unit, render }: {
@@ -296,6 +319,7 @@ const CustomerPrices = () => {
             <NumberField label="قاسم الوزن الحجمي (جوي)" value={d.shipping.volumetricDivisor} step="1" min={1000} onChange={(v) => patch('shipping', { volumetricDivisor: v })} />
             <TextField label="ملاحظة عامة للشحن" value={d.shipping.note} wide multiline onChange={(v) => patch('shipping', { note: v })} />
           </div>
+          <DeliveryFields value={d.shipping.delivery} of="تكلفة الشحن" onChange={(delivery) => patch('shipping', { delivery })} />
         </Section>
 
         {/* Purchase */}
@@ -354,6 +378,7 @@ const CustomerPrices = () => {
             <button type="button" className="cp-add" onClick={() => patch('purchase', { sites: [...d.purchase.sites, { key: `site-${Date.now()}`, label: '', feePercent: 0, commission: 'default', commissionValue: 0, freeShipping: false }] })}><Plus size={15} /> أضف موقعاً</button>
           </div>
           <p className="cp-hint">«أقل عمولة» تُطبَّق على العمولة الخاصة أيضاً، ولا تُطبَّق على «بدون عمولة».</p>
+          <DeliveryFields value={d.purchase.delivery} of="الفاتورة (المشتريات ورسوم الموقع والعمولة)" onChange={(delivery) => patch('purchase', { delivery })} />
           <TextField label="ملاحظة" value={d.purchase.note} wide multiline onChange={(v) => patch('purchase', { note: v })} />
         </Section>
 
@@ -366,6 +391,7 @@ const CustomerPrices = () => {
               <NumberField label="الرسوم" value={t.fee} unit="$" onChange={(v) => set({ fee: v })} />
             </>
           )} />
+          <DeliveryFields value={d.alipay.delivery} of="الحوالة بالدولار مع رسومها" onChange={(delivery) => patch('alipay', { delivery })} />
           <TextField label="ملاحظة" value={d.alipay.note} wide multiline onChange={(v) => patch('alipay', { note: v })} />
         </Section>
 
@@ -388,6 +414,7 @@ const CustomerPrices = () => {
             <NumberField label="أقل عمولة" value={d.swift.minFee} unit="$" onChange={(v) => patch('swift', { minFee: v })} />
             <NumberField label="رسوم بنكية ثابتة" value={d.swift.fixedFee} unit="$" onChange={(v) => patch('swift', { fixedFee: v })} />
           </div>
+          <DeliveryFields value={d.swift.delivery} of="الحوالة مع عمولتها ورسومها" onChange={(delivery) => patch('swift', { delivery })} />
           <TextField label="ملاحظة" value={d.swift.note} wide multiline onChange={(v) => patch('swift', { note: v })} />
         </Section>
 
