@@ -116,13 +116,13 @@ const DeliveryFields = ({ value, onChange, of }: { value?: Delivery, onChange: (
   const example = (q: number) => (q ? `فاتورة 100$ = 100$ + ${Math.round(q * 100) / 100} د.ل` : 'لا يُضاف شيء');
   return (
     <>
-      <h3 className="cp-subtitle">فرق القروش حسب مكان الدفع</h3>
+      <h3 className="cp-subtitle">فرق القروش حسب مكان التسليم</h3>
       <div className="cp-row">
         <NumberField label="فرق قروش تسليم ليبيا" value={v.libya} unit="قرش / دولار" step="1" placeholder="0" onChange={(x) => onChange({ ...v, libya: x })} />
-        <NumberField label="فرق قروش تسليم تركيا" value={v.turkey} unit="قرش / دولار" step="1" placeholder="0" onChange={(x) => onChange({ ...v, turkey: x })} />
+        <NumberField label="فرق قروش تسليم تركيا (مكاتب الصرافة)" value={v.turkey} unit="قرش / دولار" step="1" placeholder="0" onChange={(x) => onChange({ ...v, turkey: x })} />
       </div>
       <p className="cp-hint">
-        يُضاف بالدينار على كل دولار من إجمالي {of}، حسب مكان دفع العميل. ليبيا: {example(v.libya)}. تركيا: {example(v.turkey)}.
+        يُضاف بالدينار على كل دولار من إجمالي {of}، حسب مكان تسليم العميل للمبلغ. ليبيا: {example(v.libya)}. تركيا (عبر مكاتب الصرافة): {example(v.turkey)}.
         الحاسبة في التطبيق تعرض المبلغين معاً.
       </p>
     </>
