@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornment, TextField } from '@mui/material';
 import api from '../../api';
 import { requestError } from '../Loyalty/PaymentPoints';
@@ -28,7 +29,10 @@ const REASONS: Record<Mode, string[]> = {
 // Staff add points to a customer or take points away, with the reason written down
 const AdjustPointsDialog = ({ open, userId, balance, onClose, onSaved }: Props) => {
   const motion = useDialogMotion();
-  const [mode, setMode] = useState<Mode>('add');
+  // Adding points by hand is for admins only (owner 2026-11-26); other staff can only take points off
+  const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const modes = isAdmin ? MODES : MODES.filter(([m]) => m === 'deduct');
+  const [mode, setMode] = useState<Mode>(isAdmin ? 'add' : 'deduct');
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -36,11 +40,11 @@ const AdjustPointsDialog = ({ open, userId, balance, onClose, onSaved }: Props) 
 
   useEffect(() => {
     if (!open) return;
-    setMode('add');
+    setMode(isAdmin ? 'add' : 'deduct');
     setValue('');
     setReason('');
     setError('');
-  }, [open]);
+  }, [open, isAdmin]);
 
   const points = Number(value) || 0;
   const invalid = value !== '' && (!Number.isInteger(points) || points <= 0);
@@ -74,7 +78,7 @@ const AdjustPointsDialog = ({ open, userId, balance, onClose, onSaved }: Props) 
         <DialogContent dividers>
           {error && <Alert severity="error" dir="auto">{error}</Alert>}
           <div className="lp-segment lp-segment--full" role="group" aria-label="إضافة أو خصم">
-            {MODES.map(([next, label]) => (
+            {modes.map(([next, label]) => (
               <button key={next} type="button" aria-pressed={mode === next} disabled={isSaving} onClick={() => setMode(next)}>{label}</button>
             ))}
           </div>

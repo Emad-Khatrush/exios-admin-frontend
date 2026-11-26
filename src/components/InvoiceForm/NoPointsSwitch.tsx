@@ -72,7 +72,7 @@ const NoPointsSwitch = ({ orderId, disabled }: { orderId: string, disabled?: boo
           <TextField
             className="lp-fade-in" fullWidth size="small" label="سبب الاستثناء" required multiline minRows={2} dir="auto" value={reason} disabled={disabled || busy || !enabled}
             onChange={(event) => { setReason(event.target.value); setSaved(false); }}
-            error={enabled && changed && !reason.trim()} helperText={enabled && !reason.trim() ? 'السبب إجباري' : ''}
+            error={enabled && changed && !reason.trim()} helperText={enabled && !reason.trim() ? 'السبب إجباري' : 'للموظفين فقط؛ العميل يرى أن يتواصل معنا'}
           />
         )}
         {state && (
