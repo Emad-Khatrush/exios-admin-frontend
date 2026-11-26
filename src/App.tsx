@@ -37,6 +37,7 @@ import LoyaltyCustomers from './containers/Loyalty/LoyaltyCustomers';
 import LoyaltyLevels from './containers/Loyalty/LoyaltyLevels';
 import LoyaltyPromotions from './containers/Loyalty/LoyaltyPromotions';
 import LoyaltyReferrals from './containers/Loyalty/LoyaltyReferrals';
+import LoyaltyReferralReport from './containers/Loyalty/LoyaltyReferralReport';
 import SpecialPriceCustomers from './containers/SpecialPriceCustomers/SpecialPriceCustomers';
 import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
@@ -257,6 +258,7 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/loyalty/levels' element={<LoyaltyLevels />} />
       <Route path='/loyalty/promotions' element={<LoyaltyPromotions />} />
       <Route path='/loyalty/referrals' element={<LoyaltyReferrals />} />
+      <Route path='/loyalty/referrals/report' element={<LoyaltyReferralReport />} />
       {accountingRoutes}
     </>
   } else if (roles?.isAccountant) {
@@ -300,6 +302,7 @@ const STAFF_PAGES: [string, JSX.Element][] = [
   ['/loyalty/levels', <LoyaltyLevels />],
   ['/loyalty/promotions', <LoyaltyPromotions />],
   ['/loyalty/referrals', <LoyaltyReferrals />],
+  ['/loyalty/referrals/report', <LoyaltyReferralReport />],
   ['/settings', <Settings />],
   ['/settings/pricing', <Navigate to='/settings/customer-prices' replace />],
   ['/settings/customer-prices', <CustomerPrices />],

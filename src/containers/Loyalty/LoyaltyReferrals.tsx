@@ -63,6 +63,7 @@ const LoyaltyReferrals = () => {
           <p>دعوات تبدو لنفس الشخص أو نفس العائلة، والمكافآت الإضافية الكبيرة: لا تُعطى حتى توافق عليها.</p>
           <nav className="lp-head__nav">
             <Link to="/loyalty" className="lp-head__link">→ العودة إلى النقاط</Link>
+            <Link to="/loyalty/referrals/report" className="lp-head__link">تقرير الدعوات</Link>
           </nav>
         </header>
 

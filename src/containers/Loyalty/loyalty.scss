@@ -992,3 +992,21 @@ $lp-font: 'Readex Pro', 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Taho
   li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: #fff; }
 }
 .lrv-row { padding: 8px 12px; border-radius: 10px; background: #fff; font-size: 14px; }
+
+/* The invite report (2026-11-26) */
+.lrr-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 16px; }
+.lrr-stats .lp-stat { min-width: 0; }
+.lrr-top { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lrr-top li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; border: 1px solid var(--op-line); border-radius: 12px; background: #fff; }
+.lrr-top__rank { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--op-soft); font-weight: 800; }
+.lrr-top__name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.lrr-table td { vertical-align: top; }
+.lrr-table .lpr-tag { display: inline-block; margin: 0 0 4px 4px; }
+.lrr-st.is-sharing, .lrr-st.is-ended { background: #ecfdf3; color: #067647; }
+.lrr-st.is-canceled, .lrr-st.is-rejected { background: #fef3f2; color: #b42318; }
+.lrr-st.is-review { background: #fffaeb; color: #b54708; }
+.lrr-why { font-size: 0.82rem; }
+.lrr-rewards { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lrr-rewards li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--op-line); border-radius: 12px; background: #fff; }
+.lpx-ref__friends { margin-top: 10px; }
+.lpx-ref__friends .lp-table { min-width: 640px; }

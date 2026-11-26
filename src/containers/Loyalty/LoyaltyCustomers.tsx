@@ -258,6 +258,7 @@ const LoyaltyCustomers = () => {
             <Link to="/loyalty/levels" className="lp-head__link"><MdLayers aria-hidden /> المستويات وتقريرها</Link>
             <Link to="/loyalty/promotions" className="lp-head__link is-offer"><MdLocalFireDepartment aria-hidden /> عروض النقاط</Link>
             <Link to="/loyalty/referrals" className="lp-head__link"><MdPersonSearch aria-hidden /> مراجعة الدعوات</Link>
+            <Link to="/loyalty/referrals/report" className="lp-head__link"><MdPersonSearch aria-hidden /> تقرير الدعوات</Link>
           </nav>
         </header>
 

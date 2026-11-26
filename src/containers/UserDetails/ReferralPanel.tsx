@@ -5,7 +5,8 @@ import { Link } from 'react-router-dom';
 import api from '../../api';
 import '../Loyalty/loyalty.scss';
 import { requestError } from '../Loyalty/PaymentPoints';
-import { fullDate } from '../Loyalty/format';
+import { fullDate, money, pointsText } from '../Loyalty/format';
+import { PASSPORT_TEXT, ReferralStatus, SOURCE_TEXT, STATUS_TEXT } from '../Loyalty/LoyaltyReferralReport';
 import { Num, useDialogMotion } from '../Loyalty/LoyaltyRtl';
 
 // GET user/:id/referral (invite a friend, spec 2026-11-20 in Exios-Api)
@@ -28,7 +29,15 @@ type Info = {
   flags?: { code: string, detail: string }[]
   review?: { status: 'pending' | 'approved' | 'rejected', at: string | null, note: string | null } | null
   qualified: number
+  // Every friend they invited (staff only): what the friend paid and what the inviter got from them
+  friends?: Friend[]
 }
+type Friend = {
+  id: string, name: string, customerId: string | null, at: string, source: 'link' | 'code' | 'staff' | null, status: ReferralStatus,
+  qualifiedAt: string | null, canceledAt: string | null, passport: string | null, paidUsd: number, points: number, heldPoints: number,
+}
+// Friends shown before «عرض الكل»
+const FRIENDS_FIRST = 5;
 
 const SOURCE: Record<string, string> = { link: 'برابط الدعوة', code: 'بكتابة الكود', staff: 'أضافها موظف' };
 
@@ -43,6 +52,7 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [allFriends, setAllFriends] = useState(false);
 
   const load = useCallback(() => {
     api.get(`user/${userId}/referral`).then((res: any) => setInfo(res?.data || null)).catch(() => setInfo(null));
@@ -102,6 +112,32 @@ const ReferralPanel = ({ userId, canEdit, onChanged }: Props) => {
         </p>
       ) : (
         <p className="lpx-ref__line lp-muted">لم يُدعَ من أحد.{info.canSet && info.canSetUntil && <> يمكن إضافة من دعاه حتى {fullDate(info.canSetUntil)}.</>}</p>
+      )}
+      {!!info.friends?.length && (
+        <div className="lpx-ref__friends">
+          <p className="lpx-ref__line"><b>من دعاهم</b> <span className="lp-muted">· أخذ منهم <Num>{pointsText(info.friends.reduce((sum, f) => sum + f.points, 0))}</Num> نقطة
+            {info.friends.some((f) => f.heldPoints > 0) && <> و<Num>{pointsText(info.friends.reduce((sum, f) => sum + f.heldPoints, 0))}</Num> تنتظر</>}</span></p>
+          <div className="lp-table-wrap">
+            <table className="lp-table lrr-table">
+              <thead><tr><th>الصديق</th><th>التسجيل</th><th>الحالة</th><th>الجواز</th><th className="is-num">دفع</th><th className="is-num">للداعي</th></tr></thead>
+              <tbody>
+                {(allFriends ? info.friends : info.friends.slice(0, FRIENDS_FIRST)).map((f) => (
+                  <tr key={f.id}>
+                    <td><Link to={`/user/${f.id}`}>{f.name}{f.customerId && <> (<bdi dir="ltr">{f.customerId}</bdi>)</>}</Link></td>
+                    <td><Num>{fullDate(f.at)}</Num>{f.source && <span className="lp-muted"> · {SOURCE_TEXT[f.source]}</span>}</td>
+                    <td><span className={`lpr-tag lrr-st is-${f.status}`}>{STATUS_TEXT[f.status]}</span></td>
+                    <td>{PASSPORT_TEXT[f.passport || ''] || 'بدون'}</td>
+                    <td className="is-num"><Num>${money(f.paidUsd)}</Num></td>
+                    <td className="is-num"><Num>{pointsText(f.points)}</Num>{f.heldPoints > 0 && <div className="lp-muted lrr-why">+<Num>{pointsText(f.heldPoints)}</Num> تنتظر</div>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {info.friends.length > FRIENDS_FIRST && (
+            <Button size="small" onClick={() => setAllFriends((v) => !v)}>{allFriends ? 'عرض أقل' : `عرض الكل (${info.friends.length})`}</Button>
+          )}
+        </div>
       )}
       {canEdit && (info.canSet || (info.by && !info.canceledAt)) && (
         <div className="lpx-ref__actions">
