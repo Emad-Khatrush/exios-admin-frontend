@@ -8,6 +8,7 @@ import { Account } from "../../models";
 import getRoutes from "./routes";
 import { StaffAccess, useStaffAccess } from "../../utils/useStaffAccess";
 import AccountingGate from "../../containers/Accounting/AccountingGate";
+import ReviewsBadge from "./ReviewsBadge";
 import './Sidebar.scss';
 
 type MyProps = {
@@ -47,6 +48,7 @@ class Sidebar extends React.Component<MyProps, MyState> {
                         >
                             {route.icon}
                             {route.title}
+                            {route.path === '/ratings' && <ReviewsBadge />}
                         </NavLink>
                       )
                         // Accounting shows only for whoever the owner gave access to

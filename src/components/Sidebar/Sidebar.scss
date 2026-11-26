@@ -58,3 +58,9 @@
     border-radius: 50px;
     }
 }
+// New complaints and ratings beside «Reviews» (2026-11-27)
+.sidebar-badge {
+    margin-left: auto; margin-right: 6px; min-width: 20px; height: 20px; padding: 0 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px; background: #dc2626; color: #fff; font-size: 12px; font-weight: 700; line-height: 1;
+}

@@ -6,6 +6,7 @@ import moment from 'moment';
 import api from '../../api';
 import './RatingsPage.scss';
 import FeedbackPanel from './FeedbackPanel';
+import { reviewsChanged } from '../../components/Sidebar/ReviewsBadge';
 
 type Question = { _id?: string; name?: string; label: string; type: string; value: unknown };
 type Review = {
@@ -49,6 +50,8 @@ function RatingsList() {
       if (controller.signal.aborted) return;
       if (!Array.isArray(response.data)) throw new Error('Invalid ratings response');
       setRatings(response.data.filter((r: Review | null) => r && r._id)); setLoaded(true);
+      // The list is on screen: every rating is seen, and the count beside «Reviews» drops
+      api.post('reviews/ratings/seen', {}).then(reviewsChanged).catch(() => undefined);
     }).catch(() => { if (!controller.signal.aborted) setError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();

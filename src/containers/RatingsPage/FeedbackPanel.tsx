@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, ArrowUpLeft, ChevronLeft, ChevronRight, ImagePlus, Inbox, Lightbulb, MessageSquareWarning, RefreshCw, Search, Send, StickyNote, Trash2, X } from 'lucide-react';
 import moment from 'moment';
 import api from '../../api';
+import { reviewsChanged } from '../../components/Sidebar/ReviewsBadge';
 import './FeedbackPanel.scss';
 
 type Kind = 'complaint' | 'suggestion';
@@ -232,10 +233,11 @@ function Detail({ item, onSaved, onDeleted }: { item: Feedback; onSaved: (f: Fee
   const [error, setError] = useState('');
 
   useEffect(() => { setNote(''); setError(''); }, [item._id]);
-  // Opening a complaint the customer wrote into marks it read for the office
+  // Opening a complaint or a suggestion with something unread marks it read for the office, and the
+  // count beside «Reviews» in the menu goes down
   useEffect(() => {
-    if (item.kind !== 'complaint' || !item.unreadByStaff) return;
-    api.update(`feedback/${item._id}`, { seen: true }).then((res: any) => res?.data?._id && onSaved(res.data)).catch(() => undefined);
+    if (!item.unreadByStaff) return;
+    api.update(`feedback/${item._id}`, { seen: true }).then((res: any) => { if (res?.data?._id) { onSaved(res.data); reviewsChanged(); } }).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item._id]);
 
