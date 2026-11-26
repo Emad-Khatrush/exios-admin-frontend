@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Autocomplete, Button, ButtonGroup, FormControlLabel, IconButton, Switch, TextField, Tooltip } from '@mui/material';
 import { MdDeleteOutline } from 'react-icons/md';
 import QRCode from 'qrcode.react';
+import { useSelector } from 'react-redux';
 import moment from 'moment';
 import api from '../../api';
 import ImageUploader from '../../components/ImageUploader/ImageUploader';
@@ -95,6 +96,9 @@ const Whatsapp = ({ order, disabled, toast }: Pick<Props, 'order' | 'disabled' |
   const [qrCode, setQrCode] = useState('');
   const [showQr, setShowQr] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  // Admins can unlink the company number and start over with a new QR (POST whatsapp/reset)
+  const isAdmin = useSelector((state: any) => !!state.session?.account?.roles?.isAdmin);
+  const [isResetting, setIsResetting] = useState(false);
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const priceRequest = useRef(0);
   useEffect(() => {
@@ -148,12 +152,39 @@ const Whatsapp = ({ order, disabled, toast }: Pick<Props, 'order' | 'disabled' |
     setIsSending(false);
   };
 
+  // No QR: say whether WhatsApp is already linked or still starting
   const getQr = async () => {
     try {
       setQrCode((await api.get('get-qr-code')).data.qrCode || '');
       setShowQr(true);
     } catch (error) {
+      try {
+        const status = (await api.get('whatsapp/status')).data;
+        toast(status?.ready ? 'success' : 'error', status?.ready ? 'WhatsApp is already linked — no QR needed.' : 'WhatsApp is starting, try Get QR again in a minute.');
+      } catch {
+        toast('error', apiErrorMessage(error));
+      }
+    }
+  };
+
+  // Unlinks the number (from the phone too), deletes the saved session, and waits for the new QR
+  const resetWhatsapp = async () => {
+    if (!window.confirm('Unlink the company WhatsApp and show a new QR code? Messages cannot be sent until it is scanned again.')) return;
+    setIsResetting(true);
+    try {
+      await api.post('whatsapp/reset', {});
+      for (let i = 0; i < 24; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        try {
+          const qr = (await api.get('get-qr-code')).data.qrCode;
+          if (qr) { setQrCode(qr); setShowQr(true); toast('success', 'Scan the new QR code from the phone.'); return; }
+        } catch { /* not ready yet */ }
+      }
+      toast('error', 'The new QR code is taking long. Press Get QR in a minute.');
+    } catch (error) {
       toast('error', apiErrorMessage(error));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -170,7 +201,8 @@ const Whatsapp = ({ order, disabled, toast }: Pick<Props, 'order' | 'disabled' |
         <div className="op-actions op-actions--between">
           <FormControlLabel label="Show QR code" control={<Switch size="small" checked={showQr} onChange={(event) => setShowQr(event.target.checked)} />} />
           <div className="op-actions">
-            <Button variant="outlined" type="button" onClick={getQr}>Get QR</Button>
+            {isAdmin && <Button color="error" type="button" onClick={resetWhatsapp} disabled={isResetting}>{isResetting ? 'Resetting…' : 'New QR'}</Button>}
+            <Button variant="outlined" type="button" onClick={getQr} disabled={isResetting}>Get QR</Button>
             <Button variant="contained" type="button" onClick={send} disabled={disabled || isSending || isLoadingPrices}>{isSending ? 'Sending' : 'Send'}</Button>
           </div>
         </div>
