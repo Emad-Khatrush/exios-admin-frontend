@@ -116,7 +116,7 @@ const adminRoutes = [
       icon: <FaPercentage className="sidebar-icon" />,
      },
    {
-      title: 'Ratings',
+      title: 'Reviews',
       path: '/ratings',
       icon: <MdOutlineStarRate className="sidebar-icon" />,
      },
@@ -225,7 +225,7 @@ const staffRoutes = (permissions: string[]) => {
     { title: 'Goals', path: '/goals', icon: <FaBullseye className="sidebar-icon" /> },
     { title: 'Analytics', path: '/analytics', icon: <MdOutlineInsights className="sidebar-icon" /> },
     { title: 'Special Prices', path: '/special-prices', icon: <FaPercentage className="sidebar-icon" /> },
-    { title: 'Ratings', path: '/ratings', icon: <MdOutlineStarRate className="sidebar-icon" /> },
+    { title: 'Reviews', path: '/ratings', icon: <MdOutlineStarRate className="sidebar-icon" /> },
     { mainTitle: 'Settings' },
     { title: 'General', path: '/settings', icon: <FiSettings className="sidebar-icon" /> },
   ];
