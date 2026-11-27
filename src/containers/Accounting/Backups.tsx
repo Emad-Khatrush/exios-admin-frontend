@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@mui/material';
+import { Button, InputAdornment, TextField } from '@mui/material';
 import moment from 'moment';
 import { acc, errorText } from './accountingApi';
 import { Badge, DataTable, Ltr, Notice, PageHeader, Panel, Stat, StatGrid, Sub } from './ui';
@@ -67,6 +67,26 @@ const Backups = () => {
     }
   };
 
+  // How long a run may take before it is stopped (owner 2026-11-27: raised when Atlas reads slowly)
+  const [limit, setLimit] = useState('');
+  useEffect(() => { if (data?.maxMinutes) setLimit(String(data.maxMinutes)); }, [data?.maxMinutes]);
+  const range = data?.limitRange || { min: 5, max: 120 };
+  const limitValue = Number(limit);
+  const limitValid = Number.isInteger(limitValue) && limitValue >= range.min && limitValue <= range.max;
+  const saveLimit = async () => {
+    setIsBusy(true);
+    setMessage(null);
+    try {
+      const res = await acc.put('backups/settings', { maxMinutes: limitValue });
+      setMessage({ type: 'success', text: `حُفظ: تُلغى النسخة إذا تجاوزت ${res.data.maxMinutes} دقيقة. يطبَّق من النسخة القادمة.` });
+      await load();
+    } catch (err) {
+      setMessage({ type: 'error', text: errorText(err) });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const download = async (name: string) => {
     try {
       const res = await acc.post('backups/download', { name });
@@ -103,6 +123,20 @@ const Backups = () => {
         <Stat label="مواعيد النسخ اليومية" value={<Ltr>{[data?.times?.midday ?? 14, data?.times?.night ?? 23].map((h: number) => `${String(h).padStart(2, '0')}:00`).join(' · ')}</Ltr>} hint="بتوقيت ليبيا. نسخة الليل تحل محل نسخة الظهر من نفس اليوم" />
         <Stat label="المخزن" value={<Ltr>{data?.bucket || '—'}</Ltr>} />
       </StatGrid>
+
+      <Panel title="حد وقت النسخة" subtitle="إذا تجاوزت النسخة هذا الوقت تُلغى وتُسجَّل فاشلة، حتى لا تبقى معلّقة. النسخة العادية تأخذ أقل من دقيقة؛ ارفع الحد فقط إذا كانت قاعدة البيانات بطيئة (مثلاً حين يقيّد Atlas السرعة) وظهر «تجاوزت النسخة … دقيقة».">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <TextField
+            size="small" type="number" label="الحد بالدقائق" value={limit} onChange={(e) => setLimit(e.target.value)}
+            disabled={!data || isBusy} error={limit !== '' && !limitValid}
+            helperText={limit !== '' && !limitValid ? `عدد صحيح بين ${range.min} و${range.max}` : `الحالي: ${data?.maxMinutes ?? '—'} دقيقة · من ${range.min} إلى ${range.max}`}
+            inputProps={{ min: range.min, max: range.max, step: 1, dir: 'ltr' }}
+            InputProps={{ endAdornment: <InputAdornment position="end">دقيقة</InputAdornment> }}
+            sx={{ width: 220 }}
+          />
+          <Button variant="outlined" disabled={!data || isBusy || !limitValid || limitValue === data?.maxMinutes} onClick={saveLimit}>حفظ</Button>
+        </div>
+      </Panel>
 
       <Panel title="النسخ المحفوظة" subtitle="رابط التحميل صالح 15 دقيقة. الملف فيه بيانات العملاء: لا تشاركه.">
         <DataTable
