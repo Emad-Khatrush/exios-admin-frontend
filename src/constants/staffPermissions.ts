@@ -7,7 +7,7 @@ export type StaffPermission =
   | 'tracking' | 'delivery' | 'delivery_on_credit'
   | 'clients' | 'passports' | 'special_prices' | 'wallets' | 'wallet_transactions' | 'wallet_exchange' | 'debts' | 'returned_payments' | 'expenses'
   | 'inventory' | 'warehouse'
-  | 'marketing' | 'goals' | 'analytics' | 'ratings' | 'loyalty' | 'loyalty_customer' | 'loyalty_adjust' | 'loyalty_level'
+  | 'marketing' | 'goals' | 'analytics' | 'customer_analytics' | 'ratings' | 'loyalty' | 'loyalty_customer' | 'loyalty_adjust' | 'loyalty_level'
   | 'tasks' | 'reports' | 'activities' | 'settings_prices' | 'settings_content';
 
 // path -> the permissions that open it (any one is enough)
@@ -38,8 +38,10 @@ export const PAGE_PERMISSIONS: Record<string, StaffPermission[]> = {
   '/marketing': ['marketing'],
   '/analytics': ['analytics'],
   '/goals': ['goals'],
+  '/customer-analytics': ['customer_analytics'],
   '/loyalty': ['loyalty'],
   '/loyalty/levels': ['loyalty'],
+  '/loyalty/gifts': ['loyalty'],
   '/settings': ['settings_prices', 'settings_content'],
   '/settings/pricing': ['settings_prices'],
   '/settings/customer-prices': ['settings_prices'],
@@ -65,6 +67,7 @@ export const MENU_PAGES: { path: string, label: string }[] = [
   { path: '/marketing', label: 'التسويق' },
   { path: '/goals', label: 'الأهداف' },
   { path: '/analytics', label: 'الإحصاءات' },
+  { path: '/customer-analytics', label: 'تحليل العملاء' },
   { path: '/ratings', label: 'التقييمات' },
   { path: '/loyalty', label: 'نقاط الولاء' },
   { path: '/mytasks', label: 'المهام' },

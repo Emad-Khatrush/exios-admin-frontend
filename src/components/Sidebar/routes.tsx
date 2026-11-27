@@ -1,4 +1,4 @@
-import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights } from 'react-icons/md';
+import { MdLineStyle, MdOutlineAccountBalanceWallet, MdOutlineInventory, MdOutlineStarRate, MdOutlineInsights, MdOutlineQueryStats } from 'react-icons/md';
 import { FaFileInvoice, FaArchive, FaTasks, FaWarehouse, FaUsers, FaFileInvoiceDollar, FaTrashAlt, FaPercentage, FaBullhorn, FaBalanceScale, FaBullseye, FaStar } from 'react-icons/fa';
 import { FiSettings } from 'react-icons/fi';
 import { HiDocumentReport } from 'react-icons/hi';
@@ -109,6 +109,11 @@ const adminRoutes = [
       title: 'Analytics',
       path: '/analytics',
       icon: <MdOutlineInsights className="sidebar-icon" />,
+     },
+     {
+      title: 'Customer Analytics',
+      path: '/customer-analytics',
+      icon: <MdOutlineQueryStats className="sidebar-icon" />,
      },
    {
       title: 'Special Prices',
@@ -224,6 +229,7 @@ const staffRoutes = (permissions: string[]) => {
     { title: 'Marketing', path: '/marketing', icon: <FaBullhorn className="sidebar-icon" /> },
     { title: 'Goals', path: '/goals', icon: <FaBullseye className="sidebar-icon" /> },
     { title: 'Analytics', path: '/analytics', icon: <MdOutlineInsights className="sidebar-icon" /> },
+    { title: 'Customer Analytics', path: '/customer-analytics', icon: <MdOutlineQueryStats className="sidebar-icon" /> },
     { title: 'Special Prices', path: '/special-prices', icon: <FaPercentage className="sidebar-icon" /> },
     { title: 'Reviews', path: '/ratings', icon: <MdOutlineStarRate className="sidebar-icon" /> },
     { mainTitle: 'Settings' },

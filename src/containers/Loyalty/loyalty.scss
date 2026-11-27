@@ -954,6 +954,8 @@ $lp-font: 'Readex Pro', 'IBM Plex Sans Arabic', 'Red Hat Text', 'Segoe UI', Taho
 .lpr-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: #475467; font-size: 0.9rem; }
 .lpr-tag { padding: 1px 8px; border-radius: 999px; background: #f2f4f7; color: #475467; font-size: 0.78rem; font-weight: 700; }
 .lpr-tag.is-ok { background: #ecfdf3; color: #067647; }
+.lpr-tag.is-warn { background: #fffaeb; color: #b54708; }
+.lp-table .lpr-tag { display: inline-block; margin-inline-start: 6px; }
 .lpr-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
 .lpr-stats div { padding: 8px 10px; border-radius: 10px; background: #f9fafb; }
 .lpr-stats dt { color: #667085; font-size: 0.78rem; }

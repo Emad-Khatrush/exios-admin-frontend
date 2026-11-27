@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Skeleton } from '@mui/material';
-import { MdAdd, MdBlock, MdHourglassBottom, MdLocalShipping, MdReceiptLong, MdRemove, MdToll, MdTune, MdUndo } from 'react-icons/md';
+import { MdAdd, MdBlock, MdCardGiftcard, MdHourglassBottom, MdLocalShipping, MdReceiptLong, MdRemove, MdToll, MdTune, MdUndo } from 'react-icons/md';
 import moment from 'moment';
 import api from '../../api';
 import { requestError } from '../Loyalty/PaymentPoints';
@@ -297,6 +297,15 @@ const LoyaltyTab = ({ userId, onChanged, version = 0 }: Props) => {
             <div><dt>إجمالي المستعمل</dt><dd><Num>{pointsText(data.redeemedTotal)}</Num></dd></div>
             <div><dt>في الطريق</dt><dd><Num>{pointsText(pendingPoints)}</Num></dd></div>
           </dl>
+          {data.giftsWaiting && (
+            <p className="lpx-gift" role="status">
+              <MdCardGiftcard aria-hidden="true" />
+              <span>
+                هدية معلّقة: <strong><Num>{pointsText(data.giftsWaiting.points)}</Num> نقطة</strong> (<Num>${money(data.giftsWaiting.points / 100)}</Num>)
+                · ليست في الرصيد ولا في المحاسبة بعد. تصير نقاطاً عند أول فاتورة للعميل، وتنتهي في <Num>{fullDate(data.giftsWaiting.until)}</Num> إن لم يشحن.
+              </span>
+            </p>
+          )}
           {canAdjust && !data.off && (
             <button type="button" className="lpx-off-link" onClick={() => setOffDialog('off')}><MdBlock aria-hidden="true" /> إيقاف النقاط لهذا العميل</button>
           )}

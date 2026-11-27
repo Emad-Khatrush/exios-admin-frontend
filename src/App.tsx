@@ -38,6 +38,7 @@ import LoyaltyLevels from './containers/Loyalty/LoyaltyLevels';
 import LoyaltyPromotions from './containers/Loyalty/LoyaltyPromotions';
 import LoyaltyReferrals from './containers/Loyalty/LoyaltyReferrals';
 import LoyaltyReferralReport from './containers/Loyalty/LoyaltyReferralReport';
+import LoyaltyGifts from './containers/Loyalty/LoyaltyGifts';
 import SpecialPriceCustomers from './containers/SpecialPriceCustomers/SpecialPriceCustomers';
 import UserDetails from './containers/UserDetails/UserDetails';
 import MonthReport from './containers/MonthReport/MonthReport';
@@ -93,6 +94,7 @@ import AccountingBackups from './containers/Accounting/Backups';
 const Home = React.lazy(() => import('./containers/Home/Home'));
 const EmployeeHomePage = React.lazy(() => import('./containers/Goals/EmployeeGoals'));
 const Goals = React.lazy(() => import('./containers/Goals/Goals'));
+const CustomerAnalytics = React.lazy(() => import('./containers/CustomerAnalytics/CustomerAnalytics'));
 const AddInvoice = React.lazy(() => import('./containers/AddInvoice/AddInvoice'));
 const UnsureOrder = React.lazy(() => import('./containers/UnsureOrder/UnsureOrder'));
 const Invoices = React.lazy(() => import('./containers/Invoices/Invoices'));
@@ -253,12 +255,14 @@ const getRoutesByRole = (roles: any) => {
       <Route path='/deleted-payments' element={<DeletedStatements />} />
       <Route path='/marketing' element={<Marketing />} />
       <Route path='/analytics' element={<Analytics />} />
+      <Route path='/customer-analytics' element={<CustomerAnalytics />} />
       <Route path='/goals' element={<Goals />} />
       <Route path='/loyalty' element={<LoyaltyCustomers />} />
       <Route path='/loyalty/levels' element={<LoyaltyLevels />} />
       <Route path='/loyalty/promotions' element={<LoyaltyPromotions />} />
       <Route path='/loyalty/referrals' element={<LoyaltyReferrals />} />
       <Route path='/loyalty/referrals/report' element={<LoyaltyReferralReport />} />
+      <Route path='/loyalty/gifts' element={<LoyaltyGifts />} />
       {accountingRoutes}
     </>
   } else if (roles?.isAccountant) {
@@ -297,12 +301,14 @@ const STAFF_PAGES: [string, JSX.Element][] = [
   ['/ratings', <RatingsPage />],
   ['/marketing', <Marketing />],
   ['/analytics', <Analytics />],
+  ['/customer-analytics', <CustomerAnalytics />],
   ['/goals', <Goals />],
   ['/loyalty', <LoyaltyCustomers />],
   ['/loyalty/levels', <LoyaltyLevels />],
   ['/loyalty/promotions', <LoyaltyPromotions />],
   ['/loyalty/referrals', <LoyaltyReferrals />],
   ['/loyalty/referrals/report', <LoyaltyReferralReport />],
+  ['/loyalty/gifts', <LoyaltyGifts />],
   ['/settings', <Settings />],
   ['/settings/pricing', <Navigate to='/settings/customer-prices' replace />],
   ['/settings/customer-prices', <CustomerPrices />],

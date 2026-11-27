@@ -302,3 +302,7 @@
   &__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   &__amb { padding: 1px 9px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 800; }
 }
+
+// A sign-up or invite gift held for the first invoice (owner 2026-11-27): not in the balance yet
+.lpx-gift { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; padding: 8px 12px; border-radius: 12px; background: #fffaeb; color: #93370d; font-size: 0.85rem; line-height: 1.6; }
+.lpx-gift svg { flex: none; margin-top: 3px; font-size: 1.1rem; }
